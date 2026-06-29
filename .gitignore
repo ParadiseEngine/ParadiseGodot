@@ -1,3 +1,9 @@
 # Godot 4+ specific ignores
 .godot/
 /android/
+
+# .NET / Godot Mono build output
+.mono/
+bin/
+obj/
+*.user

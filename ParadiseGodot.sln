@@ -1,0 +1,40 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.0.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGodot", "ParadiseGodot.csproj", "{B8A3F1C0-0001-4000-8000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core", "ParadiseExport.Core/ParadiseExport.Core.csproj", "{B8A3F1C0-0001-4000-8000-000000000002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core.Tests", "ParadiseExport.Core.Tests/ParadiseExport.Core.Tests.csproj", "{B8A3F1C0-0001-4000-8000-000000000003}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		ExportDebug|Any CPU = ExportDebug|Any CPU
+		ExportRelease|Any CPU = ExportRelease|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B8A3F1C0-0001-4000-8000-000000000001}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000001}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000001}.ExportDebug|Any CPU.ActiveCfg = ExportDebug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000001}.ExportDebug|Any CPU.Build.0 = ExportDebug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000001}.ExportRelease|Any CPU.ActiveCfg = ExportRelease|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000001}.ExportRelease|Any CPU.Build.0 = ExportRelease|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000002}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000002}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000002}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000002}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000002}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000002}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000003}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000003}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000003}.ExportDebug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000003}.ExportDebug|Any CPU.Build.0 = Debug|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000003}.ExportRelease|Any CPU.ActiveCfg = Release|Any CPU
+		{B8A3F1C0-0001-4000-8000-000000000003}.ExportRelease|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

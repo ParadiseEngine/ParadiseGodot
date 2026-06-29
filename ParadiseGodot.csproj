@@ -1,0 +1,22 @@
+<Project Sdk="Godot.NET.Sdk/4.7.0">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ParadiseGodot</RootNamespace>
+    <!-- Required for Godot editor hot-reload of this assembly. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <!-- ParadiseExport.Core is its own project; keep its sources out of the Godot assembly's
+       recursive **/*.cs glob so they aren't compiled twice. -->
+  <ItemGroup>
+    <Compile Remove="ParadiseExport.Core/**/*.cs" />
+    <Compile Remove="ParadiseExport.Core.Tests/**/*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="ParadiseExport.Core/ParadiseExport.Core.csproj" />
+  </ItemGroup>
+
+</Project>
