@@ -34,6 +34,7 @@ namespace ParadiseGodot.Export
             }
 
             var document = new LevelData();
+            var materials = new MaterialExporter();
             foreach (Node node in Descendants(root))
             {
                 switch (node)
@@ -45,7 +46,7 @@ namespace ParadiseGodot.Export
                         EnsureLightingState(document).Lights.Add(ExportLight(light));
                         break;
                     case EntityExport entity:
-                        document.Entities.Add(ExportEntity(entity));
+                        document.Entities.Add(ExportEntity(entity, materials));
                         break;
                 }
             }
@@ -53,6 +54,7 @@ namespace ParadiseGodot.Export
             string sceneName = ResolveSceneName(root);
             var paths = new ExportPaths(ProjectSettings.GlobalizePath("res://data"));
             paths.EnsureOutputDirectory();
+            materials.WriteExportedMaterials(paths);
             string outputPath = paths.GetLevelDataOutputPath(sceneName);
             Writer.Write(outputPath, document);
             GD.Print($"[ParadiseExport] Exported scene data: {outputPath}");
@@ -121,7 +123,7 @@ namespace ParadiseGodot.Export
                 : Path.GetFileNameWithoutExtension(scenePath);
         }
 
-        private static LevelEntityData ExportEntity(EntityExport entity)
+        private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials)
         {
             SN.Vector3 localPos = CoordinateConversion.Position(ToSN(entity.Position));
             SN.Quaternion localRot = CoordinateConversion.Rotation(ToSN(entity.Quaternion));
@@ -151,6 +153,7 @@ namespace ParadiseGodot.Export
                 LocalScale = localScale,
                 LocalMatrix = ContractMatrix.Trs(localPos, localRot, localScale),
                 WorldMatrix = ContractMatrix.Trs(worldPos, worldRot, worldScale),
+                Materials = materials.ExportMaterialSlots(entity),
                 Components = BuildComponents(entity),
             };
         }

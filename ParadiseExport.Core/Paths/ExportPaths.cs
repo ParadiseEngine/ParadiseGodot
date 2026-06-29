@@ -37,6 +37,23 @@ namespace ParadiseExport.Core.Paths
         public string GetProjectSettingsOutputPath() =>
             Path.Combine(_dataDir, "ProjectSettings.json");
 
+        /// <summary>Absolute output path for a material/texture field path like
+        /// <c>materials/foo.json</c> (resolved under the data directory).</summary>
+        public string GetMaterialDataOutputPath(string materialField) =>
+            Path.Combine(_dataDir, materialField.Replace('/', Path.DirectorySeparatorChar));
+
+        /// <summary>
+        /// Maps a material's name (or project-relative source path) to its
+        /// <c>materials/&lt;name&gt;.json</c> contract field, mirroring the Unity tool's
+        /// <c>materials/</c> layout. The field is the stable id stored in entity material slots.
+        /// </summary>
+        public static string MaterialFileField(string materialNameOrPath)
+        {
+            string normalized = materialNameOrPath.Replace('\\', '/').Trim('/');
+            string name = normalized.Length == 0 ? "material" : Path.GetFileNameWithoutExtension(normalized);
+            return $"materials/{name}.json";
+        }
+
         public void EnsureOutputDirectory()
         {
             Directory.CreateDirectory(_dataDir);

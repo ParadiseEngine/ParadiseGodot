@@ -29,7 +29,8 @@ contract's `(0, 1, −10)`, matching the baseline.
 
 Colors are emitted as `{ "r", "g", "b", "a" }` objects with **linear** float channels packed to
 8 bits per channel (`Color32`). The Unity exporter linearized sRGB authoring colors before
-packing. Godot color-space parity is finalized with material/lighting fidelity in Phase 3.
+packing. The Godot exporter calls `Color.SrgbToLinear()` on authored colors (albedo, emissive,
+light, ambient/fog) to match — Godot stores authored colors as sRGB while the contract is linear.
 
 ## Matrices — column-major
 
@@ -75,12 +76,28 @@ The per-placement entity GUID is stored in Godot node **metadata** (`paradise_en
 persisted in the `.tscn`). `EntityExport` mints it and enforces uniqueness among `EntityExport`
 nodes in the edited scene on `NOTIFICATION_EDITOR_PRE_SAVE`.
 
+## Materials (Phase 3)
+
+Godot `BaseMaterial3D` (StandardMaterial3D / ORMMaterial3D) → `LevelMaterialData`, one JSON per
+material under `data/materials/`. Mapping:
+
+- `BaseColorFactor` / `EmissiveFactor` — `AlbedoColor` / `Emission × EmissionEnergyMultiplier`,
+  **sRGB→linear** (see above), packed 8-bit.
+- `MetallicFactor` / `RoughnessFactor` — `Metallic` / `Roughness`.
+- `AlphaMode` — from `Transparency`: `Disabled→Opaque`, `AlphaScissor`/`AlphaHash→Mask`, else
+  `Blend`; also `Blend` when albedo alpha < 1 (mirrors the Unity resolution).
+- Textures — referenced by **project-relative source path** (`res://` stripped). Actual texture
+  **conversion (PNG/KTX2)** is the asset pipeline's job (Phase 6), not the material exporter.
+- Entity `Materials` slot lists are filled from the entity's `MeshInstance3D` surfaces; the
+  top-level `LevelData.Materials` stays empty (matches the Unity baseline).
+
 ## Deferred (not yet at Unity parity)
 
 Tracked for later phases: camera/entity **Euler-rotation** RH→LH conversion (only identity is
 validated — no rotated baseline yet); **dynamic RigidBody3D** export (agent→kinematic / else
-static fallback only); **bone-attachment** parent paths; **materials** (Phase 3); per-collider
-**layer/trigger/static** flags.
+static fallback only); **bone-attachment** parent paths; per-collider **layer/trigger/static**
+flags; material **ORM channel packing**, `RenderQueue`, and `TransmissionFactor` (defaulted);
+**texture file conversion** (Phase 6).
 
 ## Enums & nulls
 
