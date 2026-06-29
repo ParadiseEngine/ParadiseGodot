@@ -58,7 +58,15 @@ namespace ParadiseGodot.Export
         private static CameraData ExportCamera(Camera3D camera) => new()
         {
             Position = CoordinateConversion.Position(ToSN(camera.GlobalPosition)),
+            // TODO (later phase): convert Godot right-handed Euler angles to the contract's
+            // left-handed convention. Under the Z-mirror, the X/Y Euler components change sign, and
+            // the exact mapping depends on the Euler order Godot uses for GlobalRotationDegrees vs
+            // Unity's eulerAngles. The ONLY value exercised today is the SampleScene baseline's
+            // [0,0,0]; do NOT rely on this raw pass-through for a rotated camera until a
+            // rotated-camera golden fixture exists to validate the conversion against.
             Rotation = ToSN(camera.GlobalRotationDegrees),
+            // Camera3D.Size is the orthographic half-height (matches Unity's orthographicSize);
+            // perspective-camera FOV is out of Phase 1 scope.
             OrthographicSize = camera.Size,
             // Godot has no per-camera background colour (clear colour comes from the environment);
             // the exact source is resolved with lighting/environment fidelity in a later phase.

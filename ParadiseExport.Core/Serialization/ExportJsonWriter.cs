@@ -2,7 +2,6 @@
 using System;
 using System.Globalization;
 using System.IO;
-using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Serialization;
@@ -42,21 +41,6 @@ namespace ParadiseExport.Core.Serialization
 
         public static string SerializeToString(object document) =>
             JsonConvert.SerializeObject(document, JsonSettings);
-
-        public static void AppendJsonString(StringBuilder json, string name, string value, bool trailingComma)
-        {
-            json.Append("    \"");
-            json.Append(EscapeJson(name));
-            json.Append("\": \"");
-            json.Append(EscapeJson(value));
-            json.Append('"');
-            if (trailingComma)
-            {
-                json.Append(',');
-            }
-
-            json.AppendLine();
-        }
 
         // The Unity tools ran on Mono, whose float.ToString("R") uses the classic .NET Framework
         // algorithm: format with 7 significant digits and, only if that does not round-trip, fall
@@ -102,16 +86,6 @@ namespace ParadiseExport.Core.Serialization
                 }
             }
         }
-
-        private static string EscapeJson(string value) =>
-            value
-                .Replace("\\", "\\\\")
-                .Replace("\"", "\\\"")
-                .Replace("\b", "\\b")
-                .Replace("\f", "\\f")
-                .Replace("\n", "\\n")
-                .Replace("\r", "\\r")
-                .Replace("\t", "\\t");
 
         private sealed class SystemNumericsJsonConverter : JsonConverter
         {
