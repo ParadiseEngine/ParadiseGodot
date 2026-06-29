@@ -4,6 +4,7 @@ using System.IO;
 using Godot;
 using ParadiseExport.Core.Data;
 using ParadiseExport.Core.Geometry;
+using ParadiseExport.Core.NavMesh;
 using ParadiseExport.Core.Paths;
 using ParadiseExport.Core.Serialization;
 using ParadiseGodot.Authoring;
@@ -55,6 +56,7 @@ namespace ParadiseGodot.Export
             var paths = new ExportPaths(ProjectSettings.GlobalizePath("res://data"));
             paths.EnsureOutputDirectory();
             materials.WriteExportedMaterials(paths);
+            ExportNavMesh(root, sceneName, paths, document);
             string outputPath = paths.GetLevelDataOutputPath(sceneName);
             Writer.Write(outputPath, document);
             GD.Print($"[ParadiseExport] Exported scene data: {outputPath}");
@@ -121,6 +123,28 @@ namespace ParadiseGodot.Export
             return string.IsNullOrEmpty(scenePath)
                 ? root.Name.ToString()
                 : Path.GetFileNameWithoutExtension(scenePath);
+        }
+
+        // Bake the scene's static-collider navmesh and write it as the runtime's DotRecast binary,
+        // recording the filename on the document. Failures (no walkable geometry, bake error) leave
+        // NavMeshFile null rather than aborting the scene export.
+        private static void ExportNavMesh(Node root, string sceneName, ExportPaths paths, LevelData document)
+        {
+            try
+            {
+                if (!NavMeshBake.TryBake(root, out var vertices, out var triangles))
+                {
+                    return;
+                }
+
+                NavMeshBinaryWriter.Write(paths.GetNavMeshOutputPath(sceneName), vertices, triangles);
+                document.NavMeshFile = paths.GetNavMeshFileField(sceneName);
+                GD.Print($"[ParadiseExport] Exported navmesh: {paths.GetNavMeshOutputPath(sceneName)}");
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushWarning($"[ParadiseExport] NavMesh export skipped: {ex.Message}");
+            }
         }
 
         private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials)
