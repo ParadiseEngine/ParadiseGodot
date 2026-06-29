@@ -4,9 +4,9 @@ VisualStudioVersion = 17.0.0.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGodot", "ParadiseGodot.csproj", "{B8A3F1C0-0001-4000-8000-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core", "ParadiseExport.Core\ParadiseExport.Core.csproj", "{B8A3F1C0-0001-4000-8000-000000000002}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core", "ParadiseExport.Core/ParadiseExport.Core.csproj", "{B8A3F1C0-0001-4000-8000-000000000002}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core.Tests", "ParadiseExport.Core.Tests\ParadiseExport.Core.Tests.csproj", "{B8A3F1C0-0001-4000-8000-000000000003}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core.Tests", "ParadiseExport.Core.Tests/ParadiseExport.Core.Tests.csproj", "{B8A3F1C0-0001-4000-8000-000000000003}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

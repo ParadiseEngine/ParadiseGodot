@@ -6,10 +6,12 @@ namespace ParadiseExport.Core.Tests;
 public class ParadiseExportInfoTests
 {
     [Test]
-    public async Task describe_returns_parseable_json()
+    public async Task describe_returns_non_empty_json_object()
     {
+        // JObject.Parse throws on invalid/empty input, so reaching the assertion already proves
+        // the output parses; assert on property count so an empty "{}" would still fail.
         JObject parsed = JObject.Parse(ParadiseExportInfo.Describe());
-        await Assert.That(parsed).IsNotNull();
+        await Assert.That(parsed.Count).IsGreaterThan(0);
     }
 
     [Test]
