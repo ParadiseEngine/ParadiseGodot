@@ -21,6 +21,8 @@ namespace ParadiseGodot
             AddToolMenuItem(ExportMenuItem, Callable.From(OnExportActiveScene));
             AddToolMenuItem(GeneratePrefabsMenuItem, Callable.From(OnGenerateModelPrefabs));
             AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
+            // Automation: re-export scene data whenever the edited scene is saved.
+            SceneSaved += OnSceneSaved;
             GD.Print($"[ParadiseExport] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
         }
 
@@ -29,6 +31,22 @@ namespace ParadiseGodot
             RemoveToolMenuItem(ExportMenuItem);
             RemoveToolMenuItem(GeneratePrefabsMenuItem);
             RemoveToolMenuItem(ConvertModelsMenuItem);
+            SceneSaved -= OnSceneSaved;
+        }
+
+        private void OnSceneSaved(string filePath)
+        {
+            // In Godot 4, SceneSaved fires for the current root scene, so re-exporting the active
+            // edited scene targets the just-saved scene. filePath is unused today (kept in the
+            // signature for future resilience if sub-scene saves ever emit independently).
+            try
+            {
+                Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[ParadiseExport] Auto re-export on save failed: {ex.Message}");
+            }
         }
 
         private void OnGenerateModelPrefabs()

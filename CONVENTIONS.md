@@ -161,14 +161,47 @@ to engine-neutral Core (`ParadiseExport.Core.Pipeline`), with only the trigger c
 Trigger note: conversion is **menu-driven** for now; auto-running on filesystem import is a Phase 7
 automation concern.
 
+## Project settings & layers (Phase 7)
+
+`data/ProjectSettings.json` holds the physics collision matrix + render settings.
+
+- **Collision matrix — layer policy (resolves the open question).** Godot's
+  `collision_layer`/`collision_mask` are 32-bit (parity with Unity's 32 layers), but Godot has
+  **no global layer-vs-layer collision matrix** — collisions are decided per body. The exporter
+  therefore emits a **permissive** matrix (each of 32 layers collides with all: `-1`), which is both
+  the honest mapping and byte-identical to Unity's default. Visual/render layers differ (Godot
+  exposes 20 vs Unity 32); light cull masks are per-light and drop bits ≥ 20.
+- **Render settings** are read from Godot `ProjectSettings`: `RenderScale` ←
+  `rendering/scaling_3d/scale`; `MsaaSamples` ← `rendering/anti_aliasing/quality/msaa_3d` (enum →
+  raw 1/2/4/8, then clamped to 1 or 4 by `ValidateAndNormalize`); `AnisotropicLevel` ← anisotropic filter enum (off → 1, else
+  16); specular-AA has no Godot source and keeps the contract defaults. For a default project this
+  is byte-identical to the Unity baseline (golden-tested).
+
+## Automation (Phase 7)
+
+The editor plugin connects the `SceneSaved` signal: saving the edited scene **re-exports its scene
+data** (entities, materials, navmesh, project settings) automatically. The asset pipeline
+(FBX→GLB→KTX2) remains **menu-driven** — auto-running it on filesystem import is still deferred.
+
+## Parity status
+
+Two real Unity exports exist on disk and are pinned **byte-for-byte** by Core golden tests:
+`data/scenes/SampleScene.json` (camera + lighting) and `data/ProjectSettings.json` (physics +
+render). Everything else (entities, colliders, materials, navmesh binary, prefab identity, asset
+pipeline) is validated by Core unit/structural tests + compile-verification against GodotSharp,
+since no richer Unity baseline scene exists. A representative Unity scene with rotated entities,
+materials, colliders, and a navmesh — exported from `ParadiseUnityEditor` — would let the byte-level
+audit close several of the deferred-parity items below at once.
+
 ## Deferred (not yet at Unity parity)
 
-Tracked for later phases: camera/entity **Euler-rotation** RH→LH conversion (only identity is
-validated — no rotated baseline yet); **dynamic RigidBody3D** export (agent→kinematic / else
-static fallback only); **bone-attachment** parent paths; per-collider **layer/trigger/static**
+Tracked beyond the 8-phase migration: camera/entity **Euler-rotation** RH→LH conversion (only
+identity is validated — no rotated baseline yet); **dynamic RigidBody3D** export (agent→kinematic /
+else static fallback only); **bone-attachment** parent paths; per-collider **layer/trigger/static**
 flags; material **ORM channel packing**, `RenderQueue`, and `TransmissionFactor` (defaulted);
 prefab **override granularity** (decision above) and full **component export inside prefab
-templates**; **auto-running** the asset pipeline on filesystem import (currently menu-driven).
+templates**; **auto-running** the asset pipeline on filesystem import (currently menu-driven). Most
+of these would be closed by a richer Unity baseline scene (see Parity status).
 
 ## Enums & nulls
 
