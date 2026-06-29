@@ -34,8 +34,12 @@ namespace ParadiseGodot.Export
                 return null;
             }
 
+            string sceneName = ResolveSceneName(root);
+            var paths = new ExportPaths(ProjectSettings.GlobalizePath("res://data"));
             var document = new LevelData();
             var materials = new MaterialExporter();
+            var prefabs = new PrefabExporter(materials, paths);
+            paths.EnsureOutputDirectory();
             foreach (Node node in Descendants(root))
             {
                 switch (node)
@@ -47,14 +51,11 @@ namespace ParadiseGodot.Export
                         EnsureLightingState(document).Lights.Add(ExportLight(light));
                         break;
                     case EntityExport entity:
-                        document.Entities.Add(ExportEntity(entity, materials));
+                        document.Entities.Add(ExportEntity(entity, materials, prefabs));
                         break;
                 }
             }
 
-            string sceneName = ResolveSceneName(root);
-            var paths = new ExportPaths(ProjectSettings.GlobalizePath("res://data"));
-            paths.EnsureOutputDirectory();
             materials.WriteExportedMaterials(paths);
             ExportNavMesh(root, sceneName, paths, document);
             string outputPath = paths.GetLevelDataOutputPath(sceneName);
@@ -149,7 +150,7 @@ namespace ParadiseGodot.Export
             }
         }
 
-        private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials)
+        private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials, PrefabExporter prefabs)
         {
             SN.Vector3 localPos = CoordinateConversion.Position(ToSN(entity.Position));
             SN.Quaternion localRot = CoordinateConversion.Rotation(ToSN(entity.Quaternion));
@@ -160,6 +161,7 @@ namespace ParadiseGodot.Export
             SN.Quaternion worldRot = CoordinateConversion.Rotation(ToSN(global.Basis.GetRotationQuaternion()));
             SN.Vector3 worldScale = ToSN(global.Basis.Scale);
 
+            PrefabExporter.Identity prefab = prefabs.ResolveAndExport(entity);
             string name = entity.Name.ToString();
             return new LevelEntityData
             {
@@ -172,6 +174,10 @@ namespace ParadiseGodot.Export
                 SpawnPhase = "LevelStart",
                 IsActive = entity.ActiveOnLoad,
                 Prefab = NullIfEmpty(entity.ModelPath),
+                PrefabAssetPath = prefab.PrefabAssetPath,
+                PrefabGuid = prefab.PrefabGuid,
+                PrefabAssetType = prefab.PrefabAssetType,
+                NearestInstanceRoot = prefab.NearestInstanceRoot,
                 InitialAnimation = entity.ResolvedInitialAnimation,
                 Parent = ResolveParent(entity),
                 LocalPosition = localPos,

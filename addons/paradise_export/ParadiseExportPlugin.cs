@@ -13,16 +13,24 @@ namespace ParadiseGodot
     public partial class ParadiseExportPlugin : EditorPlugin
     {
         private const string ExportMenuItem = "Paradise/Export Active Scene";
+        private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
 
         public override void _EnterTree()
         {
             AddToolMenuItem(ExportMenuItem, Callable.From(OnExportActiveScene));
+            AddToolMenuItem(GeneratePrefabsMenuItem, Callable.From(OnGenerateModelPrefabs));
             GD.Print($"[ParadiseExport] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
         }
 
         public override void _ExitTree()
         {
             RemoveToolMenuItem(ExportMenuItem);
+            RemoveToolMenuItem(GeneratePrefabsMenuItem);
+        }
+
+        private void OnGenerateModelPrefabs()
+        {
+            Pipeline.ModelPrefabGenerator.GenerateAll();
         }
 
         private void OnExportActiveScene()

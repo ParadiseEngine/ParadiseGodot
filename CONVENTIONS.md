@@ -108,13 +108,44 @@ runtime's DotRecast **MeshSet** binary to `data/scenes/<Scene>.navmesh.bin`; the
   height 1.8, radius 0, max climb 0.3, 3 verts/poly; bake cell sizes match. Adjacency is rebuilt
   from shared edges (index pairs, then world-position pairs for seams).
 
+## Prefabs (Phase 5)
+
+Godot's prefab model is **PackedScene instancing**. A node instanced from a scene carries
+`Node.SceneFilePath`, and resources have stable `uid://` ids (the equivalent of Unity's asset GUID).
+Identity maps cleanly onto the contract:
+
+| Contract field | Godot source |
+|---|---|
+| `PrefabAssetPath` | nearest-instance-root `SceneFilePath` |
+| `PrefabGuid` | `ResourceLoader.GetResourceUid` → `uid://…` |
+| `PrefabAssetType` | the prefab file extension |
+| `NearestInstanceRoot` | the nearest ancestor (or self) with `SceneFilePath` |
+
+- **Template export** — each referenced prefab is written once to `data/prefabs/<name>.json`
+  (`PrefabTemplateData`). Template entities are **shallow** (id / kind / transform / renderable);
+  the authoritative per-placement component data comes from the scene export.
+- **`ModelPrefabGenerator`** (`Paradise/Generate Model Prefabs`) — generates a clean `EntityExport`
+  root with the GLB/glTF instanced as a child. Idempotent: existing prefabs are left untouched,
+  preserving hand-authored roots (the Godot equivalent of Unity's GUID-preserving regenerate).
+
+### Override granularity — explicit decision (resolves the semantic gap)
+
+Unity exported per-property prefab overrides via `PrefabUtility.GetPropertyModifications` /
+`IsAddedComponentOverride`. **Godot has no equivalent C# API** — instance overrides live in the
+outer `.tscn` text, not in a queryable model. **Decision:** the Godot exporter does **not** emit
+override granularity; `Overrides` is written empty. This is acceptable because the scene export
+already emits each placement's **full** transform, materials, and colliders, so the runtime can
+diff instance-vs-prefab itself rather than relying on exported flags. Revisit only if the runtime
+proves it needs the flags, in which case a `.tscn` parser would be required.
+
 ## Deferred (not yet at Unity parity)
 
 Tracked for later phases: camera/entity **Euler-rotation** RH→LH conversion (only identity is
 validated — no rotated baseline yet); **dynamic RigidBody3D** export (agent→kinematic / else
 static fallback only); **bone-attachment** parent paths; per-collider **layer/trigger/static**
 flags; material **ORM channel packing**, `RenderQueue`, and `TransmissionFactor` (defaulted);
-**texture file conversion** (Phase 6).
+**texture file conversion** (Phase 6); prefab **override granularity** (decision above) and full
+**component export inside prefab templates**.
 
 ## Enums & nulls
 
