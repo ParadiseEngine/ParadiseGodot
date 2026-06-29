@@ -1,0 +1,80 @@
+#if TOOLS
+using System.Collections.Generic;
+using Godot;
+using ParadiseExport.Core.Data;
+using ParadiseExport.Core.Paths;
+using ParadiseExport.Core.Serialization;
+
+namespace ParadiseGodot.Export
+{
+    /// <summary>
+    /// Exports engine-neutral project settings (physics collision matrix + render settings) to
+    /// <c>data/ProjectSettings.json</c>, mirroring the Unity tool.
+    ///
+    /// Layer policy (resolves the migration's open question): Godot's collision_layer/collision_mask
+    /// are 32-bit (parity with Unity's 32 layers), but Godot has <b>no global layer-vs-layer
+    /// collision matrix</b> — collisions are decided per body. We therefore emit a permissive matrix
+    /// (every layer collides with every layer), which is both the honest mapping and identical to
+    /// Unity's default. Visual/render layers differ (Godot exposes 20 vs Unity 32); light cull masks
+    /// are not part of project settings and are handled per-light, where bits ≥20 are dropped.
+    /// </summary>
+    internal static class ProjectSettingsExporter
+    {
+        public static void Export(ExportPaths paths)
+        {
+            var settings = new ProjectSettingsData
+            {
+                Physics = new PhysicsSettingsData
+                {
+                    CollisionMatrix = new PhysicsCollisionMatrixData { LayerMasks = PermissiveCollisionMatrix() },
+                },
+                Rendering = ReadRenderSettings(),
+            };
+
+            string outputPath = paths.GetProjectSettingsOutputPath();
+            ExportJsonWriter.WriteJsonDocument(outputPath, settings);
+            GD.Print($"[ParadiseExport] Exported project settings: {outputPath}");
+        }
+
+        private static List<int> PermissiveCollisionMatrix()
+        {
+            var masks = new List<int>(32);
+            for (int i = 0; i < 32; i++)
+            {
+                masks.Add(-1); // -1 = all bits set: this layer collides with every layer.
+            }
+
+            return masks;
+        }
+
+        private static RenderSettingsData ReadRenderSettings()
+        {
+            var rendering = new RenderSettingsData
+            {
+                RenderScale = (float)GetDouble("rendering/scaling_3d/scale", 1.0),
+                MsaaSamples = MsaaSampleCount(GetInt("rendering/anti_aliasing/quality/msaa_3d", 0)),
+                // Godot anisotropic filtering is an enum (0 = disabled); the contract wants 1 = off
+                // else up to 16. ValidateAndNormalize clamps to [1, 16].
+                AnisotropicLevel = GetInt("rendering/textures/default_filters/anisotropic_filtering_level", 2) > 0 ? 16 : 1,
+            };
+            rendering.ValidateAndNormalize();
+            return rendering;
+        }
+
+        private static int MsaaSampleCount(int godotMsaa) => godotMsaa switch
+        {
+            0 => 1, // disabled
+            1 => 2,
+            2 => 4,
+            3 => 8,
+            _ => 1,
+        };
+
+        private static double GetDouble(string name, double fallback) =>
+            ProjectSettings.HasSetting(name) ? ProjectSettings.GetSetting(name).AsDouble() : fallback;
+
+        private static int GetInt(string name, int fallback) =>
+            ProjectSettings.HasSetting(name) ? ProjectSettings.GetSetting(name).AsInt32() : fallback;
+    }
+}
+#endif
