@@ -11,17 +11,26 @@ config_version=5
 [application]
 
 config/name="ParadiseGodot"
-config/features=PackedStringArray("4.7", "Forward Plus")
+run/main_scene="res://scenes/sample.tscn"
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
-
-[dotnet]
-
-project/assembly_name="ParadiseGodot"
 
 [display]
 
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[debug]
+
+file_logging/enable_file_logging=true
+
+[dotnet]
+
+project/assembly_name="ParadiseGodot"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/paradise_export/plugin.cfg")
 
 [physics]
 
@@ -30,8 +39,3 @@ window/stretch/aspect="expand"
 [rendering]
 
 rendering_device/driver.windows="d3d12"
-renderer/rendering_method="forward_plus"
-
-[editor_plugins]
-
-enabled=PackedStringArray("res://addons/paradise_export/plugin.cfg")

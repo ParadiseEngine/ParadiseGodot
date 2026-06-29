@@ -10,3 +10,6 @@ obj/
 
 # Exported engine-neutral data (build output; regenerate via Paradise/Export)
 /data/
+
+# JetBrains IDE
+.idea/
