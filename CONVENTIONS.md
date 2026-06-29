@@ -46,6 +46,42 @@ output byte-identical, `ExportJsonWriter.FormatFloat` reproduces Mono's **G7-the
 This applies only to vector/quaternion/matrix/color floats (the custom converter). Scalar float
 properties go through Newtonsoft's default formatting (e.g. whole numbers render as `5.0`).
 
+## Colliders (Phase 2)
+
+Collider shapes are emitted in the **entity root's local space with lossy scale folded into the
+dimensions** (`ColliderScaleFold`), matching the Unity tool:
+
+| Shape | Folded dimension |
+|---|---|
+| Box | `size × abs(relativeScale)` per axis |
+| Sphere | `radius × max(|x|,|y|,|z|)` |
+| Capsule (Y-aligned) | `radius × max(|x|,|z|)`, `height × |y|` |
+
+Godot's `CapsuleShape3D` is always **Y-axis aligned** (no Unity-style `direction` enum), so only
+the Y case is modeled — it equals Unity's `direction = 1` path. A non-Y capsule is authored by
+rotating the node, captured in the collider's `LocalRotation`. Collider `Path` is root-exclusive
+(empty when the collider is on the entity root itself).
+
+## Entity transform matrices (Phase 2)
+
+`LocalMatrix` / `WorldMatrix` are built by `ContractMatrix.Trs` in Unity's **column-vector layout**:
+basis vectors in matrix columns, translation in the last column. After column-major flattening,
+translation lands at flat indices **12/13/14** (matching Unity's `Matrix4x4.TRS`), not the 3/7/11
+that System.Numerics' native row-vector `CreateTranslation` would produce.
+
+## Entity GUID identity (Phase 2)
+
+The per-placement entity GUID is stored in Godot node **metadata** (`paradise_entity_guid`,
+persisted in the `.tscn`). `EntityExport` mints it and enforces uniqueness among `EntityExport`
+nodes in the edited scene on `NOTIFICATION_EDITOR_PRE_SAVE`.
+
+## Deferred (not yet at Unity parity)
+
+Tracked for later phases: camera/entity **Euler-rotation** RH→LH conversion (only identity is
+validated — no rotated baseline yet); **dynamic RigidBody3D** export (agent→kinematic / else
+static fallback only); **bone-attachment** parent paths; **materials** (Phase 3); per-collider
+**layer/trigger/static** flags.
+
 ## Enums & nulls
 
 Enums serialize **by name** (`StringEnumConverter`). Null properties are **included** in the JSON
