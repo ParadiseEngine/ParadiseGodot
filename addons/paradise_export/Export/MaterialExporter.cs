@@ -20,6 +20,7 @@ namespace ParadiseGodot.Export
     internal sealed class MaterialExporter
     {
         private readonly Dictionary<string, LevelMaterialData> _exported = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, string> _fieldSource = new(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>Per-surface material field paths for a node's MeshInstance3D descendants (the
         /// entity's <c>Materials</c> slot list), registering each unique material for writing.</summary>
@@ -53,10 +54,22 @@ namespace ParadiseGodot.Export
                 return null;
             }
 
-            string field = ExportPaths.MaterialFileField(SourceId(pbr));
-            if (!_exported.ContainsKey(field))
+            string source = SourceId(pbr);
+            string field = ExportPaths.MaterialFileField(source);
+            if (_exported.ContainsKey(field))
+            {
+                // Same field from a different source = filename collision across directories;
+                // the first registration wins, so surface it instead of silently dropping one.
+                if (_fieldSource.TryGetValue(field, out string? existing) && existing != source)
+                {
+                    GD.PushWarning(
+                        $"[ParadiseExport] Material name collision: '{source}' and '{existing}' both map to '{field}'; keeping the first.");
+                }
+            }
+            else
             {
                 _exported[field] = ToLevelMaterial(field, pbr);
+                _fieldSource[field] = source;
             }
 
             return field;
@@ -65,8 +78,11 @@ namespace ParadiseGodot.Export
         private static LevelMaterialData ToLevelMaterial(string field, BaseMaterial3D m)
         {
             Color albedo = m.AlbedoColor.SrgbToLinear();
+            // Linearize the authored colour first, THEN apply the HDR energy multiplier.
+            // SrgbToLinear's gamma curve is only defined on [0,1]; multiplying before it would
+            // push channels out of range and diverge from Unity's pipeline.
             Color emission = m.EmissionEnabled
-                ? (m.Emission * m.EmissionEnergyMultiplier).SrgbToLinear()
+                ? m.Emission.SrgbToLinear() * m.EmissionEnergyMultiplier
                 : new Color(0f, 0f, 0f, 1f);
 
             return new LevelMaterialData
@@ -77,12 +93,13 @@ namespace ParadiseGodot.Export
                 BaseColorTexture = TexturePath(m.AlbedoTexture),
                 MetallicFactor = m.Metallic,
                 RoughnessFactor = m.Roughness,
+                // ORM channel packing is deferred to Phase 6; reference whichever map exists.
                 MetallicRoughnessTexture = TexturePath(m.MetallicTexture ?? m.RoughnessTexture),
                 EmissiveFactor = Color32.FromRgba(emission.R, emission.G, emission.B, 1f),
                 EmissiveTexture = m.EmissionEnabled ? TexturePath(m.EmissionTexture) : null,
                 NormalScale = m.NormalEnabled ? m.NormalScale : 1f,
                 NormalTexture = m.NormalEnabled ? TexturePath(m.NormalTexture) : null,
-                OcclusionStrength = 1f,
+                OcclusionStrength = m.AOEnabled ? m.AOLightAffect : 1f,
                 OcclusionTexture = m.AOEnabled ? TexturePath(m.AOTexture) : null,
                 AlphaMode = AlphaModeName(m),
                 RenderQueue = -1,
