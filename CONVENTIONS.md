@@ -138,14 +138,37 @@ already emits each placement's **full** transform, materials, and colliders, so 
 diff instance-vs-prefab itself rather than relying on exported flags. Revisit only if the runtime
 proves it needs the flags, in which case a `.tscn` parser would be required.
 
+## Asset pipeline (Phase 6)
+
+Both external CLIs are kept (per the migration decision); their orchestration ports near-verbatim
+to engine-neutral Core (`ParadiseExport.Core.Pipeline`), with only the trigger changing from Unity's
+`AssetPostprocessor` to a Godot menu (`Paradise/Convert Models (FBX→GLB→KTX2)`).
+
+- **`BlenderFbxGlb`** — headless Blender (`--background --factory-startup`, embedded Python,
+  `export_yup=True`) converts FBX→GLB. Skips when unchanged: a SHA-256 of the FBX is stored in the
+  GLB's `asset.extras`. Resolved from `PARADISE_BLENDER_PATH` / standard installs / PATH.
+- **`ToktxKtx2`** — toktx converts the GLB's embedded PNG/JPEG to KTX2 (Basis Universal) and
+  rewrites the GLB to reference them via `KHR_texture_basisu`. Per-texture encoding preset is chosen
+  from material slot usage (base/emissive → sRGB BasisLZ; metallic-roughness/occlusion → linear
+  UASTC; normal → linear UASTC normal-mode), falling back to the image name. Resolved from
+  `PARADISE_TOKTX_PATH` / `third_party/tools/KTX-Software` / PATH; macOS sets `DYLD_*` to the
+  bundled libs.
+- **Graceful degradation** — a missing CLI reports a warning and leaves the asset unconverted
+  rather than failing the run.
+- `GlbBinary` / `ProcessTools` are shared engine-neutral helpers (the GLB container read/write was
+  duplicated across both Unity tools).
+
+Trigger note: conversion is **menu-driven** for now; auto-running on filesystem import is a Phase 7
+automation concern.
+
 ## Deferred (not yet at Unity parity)
 
 Tracked for later phases: camera/entity **Euler-rotation** RH→LH conversion (only identity is
 validated — no rotated baseline yet); **dynamic RigidBody3D** export (agent→kinematic / else
 static fallback only); **bone-attachment** parent paths; per-collider **layer/trigger/static**
 flags; material **ORM channel packing**, `RenderQueue`, and `TransmissionFactor` (defaulted);
-**texture file conversion** (Phase 6); prefab **override granularity** (decision above) and full
-**component export inside prefab templates**.
+prefab **override granularity** (decision above) and full **component export inside prefab
+templates**; **auto-running** the asset pipeline on filesystem import (currently menu-driven).
 
 ## Enums & nulls
 

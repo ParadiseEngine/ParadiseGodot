@@ -14,11 +14,13 @@ namespace ParadiseGodot
     {
         private const string ExportMenuItem = "Paradise/Export Active Scene";
         private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
+        private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
 
         public override void _EnterTree()
         {
             AddToolMenuItem(ExportMenuItem, Callable.From(OnExportActiveScene));
             AddToolMenuItem(GeneratePrefabsMenuItem, Callable.From(OnGenerateModelPrefabs));
+            AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
             GD.Print($"[ParadiseExport] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
         }
 
@@ -26,11 +28,17 @@ namespace ParadiseGodot
         {
             RemoveToolMenuItem(ExportMenuItem);
             RemoveToolMenuItem(GeneratePrefabsMenuItem);
+            RemoveToolMenuItem(ConvertModelsMenuItem);
         }
 
         private void OnGenerateModelPrefabs()
         {
             Pipeline.ModelPrefabGenerator.GenerateAll();
+        }
+
+        private void OnConvertModels()
+        {
+            Pipeline.AssetPipeline.ConvertAllModels();
         }
 
         private void OnExportActiveScene()
