@@ -36,6 +36,9 @@ namespace ParadiseGodot
 
         private void OnSceneSaved(string filePath)
         {
+            // In Godot 4, SceneSaved fires for the current root scene, so re-exporting the active
+            // edited scene targets the just-saved scene. filePath is unused today (kept in the
+            // signature for future resilience if sub-scene saves ever emit independently).
             try
             {
                 Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);

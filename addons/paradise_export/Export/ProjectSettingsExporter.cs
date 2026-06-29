@@ -1,5 +1,6 @@
 #if TOOLS
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using ParadiseExport.Core.Data;
 using ParadiseExport.Core.Paths;
@@ -36,16 +37,9 @@ namespace ParadiseGodot.Export
             GD.Print($"[ParadiseExport] Exported project settings: {outputPath}");
         }
 
-        private static List<int> PermissiveCollisionMatrix()
-        {
-            var masks = new List<int>(32);
-            for (int i = 0; i < 32; i++)
-            {
-                masks.Add(-1); // -1 = all bits set: this layer collides with every layer.
-            }
-
-            return masks;
-        }
+        // 32 layers, each colliding with every layer (-1 = all bits set).
+        private static List<int> PermissiveCollisionMatrix() =>
+            Enumerable.Repeat(-1, 32).ToList();
 
         private static RenderSettingsData ReadRenderSettings()
         {

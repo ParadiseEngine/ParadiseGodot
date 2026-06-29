@@ -173,7 +173,7 @@ automation concern.
   exposes 20 vs Unity 32); light cull masks are per-light and drop bits ≥ 20.
 - **Render settings** are read from Godot `ProjectSettings`: `RenderScale` ←
   `rendering/scaling_3d/scale`; `MsaaSamples` ← `rendering/anti_aliasing/quality/msaa_3d` (enum →
-  1/2/4/8, then normalized to 1 or 4); `AnisotropicLevel` ← anisotropic filter enum (off → 1, else
+  raw 1/2/4/8, then clamped to 1 or 4 by `ValidateAndNormalize`); `AnisotropicLevel` ← anisotropic filter enum (off → 1, else
   16); specular-AA has no Godot source and keeps the contract defaults. For a default project this
   is byte-identical to the Unity baseline (golden-tested).
 
