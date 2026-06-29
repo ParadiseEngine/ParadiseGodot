@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Unit tests for the engine-neutral export Core. Uses TUnit on the Microsoft.Testing.Platform
+    runner, matching ~/proj/ParadiseEngine's test stack. Runs with plain `dotnet test` — no Godot.
+    Home for the Phase 1+ validation suite (JSON round-trip, color packing, matrix column-major
+    order, DotRecast writer). See MIGRATION.md.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Benign: Microsoft.Testing.Platform 2.0.2 ships resource locales the .NET 10 SDK
+         doesn't recognize. Not our bug; silence the noise. -->
+    <NoWarn>$(NoWarn);NETSDK1188</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Version matches ParadiseEngine's Directory.Packages.props (TUnit 1.11.16). -->
+    <PackageReference Include="TUnit" Version="1.11.16" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../ParadiseExport.Core/ParadiseExport.Core.csproj" />
+  </ItemGroup>
+
+</Project>
