@@ -133,7 +133,7 @@ Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract befo
 
 ## Risks & gotchas
 
-1. **Handedness (#1).** Godot is right-handed Y-up (−Z forward); Unity was left-handed. The Paradise contract is right-handed, so Godot may match *more* naturally — but the emitted numbers must equal the runtime's expectation. Pin this in Phase 1 with golden tests before trusting any exporter; the conversion (or lack of one) may differ from Unity's.
+1. ~~**Handedness (#1).**~~ ✅ **RESOLVED in Phase 1.** Finding: the contract is actually **Unity left-handed** (the Unity tools wrote transforms verbatim with no flip — the earlier "right-handed" assumption here was wrong). The Godot exporter converts right-handed → left-handed via a Z-axis mirror (`CoordinateConversion`). Also found and fixed: Mono's `float.ToString("R")` (G7-then-G9) differs from modern .NET's shortest-round-trip form — `FormatFloat` now emulates Mono so output stays byte-identical. Both pinned by the `SampleScene` golden test. See `CONVENTIONS.md`.
 2. **Prefab override semantics.** Unity per-property overrides ≠ Godot scene-instance overrides. The trickiest port (Phase 5).
 3. **Capsule conventions.** `CapsuleShape3D` height/radius/axis differ from Unity `CapsuleCollider`.
 4. **Color space.** Confirm Godot's linear workflow matches Unity's `CreateLinearColor` output.

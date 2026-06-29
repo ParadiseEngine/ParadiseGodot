@@ -27,4 +27,9 @@
     <ProjectReference Include="../ParadiseExport.Core/ParadiseExport.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Golden fixtures (real Unity exports) copied next to the test assembly. -->
+    <None Include="Fixtures/**/*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

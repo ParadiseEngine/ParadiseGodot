@@ -27,7 +27,7 @@ namespace ParadiseGodot
 
         private void OnExportActiveScene()
         {
-            GD.Print("[ParadiseExport] Export Active Scene — not yet implemented (Phase 1).");
+            Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
         }
     }
 }

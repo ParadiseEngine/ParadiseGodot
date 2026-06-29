@@ -1,0 +1,104 @@
+{
+  "SchemaVersion": 1,
+  "Camera": {
+    "Position": [
+      0,
+      1,
+      -10
+    ],
+    "Rotation": [
+      0,
+      0,
+      0
+    ],
+    "OrthographicSize": 5.0,
+    "BackgroundColor": {
+      "r": 0.03137255,
+      "g": 0.07450981,
+      "b": 0.192156866,
+      "a": 0
+    }
+  },
+  "Lighting": {
+    "ActiveState": "Default",
+    "States": [
+      {
+        "Name": "Default",
+        "Environment": {
+          "AmbientMode": "Skybox",
+          "AmbientColor": {
+            "r": 0.03529412,
+            "g": 0.0431372561,
+            "b": 0.05490196,
+            "a": 1
+          },
+          "AmbientEquatorColor": {
+            "r": 0.0117647061,
+            "g": 0.0156862754,
+            "b": 0.0156862754,
+            "a": 1
+          },
+          "AmbientGroundColor": {
+            "r": 0.003921569,
+            "g": 0.003921569,
+            "b": 0.003921569,
+            "a": 1
+          },
+          "Exposure": 1.0,
+          "FogEnabled": false,
+          "FogColor": {
+            "r": 0.215686277,
+            "g": 0.215686277,
+            "b": 0.215686277,
+            "a": 1
+          },
+          "FogDensity": 0.01
+        },
+        "Lights": [
+          {
+            "Id": "Directional Light",
+            "Type": "Directional",
+            "Position": [
+              0,
+              3,
+              0
+            ],
+            "Direction": [
+              0.3213938,
+              0.766044438,
+              -0.5566705
+            ],
+            "Color": {
+              "r": 1,
+              "g": 0.78039217,
+              "b": 0.619607866,
+              "a": 1
+            },
+            "Enabled": true,
+            "Intensity": 2.0,
+            "UseColorTemperature": true,
+            "ColorTemperature": 5000.0,
+            "Range": 10.0,
+            "SpotAngle": 30.0,
+            "InnerSpotAngle": 21.80208,
+            "AreaSize": [
+              0,
+              0
+            ],
+            "ShadowsEnabled": true,
+            "ShadowType": "Soft",
+            "ShadowStrength": 1.0,
+            "LayerMask": -1,
+            "RenderingLayerMask": 1,
+            "Group": "Default"
+          }
+        ]
+      }
+    ]
+  },
+  "NavMeshAgent": null,
+  "Interactables": [],
+  "Entities": [],
+  "NavMeshFile": null,
+  "Materials": []
+}
