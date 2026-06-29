@@ -32,6 +32,11 @@ project/assembly_name="ParadiseGodot"
 
 enabled=PackedStringArray("res://addons/paradise_export/plugin.cfg")
 
+[navigation]
+
+3d/default_cell_size=0.1
+3d/default_cell_height=0.1
+
 [physics]
 
 3d/physics_engine="Jolt Physics"
