@@ -58,6 +58,31 @@ public class NavMeshBinaryWriterTests
     }
 
     [Test]
+    public async Task shared_edge_produces_adjacency()
+    {
+        // The quad's two triangles share an interior edge; PopulateAdjacency must connect them,
+        // so at least one polygon neighbour slot is set (non-zero) rather than all NullNeighbor.
+        (List<Vector3> verts, List<int> tris) = Quad();
+        DtMeshData data = NavMeshBinaryWriter.BuildNavMesh(verts, tris).GetTile(0).data;
+
+        bool hasNeighbour = false;
+        for (int p = 0; p < data.header.polyCount && !hasNeighbour; p++)
+        {
+            DtPoly poly = data.polys[p];
+            for (int e = 0; e < poly.vertCount; e++)
+            {
+                if (poly.neis[e] != 0)
+                {
+                    hasNeighbour = true;
+                    break;
+                }
+            }
+        }
+
+        await Assert.That(hasNeighbour).IsTrue();
+    }
+
+    [Test]
     public async Task empty_triangulation_throws()
     {
         await Assert.That(() => NavMeshBinaryWriter.BuildNavMesh(new List<Vector3>(), new List<int>()))

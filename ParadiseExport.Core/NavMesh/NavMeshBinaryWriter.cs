@@ -31,10 +31,15 @@ namespace ParadiseExport.Core.NavMesh
         private const int NullNeighbor = 0xFFFF;
         private const int EdgeCoordinateScale = 1000;
 
-        /// <summary>Build + serialize to <paramref name="outputPath"/>. Returns the byte count written.</summary>
-        public static long Write(string outputPath, IReadOnlyList<Vector3> vertices, IReadOnlyList<int> triangleIndices)
+        /// <summary>Build + serialize to <paramref name="outputPath"/>. Returns the byte count written.
+        /// <paramref name="warn"/> receives non-fatal diagnostics (e.g. dropped seams).</summary>
+        public static long Write(
+            string outputPath,
+            IReadOnlyList<Vector3> vertices,
+            IReadOnlyList<int> triangleIndices,
+            Action<string>? warn = null)
         {
-            DtNavMesh navMesh = BuildNavMesh(vertices, triangleIndices);
+            DtNavMesh navMesh = BuildNavMesh(vertices, triangleIndices, warn);
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outputPath)) ?? ".");
             using (var fs = File.Create(outputPath))
             using (var bw = new BinaryWriter(fs, System.Text.Encoding.UTF8, leaveOpen: false))
@@ -45,7 +50,10 @@ namespace ParadiseExport.Core.NavMesh
             return new FileInfo(outputPath).Length;
         }
 
-        public static DtNavMesh BuildNavMesh(IReadOnlyList<Vector3> vertices, IReadOnlyList<int> indices)
+        public static DtNavMesh BuildNavMesh(
+            IReadOnlyList<Vector3> vertices,
+            IReadOnlyList<int> indices,
+            Action<string>? warn = null)
         {
             if (vertices.Count == 0 || indices.Count == 0)
             {
@@ -97,7 +105,7 @@ namespace ParadiseExport.Core.NavMesh
                 polyAreas[polyIndex] = 0;
             }
 
-            PopulateAdjacency(triangleVertexIndices, vertices, polys);
+            PopulateAdjacency(triangleVertexIndices, vertices, polys, warn);
 
             var createParams = new DtNavMeshCreateParams
             {
@@ -176,6 +184,9 @@ namespace ParadiseExport.Core.NavMesh
 
         private static bool IsSourceTriangleDegenerate(Vector3 a, Vector3 b, Vector3 c)
         {
+            // float.Epsilon is effectively zero (not a geometric tolerance): only triangles with an
+            // exactly-zero doubled-area cross product are dropped. Kept verbatim from the Unity tool
+            // intentionally, so both toolchains drop the same triangles.
             Vector3 cross = Vector3.Cross(b - a, c - a);
             return cross.LengthSquared() <= float.Epsilon;
         }
@@ -183,7 +194,11 @@ namespace ParadiseExport.Core.NavMesh
         private static int Quantize(float value, float origin, float cellSize) =>
             Math.Max(0, (int)Math.Round((value - origin) / cellSize));
 
-        private static void PopulateAdjacency(List<int[]> triangleVertexIndices, IReadOnlyList<Vector3> vertices, int[] polys)
+        private static void PopulateAdjacency(
+            List<int[]> triangleVertexIndices,
+            IReadOnlyList<Vector3> vertices,
+            int[] polys,
+            Action<string>? warn)
         {
             var edges = new Dictionary<EdgeKey, EdgeRef>();
             for (int polyIndex = 0; polyIndex < triangleVertexIndices.Count; polyIndex++)
@@ -207,14 +222,15 @@ namespace ParadiseExport.Core.NavMesh
                 }
             }
 
-            ConnectDuplicateWorldEdges(edges.Values, triangleVertexIndices, vertices, polys);
+            ConnectDuplicateWorldEdges(edges.Values, triangleVertexIndices, vertices, polys, warn);
         }
 
         private static void ConnectDuplicateWorldEdges(
             IEnumerable<EdgeRef> unmatchedEdges,
             List<int[]> triangleVertexIndices,
             IReadOnlyList<Vector3> vertices,
-            int[] polys)
+            int[] polys,
+            Action<string>? warn)
         {
             var worldEdges = new Dictionary<WorldEdgeKey, List<EdgeRef>>();
             foreach (EdgeRef edge in unmatchedEdges)
@@ -236,6 +252,15 @@ namespace ParadiseExport.Core.NavMesh
             {
                 if (matchingEdges.Count != 2)
                 {
+                    // >2 polygons on one world edge (e.g. a T-junction): leaving these unmatched
+                    // creates a silent connectivity hole, so surface it rather than dropping quietly.
+                    if (matchingEdges.Count > 2)
+                    {
+                        warn?.Invoke(
+                            $"Skipped ambiguous navmesh boundary edge shared by {matchingEdges.Count} polygons " +
+                            "(possible T-junction; agents may not traverse this seam).");
+                    }
+
                     continue;
                 }
 

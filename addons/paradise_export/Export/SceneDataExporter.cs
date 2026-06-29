@@ -137,9 +137,11 @@ namespace ParadiseGodot.Export
                     return;
                 }
 
-                NavMeshBinaryWriter.Write(paths.GetNavMeshOutputPath(sceneName), vertices, triangles);
+                string navMeshPath = paths.GetNavMeshOutputPath(sceneName);
+                NavMeshBinaryWriter.Write(navMeshPath, vertices, triangles,
+                    message => GD.PushWarning($"[ParadiseExport] {message}"));
                 document.NavMeshFile = paths.GetNavMeshFileField(sceneName);
-                GD.Print($"[ParadiseExport] Exported navmesh: {paths.GetNavMeshOutputPath(sceneName)}");
+                GD.Print($"[ParadiseExport] Exported navmesh: {navMeshPath}");
             }
             catch (System.Exception ex)
             {
