@@ -66,7 +66,9 @@ namespace ParadiseExport.Core.Paths
                 return "prefabs/prefab.json";
             }
 
-            if (normalized.StartsWith("prefabs/", StringComparison.OrdinalIgnoreCase))
+            // Ordinal (not IgnoreCase) to match Godot's lowercase path convention and a
+            // case-sensitive VFS: "Prefabs/" is a different directory than "prefabs/".
+            if (normalized.StartsWith("prefabs/", StringComparison.Ordinal))
             {
                 normalized = normalized["prefabs/".Length..];
             }

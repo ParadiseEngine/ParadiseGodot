@@ -102,6 +102,8 @@ namespace ParadiseGodot.Export
         private static List<LevelEntityData> ShallowEntities(Node root)
         {
             var entities = new List<LevelEntityData>();
+            // Descendants() intentionally excludes `root` itself: the prefab root is the container
+            // (an EntityExport produced by ModelPrefabGenerator), not a nested template entity.
             foreach (Node node in Descendants(root))
             {
                 if (node is not EntityExport entity)

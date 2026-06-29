@@ -59,24 +59,29 @@ namespace ParadiseGodot.Pipeline
             modelInstance.Owner = root;
 
             var packed = new PackedScene();
-            if (packed.Pack(root) != Error.Ok)
+            try
             {
+                if (packed.Pack(root) != Error.Ok)
+                {
+                    return false;
+                }
+
+                DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(PrefabsDir));
+                Error saveResult = ResourceSaver.Save(packed, prefabPath);
+                if (saveResult != Error.Ok)
+                {
+                    GD.PushWarning($"[ParadiseExport] Failed to save prefab '{prefabPath}': {saveResult}");
+                    return false;
+                }
+
+                GD.Print($"[ParadiseExport] Generated prefab: {prefabPath}");
+                return true;
+            }
+            finally
+            {
+                // Always free the in-memory tree, even if save/dir creation throws.
                 root.Free();
-                return false;
             }
-
-            DirAccess.MakeDirRecursiveAbsolute(ProjectSettings.GlobalizePath(PrefabsDir));
-            Error saveResult = ResourceSaver.Save(packed, prefabPath);
-            root.Free();
-
-            if (saveResult != Error.Ok)
-            {
-                GD.PushWarning($"[ParadiseExport] Failed to save prefab '{prefabPath}': {saveResult}");
-                return false;
-            }
-
-            GD.Print($"[ParadiseExport] Generated prefab: {prefabPath}");
-            return true;
         }
 
         private static IEnumerable<string> FindModels(string dirPath)
