@@ -136,7 +136,9 @@ namespace ParadiseGodot.Export
             return new LevelEntityData
             {
                 Id = name,
-                EntityGuid = entity.EntityGuid,
+                // Mint+persist a GUID if the node has never been saved, so we never export the
+                // all-zero GUID (which would collide across entities at runtime).
+                EntityGuid = entity.EnsureEntityGuid(),
                 StableId = name,
                 Kind = entity.ResolvedKind,
                 SpawnPhase = "LevelStart",
@@ -181,7 +183,11 @@ namespace ParadiseGodot.Export
                 components.Rigidbody = BuildRigidbody(entity);
             }
 
-            if (BuildColliders(entity, entity.InteractionColliders).Colliders.Count > 0)
+            // Interaction collider geometry is not forwarded yet (EntityInteractableComponentData
+            // only carries a display name today); presence is enough to flag the component. Build
+            // the set once. Forwarding the shapes is deferred to a later phase.
+            ColliderComponentData interaction = BuildColliders(entity, entity.InteractionColliders);
+            if (interaction.Colliders.Count > 0)
             {
                 components.Interactable = new EntityInteractableComponentData { DisplayName = entity.Name.ToString() };
             }

@@ -82,19 +82,29 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        private void EnsureGuidValue()
+        /// <summary>
+        /// Ensure a GUID exists — minting and persisting one if the node has none — and return it.
+        /// The exporter calls this so a freshly-placed, never-saved entity still exports a valid,
+        /// stable identity instead of <see cref="Guid.Empty"/> (which would collide across entities).
+        /// </summary>
+        public Guid EnsureEntityGuid()
         {
-            if (EntityGuid == Guid.Empty)
+            Guid current = EntityGuid;
+            if (current != Guid.Empty)
             {
-                SetMeta(GuidMetaKey, Guid.NewGuid().ToString("N"));
+                return current;
             }
+
+            Guid minted = Guid.NewGuid();
+            SetMeta(GuidMetaKey, minted.ToString("N"));
+            return minted;
         }
 
         // Ensure a GUID exists and is unique among EntityExport nodes in the edited scene; if a
         // collision is found (e.g. a duplicated node), regenerate this node's GUID.
         private void EnsureUniqueGuid()
         {
-            EnsureGuidValue();
+            EnsureEntityGuid();
 
             Node? sceneRoot = GetTree()?.EditedSceneRoot;
             if (sceneRoot is null)

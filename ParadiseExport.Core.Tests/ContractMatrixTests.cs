@@ -40,7 +40,11 @@ public class ContractMatrixTests
     {
         float[] m = Serialize(ContractMatrix.Trs(Vector3.Zero, Quaternion.Identity, Vector3.One));
         float[] expected = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1 };
-        await Assert.That(m).IsEquivalentTo(expected);
+        // Order-sensitive: assert element-by-element so a permuted/transposed layout fails.
+        for (int i = 0; i < expected.Length; i++)
+        {
+            await Assert.That(m[i]).IsEqualTo(expected[i]);
+        }
     }
 
     [Test]
