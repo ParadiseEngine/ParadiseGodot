@@ -15,14 +15,14 @@ run/main_scene="res://scenes/sample.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
+[debug]
+
+file_logging/enable_file_logging=true
+
 [display]
 
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
-
-[debug]
-
-file_logging/enable_file_logging=true
 
 [dotnet]
 
