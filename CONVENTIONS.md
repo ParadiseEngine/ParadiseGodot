@@ -91,6 +91,23 @@ material under `data/materials/`. Mapping:
 - Entity `Materials` slot lists are filled from the entity's `MeshInstance3D` surfaces; the
   top-level `LevelData.Materials` stays empty (matches the Unity baseline).
 
+## NavMesh (Phase 4)
+
+The scene navmesh is baked from **static collision geometry** (`NavigationServer3D` +
+`NavigationMeshSourceGeometryData3D`, `ParsedGeometryType.StaticColliders`) and written as the
+runtime's DotRecast **MeshSet** binary to `data/scenes/<Scene>.navmesh.bin`; the document's
+`NavMeshFile` records the filename.
+
+- **Agent exclusion** — parsing only static colliders naturally drops moving agents
+  (CharacterBody3D / RigidBody3D), the Godot-idiomatic equivalent of Unity's
+  `EntityAuthoring.IsAgent` filter.
+- **Handedness + winding** — baked vertices are Z-mirrored to the contract's left-handed
+  convention (`CoordinateConversion.Position`); since the mirror flips triangle winding, the
+  fan-triangulated polygons are emitted **reversed** to keep them oriented as the Unity tool's were.
+- **Quantization** — `NavMeshBinaryWriter` (ported verbatim) uses cell size/height 0.1, agent
+  height 1.8, radius 0, max climb 0.3, 3 verts/poly; bake cell sizes match. Adjacency is rebuilt
+  from shared edges (index pairs, then world-position pairs for seams).
+
 ## Deferred (not yet at Unity parity)
 
 Tracked for later phases: camera/entity **Euler-rotation** RH→LH conversion (only identity is
