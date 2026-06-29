@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.IO;
 
 namespace ParadiseExport.Core.Paths
@@ -41,6 +42,39 @@ namespace ParadiseExport.Core.Paths
         /// <c>materials/foo.json</c> (resolved under the data directory).</summary>
         public string GetMaterialDataOutputPath(string materialField) =>
             Path.Combine(_dataDir, materialField.Replace('/', Path.DirectorySeparatorChar));
+
+        /// <summary>Absolute output path for a prefab field like <c>prefabs/foo.json</c>.</summary>
+        public string GetPrefabDataOutputPath(string prefabField) =>
+            Path.Combine(_dataDir, prefabField.Replace('/', Path.DirectorySeparatorChar));
+
+        /// <summary>
+        /// Maps a prefab's project path (or name) to its <c>prefabs/&lt;relative&gt;.json</c> contract
+        /// field, mirroring the Unity tool's <c>prefabs/</c> layout. A leading <c>res://</c> and a
+        /// redundant leading <c>prefabs/</c> are stripped so the field is not double-nested.
+        /// </summary>
+        public static string PrefabFileField(string prefabPathOrName)
+        {
+            string normalized = prefabPathOrName.Replace('\\', '/');
+            if (normalized.StartsWith("res://", StringComparison.Ordinal))
+            {
+                normalized = normalized["res://".Length..];
+            }
+
+            normalized = normalized.Trim('/');
+            if (normalized.Length == 0)
+            {
+                return "prefabs/prefab.json";
+            }
+
+            // Ordinal (not IgnoreCase) to match Godot's lowercase path convention and a
+            // case-sensitive VFS: "Prefabs/" is a different directory than "prefabs/".
+            if (normalized.StartsWith("prefabs/", StringComparison.Ordinal))
+            {
+                normalized = normalized["prefabs/".Length..];
+            }
+
+            return $"prefabs/{Path.ChangeExtension(normalized, ".json")}";
+        }
 
         /// <summary>
         /// Maps a material's name (or project-relative source path) to its
