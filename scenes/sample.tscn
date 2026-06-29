@@ -24,7 +24,6 @@ cell_height = 0.1
 agent_height = 1.8
 agent_radius = 0.0
 agent_max_climb = 0.3
-filter_baking_aabb = AABB(0, 0, 0, 0, 0.5, 0)
 
 [sub_resource type="BoxShape3D" id="shape_ground"]
 size = Vector3(20, 1, 20)
@@ -132,6 +131,8 @@ surface_material_override/0 = SubResource("mat_crate")
 
 [node name="Crate2" type="Node3D" parent="." unique_id=353085416]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, -2)
+script = ExtResource("1_entity")
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
 metadata/paradise_entity_guid = "17907cd3ce764670ba6ede16a02a64af"
 
 [node name="StaticBody3D" type="StaticBody3D" parent="Crate2" unique_id=1060627265 groups=["navigation_source"]]
@@ -145,6 +146,10 @@ surface_material_override/0 = SubResource("mat_crate")
 
 [node name="Guard" type="Node3D" parent="." unique_id=605771265]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 4)
+script = ExtResource("1_entity")
+Kind = "Character"
+IsAgent = true
+PhysicsColliders = Array[NodePath]([NodePath("CharacterBody3D/CollisionShape3D")])
 metadata/paradise_entity_guid = "c1fd4aa5467a487586e76b382a2ef39c"
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="Guard" unique_id=1866525357]
