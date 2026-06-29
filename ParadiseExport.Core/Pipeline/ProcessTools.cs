@@ -59,6 +59,17 @@ namespace ParadiseExport.Core.Pipeline
             {
                 Kill(process);
                 process.WaitForExit(5_000);
+                // Best-effort drain so the timeout message still captures whatever the process
+                // buffered before it was killed.
+                try
+                {
+                    Task.WhenAll(stdoutTask, stderrTask).Wait(1_000);
+                }
+                catch
+                {
+                    // Faulted/cancelled reads are surfaced as empty output by CompletedOutput below.
+                }
+
                 return new ProcessResult(true, true, -1, CompletedOutput(stdoutTask), CompletedOutput(stderrTask));
             }
 
@@ -129,8 +140,43 @@ namespace ParadiseExport.Core.Pipeline
             return builder.ToString();
         }
 
-        public static string QuoteArgument(string argument) =>
-            $"\"{argument.Replace("\"", "\\\"")}\"";
+        // Windows-safe argument quoting (CommandLineToArgvW rules): escape embedded quotes and
+        // double any run of backslashes that precedes a quote or the closing quote, so a trailing
+        // backslash (e.g. "C:\dir\") does not escape the closing quote.
+        public static string QuoteArgument(string argument)
+        {
+            var builder = new StringBuilder();
+            builder.Append('"');
+            int backslashes = 0;
+            foreach (char c in argument)
+            {
+                if (c == '\\')
+                {
+                    backslashes++;
+                    continue;
+                }
+
+                if (c == '"')
+                {
+                    builder.Append('\\', backslashes * 2 + 1);
+                    builder.Append('"');
+                    backslashes = 0;
+                    continue;
+                }
+
+                if (backslashes > 0)
+                {
+                    builder.Append('\\', backslashes);
+                    backslashes = 0;
+                }
+
+                builder.Append(c);
+            }
+
+            builder.Append('\\', backslashes * 2);
+            builder.Append('"');
+            return builder.ToString();
+        }
 
         private static void Kill(Process process)
         {

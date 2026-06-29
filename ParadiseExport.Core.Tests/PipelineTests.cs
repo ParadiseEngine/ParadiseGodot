@@ -74,6 +74,29 @@ public class PipelineTests
     }
 
     [Test]
+    public async Task quote_argument_handles_plain_and_trailing_backslash()
+    {
+        await Assert.That(ProcessTools.QuoteArgument("plain")).IsEqualTo("\"plain\"");
+        // A trailing backslash must be doubled so it can't escape the closing quote on Windows.
+        await Assert.That(ProcessTools.QuoteArgument(@"C:\dir\").EndsWith("\\\\\"")).IsTrue();
+    }
+
+    [Test]
+    public async Task corrupt_glb_returns_false_instead_of_throwing()
+    {
+        string path = Path.Combine(Path.GetTempPath(), $"paradise_bad_{Guid.NewGuid():N}.glb");
+        File.WriteAllText(path, "not a glb");
+        try
+        {
+            await Assert.That(GlbBinary.TryRead(path, out _, out _)).IsFalse();
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+    }
+
+    [Test]
     public async Task find_executable_prefers_env_path_when_present()
     {
         string fake = Path.Combine(Path.GetTempPath(), $"paradise_tool_{Guid.NewGuid():N}");

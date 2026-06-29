@@ -50,6 +50,8 @@ namespace ParadiseGodot.Pipeline
             }
 
             GD.Print($"[ParadiseExport] Model pipeline complete: {fbxCount} FBX, {glbCount} GLB, {ktx2Count} KTX2-converted.");
+            // Surface the freshly written .glb/.ktx2 files in the editor's FileSystem dock.
+            EditorInterface.Singleton.GetResourceFilesystem().Scan();
         }
 
         // <dir>/<name>_GLB.glb, matching the Unity tool's generated-GLB naming.

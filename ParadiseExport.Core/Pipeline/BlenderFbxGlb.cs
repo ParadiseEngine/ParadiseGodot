@@ -44,6 +44,12 @@ namespace ParadiseExport.Core.Pipeline
                 return Result.ToolMissing;
             }
 
+            if (!File.Exists(fbxFullPath))
+            {
+                error?.Invoke($"FBX not found: '{fbxFullPath}'.");
+                return Result.Failed;
+            }
+
             string sourceHash = ProcessTools.ComputeFileSha256(fbxFullPath);
             if (!force && GeneratedGlbMatchesHash(glbFullPath, sourceHash))
             {
@@ -82,7 +88,7 @@ namespace ParadiseExport.Core.Pipeline
                     return Result.Failed;
                 }
 
-                WriteGeneratedSourceHash(glbFullPath, sourceHash);
+                WriteGeneratedSourceHash(glbFullPath, sourceHash, error);
                 log?.Invoke($"Converted '{fbxFullPath}' → '{glbFullPath}'.");
                 return Result.Converted;
             }
@@ -177,10 +183,13 @@ bpy.ops.export_scene.gltf(
                 string.Equals(storedHash, sourceHash, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static void WriteGeneratedSourceHash(string glbFullPath, string sourceHash)
+        private static void WriteGeneratedSourceHash(string glbFullPath, string sourceHash, Action<string>? error)
         {
             if (!GlbBinary.TryRead(glbFullPath, out JObject gltf, out byte[] binChunk))
             {
+                // The GLB is valid on disk but we couldn't re-read it to stamp the hash; without the
+                // stamp every future run re-converts this asset, so surface the broken skip-cache.
+                error?.Invoke($"Could not re-read '{glbFullPath}' to write the source-FBX hash; it will be re-converted next run.");
                 return;
             }
 

@@ -26,35 +26,46 @@ namespace ParadiseExport.Core.Pipeline
                 return false;
             }
 
-            using var reader = new BinaryReader(File.OpenRead(glbPath));
-            if (reader.BaseStream.Length < 20 || reader.ReadUInt32() != Magic || reader.ReadUInt32() != 2)
+            // A truncated stream (EndOfStreamException) or malformed JSON (JsonReaderException) means
+            // a corrupt GLB; treat it as "not readable" and skip rather than unwinding the batch.
+            try
             {
-                return false;
-            }
+                using var reader = new BinaryReader(File.OpenRead(glbPath));
+                if (reader.BaseStream.Length < 20 || reader.ReadUInt32() != Magic || reader.ReadUInt32() != 2)
+                {
+                    return false;
+                }
 
-            reader.ReadUInt32(); // total length (ignored)
-            uint jsonChunkLength = reader.ReadUInt32();
-            if (reader.ReadUInt32() != JsonChunkType)
-            {
-                return false;
-            }
+                reader.ReadUInt32(); // total length (ignored)
+                uint jsonChunkLength = reader.ReadUInt32();
+                if (reader.ReadUInt32() != JsonChunkType)
+                {
+                    return false;
+                }
 
-            string json = Encoding.UTF8.GetString(reader.ReadBytes((int)jsonChunkLength)).TrimEnd(' ', '\0');
-            gltf = JObject.Parse(json);
+                string json = Encoding.UTF8.GetString(reader.ReadBytes((int)jsonChunkLength)).TrimEnd(' ', '\0');
+                gltf = JObject.Parse(json);
 
-            if (reader.BaseStream.Position >= reader.BaseStream.Length)
-            {
+                if (reader.BaseStream.Position >= reader.BaseStream.Length)
+                {
+                    return true;
+                }
+
+                uint binChunkLength = reader.ReadUInt32();
+                if (reader.ReadUInt32() != BinChunkType)
+                {
+                    return false;
+                }
+
+                binChunk = reader.ReadBytes((int)binChunkLength);
                 return true;
             }
-
-            uint binChunkLength = reader.ReadUInt32();
-            if (reader.ReadUInt32() != BinChunkType)
+            catch (Exception)
             {
+                gltf = new JObject();
+                binChunk = Array.Empty<byte>();
                 return false;
             }
-
-            binChunk = reader.ReadBytes((int)binChunkLength);
-            return true;
         }
 
         public static void Write(string glbPath, JObject gltf, byte[] binChunk)
