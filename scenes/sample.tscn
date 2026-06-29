@@ -57,17 +57,31 @@ albedo_color = Color(0.72, 0.2, 0.18, 1)
 metallic = 0.2
 roughness = 0.5
 
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 2
+
 [node name="Sample" type="Node3D" unique_id=1010004335]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
 
 [node name="NavigationRegion3D" type="NavigationRegion3D" parent="." unique_id=1629301499]
 navigation_mesh = SubResource("nav_preview")
 
 [node name="Camera3D" type="Camera3D" parent="." unique_id=1126736574]
-transform = Transform3D(1, 0, 0, 0, 0.766, -0.643, 0, 0.643, 0.766, 0, 12, 14)
+transform = Transform3D(1, 0, 0, 0, 0.76604444, 0.6427876, 0, -0.6427876, 0.76604444, 0, 12, 14)
 current = true
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=1449251334]
-transform = Transform3D(1, 0, 0, 0, 0.643, -0.766, 0, 0.766, 0.643, 0, 10, 0)
+transform = Transform3D(0.8660254, 0.38302222, -0.32139382, 0, 0.64278764, 0.76604444, 0.5, -0.66341394, 0.5566704, 0, 10, 0)
 light_color = Color(1, 0.95, 0.85, 1)
 light_energy = 1.5
 shadow_enabled = true
