@@ -37,15 +37,18 @@ light, ambient/fog) to match — Godot stores authored colors as sRGB while the 
 `Matrix4x4` is serialized as a flat `float[16]` in **column-major** order. (Translation from
 `Matrix4x4.CreateTranslation(x,y,z)` lands at flat indices 3, 7, 11.)
 
-## Float formatting — emulate Mono's `"R"`
+## Serializer & numeric formatting (System.Text.Json)
 
-The Unity tools ran on **Mono**, whose `float.ToString("R")` formats with 7 significant digits and
-falls back to 9 only when 7 doesn't round-trip. Modern .NET's `"R"` instead emits the *shortest*
-round-trippable string (often 8 digits), e.g. Mono `0.766044438` vs modern `0.76604444`. To keep
-output byte-identical, `ExportJsonWriter.FormatFloat` reproduces Mono's **G7-then-G9** behavior.
+Serialization uses **System.Text.Json** with source generation (`ParadiseJsonContext`) — chosen over
+Newtonsoft.Json because Newtonsoft's static reflection caches pinned Godot's collectible
+AssemblyLoadContext and broke C# hot-reload (godotengine/godot#78513). The library is AOT-compatible
+(`IsAotCompatible`); hand-written converters supply the structural shapes (vectors/matrices as float
+arrays, matrices column-major, `Color32` as `{ r, g, b, a }`, enums by name, nulls included).
 
-This applies only to vector/quaternion/matrix/color floats (the custom converter). Scalar float
-properties go through Newtonsoft's default formatting (e.g. whole numbers render as `5.0`).
+**The contract is value-based, not byte-based.** Numbers use STJ's native formatting (e.g. `5`, not
+the old Mono-Newtonsoft `5.0`; shortest round-trippable precision). The exported *values* are
+unchanged; only their textual form differs. Golden fixtures (`*.expected.json`) are STJ-output
+snapshots that guard against serializer drift, not byte-for-byte Unity matches.
 
 ## Colliders (Phase 2)
 

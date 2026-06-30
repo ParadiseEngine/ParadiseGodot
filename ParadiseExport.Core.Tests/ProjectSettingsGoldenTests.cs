@@ -24,7 +24,7 @@ public class ProjectSettingsGoldenTests
 
         string actual = Normalize(ExportJsonWriter.SerializeToString(settings));
         string expected = Normalize(File.ReadAllText(
-            Path.Combine(AppContext.BaseDirectory, "Fixtures", "ProjectSettings.unity-baseline.json")));
+            Path.Combine(AppContext.BaseDirectory, "Fixtures", "ProjectSettings.expected.json")));
 
         await Assert.That(actual).IsEqualTo(expected);
     }

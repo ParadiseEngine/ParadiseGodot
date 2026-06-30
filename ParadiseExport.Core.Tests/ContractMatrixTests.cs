@@ -1,5 +1,5 @@
 using System.Numerics;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using ParadiseExport.Core.Data;
 using ParadiseExport.Core.Geometry;
 using ParadiseExport.Core.Serialization;
@@ -14,7 +14,7 @@ public class ContractMatrixTests
     private static float[] Serialize(Matrix4x4 m)
     {
         var entity = new LevelEntityData { WorldMatrix = m };
-        JArray arr = (JArray)JObject.Parse(ExportJsonWriter.SerializeToString(entity))["WorldMatrix"]!;
+        JsonArray arr = (JsonArray)JsonNode.Parse(ExportJsonWriter.SerializeToString(entity))!["WorldMatrix"]!;
         var flat = new float[16];
         for (int i = 0; i < 16; i++)
         {

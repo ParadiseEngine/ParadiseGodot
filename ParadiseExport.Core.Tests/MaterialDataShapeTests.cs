@@ -1,4 +1,4 @@
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using ParadiseExport.Core.Data;
 using ParadiseExport.Core.Paths;
 using ParadiseExport.Core.Serialization;
@@ -25,7 +25,7 @@ public class MaterialDataShapeTests
             RenderQueue = -1,
         };
 
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(material));
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(material))!;
         await Assert.That((string?)json["Name"]).IsEqualTo("Steel");
         await Assert.That((float)json["MetallicFactor"]!).IsEqualTo(1f);
         await Assert.That((float)json["RoughnessFactor"]!).IsEqualTo(0.3f);
@@ -33,8 +33,10 @@ public class MaterialDataShapeTests
         await Assert.That((string?)json["BaseColorTexture"]).IsEqualTo("textures/steel_albedo.png");
         // Color32 packs to 8 bits: 0.5 → byte 128 → 128/255 (not exactly 0.5).
         await Assert.That((float)json["BaseColorFactor"]!["r"]!).IsEqualTo(128f / 255f);
-        // A null texture slot is included (NullValueHandling.Include).
-        await Assert.That(json["NormalTexture"]!.Type).IsEqualTo(JTokenType.Null);
+        // A null texture slot is included (key present) AND emitted as JSON null — not "" or {}.
+        // STJ represents a JSON null as a C#-null node, so assert presence + null value.
+        await Assert.That(json.AsObject().ContainsKey("NormalTexture")).IsTrue();
+        await Assert.That(json["NormalTexture"]).IsNull();
     }
 
     [Test]

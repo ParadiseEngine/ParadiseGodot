@@ -20,7 +20,7 @@ public class SampleSceneGoldenTests
     {
         LevelData document = BuildSampleScene();
         string actual = Normalize(ExportJsonWriter.SerializeToString(document));
-        string expected = Normalize(ReadFixture("SampleScene.unity-baseline.json"));
+        string expected = Normalize(ReadFixture("SampleScene.expected.json"));
 
         await Assert.That(actual).IsEqualTo(expected);
     }

@@ -2,7 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 
 namespace ParadiseExport.Core.Pipeline
 {
@@ -173,19 +173,19 @@ bpy.ops.export_scene.gltf(
 
         private static bool GeneratedGlbMatchesHash(string glbFullPath, string sourceHash)
         {
-            if (!GlbBinary.TryRead(glbFullPath, out JObject gltf, out _))
+            if (!GlbBinary.TryRead(glbFullPath, out JsonObject gltf, out _))
             {
                 return false;
             }
 
-            string? storedHash = (gltf["asset"] as JObject)?["extras"]?[SourceFbxSha256ExtraName]?.Value<string>();
+            string? storedHash = ((gltf["asset"] as JsonObject)?["extras"] as JsonObject)?[SourceFbxSha256ExtraName]?.GetValue<string>();
             return !string.IsNullOrWhiteSpace(storedHash) &&
                 string.Equals(storedHash, sourceHash, StringComparison.OrdinalIgnoreCase);
         }
 
         private static void WriteGeneratedSourceHash(string glbFullPath, string sourceHash, Action<string>? error)
         {
-            if (!GlbBinary.TryRead(glbFullPath, out JObject gltf, out byte[] binChunk))
+            if (!GlbBinary.TryRead(glbFullPath, out JsonObject gltf, out byte[] binChunk))
             {
                 // The GLB is valid on disk but we couldn't re-read it to stamp the hash; without the
                 // stamp every future run re-converts this asset, so surface the broken skip-cache.
@@ -193,15 +193,15 @@ bpy.ops.export_scene.gltf(
                 return;
             }
 
-            if (gltf["asset"] is not JObject asset)
+            if (gltf["asset"] is not JsonObject asset)
             {
-                asset = new JObject();
+                asset = new JsonObject();
                 gltf["asset"] = asset;
             }
 
-            if (asset["extras"] is not JObject extras)
+            if (asset["extras"] is not JsonObject extras)
             {
-                extras = new JObject();
+                extras = new JsonObject();
                 asset["extras"] = extras;
             }
 

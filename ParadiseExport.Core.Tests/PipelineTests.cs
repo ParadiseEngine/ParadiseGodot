@@ -1,7 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using ParadiseExport.Core.Pipeline;
 
 namespace ParadiseExport.Core.Tests;
@@ -13,13 +13,13 @@ public class PipelineTests
     [Test]
     public async Task glb_round_trips_json_and_bin()
     {
-        var gltf = new JObject { ["asset"] = new JObject { ["version"] = "2.0" }, ["meshes"] = new JArray() };
+        var gltf = new JsonObject { ["asset"] = new JsonObject { ["version"] = "2.0" }, ["meshes"] = new JsonArray() };
         byte[] bin = { 1, 2, 3, 4, 5 };
         string path = Path.Combine(Path.GetTempPath(), $"paradise_glb_{Guid.NewGuid():N}.glb");
         try
         {
             GlbBinary.Write(path, gltf, bin);
-            bool read = GlbBinary.TryRead(path, out JObject readGltf, out byte[] readBin);
+            bool read = GlbBinary.TryRead(path, out JsonObject readGltf, out byte[] readBin);
 
             await Assert.That(read).IsTrue();
             await Assert.That((string?)readGltf["asset"]!["version"]).IsEqualTo("2.0");
@@ -51,11 +51,11 @@ public class PipelineTests
     [Test]
     public async Task preset_inferred_from_image_name()
     {
-        await Assert.That(ToktxKtx2.PresetFromImageName(new JObject { ["name"] = "Wall_Normal" }))
+        await Assert.That(ToktxKtx2.PresetFromImageName(new JsonObject { ["name"] = "Wall_Normal" }))
             .IsEqualTo(ToktxKtx2.TextureEncodingPreset.UastcNormalLinear);
-        await Assert.That(ToktxKtx2.PresetFromImageName(new JObject { ["name"] = "Steel_Roughness" }))
+        await Assert.That(ToktxKtx2.PresetFromImageName(new JsonObject { ["name"] = "Steel_Roughness" }))
             .IsEqualTo(ToktxKtx2.TextureEncodingPreset.UastcDataLinear);
-        await Assert.That(ToktxKtx2.PresetFromImageName(new JObject { ["name"] = "Hero_Albedo" }))
+        await Assert.That(ToktxKtx2.PresetFromImageName(new JsonObject { ["name"] = "Hero_Albedo" }))
             .IsEqualTo(ToktxKtx2.TextureEncodingPreset.BasisLzSrgb);
     }
 

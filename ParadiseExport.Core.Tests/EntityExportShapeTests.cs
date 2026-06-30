@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using Newtonsoft.Json.Linq;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using ParadiseExport.Core.Data;
 using ParadiseExport.Core.Geometry;
 using ParadiseExport.Core.Serialization;
@@ -52,28 +53,28 @@ public class EntityExportShapeTests
     public async Task entity_serializes_with_expected_component_shape()
     {
         var document = new LevelData { Entities = { BuildBoxAgentEntity() } };
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(document));
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(document))!;
 
-        JToken entity = json["Entities"]![0]!;
+        JsonNode entity = json["Entities"]![0]!;
         await Assert.That((string?)entity["Id"]).IsEqualTo("Crate");
         await Assert.That((string?)entity["Kind"]).IsEqualTo("Prop");
         await Assert.That((string?)entity["Prefab"]).IsEqualTo("models/crate.glb");
 
-        JToken collider = entity["Components"]!["Collider"]!["Colliders"]![0]!;
+        JsonNode collider = entity["Components"]!["Collider"]!["Colliders"]![0]!;
         await Assert.That((string?)collider["ShapeType"]).IsEqualTo("Box");
         await Assert.That((float)collider["Size"]![1]!).IsEqualTo(4f);
 
         await Assert.That((string?)entity["Components"]!["Rigidbody"]!["BodyType"]).IsEqualTo("Static");
         // Renderable is a present (empty) component object, since the entity has a model.
-        await Assert.That(entity["Components"]!["Renderable"]!.Type).IsEqualTo(JTokenType.Object);
+        await Assert.That(entity["Components"]!["Renderable"]!.GetValueKind()).IsEqualTo(JsonValueKind.Object);
     }
 
     [Test]
     public async Task entity_local_position_is_z_flipped()
     {
         var document = new LevelData { Entities = { BuildBoxAgentEntity() } };
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(document));
-        JArray local = (JArray)json["Entities"]![0]!["LocalPosition"]!;
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(document))!;
+        JsonArray local = (JsonArray)json["Entities"]![0]!["LocalPosition"]!;
 
         // Authored at Godot (1,0,2) → contract (1,0,-2).
         await Assert.That((float)local[2]!).IsEqualTo(-2f);

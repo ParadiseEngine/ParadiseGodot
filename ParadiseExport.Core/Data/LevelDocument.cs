@@ -13,7 +13,7 @@ namespace ParadiseExport.Core.Data
     // fixed export contract and must stay byte-comparable across the Unity and Godot tools.
     //
     // Serialization contract: these are plain C# objects. The JSON writer (ExportJsonWriter)
-    // serializes them with Newtonsoft using the C# property names as JSON keys, a
+    // serializes them with System.Text.Json (source-generated) using the C# property names as keys, a
     // StringEnumConverter for enums, and a custom converter that emits System.Numerics
     // vectors/quaternions/matrices as float arrays and Color32 as an { r, g, b, a } object.
     // Matrices are written column-major.
