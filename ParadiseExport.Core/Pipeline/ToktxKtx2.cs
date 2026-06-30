@@ -514,7 +514,10 @@ namespace ParadiseExport.Core.Pipeline
                 gltf[propertyName] = extensions;
             }
 
-            if (!extensions.Any(n => string.Equals(n?.GetValue<string>(), Ktx2ExtensionName, StringComparison.Ordinal)))
+            // Match by value only on string entries — GetValue<string>() throws on non-string nodes,
+            // and a malformed GLB may carry numeric/object entries in extensionsUsed/Required.
+            if (!extensions.Any(n => n is JsonValue v && v.TryGetValue(out string? s)
+                    && string.Equals(s, Ktx2ExtensionName, StringComparison.Ordinal)))
             {
                 extensions.Add((JsonNode)Ktx2ExtensionName);
             }

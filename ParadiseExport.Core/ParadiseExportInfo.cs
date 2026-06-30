@@ -17,8 +17,13 @@ namespace ParadiseExport.Core
         {
             string? systemTextJson = typeof(JsonSerializer).Assembly.GetName().Version?.ToString();
             string? dotRecast = typeof(DtMeshSetWriter).Assembly.GetName().Version?.ToString();
-            return $"{{\"tool\":\"ParadiseExport.Core\",\"version\":\"{Version}\"," +
-                   $"\"systemTextJson\":\"{systemTextJson}\",\"dotRecast\":\"{dotRecast}\"}}";
+            return $"{{\"tool\":\"ParadiseExport.Core\",\"version\":{JsonString(Version)}," +
+                   $"\"systemTextJson\":{JsonString(systemTextJson)},\"dotRecast\":{JsonString(dotRecast)}}}";
         }
+
+        // Minimal JSON string encoder so the hand-built identity stays valid JSON without invoking a
+        // serializer: null → bare `null`, otherwise a quoted, backslash/quote-escaped string.
+        private static string JsonString(string? value) =>
+            value is null ? "null" : $"\"{value.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
     }
 }

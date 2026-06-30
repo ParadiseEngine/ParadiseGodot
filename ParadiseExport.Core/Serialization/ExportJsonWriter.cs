@@ -38,6 +38,9 @@ namespace ParadiseExport.Core.Serialization
                     new Vector4Converter(),
                     new QuaternionConverter(),
                     new Matrix4x4Converter(),
+                    // NOTE: any NEW data-model enum that must serialize by name needs its own
+                    // JsonStringEnumConverter<T> entry here (or a [JsonConverter] on the enum);
+                    // otherwise STJ silently writes it as an integer.
                     new JsonStringEnumConverter<PhysicsBodyType>(),
                     new JsonStringEnumConverter<PhysicsShapeType>(),
                 },
@@ -54,6 +57,8 @@ namespace ParadiseExport.Core.Serialization
 
         public static string SerializeToString(object document)
         {
+            // NOTE: the runtime type must be registered as a [JsonSerializable] root in
+            // ParadiseJsonContext — GetTypeInfo throws (not a compile error) for unregistered types.
             JsonTypeInfo typeInfo = Options.GetTypeInfo(document.GetType());
             return JsonSerializer.Serialize(document, typeInfo);
         }
