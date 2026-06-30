@@ -1,14 +1,13 @@
 #nullable enable
+using System.Text.Json;
 using DotRecast.Detour.Io;
-using Newtonsoft.Json;
 
 namespace ParadiseExport.Core
 {
     /// <summary>
-    /// Phase 0 smoke surface. Proves the engine-neutral Core library builds and that its
-    /// Newtonsoft + DotRecast dependencies resolve and are usable. The real exporters
-    /// (LevelDocument, ExportJsonWriter, the DotRecast writer, the Blender/toktx pipeline)
-    /// land in later phases — see MIGRATION.md.
+    /// Small identity string logged when the editor plugin loads. Deliberately built without a JSON
+    /// serializer — invoking one at editor-load would warm serializer caches that hinder Godot's
+    /// C# assembly hot-reload (godotengine/godot#78513). Confirms the Core dependencies resolve.
     /// </summary>
     public static class ParadiseExportInfo
     {
@@ -16,14 +15,10 @@ namespace ParadiseExport.Core
 
         public static string Describe()
         {
-            var info = new
-            {
-                tool = "ParadiseExport.Core",
-                version = Version,
-                newtonsoft = typeof(JsonConvert).Assembly.GetName().Version?.ToString(),
-                dotRecast = typeof(DtMeshSetWriter).Assembly.GetName().Version?.ToString(),
-            };
-            return JsonConvert.SerializeObject(info);
+            string? systemTextJson = typeof(JsonSerializer).Assembly.GetName().Version?.ToString();
+            string? dotRecast = typeof(DtMeshSetWriter).Assembly.GetName().Version?.ToString();
+            return $"{{\"tool\":\"ParadiseExport.Core\",\"version\":\"{Version}\"," +
+                   $"\"systemTextJson\":\"{systemTextJson}\",\"dotRecast\":\"{dotRecast}\"}}";
         }
     }
 }

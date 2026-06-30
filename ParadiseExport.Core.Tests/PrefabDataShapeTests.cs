@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using ParadiseExport.Core.Data;
 using ParadiseExport.Core.Paths;
 using ParadiseExport.Core.Serialization;
@@ -33,7 +33,7 @@ public class PrefabDataShapeTests
             Entities = new List<LevelEntityData> { new() { Id = "Hero", Kind = "Character" } },
         };
 
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(template));
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(template))!;
         await Assert.That((string?)json["DisplayName"]).IsEqualTo("Hero");
         await Assert.That((string?)json["PrefabGuid"]).IsEqualTo("uid://abc123");
         await Assert.That((string?)json["Entities"]![0]!["Kind"]).IsEqualTo("Character");

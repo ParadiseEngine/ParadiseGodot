@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <!-- Version matches ParadiseEngine's Directory.Packages.props (TUnit 1.11.16). -->
-    <PackageReference Include="TUnit" Version="1.11.16" />
+    <PackageReference Include="TUnit" Version="1.57.0" />
   </ItemGroup>
 
   <ItemGroup>

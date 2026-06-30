@@ -14,10 +14,13 @@
     <RootNamespace>ParadiseExport.Core</RootNamespace>
     <!-- Required so Godot can load this referenced library into its assembly load context. -->
     <EnableDynamicLoading>true</EnableDynamicLoading>
+    <!-- Source-generated System.Text.Json keeps serialization reflection-free; the analyzer flags
+         any AOT-unsafe code so the library stays NativeAOT-friendly. -->
+    <IsAotCompatible>true</IsAotCompatible>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <!-- System.Text.Json ships in the net8.0 shared framework — no package needed. -->
     <!-- Match the DotRecast version vendored by ParadiseUnityEditor so the navmesh binary
          format stays identical to what the Paradise Engine runtime expects. -->
     <PackageReference Include="DotRecast.Core" Version="2026.1.3" />

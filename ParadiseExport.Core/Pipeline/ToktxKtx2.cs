@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 
 namespace ParadiseExport.Core.Pipeline
 {
@@ -52,14 +52,14 @@ namespace ParadiseExport.Core.Pipeline
                 return ConversionResult.ToolMissing;
             }
 
-            if (!File.Exists(glbFullPath) || !GlbBinary.TryRead(glbFullPath, out JObject gltf, out byte[] binChunk))
+            if (!File.Exists(glbFullPath) || !GlbBinary.TryRead(glbFullPath, out JsonObject gltf, out byte[] binChunk))
             {
                 error?.Invoke($"Failed to parse GLB '{glbFullPath}'.");
                 return ConversionResult.Failed;
             }
 
-            if (gltf["images"] is not JArray images || gltf["textures"] is not JArray textures ||
-                gltf["bufferViews"] is not JArray bufferViews)
+            if (gltf["images"] is not JsonArray images || gltf["textures"] is not JsonArray textures ||
+                gltf["bufferViews"] is not JsonArray bufferViews)
             {
                 return ConversionResult.NoConvertibleTextures;
             }
@@ -69,10 +69,10 @@ namespace ParadiseExport.Core.Pipeline
             int convertibleImageCount = 0;
             Dictionary<int, TextureEncodingPreset> presets = GetImageEncodingPresets(gltf, textures, images);
 
-            foreach (JObject image in images.OfType<JObject>())
+            foreach (JsonObject image in images.OfType<JsonObject>())
             {
                 int sourceImageIndex = images.IndexOf(image);
-                string mimeType = image.Value<string>("mimeType") ?? "";
+                string mimeType = image["mimeType"]?.GetValue<string>() ?? "";
                 if (!IsPngOrJpeg(mimeType) || image["bufferView"] == null)
                 {
                     continue;
@@ -270,17 +270,17 @@ namespace ParadiseExport.Core.Pipeline
 
         // ---- preset selection -------------------------------------------------------------------
 
-        private static Dictionary<int, TextureEncodingPreset> GetImageEncodingPresets(JObject gltf, JArray textures, JArray images)
+        private static Dictionary<int, TextureEncodingPreset> GetImageEncodingPresets(JsonObject gltf, JsonArray textures, JsonArray images)
         {
             var presets = new Dictionary<int, TextureEncodingPreset>();
-            if (gltf["materials"] is not JArray materials)
+            if (gltf["materials"] is not JsonArray materials)
             {
                 return presets;
             }
 
-            foreach (JObject material in materials.OfType<JObject>())
+            foreach (JsonObject material in materials.OfType<JsonObject>())
             {
-                var pbr = material["pbrMetallicRoughness"] as JObject;
+                var pbr = material["pbrMetallicRoughness"] as JsonObject;
                 ApplyTexturePreset(pbr?["baseColorTexture"], textures, images, TextureEncodingPreset.BasisLzSrgb, presets);
                 ApplyTexturePreset(material["emissiveTexture"], textures, images, TextureEncodingPreset.BasisLzSrgb, presets);
                 ApplyTexturePreset(pbr?["metallicRoughnessTexture"], textures, images, TextureEncodingPreset.UastcDataLinear, presets);
@@ -291,20 +291,20 @@ namespace ParadiseExport.Core.Pipeline
             return presets;
         }
 
-        private static void ApplyTexturePreset(JToken? textureInfo, JArray textures, JArray images, TextureEncodingPreset preset, Dictionary<int, TextureEncodingPreset> presets)
+        private static void ApplyTexturePreset(JsonNode? textureInfo, JsonArray textures, JsonArray images, TextureEncodingPreset preset, Dictionary<int, TextureEncodingPreset> presets)
         {
-            int? textureIndex = textureInfo?.Value<int?>("index");
+            int? textureIndex = textureInfo?["index"]?.GetValue<int>();
             if (textureIndex == null || textureIndex.Value < 0 || textureIndex.Value >= textures.Count)
             {
                 return;
             }
 
-            if (textures[textureIndex.Value] is not JObject texture)
+            if (textures[textureIndex.Value] is not JsonObject texture)
             {
                 return;
             }
 
-            int? imageIndex = texture.Value<int?>("source");
+            int? imageIndex = texture["source"]?.GetValue<int>();
             if (imageIndex == null || imageIndex.Value < 0 || imageIndex.Value >= images.Count)
             {
                 return;
@@ -335,9 +335,9 @@ namespace ParadiseExport.Core.Pipeline
             return TextureEncodingPreset.BasisLzSrgb;
         }
 
-        public static TextureEncodingPreset PresetFromImageName(JObject image)
+        public static TextureEncodingPreset PresetFromImageName(JsonObject image)
         {
-            string imageName = image.Value<string>("name") ?? "";
+            string imageName = image["name"]?.GetValue<string>() ?? "";
             if (ContainsAny(imageName, "Normal", "NormalMap", "Bump"))
             {
                 return TextureEncodingPreset.UastcNormalLinear;
@@ -371,15 +371,15 @@ namespace ParadiseExport.Core.Pipeline
 
         // ---- GLB rewrite ------------------------------------------------------------------------
 
-        private static bool TryGetSourceImageBytes(JObject image, JArray bufferViews, byte[] binChunk, string? externalTextureRoot, out byte[] bytes, out int sourceBufferViewIndex)
+        private static bool TryGetSourceImageBytes(JsonObject image, JsonArray bufferViews, byte[] binChunk, string? externalTextureRoot, out byte[] bytes, out int sourceBufferViewIndex)
         {
             bytes = Array.Empty<byte>();
             sourceBufferViewIndex = -1;
 
-            string? uri = image.Value<string>("uri");
+            string? uri = image["uri"]?.GetValue<string>();
             if (!string.IsNullOrWhiteSpace(uri) && TryGetExternalImageBytes(uri, externalTextureRoot, out bytes))
             {
-                sourceBufferViewIndex = image.Value<int>("bufferView");
+                sourceBufferViewIndex = image["bufferView"]!.GetValue<int>();
                 return true;
             }
 
@@ -388,7 +388,7 @@ namespace ParadiseExport.Core.Pipeline
                 return false;
             }
 
-            int bufferViewIndex = image.Value<int>("bufferView");
+            int bufferViewIndex = image["bufferView"]!.GetValue<int>();
             if (!TryGetBufferViewBytes(bufferViews, bufferViewIndex, binChunk, out bytes))
             {
                 return false;
@@ -421,7 +421,7 @@ namespace ParadiseExport.Core.Pipeline
             return true;
         }
 
-        private static bool TryGetBufferViewBytes(JArray bufferViews, int bufferViewIndex, byte[] binChunk, out byte[] bytes)
+        private static bool TryGetBufferViewBytes(JsonArray bufferViews, int bufferViewIndex, byte[] binChunk, out byte[] bytes)
         {
             bytes = Array.Empty<byte>();
             if (bufferViewIndex < 0 || bufferViewIndex >= bufferViews.Count)
@@ -429,13 +429,13 @@ namespace ParadiseExport.Core.Pipeline
                 return false;
             }
 
-            if (bufferViews[bufferViewIndex] is not JObject bufferView || (bufferView.Value<int?>("buffer") ?? 0) != 0)
+            if (bufferViews[bufferViewIndex] is not JsonObject bufferView || (bufferView["buffer"]?.GetValue<int>() ?? 0) != 0)
             {
                 return false;
             }
 
-            int byteOffset = bufferView.Value<int?>("byteOffset") ?? 0;
-            int byteLength = bufferView.Value<int?>("byteLength") ?? 0;
+            int byteOffset = bufferView["byteOffset"]?.GetValue<int>() ?? 0;
+            int byteLength = bufferView["byteLength"]?.GetValue<int>() ?? 0;
             if (byteOffset < 0 || byteLength <= 0 || byteOffset + byteLength > binChunk.Length)
             {
                 return false;
@@ -446,18 +446,18 @@ namespace ParadiseExport.Core.Pipeline
             return true;
         }
 
-        private static byte[] RebuildBinaryChunk(JArray bufferViews, byte[] sourceBinChunk, IReadOnlyDictionary<int, byte[]> replacements)
+        private static byte[] RebuildBinaryChunk(JsonArray bufferViews, byte[] sourceBinChunk, IReadOnlyDictionary<int, byte[]> replacements)
         {
             using var rebuilt = new MemoryStream();
             for (int i = 0; i < bufferViews.Count; i++)
             {
-                if (bufferViews[i] is not JObject bufferView || (bufferView.Value<int?>("buffer") ?? 0) != 0)
+                if (bufferViews[i] is not JsonObject bufferView || (bufferView["buffer"]?.GetValue<int>() ?? 0) != 0)
                 {
                     continue;
                 }
 
-                int sourceOffset = bufferView.Value<int?>("byteOffset") ?? 0;
-                int sourceLength = bufferView.Value<int?>("byteLength") ?? 0;
+                int sourceOffset = bufferView["byteOffset"]?.GetValue<int>() ?? 0;
+                int sourceLength = bufferView["byteLength"]?.GetValue<int>() ?? 0;
                 if (sourceOffset < 0 || sourceLength <= 0 || sourceOffset + sourceLength > sourceBinChunk.Length)
                 {
                     continue;
@@ -477,28 +477,28 @@ namespace ParadiseExport.Core.Pipeline
             return rebuilt.ToArray();
         }
 
-        private static void ApplyBasisTextureExtensions(JObject gltf, JArray textures, ISet<int> ktx2ImageIndices)
+        private static void ApplyBasisTextureExtensions(JsonObject gltf, JsonArray textures, ISet<int> ktx2ImageIndices)
         {
-            foreach (JObject texture in textures.OfType<JObject>())
+            foreach (JsonObject texture in textures.OfType<JsonObject>())
             {
                 if (texture["source"] == null)
                 {
                     continue;
                 }
 
-                int source = texture.Value<int>("source");
+                int source = texture["source"]!.GetValue<int>();
                 if (!ktx2ImageIndices.Contains(source))
                 {
                     continue;
                 }
 
-                if (texture["extensions"] is not JObject extensions)
+                if (texture["extensions"] is not JsonObject extensions)
                 {
-                    extensions = new JObject();
+                    extensions = new JsonObject();
                     texture["extensions"] = extensions;
                 }
 
-                extensions[Ktx2ExtensionName] = new JObject { ["source"] = source };
+                extensions[Ktx2ExtensionName] = new JsonObject { ["source"] = source };
                 texture.Remove("source");
             }
 
@@ -506,30 +506,30 @@ namespace ParadiseExport.Core.Pipeline
             AddExtensionName(gltf, "extensionsRequired");
         }
 
-        private static void AddExtensionName(JObject gltf, string propertyName)
+        private static void AddExtensionName(JsonObject gltf, string propertyName)
         {
-            if (gltf[propertyName] is not JArray extensions)
+            if (gltf[propertyName] is not JsonArray extensions)
             {
-                extensions = new JArray();
+                extensions = new JsonArray();
                 gltf[propertyName] = extensions;
             }
 
-            if (!extensions.Values<string>().Contains(Ktx2ExtensionName, StringComparer.Ordinal))
+            if (!extensions.Any(n => string.Equals(n?.GetValue<string>(), Ktx2ExtensionName, StringComparison.Ordinal)))
             {
-                extensions.Add(Ktx2ExtensionName);
+                extensions.Add((JsonNode)Ktx2ExtensionName);
             }
         }
 
-        private static void UpdateFirstBufferLength(JObject gltf, int byteLength)
+        private static void UpdateFirstBufferLength(JsonObject gltf, int byteLength)
         {
-            var buffers = gltf["buffers"] as JArray;
-            if (buffers?.Count > 0 && buffers[0] is JObject buffer)
+            var buffers = gltf["buffers"] as JsonArray;
+            if (buffers?.Count > 0 && buffers[0] is JsonObject buffer)
             {
                 buffer["byteLength"] = byteLength;
                 return;
             }
 
-            gltf["buffers"] = new JArray { new JObject { ["byteLength"] = byteLength } };
+            gltf["buffers"] = new JsonArray(new JsonObject { ["byteLength"] = byteLength });
         }
 
         // ---- tool resolution --------------------------------------------------------------------
@@ -576,9 +576,9 @@ namespace ParadiseExport.Core.Pipeline
             string.Equals(mimeType, "image/png", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(mimeType, "image/jpeg", StringComparison.OrdinalIgnoreCase);
 
-        private static string Ktx2ImageName(JObject sourceImage, int sourceImageIndex)
+        private static string Ktx2ImageName(JsonObject sourceImage, int sourceImageIndex)
         {
-            string sourceName = Path.GetFileNameWithoutExtension(sourceImage.Value<string>("name") ?? $"Texture_{sourceImageIndex}");
+            string sourceName = Path.GetFileNameWithoutExtension(sourceImage["name"]?.GetValue<string>() ?? $"Texture_{sourceImageIndex}");
             return $"{sourceName}_KTX2.ktx2";
         }
 

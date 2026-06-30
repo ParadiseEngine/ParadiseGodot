@@ -1,5 +1,5 @@
 using System.Numerics;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 using ParadiseExport.Core.Data;
 using ParadiseExport.Core.Serialization;
 
@@ -15,8 +15,8 @@ public class ExportJsonFormatTests
         // CreateTranslation puts the translation in M41/M42/M43 (row-vector convention).
         // Column-major flattening => translation lands at flat indices 3, 7, 11.
         var entity = new LevelEntityData { WorldMatrix = Matrix4x4.CreateTranslation(1f, 2f, 3f) };
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(entity));
-        JArray? m = json["WorldMatrix"] as JArray;
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(entity))!;
+        JsonArray? m = json["WorldMatrix"] as JsonArray;
 
         await Assert.That(m).IsNotNull();
         await Assert.That(m!.Count).IsEqualTo(16);
@@ -30,8 +30,8 @@ public class ExportJsonFormatTests
     public async Task color32_is_written_as_rgba_object()
     {
         var camera = new CameraData { BackgroundColor = Color32.FromRgba(1f, 0f, 0f, 1f) };
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(camera));
-        JObject? c = json["BackgroundColor"] as JObject;
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(camera))!;
+        JsonObject? c = json["BackgroundColor"] as JsonObject;
 
         await Assert.That(c).IsNotNull();
         await Assert.That((float)c!["r"]!).IsEqualTo(1f);
@@ -44,7 +44,7 @@ public class ExportJsonFormatTests
     public async Task enums_are_written_by_name()
     {
         var body = new RigidbodyComponentData { BodyType = PhysicsBodyType.Kinematic };
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(body));
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(body))!;
         await Assert.That((string?)json["BodyType"]).IsEqualTo("Kinematic");
     }
 
@@ -52,8 +52,8 @@ public class ExportJsonFormatTests
     public async Task vector3_is_written_as_array()
     {
         var camera = new CameraData { Position = new Vector3(1f, 2f, -10f) };
-        JObject json = JObject.Parse(ExportJsonWriter.SerializeToString(camera));
-        JArray? p = json["Position"] as JArray;
+        JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(camera))!;
+        JsonArray? p = json["Position"] as JsonArray;
 
         await Assert.That(p).IsNotNull();
         await Assert.That(p!.Count).IsEqualTo(3);

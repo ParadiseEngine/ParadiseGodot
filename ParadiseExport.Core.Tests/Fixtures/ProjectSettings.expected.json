@@ -39,7 +39,7 @@
     }
   },
   "Rendering": {
-    "RenderScale": 1.0,
+    "RenderScale": 1,
     "MsaaSamples": 1,
     "AnisotropicLevel": 16,
     "SpecularAaVariance": 0.5,

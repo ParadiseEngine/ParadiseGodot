@@ -1,63 +1,61 @@
 #nullable enable
 using System;
-using System.Globalization;
 using System.IO;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
-using Newtonsoft.Json.Serialization;
-using LevelColor32 = ParadiseExport.Core.Data.Color32;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
+using ParadiseExport.Core.Data;
+using ParadiseExport.Core.Serialization.Converters;
 
 namespace ParadiseExport.Core.Serialization
 {
     /// <summary>
-    /// General-purpose JSON serializer for exported documents (scenes, materials, prefabs,
-    /// project settings). Serializes plain DTOs with Newtonsoft using the C# property names
-    /// as JSON keys, string enum names, and a custom converter that emits System.Numerics
-    /// vectors/quaternions/matrices as float arrays (matrices column-major) and Color32 as
-    /// an { r, g, b, a } object. Writes are atomic (temp file + rename).
+    /// Serializes exported documents (scenes, materials, prefabs, project settings) with
+    /// System.Text.Json. Uses source-generated metadata (<see cref="ParadiseJsonContext"/>) plus
+    /// hand-written converters for the System.Numerics vector/matrix shapes and Color32 — so the
+    /// output is the contract's shape (vectors/matrices as float arrays, matrices column-major,
+    /// Color32 as { r, g, b, a }, enums by name, nulls included), without any reflection-based
+    /// serializer that would pin Godot's collectible AssemblyLoadContext (godotengine/godot#78513).
     ///
-    /// Ported verbatim from ParadiseUnityEditor (Editor/Export/ExportJsonWriter.cs); this is
-    /// the format seam of the fixed export contract.
+    /// Note: numeric formatting is STJ-native (e.g. <c>5</c> not <c>5.0</c>) — the export contract is
+    /// value-based, not byte-based. Writes are atomic (temp file + rename).
     /// </summary>
     public static class ExportJsonWriter
     {
-        private static readonly JsonSerializerSettings JsonSettings = new()
+        private static readonly JsonSerializerOptions Options = CreateOptions();
+
+        private static JsonSerializerOptions CreateOptions()
         {
-            ContractResolver = new DefaultContractResolver(),
-            Converters =
+            var options = new JsonSerializerOptions
             {
-                new StringEnumConverter(),
-                new SystemNumericsJsonConverter(),
-            },
-            Formatting = Formatting.Indented,
-            NullValueHandling = NullValueHandling.Include,
-        };
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+                Converters =
+                {
+                    new Color32Converter(),
+                    new Vector2Converter(),
+                    new Vector3Converter(),
+                    new Vector4Converter(),
+                    new QuaternionConverter(),
+                    new Matrix4x4Converter(),
+                    new JsonStringEnumConverter<PhysicsBodyType>(),
+                    new JsonStringEnumConverter<PhysicsShapeType>(),
+                },
+            };
+            options.TypeInfoResolverChain.Add(ParadiseJsonContext.Default);
+            return options;
+        }
 
         public static void WriteJsonDocument(string outputPath, object document)
         {
-            string json = JsonConvert.SerializeObject(document, JsonSettings) + Environment.NewLine;
+            string json = SerializeToString(document) + Environment.NewLine;
             WriteTextAtomically(outputPath, json);
         }
 
-        public static string SerializeToString(object document) =>
-            JsonConvert.SerializeObject(document, JsonSettings);
-
-        // The Unity tools ran on Mono, whose float.ToString("R") uses the classic .NET Framework
-        // algorithm: format with 7 significant digits and, only if that does not round-trip, fall
-        // back to 9. Modern .NET's "R" instead emits the *shortest* round-trippable string (often
-        // 8 digits), which would diverge from the committed Unity baselines (e.g. Mono
-        // "0.766044438" vs modern "0.76604444"). Reproduce Mono's G7-then-G9 behavior so the export
-        // contract stays byte-identical across both toolchains. (Verified by the SampleScene golden test.)
-        public static string FormatFloat(float value)
+        public static string SerializeToString(object document)
         {
-            string g7 = value.ToString("G7", CultureInfo.InvariantCulture);
-            if (float.TryParse(g7, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed) &&
-                parsed == value)
-            {
-                return g7;
-            }
-
-            return value.ToString("G9", CultureInfo.InvariantCulture);
+            JsonTypeInfo typeInfo = Options.GetTypeInfo(document.GetType());
+            return JsonSerializer.Serialize(document, typeInfo);
         }
 
         public static void WriteTextAtomically(string outputPath, string text)
@@ -85,102 +83,6 @@ namespace ParadiseExport.Core.Serialization
                     File.Delete(tempPath);
                 }
             }
-        }
-
-        private sealed class SystemNumericsJsonConverter : JsonConverter
-        {
-            public override bool CanRead => false;
-
-            public override bool CanConvert(Type objectType)
-            {
-                Type type = Nullable.GetUnderlyingType(objectType) ?? objectType;
-                return type == typeof(System.Numerics.Vector2) ||
-                       type == typeof(System.Numerics.Vector3) ||
-                       type == typeof(System.Numerics.Vector4) ||
-                       type == typeof(System.Numerics.Quaternion) ||
-                       type == typeof(System.Numerics.Matrix4x4) ||
-                       type == typeof(LevelColor32);
-            }
-
-            public override object ReadJson(
-                JsonReader reader,
-                Type objectType,
-                object? existingValue,
-                JsonSerializer serializer) =>
-                throw new NotSupportedException();
-
-            public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
-            {
-                if (value == null)
-                {
-                    writer.WriteNull();
-                    return;
-                }
-
-                if (value is LevelColor32 color)
-                {
-                    writer.WriteStartObject();
-                    writer.WritePropertyName("r");
-                    WriteFloat(writer, color.R);
-                    writer.WritePropertyName("g");
-                    WriteFloat(writer, color.G);
-                    writer.WritePropertyName("b");
-                    WriteFloat(writer, color.B);
-                    writer.WritePropertyName("a");
-                    WriteFloat(writer, color.A);
-                    writer.WriteEndObject();
-                    return;
-                }
-
-                writer.WriteStartArray();
-                switch (value)
-                {
-                    case System.Numerics.Vector2 vector:
-                        WriteFloat(writer, vector.X);
-                        WriteFloat(writer, vector.Y);
-                        break;
-                    case System.Numerics.Vector3 vector:
-                        WriteFloat(writer, vector.X);
-                        WriteFloat(writer, vector.Y);
-                        WriteFloat(writer, vector.Z);
-                        break;
-                    case System.Numerics.Vector4 vector:
-                        WriteFloat(writer, vector.X);
-                        WriteFloat(writer, vector.Y);
-                        WriteFloat(writer, vector.Z);
-                        WriteFloat(writer, vector.W);
-                        break;
-                    case System.Numerics.Quaternion quaternion:
-                        WriteFloat(writer, quaternion.X);
-                        WriteFloat(writer, quaternion.Y);
-                        WriteFloat(writer, quaternion.Z);
-                        WriteFloat(writer, quaternion.W);
-                        break;
-                    case System.Numerics.Matrix4x4 matrix:
-                        WriteFloat(writer, matrix.M11);
-                        WriteFloat(writer, matrix.M21);
-                        WriteFloat(writer, matrix.M31);
-                        WriteFloat(writer, matrix.M41);
-                        WriteFloat(writer, matrix.M12);
-                        WriteFloat(writer, matrix.M22);
-                        WriteFloat(writer, matrix.M32);
-                        WriteFloat(writer, matrix.M42);
-                        WriteFloat(writer, matrix.M13);
-                        WriteFloat(writer, matrix.M23);
-                        WriteFloat(writer, matrix.M33);
-                        WriteFloat(writer, matrix.M43);
-                        WriteFloat(writer, matrix.M14);
-                        WriteFloat(writer, matrix.M24);
-                        WriteFloat(writer, matrix.M34);
-                        WriteFloat(writer, matrix.M44);
-                        break;
-                }
-
-                writer.WriteEndArray();
-            }
-
-            private static void WriteFloat(JsonWriter writer, float value) =>
-                writer.WriteRawValue(FormatFloat(value));
         }
     }
 }

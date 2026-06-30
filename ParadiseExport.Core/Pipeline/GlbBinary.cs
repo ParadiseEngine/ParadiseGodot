@@ -2,7 +2,7 @@
 using System;
 using System.IO;
 using System.Text;
-using Newtonsoft.Json.Linq;
+using System.Text.Json.Nodes;
 
 namespace ParadiseExport.Core.Pipeline
 {
@@ -16,9 +16,9 @@ namespace ParadiseExport.Core.Pipeline
         public const uint JsonChunkType = 0x4E4F534A;
         public const uint BinChunkType = 0x004E4942;
 
-        public static bool TryRead(string glbPath, out JObject gltf, out byte[] binChunk)
+        public static bool TryRead(string glbPath, out JsonObject gltf, out byte[] binChunk)
         {
-            gltf = new JObject();
+            gltf = new JsonObject();
             binChunk = Array.Empty<byte>();
 
             if (!File.Exists(glbPath))
@@ -44,7 +44,7 @@ namespace ParadiseExport.Core.Pipeline
                 }
 
                 string json = Encoding.UTF8.GetString(reader.ReadBytes((int)jsonChunkLength)).TrimEnd(' ', '\0');
-                gltf = JObject.Parse(json);
+                gltf = JsonNode.Parse(json)!.AsObject();
 
                 if (reader.BaseStream.Position >= reader.BaseStream.Length)
                 {
@@ -62,15 +62,15 @@ namespace ParadiseExport.Core.Pipeline
             }
             catch (Exception)
             {
-                gltf = new JObject();
+                gltf = new JsonObject();
                 binChunk = Array.Empty<byte>();
                 return false;
             }
         }
 
-        public static void Write(string glbPath, JObject gltf, byte[] binChunk)
+        public static void Write(string glbPath, JsonObject gltf, byte[] binChunk)
         {
-            string json = gltf.ToString(Newtonsoft.Json.Formatting.None);
+            string json = gltf.ToJsonString();
             byte[] jsonBytes = PadToFour(Encoding.UTF8.GetBytes(json), (byte)' ');
             byte[] paddedBin = binChunk.Length > 0 ? PadToFour(binChunk, 0x00) : binChunk;
             bool hasBin = paddedBin.Length > 0;
