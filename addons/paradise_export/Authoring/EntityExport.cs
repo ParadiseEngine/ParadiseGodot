@@ -21,7 +21,10 @@ namespace ParadiseGodot.Authoring
     {
         private const string GuidMetaKey = "paradise_entity_guid";
 
-        [Export] public string Kind { get; set; } = "Prop";
+        // EnumSuggestion gives a dropdown of common kinds in the inspector while keeping Kind
+        // free-form (you can still type any custom value) — the contract treats it as a label.
+        [Export(PropertyHint.EnumSuggestion, "Prop,Character,Door,Trigger,Pickup")]
+        public string Kind { get; set; } = "Prop";
         [Export] public bool ActiveOnLoad { get; set; } = true;
 
         [Export(PropertyHint.File, "*.glb,*.gltf,*.tscn,*.scn")]
@@ -34,7 +37,18 @@ namespace ParadiseGodot.Authoring
         [Export] public Godot.Collections.Array<NodePath> InteractionColliders { get; set; } = new();
 
         [ExportGroup("Agent (movement)")]
-        [Export] public bool IsAgent { get; set; }
+        private bool _isAgent;
+        // Toggling IsAgent re-runs _ValidateProperty so the movement fields show/hide live.
+        [Export] public bool IsAgent
+        {
+            get => _isAgent;
+            set
+            {
+                _isAgent = value;
+                NotifyPropertyListChanged();
+            }
+        }
+
         [Export] public float MoveSpeed { get; set; } = ParadiseAuthoringDefaults.MoveSpeed;
         [Export] public float AngularSpeed { get; set; } = ParadiseAuthoringDefaults.AngularSpeed;
         [Export] public float Acceleration { get; set; } = ParadiseAuthoringDefaults.Acceleration;
@@ -72,6 +86,23 @@ namespace ParadiseGodot.Authoring
 
             SetMeta(GuidMetaKey, value.ToString("N"));
             return true;
+        }
+
+        // Hide the agent movement fields in the inspector unless IsAgent is set. They keep the
+        // Storage flag (only Editor is cleared), so any authored values are retained, not lost.
+        public override void _ValidateProperty(Godot.Collections.Dictionary property)
+        {
+            StringName name = property["name"].AsStringName();
+            if (!IsAgent && (
+                name == PropertyName.MoveSpeed ||
+                name == PropertyName.AngularSpeed ||
+                name == PropertyName.Acceleration ||
+                name == PropertyName.IdleAnimation ||
+                name == PropertyName.WalkAnimation))
+            {
+                var usage = property["usage"].As<PropertyUsageFlags>();
+                property["usage"] = (int)(usage & ~PropertyUsageFlags.Editor);
+            }
         }
 
         public override void _Notification(int what)
