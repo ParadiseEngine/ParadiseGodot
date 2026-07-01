@@ -1,32 +1,28 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using Paradise.ECS;
 using ParadiseGame.Core;
-using ParadiseGame.Core.Navigation;
 using ParadiseGame.Navigation.Detour;
 using SN = System.Numerics;
 
 namespace ParadiseGodot.Runtime
 {
     /// <summary>
-    /// Runtime bridge: at play time it turns the live scene's marked entities into ECS entities in the
-    /// shared <see cref="GameSimulation"/> (ParadiseGame.Core), drives the navmesh-follow system each
-    /// physics tick, and writes the results back onto the Godot nodes. Click the ground to move the
-    /// player agent. The BankHeist <c>UnityClickToMoveController</c> analog.
+    /// Runtime bridge between the threaded simulation and Godot. At <c>_Ready</c> it turns the live scene's
+    /// marked entities into ECS entities in a <see cref="SimulationRunner"/> and starts the sim thread
+    /// (fixed 60 Hz). Godot renders on its own thread by <b>interpolating between the two latest immutable
+    /// world snapshots</b> in <c>_Process</c> — smooth regardless of the render frame rate. Click the ground
+    /// to move the player agent; the click is queued to the sim thread.
     ///
-    /// Presentation-only: it touches the shared ECS world DIRECTLY (raw <see cref="Entity"/> handles,
-    /// <c>World.CreateEntity</c>, <c>World.GetComponent</c>, <see cref="NavigationPlanner"/>) — no
-    /// wrapper. Not a <c>[Tool]</c> script and lives outside <c>addons/</c>, so it compiles into the
-    /// game build and stays inert in the editor. Entities are identified by the runtime-safe
-    /// <c>paradise_entity_guid</c> node metadata (the editor-only EntityExport script is absent at
-    /// runtime); the player is identified by group membership. Right-handed throughout.
+    /// Entities are identified by the runtime-safe <c>paradise_entity_guid</c> node metadata (the editor-only
+    /// EntityExport script is absent at runtime); the player by group membership. Right-handed throughout.
+    /// Node writes happen only on Godot's main thread (<c>_Process</c>); the sim never touches Godot.
     /// </summary>
     public partial class EcsSceneBridge : Node3D
     {
         [Export] public string EntityGuidMeta { get; set; } = "paradise_entity_guid";
         [Export] public string PlayerGroup { get; set; } = "paradise_player";
-        // Exported DotRecast navmesh (res:// path). Empty → derived from the scene name:
-        // res://data/scenes/<Scene>.navmesh.bin.
         [Export(PropertyHint.File, "*.bin")] public string NavMeshFile { get; set; } = "";
         [Export] public float MoveSpeed { get; set; } = 3.5f;
         [Export] public float AngularSpeed { get; set; } = 720f;
@@ -36,18 +32,22 @@ namespace ParadiseGodot.Runtime
         [Export] public bool AutoDemo { get; set; }
         [Export] public Vector3 AutoDemoTarget { get; set; }
 
-        private GameSimulation? _sim;
+        // Render sampling: interpolate ~2 sim ticks behind the latest snapshot; skip ahead if we fall too far.
+        private const double RenderDelaySeconds = 2.0 / 60.0;
+        private const double MaxRenderSampleLagSeconds = 4.0 / 60.0;
+
+        private SimulationRunner? _runner;
         private Camera3D? _camera;
         private readonly List<(Node3D Node, Entity Entity)> _agents = new();
         private Entity _player;
         private bool _hasPlayer;
+        private double _renderSampleTime;
+        private bool _faulted;
 
         public override void _Ready()
         {
             Node root = Owner ?? GetParent() ?? this;
 
-            // Load the exported DotRecast navmesh (.bin) directly — no dependency on Godot's
-            // NavigationRegion3D. The engine runtime loads the same file the same way.
             string navPath = ResolveNavMeshPath(root);
             byte[] navBytes = Godot.FileAccess.GetFileAsBytes(navPath);
             if (navBytes.Length == 0)
@@ -56,7 +56,7 @@ namespace ParadiseGodot.Runtime
                 return;
             }
 
-            _sim = new GameSimulation(DetourNavMeshLoader.LoadFromBytes(navBytes));
+            _runner = new SimulationRunner(DetourNavMeshLoader.LoadFromBytes(navBytes));
             _camera = FindCamera(root);
 
             foreach (Node3D node in EntityNodes(root))
@@ -66,33 +66,28 @@ namespace ParadiseGodot.Runtime
 
                 if (node.IsInGroup(PlayerGroup))
                 {
-                    Entity agent = _sim.World.CreateEntity(EntityBuilder.Create()
-                        .Add(new LocalTransform(pos, rot))
-                        .Add(new NavAgent(MoveSpeed, AngularSpeed, ArriveRadius))
-                        .Add(new NavPath())
-                        .Add(new SimulationContext())
-                        .AddTag(default(PlayerControlled)));
-                    _agents.Add((node, agent));
-                    _player = agent;
+                    _player = _runner.SpawnAgent(pos, rot, MoveSpeed, AngularSpeed, ArriveRadius);
                     _hasPlayer = true;
+                    _agents.Add((node, _player));
                 }
                 else
                 {
-                    _sim.World.CreateEntity(EntityBuilder.Create().Add(new LocalTransform(pos, rot)));
+                    _runner.SpawnStatic(pos, rot);
                 }
             }
 
-            GD.Print($"[EcsSceneBridge] Simulation ready — {_agents.Count} agent(s). Click the ground to move.");
+            _runner.Start();
+            GD.Print($"[EcsSceneBridge] Simulation thread started — {_agents.Count} agent(s). Click the ground to move.");
 
             if (AutoDemo && _hasPlayer)
             {
-                NavigationPlanner.PlanMoveTo(_sim.World, _player, ToSN(AutoDemoTarget), _sim.NavigationMesh);
+                _runner.EnqueueMoveTo(_player, ToSN(AutoDemoTarget));
             }
         }
 
         public override void _UnhandledInput(InputEvent @event)
         {
-            if (_sim is null || _camera is null || !_hasPlayer)
+            if (_runner is null || _camera is null || !_hasPlayer)
             {
                 return;
             }
@@ -106,20 +101,44 @@ namespace ParadiseGodot.Runtime
                 if (hit.Count > 0)
                 {
                     var point = (Vector3)hit["position"];
-                    NavigationPlanner.PlanMoveTo(_sim.World, _player, ToSN(point), _sim.NavigationMesh);
+                    _runner.EnqueueMoveTo(_player, ToSN(point));
                 }
             }
         }
 
-        public override void _PhysicsProcess(double delta)
+        public override void _Process(double delta)
         {
-            if (_sim is null)
+            if (_runner is null || _faulted)
             {
                 return;
             }
 
-            _sim.Tick((float)delta);
+            if (_runner.ThreadException is { } ex)
+            {
+                GD.PushError($"[EcsSceneBridge] simulation thread faulted: {ex}");
+                _faulted = true;
+                return;
+            }
 
+            if (!_runner.HasSnapshots)
+            {
+                return;
+            }
+
+            // Advance the sample time smoothly toward (now − renderDelay), clamped to the latest snapshot.
+            double target = Math.Min(_runner.Now - RenderDelaySeconds, _runner.LatestSnapshotTime);
+            _renderSampleTime = _renderSampleTime <= 0.0 ? target : Math.Min(_renderSampleTime + delta, target);
+            if (target - _renderSampleTime > MaxRenderSampleLagSeconds)
+            {
+                _renderSampleTime = target;
+            }
+
+            if (!_runner.TrySampleInterpolation(_renderSampleTime, out var worldA, out var worldB, out float alpha))
+            {
+                return;
+            }
+
+            alpha = Math.Clamp(alpha, 0f, 1f);
             foreach ((Node3D node, Entity entity) in _agents)
             {
                 if (!GodotObject.IsInstanceValid(node))
@@ -127,15 +146,40 @@ namespace ParadiseGodot.Runtime
                     continue;
                 }
 
-                LocalTransform transform = _sim.World.GetComponent<LocalTransform>(entity);
-                node.GlobalTransform = new Transform3D(new Basis(ToGodot(transform.Rotation)), ToGodot(transform.Position));
+                bool aliveA = worldA.IsAlive(entity);
+                bool aliveB = worldB.IsAlive(entity);
+                if (!aliveA && !aliveB)
+                {
+                    continue;
+                }
+
+                LocalTransform ta = aliveA ? worldA.GetComponent<LocalTransform>(entity) : worldB.GetComponent<LocalTransform>(entity);
+                LocalTransform tb = aliveB ? worldB.GetComponent<LocalTransform>(entity) : ta;
+
+                SN.Vector3 pos = SN.Vector3.Lerp(ta.Position, tb.Position, alpha);
+                SN.Quaternion rot = SN.Quaternion.Slerp(ta.Rotation, tb.Rotation, alpha);
+                node.GlobalTransform = new Transform3D(new Basis(ToGodot(rot)), ToGodot(pos));
             }
         }
 
         public override void _ExitTree()
         {
-            _sim?.Dispose();
-            _sim = null;
+            _runner?.Dispose();
+            _runner = null;
+        }
+
+        private string ResolveNavMeshPath(Node root)
+        {
+            if (!string.IsNullOrEmpty(NavMeshFile))
+            {
+                return NavMeshFile;
+            }
+
+            string scenePath = root.SceneFilePath;
+            string sceneName = string.IsNullOrEmpty(scenePath)
+                ? root.Name
+                : System.IO.Path.GetFileNameWithoutExtension(scenePath);
+            return $"res://data/scenes/{sceneName}.navmesh.bin";
         }
 
         private IEnumerable<Node3D> EntityNodes(Node root)
@@ -152,20 +196,6 @@ namespace ParadiseGodot.Runtime
                     yield return descendant;
                 }
             }
-        }
-
-        private string ResolveNavMeshPath(Node root)
-        {
-            if (!string.IsNullOrEmpty(NavMeshFile))
-            {
-                return NavMeshFile;
-            }
-
-            string scenePath = root.SceneFilePath;
-            string sceneName = string.IsNullOrEmpty(scenePath)
-                ? root.Name
-                : System.IO.Path.GetFileNameWithoutExtension(scenePath);
-            return $"res://data/scenes/{sceneName}.navmesh.bin";
         }
 
         private static Camera3D? FindCamera(Node node)

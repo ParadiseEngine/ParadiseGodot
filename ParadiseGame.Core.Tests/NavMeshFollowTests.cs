@@ -61,8 +61,7 @@ public class NavMeshFollowTests
             .Add(new LocalTransform(position, Quaternion.Identity))
             .Add(new NavAgent(moveSpeed, angularSpeed: 720f, arriveRadius: 0.25f))
             .Add(new NavPath())
-            .Add(new SimulationContext())
-            .AddTag(default(PlayerControlled)));
+            .Add(new SimulationContext()));
     }
 
     private static Vector3 PositionOf(GameSimulation sim, Entity e) => sim.World.GetComponent<LocalTransform>(e).Position;
