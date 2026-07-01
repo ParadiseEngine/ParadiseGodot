@@ -16,4 +16,11 @@ public interface INavigationMesh
     /// of world-space corner points (including the start). Returns an empty list if no path exists.
     /// </summary>
     IReadOnlyList<Vector3> FindPath(Vector3 from, Vector3 to);
+
+    /// <summary>
+    /// Slide from <paramref name="from"/> toward <paramref name="to"/> constrained to the walkable
+    /// surface, stopping at walls/edges. Used for direct (WASD) movement so the agent can't leave the
+    /// navmesh. Returns the clamped world-space position (or <paramref name="from"/> if off-mesh).
+    /// </summary>
+    Vector3 MoveAlongSurface(Vector3 from, Vector3 to);
 }

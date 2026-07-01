@@ -43,6 +43,7 @@ public sealed class SimulationRunner : IDisposable
     private readonly SharedWorld _shared;
     private readonly INavigationMesh _navigationMesh;
     private readonly ConcurrentQueue<MoveCommand> _input = new();
+    private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
     private readonly object _lock = new();
     private readonly Stopwatch _clock = new();
 
@@ -96,6 +97,10 @@ public sealed class SimulationRunner : IDisposable
             .Add(new SimulationContext()));
 
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
+
+    /// <summary>Set an agent's current direct-move (WASD) direction; applied every tick until changed
+    /// (zero = no input). Overrides click-to-move path following while non-zero.</summary>
+    public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
 
     // ---- Threading ----
 
@@ -166,6 +171,15 @@ public sealed class SimulationRunner : IDisposable
             if (write.IsAlive(cmd.Entity))
             {
                 NavigationPlanner.PlanMoveTo(write, cmd.Entity, cmd.Target, _navigationMesh);
+            }
+        }
+
+        // Direct (WASD) input — applied after clicks so it overrides path-following while held.
+        foreach (var kv in _moveInput)
+        {
+            if (write.IsAlive(kv.Key))
+            {
+                DirectMover.Apply(write, kv.Key, kv.Value, (float)FixedDeltaSeconds, _navigationMesh);
             }
         }
 
