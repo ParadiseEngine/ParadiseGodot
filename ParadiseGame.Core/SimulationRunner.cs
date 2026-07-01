@@ -35,9 +35,9 @@ public sealed class SimulationRunner : IDisposable
     private sealed class Snapshot
     {
         public required World World;
-        public double Time;
-        public long Frame;
+        public long Frame; // canonical sim time — the tick index; seconds are derived, drift-free
         public int Pinned; // >0 while the renderer is reading this snapshot
+        public double Time => Frame * FixedDeltaSeconds;
     }
 
     private readonly SharedWorld _shared;
@@ -73,7 +73,7 @@ public sealed class SimulationRunner : IDisposable
             _pool.Push(CreateWorldWithSchedule());
         }
         // Initial snapshot (frame 0) — spawn target and first published state.
-        _live.Add(new Snapshot { World = RentWorldUnlocked(), Time = 0, Frame = 0 });
+        _live.Add(new Snapshot { World = RentWorldUnlocked(), Frame = 0 });
     }
 
     public double Now => _clock.Elapsed.TotalSeconds;
@@ -119,7 +119,7 @@ public sealed class SimulationRunner : IDisposable
     {
         try
         {
-            double simTime = 0, accumulator = 0, last = _clock.Elapsed.TotalSeconds;
+            double accumulator = 0, last = _clock.Elapsed.TotalSeconds;
             while (_running)
             {
                 double now = _clock.Elapsed.TotalSeconds;
@@ -127,8 +127,7 @@ public sealed class SimulationRunner : IDisposable
                 last = now;
                 while (accumulator >= FixedDeltaSeconds && _running)
                 {
-                    simTime += FixedDeltaSeconds;
-                    TickOnce(simTime);
+                    TickOnce();
                     accumulator -= FixedDeltaSeconds;
                 }
                 Thread.Sleep(1);
@@ -143,7 +142,7 @@ public sealed class SimulationRunner : IDisposable
 
     // ---- One double-buffered frame (also drives the headless tests synchronously) ----
 
-    public void TickOnce(double simTime)
+    public void TickOnce()
     {
         World current;
         World write;
@@ -179,7 +178,7 @@ public sealed class SimulationRunner : IDisposable
 
         lock (_lock)
         {
-            _live.Add(new Snapshot { World = write, Time = simTime, Frame = ++_frame });
+            _live.Add(new Snapshot { World = write, Frame = ++_frame });
             PruneUnlocked();
         }
     }

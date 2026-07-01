@@ -22,7 +22,7 @@ public class SimulationRunnerTests
     {
         for (int i = 0; i < count; i++)
         {
-            runner.TickOnce(runner.LatestSnapshotTime + SimulationRunner.FixedDeltaSeconds);
+            runner.TickOnce();
         }
     }
 
