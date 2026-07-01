@@ -12,7 +12,7 @@ namespace ParadiseExport.Core.Tests;
 // adjacency, DotRecast createParams, and DtMeshSetWriter end to end — no Godot needed.
 public class NavMeshBinaryWriterTests
 {
-    // A 2x2 quad on the XZ plane (y=0), two triangles, contract (left-handed) coordinates.
+    // A 2x2 quad on the XZ plane (y=0), two triangles, right-handed (Godot-native) coordinates.
     private static (List<Vector3> verts, List<int> tris) Quad()
     {
         var verts = new List<Vector3>

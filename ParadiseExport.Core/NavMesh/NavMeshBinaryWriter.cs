@@ -15,10 +15,10 @@ namespace ParadiseExport.Core.NavMesh
     /// <see cref="DtNavMesh"/> and serializes it as the runtime's <c>MeshSet</c> binary
     /// (<c>data/scenes/&lt;Scene&gt;.navmesh.bin</c>).
     ///
-    /// Ported from ParadiseUnityEditor's NavMeshExporter — the conversion/quantization/adjacency
-    /// logic is engine-neutral, so the bytes stay identical to the Unity tool's. Inputs must already
-    /// be in the export contract's left-handed convention (the Godot adapter Z-flips and reverses
-    /// triangle winding before calling — see CoordinateConversion / CONVENTIONS.md).
+    /// Ported from ParadiseUnityEditor's NavMeshExporter — the quantization/adjacency logic is
+    /// engine-neutral and coordinate-agnostic. The contract is right-handed (Godot-native), so inputs
+    /// are the baked vertices/winding verbatim, with no handedness mirror (see CONVENTIONS.md). The
+    /// same builder is reused at runtime by ParadiseGame.Navigation.Detour to query the mesh in-memory.
     /// </summary>
     public static class NavMeshBinaryWriter
     {

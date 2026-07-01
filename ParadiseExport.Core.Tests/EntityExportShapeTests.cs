@@ -16,8 +16,9 @@ public class EntityExportShapeTests
 {
     private static LevelEntityData BuildBoxAgentEntity()
     {
-        Vector3 pos = CoordinateConversion.Position(new Vector3(1f, 0f, 2f));
-        Quaternion rot = CoordinateConversion.Rotation(Quaternion.Identity);
+        // Right-handed contract = Godot-native; values are written verbatim.
+        Vector3 pos = new Vector3(1f, 0f, 2f);
+        Quaternion rot = Quaternion.Identity;
         var entity = new LevelEntityData
         {
             Id = "Crate",
@@ -70,13 +71,13 @@ public class EntityExportShapeTests
     }
 
     [Test]
-    public async Task entity_local_position_is_z_flipped()
+    public async Task entity_local_position_is_verbatim_right_handed()
     {
         var document = new LevelData { Entities = { BuildBoxAgentEntity() } };
         JsonNode json = JsonNode.Parse(ExportJsonWriter.SerializeToString(document))!;
         JsonArray local = (JsonArray)json["Entities"]![0]!["LocalPosition"]!;
 
-        // Authored at Godot (1,0,2) → contract (1,0,-2).
-        await Assert.That((float)local[2]!).IsEqualTo(-2f);
+        // Right-handed contract: Godot (1,0,2) is written verbatim.
+        await Assert.That((float)local[2]!).IsEqualTo(2f);
     }
 }

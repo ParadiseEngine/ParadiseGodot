@@ -7,7 +7,7 @@
     `dotnet build` / `dotnet test`. See MIGRATION.md.
   -->
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <ImplicitUsings>disable</ImplicitUsings>
@@ -20,7 +20,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- System.Text.Json ships in the net8.0 shared framework — no package needed. -->
+    <!-- System.Text.Json ships in the net10.0 shared framework — no package needed. -->
     <!-- Match the DotRecast version vendored by ParadiseUnityEditor so the navmesh binary
          format stays identical to what the Paradise Engine runtime expects. -->
     <PackageReference Include="DotRecast.Core" Version="2026.1.3" />

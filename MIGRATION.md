@@ -133,7 +133,7 @@ Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract befo
 
 ## Risks & gotchas
 
-1. ~~**Handedness (#1).**~~ ✅ **RESOLVED in Phase 1.** Finding: the contract is actually **Unity left-handed** (the Unity tools wrote transforms verbatim with no flip — the earlier "right-handed" assumption here was wrong). The Godot exporter converts right-handed → left-handed via a Z-axis mirror (`CoordinateConversion`). Also found and fixed: Mono's `float.ToString("R")` (G7-then-G9) differs from modern .NET's shortest-round-trip form — `FormatFloat` now emulates Mono so output stays byte-identical. Both pinned by the `SampleScene` golden test. See `CONVENTIONS.md`.
+1. ~~**Handedness (#1).**~~ ✅ **RESOLVED — contract is right-handed.** The contract was briefly pinned to Unity left-handed (verbatim Unity output) but has since been flipped to **right-handed** (Y-up, −Z forward — Godot/glTF standard) so the export data, the shared runtime simulation, and the engine all use one coordinate system. The Godot exporter now writes transforms verbatim with **no** handedness conversion. Also found and fixed: Mono's `float.ToString("R")` (G7-then-G9) differs from modern .NET's shortest-round-trip form — `FormatFloat` emulates Mono so float formatting stays byte-identical. Pinned by the `SampleScene` golden test (Unity baseline, Z-mirrored to right-handed). See `CONVENTIONS.md`.
 2. **Prefab override semantics.** Unity per-property overrides ≠ Godot scene-instance overrides. The trickiest port (Phase 5).
 3. **Capsule conventions.** `CapsuleShape3D` height/radius/axis differ from Unity `CapsuleCollider`.
 4. **Color space.** Confirm Godot's linear workflow matches Unity's `CreateLinearColor` output.

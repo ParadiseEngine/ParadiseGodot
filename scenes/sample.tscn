@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://cbf3nx0sn7cpw"]
 
 [ext_resource type="Script" uid="uid://cujxyk6bhcl3t" path="res://addons/paradise_export/Authoring/EntityExport.cs" id="1_entity"]
+[ext_resource type="Script" uid="uid://ce28xongxoxp5" path="res://runtime/EcsSceneBridge.cs" id="2_ecsbridge"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -144,12 +145,12 @@ shape = SubResource("shape_crate")
 mesh = SubResource("mesh_crate")
 surface_material_override/0 = SubResource("mat_crate")
 
-[node name="Guard" type="Node3D" parent="." unique_id=605771265]
+[node name="Guard" type="Node3D" parent="." unique_id=605771265 groups=["paradise_player"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 4)
 script = ExtResource("1_entity")
 Kind = "Character"
-IsAgent = true
 PhysicsColliders = Array[NodePath]([NodePath("CharacterBody3D/CollisionShape3D")])
+IsAgent = true
 metadata/paradise_entity_guid = "c1fd4aa5467a487586e76b382a2ef39c"
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="Guard" unique_id=1866525357]
@@ -158,5 +159,9 @@ metadata/paradise_entity_guid = "c1fd4aa5467a487586e76b382a2ef39c"
 shape = SubResource("shape_agent")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Guard/CharacterBody3D" unique_id=556251306]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.070952296, 0, 0.1562109)
 mesh = SubResource("mesh_agent")
 surface_material_override/0 = SubResource("mat_agent")
+
+[node name="EcsSceneBridge" type="Node3D" parent="." unique_id=372775218]
+script = ExtResource("2_ecsbridge")

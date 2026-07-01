@@ -15,8 +15,8 @@ namespace ParadiseGodot.Export
     /// <summary>
     /// Walks the edited Godot scene and exports the camera, lights, and entities into an
     /// engine-neutral <see cref="LevelData"/> via the Core library, writing it to
-    /// <c>data/scenes/&lt;Scene&gt;.json</c>. Godot's right-handed transforms are converted to the
-    /// contract's left-handed convention through <see cref="CoordinateConversion"/>.
+    /// <c>data/scenes/&lt;Scene&gt;.json</c>. The contract is right-handed (Y-up, −Z forward), matching
+    /// Godot, so transforms are written verbatim with no handedness conversion.
     ///
     /// Materials, navmesh, and full lighting/environment fidelity arrive in later phases — see
     /// MIGRATION.md.
@@ -67,13 +67,7 @@ namespace ParadiseGodot.Export
 
         private static CameraData ExportCamera(Camera3D camera) => new()
         {
-            Position = CoordinateConversion.Position(ToSN(camera.GlobalPosition)),
-            // TODO (later phase): convert Godot right-handed Euler angles to the contract's
-            // left-handed convention. Under the Z-mirror, the X/Y Euler components change sign, and
-            // the exact mapping depends on the Euler order Godot uses for GlobalRotationDegrees vs
-            // Unity's eulerAngles. The ONLY value exercised today is the SampleScene baseline's
-            // [0,0,0]; do NOT rely on this raw pass-through for a rotated camera until a
-            // rotated-camera golden fixture exists to validate the conversion against.
+            Position = ToSN(camera.GlobalPosition),
             Rotation = ToSN(camera.GlobalRotationDegrees),
             // Camera3D.Size is the orthographic half-height (matches Unity's orthographicSize);
             // perspective-camera FOV is out of Phase 1 scope.
@@ -84,15 +78,16 @@ namespace ParadiseGodot.Export
 
         private static SceneLightData ExportLight(Light3D light)
         {
-            // Godot lights aim down their local -Z; the contract stores a left-handed direction.
+            // Godot lights aim down their local -Z; the contract is right-handed, so this world-space
+            // forward is stored verbatim.
             SN.Vector3 forward = ToSN(-light.GlobalTransform.Basis.Z);
             Color color = light.LightColor;
             return new SceneLightData
             {
                 Id = light.Name.ToString(),
                 Type = LightTypeName(light),
-                Position = CoordinateConversion.Position(ToSN(light.GlobalPosition)),
-                Direction = CoordinateConversion.Direction(forward),
+                Position = ToSN(light.GlobalPosition),
+                Direction = forward,
                 Color = Color32.FromRgba(color.R, color.G, color.B, color.A),
                 Enabled = light.Visible,
                 Intensity = light.LightEnergy,
@@ -153,13 +148,13 @@ namespace ParadiseGodot.Export
 
         private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials, PrefabExporter prefabs)
         {
-            SN.Vector3 localPos = CoordinateConversion.Position(ToSN(entity.Position));
-            SN.Quaternion localRot = CoordinateConversion.Rotation(ToSN(entity.Quaternion));
+            SN.Vector3 localPos = ToSN(entity.Position);
+            SN.Quaternion localRot = ToSN(entity.Quaternion);
             SN.Vector3 localScale = ToSN(entity.Scale);
 
             Transform3D global = entity.GlobalTransform;
-            SN.Vector3 worldPos = CoordinateConversion.Position(ToSN(global.Origin));
-            SN.Quaternion worldRot = CoordinateConversion.Rotation(ToSN(global.Basis.GetRotationQuaternion()));
+            SN.Vector3 worldPos = ToSN(global.Origin);
+            SN.Quaternion worldRot = ToSN(global.Basis.GetRotationQuaternion());
             SN.Vector3 worldScale = ToSN(global.Basis.Scale);
 
             PrefabExporter.Identity prefab = prefabs.ResolveAndExport(entity);
@@ -299,15 +294,14 @@ namespace ParadiseGodot.Export
                     return false;
             }
 
-            // Collider pose expressed in the entity root's local space, then converted to the
-            // contract's left-handed convention.
+            // Collider pose expressed in the entity root's local space (right-handed, verbatim).
             Transform3D rootLocal = root.GlobalTransform.AffineInverse() * collider.GlobalTransform;
             data.Id = collider.Name.ToString();
             data.Path = RelativePath(root, collider);
             data.IsTrigger = false;
             data.LayerName = "";
-            data.LocalCenter = CoordinateConversion.Position(ToSN(rootLocal.Origin));
-            data.LocalRotation = CoordinateConversion.Rotation(ToSN(rootLocal.Basis.GetRotationQuaternion()));
+            data.LocalCenter = ToSN(rootLocal.Origin);
+            data.LocalRotation = ToSN(rootLocal.Basis.GetRotationQuaternion());
             return true;
         }
 

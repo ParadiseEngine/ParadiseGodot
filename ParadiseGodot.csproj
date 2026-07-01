@@ -1,7 +1,7 @@
 <Project Sdk="Godot.NET.Sdk/4.7.0">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>ParadiseGodot</RootNamespace>
     <!-- Required for Godot editor hot-reload of this assembly. -->
@@ -13,10 +13,20 @@
   <ItemGroup>
     <Compile Remove="ParadiseExport.Core/**/*.cs" />
     <Compile Remove="ParadiseExport.Core.Tests/**/*.cs" />
+    <!-- The shared ParadiseGame.* libs are their own projects; keep their sources out of this
+         assembly's recursive **/*.cs glob. -->
+    <Compile Remove="ParadiseGame.Core/**/*.cs" />
+    <Compile Remove="ParadiseGame.Core.Tests/**/*.cs" />
+    <Compile Remove="ParadiseGame.Navigation.Detour/**/*.cs" />
+    <!-- ParadiseEngine is a local-only symlink for reference (see .gitignore);
+         keep its sources out of this assembly's recursive **/*.cs glob. -->
+    <Compile Remove="ParadiseEngine/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="ParadiseExport.Core/ParadiseExport.Core.csproj" />
+    <ProjectReference Include="ParadiseGame.Core/ParadiseGame.Core.csproj" />
+    <ProjectReference Include="ParadiseGame.Navigation.Detour/ParadiseGame.Navigation.Detour.csproj" />
   </ItemGroup>
 
 </Project>

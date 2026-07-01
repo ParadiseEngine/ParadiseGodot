@@ -14,8 +14,8 @@ namespace ParadiseExport.Core.Geometry
     /// translation in M41/M42/M43 (flat indices 3/7/11). To reproduce Unity's bytes we build the
     /// row-vector TRS and transpose it, yielding the column-vector layout the contract expects.
     ///
-    /// Inputs are already in the contract's left-handed convention (see
-    /// <see cref="CoordinateConversion"/>); this type only changes matrix *layout*, not handedness.
+    /// The contract is right-handed (Godot-native), so inputs are the Godot values verbatim; this
+    /// type only changes matrix *layout* (row-vector → column-vector), never handedness.
     /// </summary>
     public static class ContractMatrix
     {
