@@ -20,7 +20,6 @@
   <ItemGroup>
     <!-- Real sibling path (NOT the in-tree ParadiseEngine symlink, which breaks .editorconfig/restore). -->
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.ECS\Paradise.ECS.csproj" />
-    <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.ECS.Tag\Paradise.ECS.Tag.csproj" />
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.ECS.Generators\Paradise.ECS.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
   </ItemGroup>
