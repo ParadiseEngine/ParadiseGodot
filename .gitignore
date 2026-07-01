@@ -13,3 +13,6 @@ obj/
 
 # JetBrains IDE
 .idea/
+
+# Symlink to the reference ParadiseEngine repo (local-only)
+/ParadiseEngine

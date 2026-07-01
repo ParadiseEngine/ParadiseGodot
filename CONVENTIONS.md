@@ -1,29 +1,21 @@
 # Export Contract Conventions (pinned)
 
-These are the conventions the Godot export tools **must** reproduce so their output stays
-byte-comparable with the original Unity tools (`ParadiseUnityEditor`). Pinned in Phase 1 against
-the real Unity baseline `data/scenes/SampleScene.json`, enforced by `ParadiseExport.Core.Tests`.
+These are the conventions the Godot export tools **must** reproduce, enforced by
+`ParadiseExport.Core.Tests`.
 
-## Handedness — the contract is Unity left-handed
+## Handedness — the contract is right-handed (Godot / glTF standard)
 
-The export contract stores transforms in **Unity's convention: Y-up, left-handed** (+X right,
-+Y up, **+Z forward**). The Unity tools wrote transform values verbatim, with **no** handedness
-conversion. (Note: `MIGRATION.md` originally described the contract as "right-handed" — that was
-aspirational; the actual on-disk baseline is left-handed.)
+The export contract stores transforms in **Y-up, right-handed** (+X right, +Y up, **−Z forward**),
+matching Godot and glTF. The Godot exporter writes its transform values **verbatim** — there is
+**no** handedness conversion at export time.
 
-Godot is Y-up, **right-handed** (+X right, +Y up, **−Z** forward). Because the contract is fixed
-and the runtime already consumes Unity-convention data, the Godot exporter converts Godot's
-right-handed values to the contract's left-handed values at export time, via a **Z-axis mirror**
-(`CoordinateConversion`):
+(History: the contract was originally pinned to Unity's left-handed convention (+Z forward) for
+byte-parity with `ParadiseUnityEditor`. It was flipped to right-handed so the entire pipeline —
+export data, the shared runtime simulation, and the engine — uses a single coordinate system. The
+golden fixture `Fixtures/SampleScene.expected.json` is the old Unity baseline with its Z-dependent
+values mirrored into this right-handed convention.)
 
-| Quantity | Conversion |
-|---|---|
-| position / direction `(x, y, z)` | `(x, y, −z)` |
-| rotation quaternion `(x, y, z, w)` | `(−x, −y, z, w)` |
-| transform matrix `M` | `S · M · S`, `S = diag(1, 1, −1)` |
-
-Validation: Godot's default camera authored at `(0, 1, 10)` looking toward −Z maps to the
-contract's `(0, 1, −10)`, matching the baseline.
+Validation: Godot's default camera authored at `(0, 1, 10)` is exported verbatim as `(0, 1, 10)`.
 
 ## Color — linear, packed 8-bit
 
@@ -104,9 +96,8 @@ runtime's DotRecast **MeshSet** binary to `data/scenes/<Scene>.navmesh.bin`; the
 - **Agent exclusion** — parsing only static colliders naturally drops moving agents
   (CharacterBody3D / RigidBody3D), the Godot-idiomatic equivalent of Unity's
   `EntityAuthoring.IsAgent` filter.
-- **Handedness + winding** — baked vertices are Z-mirrored to the contract's left-handed
-  convention (`CoordinateConversion.Position`); since the mirror flips triangle winding, the
-  fan-triangulated polygons are emitted **reversed** to keep them oriented as the Unity tool's were.
+- **Handedness + winding** — the contract is right-handed (Godot-native), so baked vertices and
+  triangle winding are written **verbatim** (no Z-mirror, no winding reversal).
 - **Quantization** — `NavMeshBinaryWriter` (ported verbatim) uses cell size/height 0.1, agent
   height 1.8, radius 0, max climb 0.3, 3 verts/poly; bake cell sizes match. Adjacency is rebuilt
   from shared edges (index pairs, then world-position pairs for seams).

@@ -1,7 +1,6 @@
 #if TOOLS
 using System.Collections.Generic;
 using Godot;
-using ParadiseExport.Core.Geometry;
 using SN = System.Numerics;
 
 namespace ParadiseGodot.Export
@@ -46,14 +45,16 @@ namespace ParadiseGodot.Export
                 return false;
             }
 
-            // Vertices: Godot right-handed → contract left-handed (Z mirror).
+            // The contract is right-handed (Godot-native), so vertices are stored verbatim.
             foreach (Vector3 v in bakedVertices)
             {
-                vertices.Add(CoordinateConversion.Position(new SN.Vector3(v.X, v.Y, v.Z)));
+                vertices.Add(new SN.Vector3(v.X, v.Y, v.Z));
             }
 
-            // Fan-triangulate each polygon. The Z mirror flips triangle winding, so emit the fan
-            // reversed (swap the last two indices) to keep polygons oriented as the Unity tool's were.
+            // Fan-triangulate each polygon. Godot's navmesh polygons are wound so the naive fan yields
+            // a downward (−Y) normal; DotRecast's navmesh/funnel needs upward (+Y) normals, so emit
+            // the fan reversed (poly[0], poly[i], poly[i-1]) to flip the winding. (Verified: the naive
+            // order makes FindStraightPath produce zig-zag corridors.)
             int polygonCount = navMesh.GetPolygonCount();
             for (int p = 0; p < polygonCount; p++)
             {

@@ -18,9 +18,9 @@ namespace ParadiseExport.Core.Data
     // vectors/quaternions/matrices as float arrays and Color32 as an { r, g, b, a } object.
     // Matrices are written column-major.
     //
-    // Convention: Y-up, left-handed (Unity convention), meters. Matrices are column-major
-    // float[16]. The Godot exporter converts its right-handed values to this convention at
-    // export time (see CoordinateConversion / CONVENTIONS.md).
+    // Convention: Y-up, right-handed (−Z forward, Godot/glTF-standard), meters. Matrices are
+    // column-major float[16]. The Godot exporter writes its values verbatim — no handedness
+    // conversion (see CONVENTIONS.md).
     public sealed record LevelData
     {
         public const int UnversionedSchemaVersion = 1;

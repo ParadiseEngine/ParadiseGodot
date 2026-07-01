@@ -7,12 +7,12 @@ using ParadiseExport.Core.Serialization;
 
 namespace ParadiseExport.Core.Tests;
 
-// GOLDEN TEST. Reconstructs the LevelData that the Unity tools exported for SampleScene and
-// asserts our ported serializer reproduces the real on-disk JSON byte-for-byte (newline-
-// normalized). This pins the entire serialization stack — property order, float formatting,
-// Color32 { r,g,b,a }, enum-by-name, null inclusion, scalar-vs-vector float rendering — against
-// the fixed export contract. Fixture: Fixtures/SampleScene.unity-baseline.json (a verbatim copy
-// of ~/proj/ParadiseUnityEditor/data/scenes/SampleScene.json).
+// GOLDEN TEST. Reconstructs the SampleScene LevelData and asserts our serializer reproduces the
+// on-disk JSON byte-for-byte (newline-normalized). This pins the entire serialization stack —
+// property order, float formatting, Color32 { r,g,b,a }, enum-by-name, null inclusion,
+// scalar-vs-vector float rendering. Fixture: Fixtures/SampleScene.expected.json — the Unity
+// baseline (~/proj/ParadiseUnityEditor/data/scenes/SampleScene.json) with its Z-dependent values
+// mirrored into the contract's right-handed convention (RH = Z-mirror of the Unity left-handed data).
 public class SampleSceneGoldenTests
 {
     [Test]
@@ -29,7 +29,7 @@ public class SampleSceneGoldenTests
     {
         Camera = new CameraData
         {
-            Position = new Vector3(0f, 1f, -10f),
+            Position = new Vector3(0f, 1f, 10f),
             Rotation = new Vector3(0f, 0f, 0f),
             OrthographicSize = 5f,
             BackgroundColor = Color32.FromRgba(0.03137255f, 0.07450981f, 0.192156866f, 0f),
@@ -60,7 +60,7 @@ public class SampleSceneGoldenTests
                             Id = "Directional Light",
                             Type = "Directional",
                             Position = new Vector3(0f, 3f, 0f),
-                            Direction = new Vector3(0.3213938f, 0.766044438f, -0.5566705f),
+                            Direction = new Vector3(0.3213938f, 0.766044438f, 0.5566705f),
                             Color = Color32.FromRgba(1f, 0.78039217f, 0.619607866f, 1f),
                             Enabled = true,
                             Intensity = 2f,

@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using ParadiseExport.Core.Data;
-using ParadiseExport.Core.Geometry;
 using ParadiseExport.Core.Paths;
 using ParadiseExport.Core.Serialization;
 using ParadiseGodot.Authoring;
@@ -111,8 +110,8 @@ namespace ParadiseGodot.Export
                     continue;
                 }
 
-                SN.Vector3 localPos = CoordinateConversion.Position(new SN.Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z));
-                SN.Quaternion localRot = CoordinateConversion.Rotation(new SN.Quaternion(entity.Quaternion.X, entity.Quaternion.Y, entity.Quaternion.Z, entity.Quaternion.W));
+                SN.Vector3 localPos = new SN.Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
+                SN.Quaternion localRot = new SN.Quaternion(entity.Quaternion.X, entity.Quaternion.Y, entity.Quaternion.Z, entity.Quaternion.W);
                 string name = entity.Name.ToString();
                 entities.Add(new LevelEntityData
                 {
