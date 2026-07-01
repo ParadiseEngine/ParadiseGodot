@@ -27,6 +27,10 @@ public sealed class SimulationRunner : IDisposable
 {
     public const double FixedDeltaSeconds = 1.0 / 60.0;
     private const double MaxAccumulatedSeconds = 0.25;
+    // Worlds are pre-created on the owner thread (see ctor). Large enough to absorb render-thread stalls
+    // that pin snapshots and block recycling; the sim never allocates a world (which would be a
+    // cross-thread call to the affinity-guarded SharedWorld.CreateWorld).
+    private const int PoolSize = 32;
 
     private sealed class Snapshot
     {
@@ -60,6 +64,14 @@ public sealed class SimulationRunner : IDisposable
     {
         _navigationMesh = navigationMesh ?? throw new ArgumentNullException(nameof(navigationMesh));
         _shared = SharedWorldFactory.Create();
+        // Pre-create the whole world pool on THIS (owner) thread. SharedWorld.CreateWorld/Dispose are the
+        // ONLY thread-affinity-guarded ops in Paradise.ECS, so the sim thread must never create a world —
+        // it only pops from this pool. Everything else (CopyFrom, CreateEntity, GetComponent, Query,
+        // schedule.Run) is affinity-free and safe cross-thread on immutable snapshots.
+        for (int i = 0; i < PoolSize; i++)
+        {
+            _pool.Push(CreateWorldWithSchedule());
+        }
         // Initial snapshot (frame 0) — spawn target and first published state.
         _live.Add(new Snapshot { World = RentWorldUnlocked(), Time = 0, Frame = 0 });
     }
@@ -137,8 +149,14 @@ public sealed class SimulationRunner : IDisposable
         World write;
         lock (_lock)
         {
+            if (_pool.Count == 0)
+            {
+                // Every world is pinned — a stalled renderer is still reading them all. Skip this tick
+                // (backpressure); the sim resumes once the renderer releases a pin and prune refills the pool.
+                return;
+            }
             current = _live[^1].World; // read the current snapshot ref under the lock
-            write = RentWorldUnlocked();
+            write = _pool.Pop();
         }
 
         // Rules 2 + 3: read current (read-only, immutable), write the new world — outside the lock.
@@ -177,9 +195,20 @@ public sealed class SimulationRunner : IDisposable
         }
     }
 
+    // Sim-thread safe: only pops from the pre-created pool (no cross-thread CreateWorld).
     private World RentWorldUnlocked()
     {
-        if (_pool.Count > 0) return _pool.Pop();
+        if (_pool.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"World pool exhausted ({PoolSize}) — the render thread stalled too long while holding snapshots.");
+        }
+        return _pool.Pop();
+    }
+
+    // Owner-thread only (constructor). Creates a world + its schedule.
+    private World CreateWorldWithSchedule()
+    {
         World world = _shared.CreateWorld();
         var schedule = SystemSchedule.Create(world).Add<NavMeshFollowSystem>().Build<SequentialWaveScheduler>();
         _schedules.Add(schedule);
