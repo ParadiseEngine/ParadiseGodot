@@ -30,6 +30,14 @@ public static class NavigationPlanner
         }
 
         int count = Math.Min(waypoints.Count, NavPath.MaxWaypoints);
+        if (waypoints.Count > NavPath.MaxWaypoints)
+        {
+            // Don't truncate silently — a cut-off path stops the agent short of its goal, which is
+            // indistinguishable from "arrived". Surface it (and bump NavPath.MaxWaypoints if it recurs).
+            System.Diagnostics.Debug.WriteLine(
+                $"[NavigationPlanner] Path truncated: {waypoints.Count} corners > NavPath.MaxWaypoints ({NavPath.MaxWaypoints}).");
+        }
+
         for (int i = 0; i < count; i++)
         {
             path.Waypoints[i] = waypoints[i];

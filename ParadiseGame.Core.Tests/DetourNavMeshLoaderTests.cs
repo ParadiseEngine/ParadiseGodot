@@ -23,17 +23,28 @@ public class DetourNavMeshLoaderTests
             new(20f, 0f, 20f),
             new(0f, 0f, 20f),
         };
-        var tris = new List<int> { 0, 1, 2, 0, 2, 3 };
+        // +Y-normal winding (reversed fan) — the naive 0,1,2/0,2,3 points −Y and zig-zags.
+        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
 
+        var start = new Vector3(2f, 0f, 2f);
+        var goal = new Vector3(18f, 0f, 18f);
         string path = Path.Combine(Path.GetTempPath(), $"paradise_nav_{Guid.NewGuid():N}.navmesh.bin");
         try
         {
             NavMeshBinaryWriter.Write(path, verts, tris);
 
             INavigationMesh nav = DetourNavMeshLoader.LoadFromFile(path);
-            var corners = nav.FindPath(new Vector3(2f, 0f, 2f), new Vector3(18f, 0f, 18f));
+            var corners = nav.FindPath(start, goal);
 
             await Assert.That(corners.Count).IsGreaterThanOrEqualTo(2);
+
+            // Round-trip must preserve a taut path (catches a winding/format regression).
+            float total = 0f;
+            for (int i = 1; i < corners.Count; i++)
+            {
+                total += Vector3.Distance(corners[i - 1], corners[i]);
+            }
+            await Assert.That(total).IsLessThan(Vector3.Distance(start, goal) * 1.1f);
         }
         finally
         {

@@ -28,6 +28,7 @@ public sealed class DetourNavigationMesh : INavigationMesh
     private readonly long[] _pathPolys = new long[MaxPathPolys];
     private readonly long[] _goalCandidatePolys = new long[MaxGoalCandidatePolys];
     private readonly DtStraightPath[] _straightPath = new DtStraightPath[MaxStraightPathPoints];
+    private readonly List<GoalCandidate> _goalCandidates = new(MaxGoalCandidatePolys);
 
     /// <summary>Build from right-handed triangle soup (world-space verts + triangle indices).</summary>
     public DetourNavigationMesh(IReadOnlyList<Vector3> vertices, IReadOnlyList<int> triangleIndices)
@@ -93,7 +94,8 @@ public sealed class DetourNavigationMesh : INavigationMesh
             return false;
         }
 
-        var candidates = new List<GoalCandidate>(candidateCount);
+        // Reuse the candidate buffer across calls to avoid per-FindPath allocation.
+        _goalCandidates.Clear();
         for (int i = 0; i < candidateCount; i++)
         {
             long candidateRef = _goalCandidatePolys[i];
@@ -108,12 +110,12 @@ public sealed class DetourNavigationMesh : INavigationMesh
                 continue;
             }
 
-            candidates.Add(new GoalCandidate(candidateRef, nearest, DistanceSquaredXZ(goalPos, nearest)));
+            _goalCandidates.Add(new GoalCandidate(candidateRef, nearest, DistanceSquaredXZ(goalPos, nearest)));
         }
 
-        candidates.Sort(static (left, right) => left.DistanceSquared.CompareTo(right.DistanceSquared));
+        _goalCandidates.Sort(static (left, right) => left.DistanceSquared.CompareTo(right.DistanceSquared));
 
-        foreach (GoalCandidate candidate in candidates)
+        foreach (GoalCandidate candidate in _goalCandidates)
         {
             if (candidate.DistanceSquared > GoalCandidateRadius * GoalCandidateRadius)
             {

@@ -53,7 +53,7 @@ public partial struct NavAgent
 [Component]
 public partial struct NavPath
 {
-    public const int MaxWaypoints = 16;
+    public const int MaxWaypoints = 32;
 
     public WaypointBuffer Waypoints;
     public int Count;
