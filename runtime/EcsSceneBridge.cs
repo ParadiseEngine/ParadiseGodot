@@ -120,6 +120,12 @@ namespace ParadiseGodot.Runtime
                 return;
             }
 
+            // Direct WASD control (camera-relative) — sent to the sim thread; zero when no keys held.
+            if (_hasPlayer)
+            {
+                _runner.SetMoveInput(_player, ToSN(ReadWasdDirection()));
+            }
+
             if (!_runner.HasSnapshots)
             {
                 return;
@@ -166,6 +172,29 @@ namespace ParadiseGodot.Runtime
         {
             _runner?.Dispose();
             _runner = null;
+        }
+
+        // WASD → a horizontal world-space direction relative to the camera's facing.
+        private Vector3 ReadWasdDirection()
+        {
+            if (_camera is null)
+            {
+                return Vector3.Zero;
+            }
+
+            float forwardBack = (Input.IsPhysicalKeyPressed(Key.W) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.S) ? 1f : 0f);
+            float leftRight = (Input.IsPhysicalKeyPressed(Key.D) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.A) ? 1f : 0f);
+            if (forwardBack == 0f && leftRight == 0f)
+            {
+                return Vector3.Zero;
+            }
+
+            Vector3 forward = -_camera.GlobalBasis.Z;
+            forward.Y = 0f;
+            Vector3 right = _camera.GlobalBasis.X;
+            right.Y = 0f;
+            Vector3 dir = forward.Normalized() * forwardBack + right.Normalized() * leftRight;
+            return dir.LengthSquared() > 0f ? dir.Normalized() : Vector3.Zero;
         }
 
         private string ResolveNavMeshPath(Node root)

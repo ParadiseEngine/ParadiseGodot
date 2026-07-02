@@ -29,6 +29,7 @@ public sealed class DetourNavigationMesh : INavigationMesh
     private readonly long[] _goalCandidatePolys = new long[MaxGoalCandidatePolys];
     private readonly DtStraightPath[] _straightPath = new DtStraightPath[MaxStraightPathPoints];
     private readonly List<GoalCandidate> _goalCandidates = new(MaxGoalCandidatePolys);
+    private readonly long[] _visited = new long[256];
 
     /// <summary>Build from right-handed triangle soup (world-space verts + triangle indices).</summary>
     public DetourNavigationMesh(IReadOnlyList<Vector3> vertices, IReadOnlyList<int> triangleIndices)
@@ -79,6 +80,28 @@ public sealed class DetourNavigationMesh : INavigationMesh
         }
 
         return result;
+    }
+
+    public Vector3 MoveAlongSurface(Vector3 from, Vector3 to)
+    {
+        var startPos = new RcVec3f(from.X, from.Y, from.Z);
+        DtStatus status = _query.FindNearestPoly(startPos, s_defaultExtents, _filter,
+            out long startRef, out RcVec3f startNearest, out bool _);
+        if (status.Failed() || startRef == 0)
+        {
+            return from;
+        }
+
+        // Keep the target on the walkable surface (use the nearest poly's height for the move).
+        var endPos = new RcVec3f(to.X, startNearest.Y, to.Z);
+        status = _query.MoveAlongSurface(startRef, startNearest, endPos, _filter,
+            out RcVec3f result, new Span<long>(_visited), out int _, _visited.Length);
+        if (status.Failed())
+        {
+            return from;
+        }
+
+        return new Vector3(result.X, result.Y, result.Z);
     }
 
     private bool TryFindReachableGoal(long startRef, RcVec3f startNearest, RcVec3f goalPos,

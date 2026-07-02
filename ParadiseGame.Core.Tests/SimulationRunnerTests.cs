@@ -97,6 +97,27 @@ public class SimulationRunnerTests
     }
 
     [Test]
+    public async Task direct_move_input_slides_the_agent_and_clamps_to_the_navmesh()
+    {
+        using var runner = new SimulationRunner(FlatGround()); // walkable [0,20] x [0,20]
+        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 6f, angularSpeed: 720f, arriveRadius: 0.25f);
+
+        runner.SetMoveInput(agent, new Vector3(1, 0, 0)); // hold +X
+        Tick(runner, 60);
+        runner.TrySampleInterpolation(double.MaxValue, out var w1, out _, out _);
+        float x1 = w1.GetComponent<LocalTransform>(agent).Position.X;
+        await Assert.That(x1).IsGreaterThan(2f);          // moved +X
+        await Assert.That(x1).IsLessThanOrEqualTo(20.5f);  // still on the ground
+
+        // Keep driving into the +X wall — must clamp to the navmesh edge, never leave it.
+        Tick(runner, 400);
+        runner.TrySampleInterpolation(double.MaxValue, out var w2, out _, out _);
+        float x2 = w2.GetComponent<LocalTransform>(agent).Position.X;
+        await Assert.That(x2).IsGreaterThan(x1);
+        await Assert.That(x2).IsLessThanOrEqualTo(20.5f);
+    }
+
+    [Test]
     public async Task sample_before_first_and_after_latest_clamp()
     {
         using var runner = new SimulationRunner(FlatGround());
