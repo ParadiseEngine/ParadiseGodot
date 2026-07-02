@@ -152,6 +152,28 @@ public class NavMeshFollowTests
     }
 
     [Test]
+    public async Task agent_stays_put_after_arrival()
+    {
+        // Pins the shared tick prologue on the GameSimulation path: after the path clears, the
+        // zeroed MoveIntent must not keep drifting the agent past its goal.
+        var (verts, tris) = FlatGround();
+        using var sim = new GameSimulation(new DetourNavigationMesh(verts, tris));
+
+        Entity agent = SpawnAgent(sim, new Vector3(2f, 0f, 2f), moveSpeed: 6f);
+        NavigationPlanner.PlanMoveTo(sim.World, agent, new Vector3(18f, 0f, 18f), sim.NavigationMesh);
+        RunUntilArrived(sim, agent, maxSteps: 3000);
+        await Assert.That(HasPath(sim, agent)).IsFalse();
+
+        Vector3 arrived = PositionOf(sim, agent);
+        for (int i = 0; i < 60; i++)
+        {
+            sim.Tick(1f / 60f);
+        }
+
+        await Assert.That(PositionOf(sim, agent)).IsEqualTo(arrived); // bitwise: no post-arrival drift
+    }
+
+    [Test]
     public async Task agent_without_a_path_does_not_move()
     {
         var (verts, tris) = FlatGround();

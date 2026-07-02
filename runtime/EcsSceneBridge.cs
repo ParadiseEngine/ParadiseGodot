@@ -319,7 +319,12 @@ namespace ParadiseGodot.Runtime
             {
                 if (shapeNode.Shape is CapsuleShape3D capsule)
                 {
-                    return (capsule.Radius, MathF.Max(0f, capsule.Height * 0.5f - capsule.Radius));
+                    // Fold node scale exactly like BuildCollisionWorld does for statics, so a
+                    // scaled player node keeps physics dims in sync with its visual capsule.
+                    SN.Vector3 scale = ToSN(shapeNode.GlobalBasis.Scale);
+                    float radius = ColliderScaleFold.CapsuleRadius(capsule.Radius, scale);
+                    float height = ColliderScaleFold.CapsuleHeight(capsule.Height, scale);
+                    return (radius, MathF.Max(0f, height * 0.5f - radius));
                 }
             }
 

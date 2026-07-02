@@ -129,6 +129,28 @@ public class CharacterPhysicsTests
     }
 
     [Test]
+    public async Task agent_stops_when_wasd_input_is_released()
+    {
+        // Pins the shared tick prologue (SimulationTick.PrepareFrame): MoveIntent is zeroed every
+        // tick, so once input stops the stale intent must not keep integrating.
+        CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
+        using var runner = new SimulationRunner(FlatGround(), collision);
+        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+
+        runner.SetMoveInput(agent, new Vector3(1f, 0f, 0f));
+        Tick(runner, 30);
+        runner.SetMoveInput(agent, Vector3.Zero); // key released
+
+        Tick(runner, 1); // the release takes effect on the next tick
+        Vector3 afterRelease = LatestPosition(runner, agent);
+        Tick(runner, 60);
+        Vector3 later = LatestPosition(runner, agent);
+
+        await Assert.That(afterRelease.X).IsGreaterThan(2f); // it did move while held
+        await Assert.That(later).IsEqualTo(afterRelease);    // bitwise frozen after release
+    }
+
+    [Test]
     public async Task character_cast_filter_ignores_the_floor_it_rests_on()
     {
         // Capsule bottom rests EXACTLY on the floor top (center y = halfLength + radius = 0.9).

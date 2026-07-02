@@ -130,6 +130,18 @@ complete (bank-heist's "physics state is ECS state" principle).
 - The Godot physics server stays **Dummy** (2D and 3D): the sim owns physics; Godot must not run
   a second solver. Click picking raycasts the sim's `CollisionWorld` instead of
   `DirectSpaceState`.
+- **Phase 2 — move `CollisionWorld` storage onto `Paradise.BLOB`.** Today the world is plain
+  arrays of fixed-size primitives (deliberate: no gain from blobs at this scale, and
+  `ManagedBlobAssetReference` lacks AOT CI coverage). Adopt a blob root
+  (`{ BlobArray<Collider>, BlobArray<RigidTransform>, BlobArray<Aabb>, BlobTree bvh }`) together
+  with whichever lands first: the **BVH broadphase** (`BlobTree` is the substrate),
+  **mesh/convex/compound colliders** (variable-size geometry can't fit the 32-byte `Collider`
+  union — blob becomes the data model, as in Unity Physics' `BlobAssetReference<Collider>`), or a
+  **baked `data/scenes/<Scene>.collision.bin` export asset** (zero-parse load, golden-testable,
+  replaces runtime scene harvesting). Note: referencing blobs from ECS components (phase-2
+  dynamics `PhysicsCollider`) first needs an unmanaged pointer-backed `BlobAssetReference` handle
+  in Paradise.BLOB — components can't hold the managed handle. The public query API
+  (`Build`/`CastRay`/`CastCollider`/`CalculateDistance`) is unaffected; the swap is internal.
 
 ## Prefabs (Phase 5)
 

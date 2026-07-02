@@ -50,15 +50,7 @@ public sealed class GameSimulation : IDisposable
     /// </summary>
     public void Tick(float deltaSeconds)
     {
-        foreach (var data in World.Query(default(MoveIntents)))
-        {
-            data.MoveIntent.DesiredVelocity = System.Numerics.Vector3.Zero;
-        }
-
-        foreach (var data in World.Query(default(SimulationContexts)))
-        {
-            data.SimulationContext.DeltaSeconds = deltaSeconds;
-        }
+        SimulationTick.PrepareFrame(World, deltaSeconds);
 
         _runSchedule();
 

@@ -175,11 +175,7 @@ public sealed class SimulationRunner : IDisposable
         // Rules 2 + 3: read current (read-only, immutable), write the new world — outside the lock.
         write.CopyFrom(current);
 
-        // Zero steering intent so stale desired velocities never leak across ticks.
-        foreach (var data in write.Query(default(MoveIntents)))
-        {
-            data.MoveIntent.DesiredVelocity = Vector3.Zero;
-        }
+        SimulationTick.PrepareFrame(write, (float)FixedDeltaSeconds);
 
         while (_input.TryDequeue(out MoveCommand cmd))
         {
@@ -187,11 +183,6 @@ public sealed class SimulationRunner : IDisposable
             {
                 NavigationPlanner.PlanMoveTo(write, cmd.Entity, cmd.Target, _navigationMesh);
             }
-        }
-
-        foreach (var data in write.Query(default(SimulationContexts)))
-        {
-            data.SimulationContext.DeltaSeconds = (float)FixedDeltaSeconds;
         }
 
         // Steering: path following writes MoveIntent (no position writes).
