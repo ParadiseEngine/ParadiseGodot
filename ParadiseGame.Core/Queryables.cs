@@ -20,3 +20,9 @@ public readonly ref partial struct MoveIntents;
 [With<MoveIntent>]
 [With<CharacterBody>]
 public readonly ref partial struct CharacterMovers;
+
+/// <summary>Dynamic physics bodies (spheres) resolved by the planar dynamics step each tick.</summary>
+[Queryable]
+[With<LocalTransform>]
+[With<DynamicBody>]
+public readonly ref partial struct DynamicBodies;

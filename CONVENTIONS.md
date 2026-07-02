@@ -130,6 +130,17 @@ complete (bank-heist's "physics state is ECS state" principle).
 - The Godot physics server stays **Dummy** (2D and 3D): the sim owns physics; Godot must not run
   a second solver. Click picking raycasts the sim's `CollisionWorld` instead of
   `DirectSpaceState`.
+- **Dynamics (phase 2a)** — sphere-only dynamic bodies (`DynamicBody { Velocity, Radius, Mass }`
+  component; position = sphere center in `LocalTransform`). The resolver is the engine's
+  stateless `Paradise.Physics.PlanarSphereDynamics` (bank-heist pipeline: kinematic character
+  push → damp/integrate with cast-and-bounce vs statics → pairwise sphere impulses → static
+  depenetration pass); the game's `DynamicBodyIntegrator` only marshals components ↔ spans and
+  runs right after `CharacterMoveIntegrator` each tick. Characters are infinite-mass pushers
+  (`PushStrength` carry-along, never displaced by balls). Planar contract holds: Y untouched,
+  floor excluded from dynamic casts. Balls (scene group `paradise_ball`) are **not** in
+  `navigation_source` — they affect neither the navmesh bake nor the static CollisionWorld, so
+  planned paths route through them and the player shoves them aside. Character movement's slide
+  loop also lives in the engine now (`PlanarCapsuleSlide`).
 - **Phase 2 — move `CollisionWorld` storage onto `Paradise.BLOB`.** Today the world is plain
   arrays of fixed-size primitives (deliberate: no gain from blobs at this scale, and
   `ManagedBlobAssetReference` lacks AOT CI coverage). Adopt a blob root

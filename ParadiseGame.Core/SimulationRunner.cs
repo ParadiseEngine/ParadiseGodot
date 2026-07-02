@@ -105,6 +105,12 @@ public sealed class SimulationRunner : IDisposable
             .Add(new CharacterBody(bodyRadius, bodyHalfLength))
             .Add(new SimulationContext()));
 
+    /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.</summary>
+    public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f) =>
+        Current.CreateEntity(EntityBuilder.Create()
+            .Add(new LocalTransform(position, rotation))
+            .Add(new DynamicBody(radius, mass)));
+
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
 
     /// <summary>Set an agent's current direct-move (WASD) direction; applied every tick until changed
@@ -198,8 +204,10 @@ public sealed class SimulationRunner : IDisposable
             }
         }
 
-        // Integration: resolve intents against the static collision world (planar, Y untouched).
+        // Integration: resolve intents against the static collision world (planar, Y untouched),
+        // then run the dynamics step (character pushes, ball↔static, ball↔ball).
         CharacterMoveIntegrator.Step(write, _collisionWorld, (float)FixedDeltaSeconds);
+        DynamicBodyIntegrator.Step(write, _collisionWorld, (float)FixedDeltaSeconds);
 
         lock (_lock)
         {

@@ -19,6 +19,10 @@ public static class PhysicsLayers
     /// <summary>Filter for character movement capsule casts: obstacles only, never the floor.</summary>
     public static readonly CollisionFilter CharacterCast = new() { BelongsTo = ~0u, CollidesWith = Obstacle };
 
+    /// <summary>Filter for dynamic-body (ball) casts: obstacles only — planar contract, the
+    /// floor the body rests on must never block horizontal motion.</summary>
+    public static readonly CollisionFilter DynamicBodyCast = new() { BelongsTo = ~0u, CollidesWith = Obstacle };
+
     /// <summary>Filter for click-to-move ground picking rays.</summary>
     public static readonly CollisionFilter ClickRay = new() { BelongsTo = ~0u, CollidesWith = Floor | Obstacle };
 }
