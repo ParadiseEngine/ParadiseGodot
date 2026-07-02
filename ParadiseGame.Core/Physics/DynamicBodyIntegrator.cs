@@ -14,8 +14,13 @@ namespace ParadiseGame.Core.Physics;
 /// </summary>
 public static class DynamicBodyIntegrator
 {
-    private static readonly PlanarDynamicsSettings Settings =
-        PlanarDynamicsSettings.Default with { StaticFilter = PhysicsLayers.DynamicBodyCast };
+    private static readonly PlanarDynamicsSettings Settings = PlanarDynamicsSettings.Default with
+    {
+        StaticFilter = PhysicsLayers.DynamicBodyCast,
+        RequireSupport = true, // balls stop/slide at slab edges instead of rolling into the void
+        SupportFilter = PhysicsLayers.SupportRay,
+        SupportProbeDepth = PhysicsLayers.SupportProbeDepth,
+    };
 
     public static void Step(World world, CollisionWorld? collision, float deltaSeconds)
     {
@@ -68,6 +73,18 @@ public static class DynamicBodyIntegrator
                 Vector3 old = row.LocalTransform.Position;
                 row.LocalTransform.Position = new Vector3(sphere.Position.X, old.Y, sphere.Position.Z);
                 row.DynamicBody.Velocity = sphere.Velocity;
+
+                // Rolling visual: for rolling-without-slipping on a Y-up plane, ω = (Up × v) / r.
+                // Cosmetic and game-side (the engine library stays transcendental-free); rotation
+                // lives in LocalTransform so the renderer's existing Slerp interpolates it.
+                float speed = MathF.Sqrt(sphere.Velocity.X * sphere.Velocity.X + sphere.Velocity.Z * sphere.Velocity.Z);
+                if (speed > 1e-4f && sphere.Radius > 1e-4f)
+                {
+                    Vector3 axis = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, sphere.Velocity));
+                    Quaternion delta = Quaternion.CreateFromAxisAngle(axis, speed * deltaSeconds / sphere.Radius);
+                    row.LocalTransform.Rotation = Quaternion.Normalize(
+                        Quaternion.Concatenate(row.LocalTransform.Rotation, delta));
+                }
             }
         }
         finally

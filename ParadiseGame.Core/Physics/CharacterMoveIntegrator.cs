@@ -31,10 +31,19 @@ public static class CharacterMoveIntegrator
             }
 
             Vector3 start = row.LocalTransform.Position;
-            Vector3 position = collision is null
-                ? start + displacement
-                : PlanarCapsuleSlide.Move(collision, PhysicsLayers.CharacterCast,
+            Vector3 position;
+            if (collision is null)
+            {
+                position = start + displacement;
+            }
+            else
+            {
+                position = PlanarCapsuleSlide.Move(collision, PhysicsLayers.CharacterCast,
                     row.CharacterBody.Radius, row.CharacterBody.HalfLength, start, displacement, Skin);
+                // Ground containment: never step off the walkable slab (slide along its edge).
+                position = PlanarGroundSupport.Clamp(collision, PhysicsLayers.SupportRay,
+                    start, position, PhysicsLayers.SupportProbeDepth);
+            }
 
             row.LocalTransform.Position = new Vector3(position.X, start.Y, position.Z);
         }
