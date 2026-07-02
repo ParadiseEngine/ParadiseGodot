@@ -4,9 +4,11 @@ using System.Numerics;
 namespace ParadiseGame.Core.Navigation;
 
 /// <summary>
-/// Engine seam for navmesh pathfinding (the BankHeist <c>INavigationMesh</c> analog). Gameplay
+/// Engine seam for navmesh PATHFINDING ONLY (the BankHeist <c>INavigationMesh</c> analog). Gameplay
 /// systems depend on this interface, not on any concrete pathfinding library, so the same simulation
 /// runs against a DotRecast backend (ParadiseGame.Navigation.Detour) regardless of host engine.
+/// Movement collision is owned by <c>Paradise.Physics</c> (see
+/// <c>Physics.CharacterMoveIntegrator</c>), not by the navmesh.
 /// All coordinates are right-handed world space (metres).
 /// </summary>
 public interface INavigationMesh
@@ -16,11 +18,4 @@ public interface INavigationMesh
     /// of world-space corner points (including the start). Returns an empty list if no path exists.
     /// </summary>
     IReadOnlyList<Vector3> FindPath(Vector3 from, Vector3 to);
-
-    /// <summary>
-    /// Slide from <paramref name="from"/> toward <paramref name="to"/> constrained to the walkable
-    /// surface, stopping at walls/edges. Used for direct (WASD) movement so the agent can't leave the
-    /// navmesh. Returns the clamped world-space position (or <paramref name="from"/> if off-mesh).
-    /// </summary>
-    Vector3 MoveAlongSurface(Vector3 from, Vector3 to);
 }

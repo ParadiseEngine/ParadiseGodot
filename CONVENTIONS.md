@@ -102,6 +102,47 @@ runtime's DotRecast **MeshSet** binary to `data/scenes/<Scene>.navmesh.bin`; the
   height 1.8, radius 0, max climb 0.3, 3 verts/poly; bake cell sizes match. Adjacency is rebuilt
   from shared edges (index pairs, then world-position pairs for seams).
 
+## Physics — stateless collision (runtime)
+
+Movement collision is owned by **Paradise.Physics** (`ParadiseEngine/src/Paradise.Physics`), a
+pure-C# stateless query library modeled on Unity Physics (DOTS): no caches, no incremental state,
+`CollisionWorld.Build` is a pure function of its inputs, queries are allocation-free and
+order-deterministic. All simulation state stays in ECS components, so world snapshots remain
+complete (bank-heist's "physics state is ECS state" principle).
+
+- **Geometry source** — the bridge harvests `StaticBody3D` colliders from the same
+  `navigation_source` group the navmesh bakes from (Box/Sphere/Capsule, scale folded per
+  `ColliderScaleFold`), so physics and pathfinding agree on the world.
+- **Layers** — Godot `collision_layer` maps to `CollisionFilter.BelongsTo`: bit 1 = Floor,
+  bit 2 = Obstacle (`ParadiseGame.Core/Physics/PhysicsLayers`). Character movement casts collide
+  with **Obstacle only** — the capsule rests exactly on the floor, which must never block
+  horizontal motion. Click rays hit Floor | Obstacle.
+- **Planar contract** — physics NEVER modifies Y. `CharacterMoveIntegrator` casts the character
+  capsule (origin = capsule **center**, matching scene authoring) along the horizontal intent and
+  slides along flattened wall normals (≤4 iterations, 0.02 m skin). Gravity/steps/slopes are a
+  future phase.
+- **Tick order** (bank-heist steering→resolve): zero `MoveIntent` → plan clicked paths → steering
+  systems write intent (`NavMeshFollowSystem`) → WASD `DirectMover` overrides intent → integrator
+  resolves against the collision world → publish snapshot.
+- **Navmesh is pathfinding-only** — `INavigationMesh.MoveAlongSurface` was removed; the bake's
+  agent-radius erosion still matters so planned paths keep corners clear of walls
+  (`BakedNavMeshClearanceTests`).
+- The Godot physics server stays **Dummy** (2D and 3D): the sim owns physics; Godot must not run
+  a second solver. Click picking raycasts the sim's `CollisionWorld` instead of
+  `DirectSpaceState`.
+- **Phase 2 — move `CollisionWorld` storage onto `Paradise.BLOB`.** Today the world is plain
+  arrays of fixed-size primitives (deliberate: no gain from blobs at this scale, and
+  `ManagedBlobAssetReference` lacks AOT CI coverage). Adopt a blob root
+  (`{ BlobArray<Collider>, BlobArray<RigidTransform>, BlobArray<Aabb>, BlobTree bvh }`) together
+  with whichever lands first: the **BVH broadphase** (`BlobTree` is the substrate),
+  **mesh/convex/compound colliders** (variable-size geometry can't fit the 32-byte `Collider`
+  union — blob becomes the data model, as in Unity Physics' `BlobAssetReference<Collider>`), or a
+  **baked `data/scenes/<Scene>.collision.bin` export asset** (zero-parse load, golden-testable,
+  replaces runtime scene harvesting). Note: referencing blobs from ECS components (phase-2
+  dynamics `PhysicsCollider`) first needs an unmanaged pointer-backed `BlobAssetReference` handle
+  in Paradise.BLOB — components can't hold the managed handle. The public query API
+  (`Build`/`CastRay`/`CastCollider`/`CalculateDistance`) is unaffected; the swap is internal.
+
 ## Prefabs (Phase 5)
 
 Godot's prefab model is **PackedScene instancing**. A node instanced from a scene carries

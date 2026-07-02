@@ -1,5 +1,6 @@
 using System;
 using ParadiseGame.Core.Navigation;
+using ParadiseGame.Core.Physics;
 
 namespace ParadiseGame.Core;
 
@@ -25,9 +26,13 @@ public sealed class GameSimulation : IDisposable
     /// <summary>The navmesh backend, for <see cref="NavigationPlanner.PlanMoveTo"/>.</summary>
     public INavigationMesh NavigationMesh { get; }
 
-    public GameSimulation(INavigationMesh navigationMesh)
+    /// <summary>The immutable static collision world, if any (null = unobstructed integration).</summary>
+    public Paradise.Physics.CollisionWorld? CollisionWorld { get; }
+
+    public GameSimulation(INavigationMesh navigationMesh, Paradise.Physics.CollisionWorld? collisionWorld = null)
     {
         NavigationMesh = navigationMesh ?? throw new ArgumentNullException(nameof(navigationMesh));
+        CollisionWorld = collisionWorld;
         _shared = SharedWorldFactory.Create();
         World = _shared.CreateWorld();
 
@@ -39,17 +44,17 @@ public sealed class GameSimulation : IDisposable
     }
 
     /// <summary>
-    /// Advance the simulation by <paramref name="deltaSeconds"/>: refresh the shared
-    /// <see cref="SimulationContext"/> on every agent, then run the navmesh-follow system.
+    /// Advance the simulation by <paramref name="deltaSeconds"/>: zero steering intents, refresh
+    /// the shared <see cref="SimulationContext"/>, run the steering schedule, then integrate
+    /// intents against the collision world (unobstructed when none was provided).
     /// </summary>
     public void Tick(float deltaSeconds)
     {
-        foreach (var data in World.Query(default(SimulationContexts)))
-        {
-            data.SimulationContext.DeltaSeconds = deltaSeconds;
-        }
+        SimulationTick.PrepareFrame(World, deltaSeconds);
 
         _runSchedule();
+
+        CharacterMoveIntegrator.Step(World, CollisionWorld, deltaSeconds);
     }
 
     public void Dispose()

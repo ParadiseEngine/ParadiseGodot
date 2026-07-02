@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Threading;
 using ParadiseGame.Core.Navigation;
+using ParadiseGame.Core.Physics;
 
 namespace ParadiseGame.Core;
 
@@ -42,6 +43,7 @@ public sealed class SimulationRunner : IDisposable
 
     private readonly SharedWorld _shared;
     private readonly INavigationMesh _navigationMesh;
+    private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
     private readonly ConcurrentQueue<MoveCommand> _input = new();
     private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
     private readonly object _lock = new();
@@ -61,9 +63,10 @@ public sealed class SimulationRunner : IDisposable
     private volatile Exception? _threadException;
     private bool _disposed;
 
-    public SimulationRunner(INavigationMesh navigationMesh)
+    public SimulationRunner(INavigationMesh navigationMesh, Paradise.Physics.CollisionWorld? collisionWorld = null)
     {
         _navigationMesh = navigationMesh ?? throw new ArgumentNullException(nameof(navigationMesh));
+        _collisionWorld = collisionWorld;
         _shared = SharedWorldFactory.Create();
         // Pre-create the whole world pool on THIS (owner) thread. SharedWorld.CreateWorld/Dispose are the
         // ONLY thread-affinity-guarded ops in Paradise.ECS, so the sim thread must never create a world —
@@ -77,6 +80,9 @@ public sealed class SimulationRunner : IDisposable
         _live.Add(new Snapshot { World = RentWorldUnlocked(), Frame = 0 });
     }
 
+    /// <summary>The immutable static collision world (safe to query from any thread), if any.</summary>
+    public Paradise.Physics.CollisionWorld? CollisionWorld => _collisionWorld;
+
     public double Now => _clock.Elapsed.TotalSeconds;
     public bool HasSnapshots { get { lock (_lock) { return _live.Count > 0; } } }
     public double LatestSnapshotTime { get { lock (_lock) { return _live.Count == 0 ? 0 : _live[^1].Time; } } }
@@ -89,11 +95,14 @@ public sealed class SimulationRunner : IDisposable
     public Entity SpawnStatic(Vector3 position, Quaternion rotation) =>
         Current.CreateEntity(EntityBuilder.Create().Add(new LocalTransform(position, rotation)));
 
-    public Entity SpawnAgent(Vector3 position, Quaternion rotation, float moveSpeed, float angularSpeed, float arriveRadius) =>
+    public Entity SpawnAgent(Vector3 position, Quaternion rotation, float moveSpeed, float angularSpeed, float arriveRadius,
+        float bodyRadius = 0.4f, float bodyHalfLength = 0.5f) =>
         Current.CreateEntity(EntityBuilder.Create()
             .Add(new LocalTransform(position, rotation))
             .Add(new NavAgent(moveSpeed, angularSpeed, arriveRadius))
             .Add(new NavPath())
+            .Add(new MoveIntent())
+            .Add(new CharacterBody(bodyRadius, bodyHalfLength))
             .Add(new SimulationContext()));
 
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
@@ -166,6 +175,8 @@ public sealed class SimulationRunner : IDisposable
         // Rules 2 + 3: read current (read-only, immutable), write the new world — outside the lock.
         write.CopyFrom(current);
 
+        SimulationTick.PrepareFrame(write, (float)FixedDeltaSeconds);
+
         while (_input.TryDequeue(out MoveCommand cmd))
         {
             if (write.IsAlive(cmd.Entity))
@@ -174,21 +185,21 @@ public sealed class SimulationRunner : IDisposable
             }
         }
 
-        // Direct (WASD) input — applied after clicks so it overrides path-following while held.
+        // Steering: path following writes MoveIntent (no position writes).
+        _runByWorld[write]();
+
+        // Direct (WASD) input — applied after the schedule so it overrides the path intent this
+        // tick and clears the path for subsequent ones.
         foreach (var kv in _moveInput)
         {
             if (write.IsAlive(kv.Key))
             {
-                DirectMover.Apply(write, kv.Key, kv.Value, (float)FixedDeltaSeconds, _navigationMesh);
+                DirectMover.Apply(write, kv.Key, kv.Value);
             }
         }
 
-        foreach (var data in write.Query(default(SimulationContexts)))
-        {
-            data.SimulationContext.DeltaSeconds = (float)FixedDeltaSeconds;
-        }
-
-        _runByWorld[write]();
+        // Integration: resolve intents against the static collision world (planar, Y untouched).
+        CharacterMoveIntegrator.Step(write, _collisionWorld, (float)FixedDeltaSeconds);
 
         lock (_lock)
         {

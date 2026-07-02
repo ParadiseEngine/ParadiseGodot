@@ -39,7 +39,8 @@ enabled=PackedStringArray("res://addons/paradise_export/plugin.cfg")
 
 [physics]
 
-3d/physics_engine="Jolt Physics"
+2d/physics_engine="Dummy"
+3d/physics_engine="Dummy"
 
 [rendering]
 

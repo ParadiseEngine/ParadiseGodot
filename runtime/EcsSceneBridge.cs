@@ -2,7 +2,10 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Paradise.ECS;
+using Paradise.Physics;
+using ParadiseExport.Core.Geometry;
 using ParadiseGame.Core;
+using ParadiseGame.Core.Physics;
 using ParadiseGame.Navigation.Detour;
 using SN = System.Numerics;
 
@@ -27,6 +30,10 @@ namespace ParadiseGodot.Runtime
         [Export] public float MoveSpeed { get; set; } = 3.5f;
         [Export] public float AngularSpeed { get; set; } = 720f;
         [Export] public float ArriveRadius { get; set; } = 0.25f;
+
+        // Fallback character capsule dims when the player node has no CapsuleShape3D to read.
+        [Export] public float CharacterRadius { get; set; } = 0.4f;
+        [Export] public float CharacterHeight { get; set; } = 1.8f;
 
         // For headless / no-input smoke runs: if set, the player is sent here on _Ready.
         [Export] public bool AutoDemo { get; set; }
@@ -56,7 +63,10 @@ namespace ParadiseGodot.Runtime
                 return;
             }
 
-            _runner = new SimulationRunner(DetourNavMeshLoader.LoadFromBytes(navBytes));
+            // Static collision geometry for the sim's stateless CollisionWorld — harvested from the
+            // same navigation_source group the navmesh bakes from, so physics and pathfinding agree.
+            Paradise.Physics.CollisionWorld? collisionWorld = BuildCollisionWorld(root);
+            _runner = new SimulationRunner(DetourNavMeshLoader.LoadFromBytes(navBytes), collisionWorld);
             _camera = FindCamera(root);
 
             foreach (Node3D node in EntityNodes(root))
@@ -66,7 +76,8 @@ namespace ParadiseGodot.Runtime
 
                 if (node.IsInGroup(PlayerGroup))
                 {
-                    _player = _runner.SpawnAgent(pos, rot, MoveSpeed, AngularSpeed, ArriveRadius);
+                    (float bodyRadius, float bodyHalfLength) = ReadPlayerCapsule(node);
+                    _player = _runner.SpawnAgent(pos, rot, MoveSpeed, AngularSpeed, ArriveRadius, bodyRadius, bodyHalfLength);
                     _hasPlayer = true;
                     _agents.Add((node, _player));
                 }
@@ -94,14 +105,24 @@ namespace ParadiseGodot.Runtime
 
             if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mouse)
             {
+                // Ground picking runs against the sim's own CollisionWorld (immutable → safe from
+                // this thread). Godot's physics server is Dummy, so DirectSpaceState is unavailable.
+                if (_runner.CollisionWorld is not { } collision)
+                {
+                    return;
+                }
+
                 Vector3 origin = _camera.ProjectRayOrigin(mouse.Position);
                 Vector3 direction = _camera.ProjectRayNormal(mouse.Position);
-                var query = PhysicsRayQueryParameters3D.Create(origin, origin + direction * 1000f);
-                Godot.Collections.Dictionary hit = GetWorld3D().DirectSpaceState.IntersectRay(query);
-                if (hit.Count > 0)
+                var input = new RaycastInput
                 {
-                    var point = (Vector3)hit["position"];
-                    _runner.EnqueueMoveTo(_player, ToSN(point));
+                    Start = ToSN(origin),
+                    End = ToSN(origin + direction * 1000f),
+                    Filter = PhysicsLayers.ClickRay,
+                };
+                if (collision.CastRay(input, out RaycastHit hit))
+                {
+                    _runner.EnqueueMoveTo(_player, hit.Position);
                 }
             }
         }
@@ -221,6 +242,105 @@ namespace ParadiseGodot.Runtime
                 }
 
                 foreach (Node3D descendant in EntityNodes(child))
+                {
+                    yield return descendant;
+                }
+            }
+        }
+
+        // ---- Static collision harvesting (navigation_source group → Paradise.Physics) ----
+
+        private const string NavigationSourceGroup = "navigation_source";
+
+        private static Paradise.Physics.CollisionWorld? BuildCollisionWorld(Node root)
+        {
+            var colliders = new List<Collider>();
+            var transforms = new List<RigidTransform>();
+
+            foreach (StaticBody3D body in Descendants<StaticBody3D>(root))
+            {
+                if (!body.IsInGroup(NavigationSourceGroup))
+                {
+                    continue;
+                }
+
+                var filter = new CollisionFilter { BelongsTo = (uint)body.CollisionLayer, CollidesWith = ~0u };
+                foreach (CollisionShape3D shapeNode in Descendants<CollisionShape3D>(body))
+                {
+                    if (shapeNode.Disabled || shapeNode.Shape is null)
+                    {
+                        continue;
+                    }
+
+                    // Fold node scale into the geometry (export contract: runtime shapes carry no scale).
+                    SN.Vector3 scale = ToSN(shapeNode.GlobalBasis.Scale);
+                    Collider collider;
+                    switch (shapeNode.Shape)
+                    {
+                        case BoxShape3D box:
+                            collider = Collider.CreateBox(ColliderScaleFold.BoxSize(ToSN(box.Size), scale) * 0.5f, filter);
+                            break;
+                        case SphereShape3D sphere:
+                            collider = Collider.CreateSphere(ColliderScaleFold.SphereRadius(sphere.Radius, scale), filter);
+                            break;
+                        case CapsuleShape3D capsule:
+                        {
+                            float radius = ColliderScaleFold.CapsuleRadius(capsule.Radius, scale);
+                            float height = ColliderScaleFold.CapsuleHeight(capsule.Height, scale);
+                            collider = Collider.CreateCapsule(radius, MathF.Max(0f, height * 0.5f - radius), filter);
+                            break;
+                        }
+                        default:
+                            GD.PushWarning($"[EcsSceneBridge] Unsupported collision shape '{shapeNode.Shape.GetType().Name}' at '{shapeNode.GetPath()}' — skipped.");
+                            continue;
+                    }
+
+                    colliders.Add(collider);
+                    transforms.Add(new RigidTransform(
+                        ToSN(shapeNode.GlobalPosition),
+                        ToSN(shapeNode.GlobalBasis.Orthonormalized().GetRotationQuaternion())));
+                }
+            }
+
+            if (colliders.Count == 0)
+            {
+                GD.PushWarning("[EcsSceneBridge] No static colliders found in the 'navigation_source' group — movement collision disabled.");
+                return null;
+            }
+
+            return Paradise.Physics.CollisionWorld.Build(
+                System.Runtime.InteropServices.CollectionsMarshal.AsSpan(colliders),
+                System.Runtime.InteropServices.CollectionsMarshal.AsSpan(transforms));
+        }
+
+        private (float Radius, float HalfLength) ReadPlayerCapsule(Node3D playerNode)
+        {
+            foreach (CollisionShape3D shapeNode in Descendants<CollisionShape3D>(playerNode))
+            {
+                if (shapeNode.Shape is CapsuleShape3D capsule)
+                {
+                    // Fold node scale exactly like BuildCollisionWorld does for statics, so a
+                    // scaled player node keeps physics dims in sync with its visual capsule.
+                    SN.Vector3 scale = ToSN(shapeNode.GlobalBasis.Scale);
+                    float radius = ColliderScaleFold.CapsuleRadius(capsule.Radius, scale);
+                    float height = ColliderScaleFold.CapsuleHeight(capsule.Height, scale);
+                    return (radius, MathF.Max(0f, height * 0.5f - radius));
+                }
+            }
+
+            return (CharacterRadius, MathF.Max(0f, CharacterHeight * 0.5f - CharacterRadius));
+        }
+
+        private static IEnumerable<T> Descendants<T>(Node node) where T : Node
+        {
+            foreach (Node child in node.GetChildren())
+            {
+                if (child is T match)
+                {
+                    yield return match;
+                }
+
+                foreach (T descendant in Descendants<T>(child))
                 {
                     yield return descendant;
                 }

@@ -61,6 +61,8 @@ public class NavMeshFollowTests
             .Add(new LocalTransform(position, Quaternion.Identity))
             .Add(new NavAgent(moveSpeed, angularSpeed: 720f, arriveRadius: 0.25f))
             .Add(new NavPath())
+            .Add(new MoveIntent())
+            .Add(new CharacterBody(radius: 0.4f, halfLength: 0.5f))
             .Add(new SimulationContext()));
     }
 
@@ -147,6 +149,28 @@ public class NavMeshFollowTests
         RunUntilArrived(sim, agent, maxSteps: 3000);
 
         await Assert.That(HorizontalDistance(PositionOf(sim, agent), goal)).IsLessThan(0.6f);
+    }
+
+    [Test]
+    public async Task agent_stays_put_after_arrival()
+    {
+        // Pins the shared tick prologue on the GameSimulation path: after the path clears, the
+        // zeroed MoveIntent must not keep drifting the agent past its goal.
+        var (verts, tris) = FlatGround();
+        using var sim = new GameSimulation(new DetourNavigationMesh(verts, tris));
+
+        Entity agent = SpawnAgent(sim, new Vector3(2f, 0f, 2f), moveSpeed: 6f);
+        NavigationPlanner.PlanMoveTo(sim.World, agent, new Vector3(18f, 0f, 18f), sim.NavigationMesh);
+        RunUntilArrived(sim, agent, maxSteps: 3000);
+        await Assert.That(HasPath(sim, agent)).IsFalse();
+
+        Vector3 arrived = PositionOf(sim, agent);
+        for (int i = 0; i < 60; i++)
+        {
+            sim.Tick(1f / 60f);
+        }
+
+        await Assert.That(PositionOf(sim, agent)).IsEqualTo(arrived); // bitwise: no post-arrival drift
     }
 
     [Test]

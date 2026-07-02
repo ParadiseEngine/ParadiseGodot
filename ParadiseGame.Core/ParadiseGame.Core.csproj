@@ -22,6 +22,7 @@
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.ECS\Paradise.ECS.csproj" />
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.ECS.Generators\Paradise.ECS.Generators.csproj"
                       OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.Physics\Paradise.Physics.csproj" />
   </ItemGroup>
 
   <ItemGroup>

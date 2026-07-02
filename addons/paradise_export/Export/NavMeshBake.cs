@@ -29,7 +29,10 @@ namespace ParadiseGodot.Export
                 CellSize = 0.1f,
                 CellHeight = 0.1f,
                 AgentHeight = 1.8f,
-                AgentRadius = 0f,
+                // Erode the walkable area by the agent's body radius (the sample agent capsule is 0.4).
+                // Path following steers the agent CENTER along planned corners, so with radius 0 the
+                // planned paths run flush against obstacle faces and the capsule grinds along walls.
+                AgentRadius = 0.4f,
                 AgentMaxClimb = 0.3f,
                 GeometryParsedGeometryType = NavigationMesh.ParsedGeometryType.StaticColliders,
                 GeometrySourceGeometryMode = NavigationMesh.SourceGeometryMode.RootNodeChildren,

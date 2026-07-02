@@ -67,3 +67,33 @@ public struct WaypointBuffer
 {
     private Vector3 _element0;
 }
+
+/// <summary>
+/// This tick's desired velocity (m/s, horizontal), produced by steering (path following or direct
+/// input) and consumed by <see cref="Physics.CharacterMoveIntegrator"/>. Zeroed at the start of
+/// every tick so stale intent never leaks across frames.
+/// </summary>
+[Component]
+public partial struct MoveIntent
+{
+    public Vector3 DesiredVelocity;
+}
+
+/// <summary>
+/// Collision capsule of a movable character (Y-aligned, origin at the capsule CENTER — matching
+/// scene authoring). <see cref="HalfLength"/> is the core segment half length: total capsule height
+/// = 2 * (HalfLength + Radius). All character physics state lives in components; the collision
+/// world holds only immutable static geometry.
+/// </summary>
+[Component]
+public partial struct CharacterBody
+{
+    public float Radius;
+    public float HalfLength;
+
+    public CharacterBody(float radius, float halfLength)
+    {
+        Radius = radius;
+        HalfLength = halfLength;
+    }
+}
