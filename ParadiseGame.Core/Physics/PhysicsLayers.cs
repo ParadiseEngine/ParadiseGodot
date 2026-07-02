@@ -25,4 +25,11 @@ public static class PhysicsLayers
 
     /// <summary>Filter for click-to-move ground picking rays.</summary>
     public static readonly CollisionFilter ClickRay = new() { BelongsTo = ~0u, CollidesWith = Floor | Obstacle };
+
+    /// <summary>Filter for downward ground-support probes: floor only. Keeps movers on the
+    /// walkable slab (they stop/slide at open edges instead of walking off into the void).</summary>
+    public static readonly CollisionFilter SupportRay = new() { BelongsTo = ~0u, CollidesWith = Floor };
+
+    /// <summary>How far below a mover's center the support probe reaches (meters).</summary>
+    public const float SupportProbeDepth = 10f;
 }

@@ -59,16 +59,31 @@ roughness = 0.85
 radius = 0.35
 height = 0.7
 
+[sub_resource type="Gradient" id="grad_ball"]
+interpolation_mode = 1
+offsets = PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875)
+colors = PackedColorArray(1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1)
+
+[sub_resource type="GradientTexture2D" id="tex_ball"]
+gradient = SubResource("grad_ball")
+width = 256
+height = 256
+fill_from = Vector2(0, 0)
+fill_to = Vector2(1, 0)
+
 [sub_resource type="StandardMaterial3D" id="mat_ball1"]
 albedo_color = Color(0.85, 0.25, 0.25, 1)
+albedo_texture = SubResource("tex_ball")
 roughness = 0.4
 
 [sub_resource type="StandardMaterial3D" id="mat_ball2"]
 albedo_color = Color(0.25, 0.55, 0.85, 1)
+albedo_texture = SubResource("tex_ball")
 roughness = 0.4
 
 [sub_resource type="StandardMaterial3D" id="mat_ball3"]
 albedo_color = Color(0.95, 0.8, 0.2, 1)
+albedo_texture = SubResource("tex_ball")
 roughness = 0.4
 
 [sub_resource type="CapsuleShape3D" id="shape_agent"]

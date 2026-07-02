@@ -141,18 +141,25 @@ complete (bank-heist's "physics state is ECS state" principle).
   `navigation_source` — they affect neither the navmesh bake nor the static CollisionWorld, so
   planned paths route through them and the player shoves them aside. Character movement's slide
   loop also lives in the engine now (`PlanarCapsuleSlide`).
-- **Phase 2 — move `CollisionWorld` storage onto `Paradise.BLOB`.** Today the world is plain
-  arrays of fixed-size primitives (deliberate: no gain from blobs at this scale, and
-  `ManagedBlobAssetReference` lacks AOT CI coverage). Adopt a blob root
-  (`{ BlobArray<Collider>, BlobArray<RigidTransform>, BlobArray<Aabb>, BlobTree bvh }`) together
-  with whichever lands first: the **BVH broadphase** (`BlobTree` is the substrate),
-  **mesh/convex/compound colliders** (variable-size geometry can't fit the 32-byte `Collider`
-  union — blob becomes the data model, as in Unity Physics' `BlobAssetReference<Collider>`), or a
-  **baked `data/scenes/<Scene>.collision.bin` export asset** (zero-parse load, golden-testable,
-  replaces runtime scene harvesting). Note: referencing blobs from ECS components (phase-2
-  dynamics `PhysicsCollider`) first needs an unmanaged pointer-backed `BlobAssetReference` handle
-  in Paradise.BLOB — components can't hold the managed handle. The public query API
-  (`Build`/`CastRay`/`CastCollider`/`CalculateDistance`) is unaffected; the swap is internal.
+- **`CollisionWorld` storage is `Paradise.BLOB` in unmanaged memory (adopted with the BVH
+  broadphase).** The world is one `NativeBlobAssetReference` blob root (NativeMemory-backed — no
+  GC-heap pinning) — `{ BlobArray<Collider>, BlobArray<RigidTransform>, BlobArray<Aabb>,
+  BlobTree<BvhNode> }` — with a preorder-BVH traversal (deterministic median-split build;
+  guarded by brute-force differential tests). The public query API was unchanged by the swap;
+  `CollisionWorld` is now `IDisposable` (blob finalizer is the backstop). Still deferred, with
+  blob layout now ready for them: **mesh/convex/compound colliders** (variable-size geometry as
+  in Unity Physics' `BlobAssetReference<Collider>`) and a **baked
+  `data/scenes/<Scene>.collision.bin` export asset** (zero-parse load, golden-testable, replaces
+  runtime scene harvesting). Referencing blobs from ECS components still needs an unmanaged
+  pointer-backed `BlobAssetReference` handle in Paradise.BLOB first.
+- **Ground-support containment** — movers can't leave the walkable slab: character moves and
+  ball push/integrate moves are clamped so a downward probe (`PhysicsLayers.SupportRay`, floor
+  layer only, 10 m depth) from the new position still hits ground; per-axis fallback slides
+  movers along open edges (`Paradise.Physics.PlanarGroundSupport`). Balls kill the rejected
+  velocity component and rest at the rim.
+- **Rolling visuals** — game-side (engine stays transcendental-free): `DynamicBodyIntegrator`
+  integrates ω = (Up × v)/r into `LocalTransform.Rotation` on write-back; the renderer's
+  existing Slerp interpolation picks it up. Cosmetic only — sphere collision ignores rotation.
 
 ## Prefabs (Phase 5)
 
