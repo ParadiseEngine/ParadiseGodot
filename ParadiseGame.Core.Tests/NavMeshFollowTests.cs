@@ -61,6 +61,8 @@ public class NavMeshFollowTests
             .Add(new LocalTransform(position, Quaternion.Identity))
             .Add(new NavAgent(moveSpeed, angularSpeed: 720f, arriveRadius: 0.25f))
             .Add(new NavPath())
+            .Add(new MoveIntent())
+            .Add(new CharacterBody(radius: 0.4f, halfLength: 0.5f))
             .Add(new SimulationContext()));
     }
 

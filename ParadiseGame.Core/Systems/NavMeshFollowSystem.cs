@@ -4,16 +4,18 @@ using System.Numerics;
 namespace ParadiseGame.Core;
 
 /// <summary>
-/// The navmesh controller system: steers an agent's <see cref="LocalTransform"/> along its
-/// <see cref="NavPath"/> at its <see cref="NavAgent"/> speeds, advancing the waypoint cursor as each
-/// corner is reached and clearing the path on arrival. Engine-agnostic and coordinate-agnostic
-/// (operates in whatever right-handed world space the host feeds). The BankHeist
-/// <c>MovementSystem</c> analog. Delta time is injected via the shared <see cref="SimulationContext"/>.
+/// The navmesh steering system: follows the agent's <see cref="NavPath"/> at its
+/// <see cref="NavAgent"/> speed by writing a desired velocity into <see cref="MoveIntent"/> —
+/// it does NOT move the transform. Integration (and collision) happens afterwards in
+/// <see cref="Physics.CharacterMoveIntegrator"/>, so waypoint advance and arrival are measured on
+/// the previous tick's physics-resolved position. Rotation stays here (facing is cosmetic and
+/// ECS-owned). The BankHeist <c>MovementSystem</c> analog, split steering-vs-integration.
 /// </summary>
 public ref partial struct NavMeshFollowSystem : IEntitySystem
 {
     public ref LocalTransform Transform;
     public ref NavPath Path;
+    public ref MoveIntent Intent;
     public ref readonly NavAgent Agent;
     public ref readonly SimulationContext Frame;
 
@@ -25,6 +27,11 @@ public ref partial struct NavMeshFollowSystem : IEntitySystem
         }
 
         float dt = Frame.DeltaSeconds;
+        if (dt <= 0f)
+        {
+            return;
+        }
+
         Vector3 position = Transform.Position;
         float arriveSq = Agent.ArriveRadius * Agent.ArriveRadius;
 
@@ -49,11 +56,10 @@ public ref partial struct NavMeshFollowSystem : IEntitySystem
         }
 
         direction /= distance;
-        float step = Agent.MoveSpeed * dt;
-        position = step >= distance
-            ? new Vector3(target.X, position.Y, target.Z)
-            : position + direction * step;
-        Transform.Position = position;
+        // Steer toward the waypoint without overshooting it this tick; the physics integrator
+        // moves the transform.
+        float speed = MathF.Min(Agent.MoveSpeed, distance / dt);
+        Intent.DesiredVelocity = direction * speed;
 
         // Face the movement direction (cosmetic). Model forward is −Z (right-handed).
         float yaw = MathF.Atan2(-direction.X, -direction.Z);
