@@ -55,6 +55,7 @@ public sealed class GameSimulation : IDisposable
         _runSchedule();
 
         CharacterMoveIntegrator.Step(World, CollisionWorld, deltaSeconds);
+        DynamicBodyIntegrator.Step(World, CollisionWorld, deltaSeconds);
     }
 
     public void Dispose()

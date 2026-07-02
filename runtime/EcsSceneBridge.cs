@@ -26,6 +26,7 @@ namespace ParadiseGodot.Runtime
     {
         [Export] public string EntityGuidMeta { get; set; } = "paradise_entity_guid";
         [Export] public string PlayerGroup { get; set; } = "paradise_player";
+        [Export] public string BallGroup { get; set; } = "paradise_ball";
         [Export(PropertyHint.File, "*.bin")] public string NavMeshFile { get; set; } = "";
         [Export] public float MoveSpeed { get; set; } = 3.5f;
         [Export] public float AngularSpeed { get; set; } = 720f;
@@ -34,6 +35,10 @@ namespace ParadiseGodot.Runtime
         // Fallback character capsule dims when the player node has no CapsuleShape3D to read.
         [Export] public float CharacterRadius { get; set; } = 0.4f;
         [Export] public float CharacterHeight { get; set; } = 1.8f;
+
+        // Fallback dynamic-ball params when a ball node has no SphereMesh to read.
+        [Export] public float BallRadius { get; set; } = 0.35f;
+        [Export] public float BallMass { get; set; } = 1f;
 
         // For headless / no-input smoke runs: if set, the player is sent here on _Ready.
         [Export] public bool AutoDemo { get; set; }
@@ -80,6 +85,11 @@ namespace ParadiseGodot.Runtime
                     _player = _runner.SpawnAgent(pos, rot, MoveSpeed, AngularSpeed, ArriveRadius, bodyRadius, bodyHalfLength);
                     _hasPlayer = true;
                     _agents.Add((node, _player));
+                }
+                else if (node.IsInGroup(BallGroup))
+                {
+                    Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), BallMass);
+                    _agents.Add((node, ball)); // dynamic: interpolated like the player
                 }
                 else
                 {
@@ -329,6 +339,21 @@ namespace ParadiseGodot.Runtime
             }
 
             return (CharacterRadius, MathF.Max(0f, CharacterHeight * 0.5f - CharacterRadius));
+        }
+
+        private float ReadBallRadius(Node3D ballNode)
+        {
+            foreach (MeshInstance3D meshInstance in Descendants<MeshInstance3D>(ballNode))
+            {
+                if (meshInstance.Mesh is SphereMesh sphere)
+                {
+                    // Fold node scale like every other collider read (max horizontal axis).
+                    SN.Vector3 scale = ToSN(meshInstance.GlobalBasis.Scale);
+                    return ColliderScaleFold.SphereRadius(sphere.Radius, scale);
+                }
+            }
+
+            return BallRadius;
         }
 
         private static IEnumerable<T> Descendants<T>(Node node) where T : Node

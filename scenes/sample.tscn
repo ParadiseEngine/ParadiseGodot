@@ -55,6 +55,22 @@ roughness = 0.7
 albedo_color = Color(0.65, 0.42, 0.22, 1)
 roughness = 0.85
 
+[sub_resource type="SphereMesh" id="mesh_ball"]
+radius = 0.35
+height = 0.7
+
+[sub_resource type="StandardMaterial3D" id="mat_ball1"]
+albedo_color = Color(0.85, 0.25, 0.25, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_ball2"]
+albedo_color = Color(0.25, 0.55, 0.85, 1)
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_ball3"]
+albedo_color = Color(0.95, 0.8, 0.2, 1)
+roughness = 0.4
+
 [sub_resource type="CapsuleShape3D" id="shape_agent"]
 radius = 0.4
 height = 1.8
@@ -148,6 +164,30 @@ shape = SubResource("shape_crate")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Crate2/StaticBody3D" unique_id=1844385674]
 mesh = SubResource("mesh_crate")
 surface_material_override/0 = SubResource("mat_crate")
+
+[node name="Ball1" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0.85, 2)
+metadata/paradise_entity_guid = "5a1c9f02b7d34e6f8a20c3d4e5f60711"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ball1"]
+mesh = SubResource("mesh_ball")
+surface_material_override/0 = SubResource("mat_ball1")
+
+[node name="Ball2" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0.85, 1)
+metadata/paradise_entity_guid = "6b2da013c8e45f709b31d4e5f6071822"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ball2"]
+mesh = SubResource("mesh_ball")
+surface_material_override/0 = SubResource("mat_ball2")
+
+[node name="Ball3" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.85, -1.5)
+metadata/paradise_entity_guid = "7c3eb124d9f56081ac42e5f60718293"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ball3"]
+mesh = SubResource("mesh_ball")
+surface_material_override/0 = SubResource("mat_ball3")
 
 [node name="Guard" type="Node3D" parent="." unique_id=605771265 groups=["paradise_player"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 4)

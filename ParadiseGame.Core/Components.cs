@@ -97,3 +97,24 @@ public partial struct CharacterBody
         HalfLength = halfLength;
     }
 }
+
+/// <summary>
+/// A dynamic physics body (sphere-only in this phase). ALL of its physics state lives here —
+/// the stateless resolver (<c>Paradise.Physics.PlanarSphereDynamics</c>) reads and writes
+/// components each tick, so snapshots stay complete. Position is the sphere center
+/// (<see cref="LocalTransform"/>); Y is never modified (planar contract).
+/// </summary>
+[Component]
+public partial struct DynamicBody
+{
+    public Vector3 Velocity;
+    public float Radius;
+    public float Mass;
+
+    public DynamicBody(float radius, float mass)
+    {
+        Velocity = Vector3.Zero;
+        Radius = radius;
+        Mass = mass;
+    }
+}
