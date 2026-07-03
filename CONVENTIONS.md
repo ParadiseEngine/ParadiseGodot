@@ -1,7 +1,7 @@
 # Export Contract Conventions (pinned)
 
 These are the conventions the Godot export tools **must** reproduce, enforced by
-`ParadiseExport.Core.Tests`.
+`ParadiseExport.Tests`.
 
 ## Handedness — the contract is right-handed (Godot / glTF standard)
 
@@ -114,7 +114,7 @@ complete (bank-heist's "physics state is ECS state" principle).
   `navigation_source` group the navmesh bakes from (Box/Sphere/Capsule, scale folded per
   `ColliderScaleFold`), so physics and pathfinding agree on the world.
 - **Layers** — Godot `collision_layer` maps to `CollisionFilter.BelongsTo`: bit 1 = Floor,
-  bit 2 = Obstacle (`ParadiseGame.Core/Physics/PhysicsLayers`). Character movement casts collide
+  bit 2 = Obstacle (`ParadiseGame/Physics/PhysicsLayers`). Character movement casts collide
   with **Obstacle only** — the capsule rests exactly on the floor, which must never block
   horizontal motion. Click rays hit Floor | Obstacle.
 - **Planar contract** — physics NEVER modifies Y. `CharacterMoveIntegrator` casts the character
@@ -161,6 +161,34 @@ complete (bank-heist's "physics state is ECS state" principle).
   integrates ω = (Up × v)/r into `LocalTransform.Rotation` on write-back; the renderer's
   existing Slerp interpolation picks it up. Cosmetic only — sphere collision ignores rotation.
 
+## Snapshot-read execution (systems run fully parallel)
+
+`ParadiseGame` opts into two assembly attributes that together define the system memory
+model (`AssemblyInfo.cs`):
+
+- **`[assembly: SingleWriter]`** — every component has at most ONE writer system (PECS3008
+  analyzer error otherwise) ⇒ system writes are disjoint.
+- **`[assembly: SnapshotReadSystems]`** — codegen binds systems' **read-only fields**
+  (`ref readonly T`, `ReadOnlySpan<T>`, all-readonly queryable data) to the **immutable CURRENT
+  world** passed to `SystemSchedule.Run(readWorld)` (the previous tick), while **writable
+  fields** bind to the WRITE world (`CopyFrom`-seeded, so a sole writer reads its own current
+  values) ⇒ reads never alias in-flight writes.
+
+Consequences and rules:
+- The runner builds schedules with `SnapshotDagScheduler` (waves split only on write∩write and
+  explicit `[After]`) + `ParallelWaveScheduler` — with the two attributes, all systems collapse
+  into ONE fully parallel wave, deterministically (outcome independent of interleaving).
+- **Read-only views are one tick stale by design.** Intra-tick chains must flow through writable
+  fields of the same component or through managed steps (integrators/planners, which operate on
+  the write world directly and are unaffected).
+- **Managed pre-pass writes to the write world are invisible to read-only system fields** (they
+  bind to the current world). This is why `SpawnAgent` seeds
+  `SimulationContext.DeltaSeconds` — without it the first tick would read dt = 0.
+- No structural changes between `CopyFrom` and the schedule run (spawn/despawn go through the
+  ECB or before the copy); entities born mid-tick fall back to same-world reads for that tick.
+- `GameSimulation` (single-world, headless tests) uses classic `Run()` — with snapshot codegen
+  that binds reads to the same world, keeping identical semantics for the pure-steering suite.
+
 ## Prefabs (Phase 5)
 
 Godot's prefab model is **PackedScene instancing**. A node instanced from a scene carries
@@ -194,7 +222,7 @@ proves it needs the flags, in which case a `.tscn` parser would be required.
 ## Asset pipeline (Phase 6)
 
 Both external CLIs are kept (per the migration decision); their orchestration ports near-verbatim
-to engine-neutral Core (`ParadiseExport.Core.Pipeline`), with only the trigger changing from Unity's
+to engine-neutral Core (`ParadiseExport.Pipeline`), with only the trigger changing from Unity's
 `AssetPostprocessor` to a Godot menu (`Paradise/Convert Models (FBX→GLB→KTX2)`).
 
 - **`BlenderFbxGlb`** — headless Blender (`--background --factory-startup`, embedded Python,

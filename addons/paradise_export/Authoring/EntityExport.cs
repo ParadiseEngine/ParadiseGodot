@@ -1,7 +1,7 @@
 #if TOOLS
 using System;
 using Godot;
-using ParadiseExport.Core.Authoring;
+using ParadiseExport.Authoring;
 
 namespace ParadiseGodot.Authoring
 {

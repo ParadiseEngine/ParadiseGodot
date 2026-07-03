@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using ParadiseExport.Core.Pipeline;
+using ParadiseExport.Pipeline;
 
 namespace ParadiseGodot.Pipeline
 {

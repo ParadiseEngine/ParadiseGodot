@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using Godot;
 using Paradise.ECS;
 using Paradise.Physics;
-using ParadiseExport.Core.Geometry;
-using ParadiseGame.Core;
-using ParadiseGame.Core.Physics;
+using ParadiseExport.Geometry;
+using ParadiseGame;
+using ParadiseGame.Physics;
 using ParadiseGame.Navigation.Detour;
 using SN = System.Numerics;
 

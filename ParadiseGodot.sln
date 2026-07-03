@@ -5,9 +5,9 @@ VisualStudioVersion = 17.0.0.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGodot", "ParadiseGodot.csproj", "{B8A3F1C0-0001-4000-8000-000000000001}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core", "ParadiseExport.Core\ParadiseExport.Core.csproj", "{B8A3F1C0-0001-4000-8000-000000000002}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport", "ParadiseExport\ParadiseExport.csproj", "{B8A3F1C0-0001-4000-8000-000000000002}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Core.Tests", "ParadiseExport.Core.Tests\ParadiseExport.Core.Tests.csproj", "{B8A3F1C0-0001-4000-8000-000000000003}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseExport.Tests", "ParadiseExport.Tests\ParadiseExport.Tests.csproj", "{B8A3F1C0-0001-4000-8000-000000000003}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paradise.BLOB.Test", "..\ParadiseEngine\src\Paradise.BLOB.Test\Paradise.BLOB.Test.csproj", "{C887F384-E263-42FD-AAA7-F52D68AFD5E9}"
 EndProject
@@ -61,11 +61,11 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paradise.Rendering.Test", "
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Paradise.Rendering.WebGPU.Test", "..\ParadiseEngine\src\Paradise.Rendering.WebGPU.Test\Paradise.Rendering.WebGPU.Test.csproj", "{E8D9E830-429C-4BBE-934D-D69EF582D9F3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGame.Core", "ParadiseGame.Core\ParadiseGame.Core.csproj", "{7C4FB2E1-8E35-47EB-91EE-A36E2DE9BFC5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGame", "ParadiseGame\ParadiseGame.csproj", "{7C4FB2E1-8E35-47EB-91EE-A36E2DE9BFC5}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGame.Navigation.Detour", "ParadiseGame.Navigation.Detour\ParadiseGame.Navigation.Detour.csproj", "{F2302A13-B00C-4A35-B577-5FE11D936B07}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGame.Core.Tests", "ParadiseGame.Core.Tests\ParadiseGame.Core.Tests.csproj", "{F9DC8B34-FB9B-4E01-8991-7D3AA5707352}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ParadiseGame.Tests", "ParadiseGame.Tests\ParadiseGame.Tests.csproj", "{F9DC8B34-FB9B-4E01-8991-7D3AA5707352}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

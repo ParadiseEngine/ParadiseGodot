@@ -2,9 +2,9 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using ParadiseExport.Core.Data;
-using ParadiseExport.Core.Paths;
-using ParadiseExport.Core.Serialization;
+using ParadiseExport.Data;
+using ParadiseExport.Paths;
+using ParadiseExport.Serialization;
 
 namespace ParadiseGodot.Export
 {

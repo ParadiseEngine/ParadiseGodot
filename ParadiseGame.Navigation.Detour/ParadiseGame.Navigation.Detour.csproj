@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    DotRecast implementation of ParadiseGame.Core's INavigationMesh — the single shared nav backend
+    DotRecast implementation of ParadiseGame's INavigationMesh — the single shared nav backend
     used by BOTH the Godot presentation and the Paradise Engine runtime (the BankHeist.Navigation.Detour
-    analog). Engine-agnostic; right-handed. Reuses ParadiseExport.Core's NavMeshBinaryWriter.BuildNavMesh
+    analog). Engine-agnostic; right-handed. Reuses ParadiseExport's NavMeshBinaryWriter.BuildNavMesh
     to turn RH triangles into a queryable DtNavMesh.
   -->
   <PropertyGroup>
@@ -15,12 +15,12 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ParadiseGame.Core\ParadiseGame.Core.csproj" />
-    <ProjectReference Include="..\ParadiseExport.Core\ParadiseExport.Core.csproj" />
+    <ProjectReference Include="..\ParadiseGame\ParadiseGame.csproj" />
+    <ProjectReference Include="..\ParadiseExport\ParadiseExport.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Match the DotRecast version ParadiseExport.Core vendors so the navmesh format is identical. -->
+    <!-- Match the DotRecast version ParadiseExport vendors so the navmesh format is identical. -->
     <PackageReference Include="DotRecast.Core" Version="2026.1.3" />
     <PackageReference Include="DotRecast.Detour" Version="2026.1.3" />
   </ItemGroup>

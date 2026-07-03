@@ -24,7 +24,7 @@ Engine runtime (`~/proj/ParadiseEngine`). **The export contract is fixed** — o
 Two assemblies, mirroring Unity's engine-neutral / engine-bound split:
 
 ```
-ParadiseExport.Core/            ← class library, NO Godot reference. Unit-testable standalone.
+ParadiseExport/            ← class library, NO Godot reference. Unit-testable standalone.
   Data/LevelDocument.cs         ← VERBATIM from Unity Runtime/Data
   Data/ParadiseComponentAttribute.cs
   Serialization/                ← ExportJsonWriter, ISceneDocumentWriter, JsonSceneDocumentWriter (verbatim)
@@ -85,7 +85,7 @@ addons/paradise_export/         ← Godot EditorPlugin (references Core + Godot)
 Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract before bulk porting.
 
 ### Phase 0 — Enable .NET + scaffold
-- Enable the Mono/.NET build; create C# solution; add `ParadiseExport.Core` class library + `addons/paradise_export` plugin (`plugin.cfg`, `[Tool] EditorPlugin`).
+- Enable the Mono/.NET build; create C# solution; add `ParadiseExport` class library + `addons/paradise_export` plugin (`plugin.cfg`, `[Tool] EditorPlugin`).
 - Add NuGet: `Newtonsoft.Json`, `DotRecast.*` (Core/Detour/Detour.Io).
 - **Exit:** plugin loads; a `Paradise/Export` tool-menu item logs; `dotnet build` of Core is green.
 
@@ -128,7 +128,7 @@ Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract befo
 ## Validation strategy
 
 - **Golden baselines:** commit Unity-exported `data/` for a small fixture scene; CI diffs Godot output against it (float tolerance ~1e-4; matrices/quaternions normalized before compare).
-- **Core unit tests:** `dotnet test` on `ParadiseExport.Core` — JSON round-trip, color packing, matrix column-major order, DotRecast writer — no Godot needed.
+- **Core unit tests:** `dotnet test` on `ParadiseExport` — JSON round-trip, color packing, matrix column-major order, DotRecast writer — no Godot needed.
 - **Handedness first:** Phase 1 exists specifically to catch coordinate/handedness mismatches before any bulk port.
 
 ## Risks & gotchas

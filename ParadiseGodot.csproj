@@ -8,15 +8,15 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
-  <!-- ParadiseExport.Core is its own project; keep its sources out of the Godot assembly's
+  <!-- ParadiseExport is its own project; keep its sources out of the Godot assembly's
        recursive **/*.cs glob so they aren't compiled twice. -->
   <ItemGroup>
-    <Compile Remove="ParadiseExport.Core/**/*.cs" />
-    <Compile Remove="ParadiseExport.Core.Tests/**/*.cs" />
+    <Compile Remove="ParadiseExport/**/*.cs" />
+    <Compile Remove="ParadiseExport.Tests/**/*.cs" />
     <!-- The shared ParadiseGame.* libs are their own projects; keep their sources out of this
          assembly's recursive **/*.cs glob. -->
-    <Compile Remove="ParadiseGame.Core/**/*.cs" />
-    <Compile Remove="ParadiseGame.Core.Tests/**/*.cs" />
+    <Compile Remove="ParadiseGame/**/*.cs" />
+    <Compile Remove="ParadiseGame.Tests/**/*.cs" />
     <Compile Remove="ParadiseGame.Navigation.Detour/**/*.cs" />
     <!-- ParadiseEngine is a local-only symlink for reference (see .gitignore);
          keep its sources out of this assembly's recursive **/*.cs glob. -->
@@ -24,8 +24,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="ParadiseExport.Core/ParadiseExport.Core.csproj" />
-    <ProjectReference Include="ParadiseGame.Core/ParadiseGame.Core.csproj" />
+    <ProjectReference Include="ParadiseExport/ParadiseExport.csproj" />
+    <ProjectReference Include="ParadiseGame/ParadiseGame.csproj" />
     <ProjectReference Include="ParadiseGame.Navigation.Detour/ParadiseGame.Navigation.Detour.csproj" />
   </ItemGroup>
 
