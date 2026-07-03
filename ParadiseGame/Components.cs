@@ -48,7 +48,7 @@ public partial struct NavAgent
 /// <summary>
 /// A navmesh path the agent is following: an inline waypoint buffer (unmanaged, so it lives inline in
 /// the component chunk) plus a cursor. Filled by <see cref="Navigation.NavigationPlanner"/> and
-/// consumed by <c>NavMeshFollowSystem</c>.
+/// consumed by <see cref="MovementSystem"/>.
 /// </summary>
 [Component]
 public partial struct NavPath
@@ -70,7 +70,7 @@ public struct WaypointBuffer
 
 /// <summary>
 /// This tick's desired velocity (m/s, horizontal), produced by steering (path following or direct
-/// input) and consumed by <see cref="Physics.CharacterMoveIntegrator"/>. Zeroed at the start of
+/// input) and consumed by <see cref="MovementSystem"/>. Zeroed at the start of
 /// every tick so stale intent never leaks across frames.
 /// </summary>
 [Component]
@@ -96,6 +96,19 @@ public partial struct CharacterBody
         Radius = radius;
         HalfLength = halfLength;
     }
+}
+
+/// <summary>
+/// Unmanaged handle to the session's static <c>Paradise.Physics.CollisionWorld</c>, carried as
+/// a component (the <see cref="SimulationContext"/> pattern — Paradise.ECS has no singleton
+/// store) so the generated <see cref="MovementSystem"/> can run collision queries without a
+/// managed service. Borrowed: valid while the runner-owned CollisionWorld lives (the whole
+/// session); <c>default</c> = no collision world (unobstructed movement).
+/// </summary>
+[Component]
+public partial struct PhysicsWorldRef
+{
+    public Paradise.Physics.CollisionWorldHandle Handle;
 }
 
 /// <summary>

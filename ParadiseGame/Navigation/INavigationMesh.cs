@@ -8,7 +8,7 @@ namespace ParadiseGame.Navigation;
 /// systems depend on this interface, not on any concrete pathfinding library, so the same simulation
 /// runs against a DotRecast backend (ParadiseGame.Navigation.Detour) regardless of host engine.
 /// Movement collision is owned by <c>Paradise.Physics</c> (see
-/// <c>Physics.CharacterMoveIntegrator</c>), not by the navmesh.
+/// <c>MovementSystem</c>), not by the navmesh.
 /// All coordinates are right-handed world space (metres).
 /// </summary>
 public interface INavigationMesh

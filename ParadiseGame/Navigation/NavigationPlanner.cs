@@ -6,7 +6,7 @@ namespace ParadiseGame.Navigation;
 /// <summary>
 /// Plans a move for an entity by querying an <see cref="INavigationMesh"/> and writing the resulting
 /// waypoints into the entity's <see cref="NavPath"/> (the BankHeist <c>NavigationPlanner.PlanMoveTo</c>
-/// analog). Pure logic — no engine types. <c>NavMeshFollowSystem</c> then advances along the path.
+/// analog). Pure logic — no engine types. <c>MovementSystem</c> then advances along the path.
 /// </summary>
 public static class NavigationPlanner
 {

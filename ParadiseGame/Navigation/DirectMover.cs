@@ -7,7 +7,7 @@ namespace ParadiseGame.Navigation;
 /// Applies a direct (WASD) move to an agent: writes this tick's <see cref="MoveIntent"/> in the
 /// input direction at the agent's speed, faces that direction, and clears any active path (direct
 /// input overrides path-following). Collision is resolved afterwards by
-/// <see cref="Physics.CharacterMoveIntegrator"/> — there is no navmesh clamp; physics owns
+/// <see cref="MovementSystem"/> — there is no navmesh clamp; physics owns
 /// movement collision. The BankHeist <c>InputMove</c> command analog.
 /// </summary>
 public static class DirectMover

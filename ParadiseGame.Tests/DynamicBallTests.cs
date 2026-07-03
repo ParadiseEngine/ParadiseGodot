@@ -156,13 +156,18 @@ public class DynamicBallTests
                 .Add(new NavPath())
                 .Add(new MoveIntent())
                 .Add(new CharacterBody(0.4f, 0.5f))
-                .Add(new SimulationContext()));
+                .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
+                .Add(new PhysicsWorldRef { Handle = collision.Handle }));
             Entity ballA = sim.World.CreateEntity(EntityBuilder.Create()
                 .Add(new LocalTransform(new Vector3(4f, 0.85f, 5f), Quaternion.Identity))
-                .Add(new DynamicBody(0.35f, 1f)));
+                .Add(new DynamicBody(0.35f, 1f))
+                .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
+                .Add(new PhysicsWorldRef { Handle = collision.Handle }));
             Entity ballB = sim.World.CreateEntity(EntityBuilder.Create()
                 .Add(new LocalTransform(new Vector3(5.2f, 0.85f, 5.3f), Quaternion.Identity))
-                .Add(new DynamicBody(0.35f, 1f)));
+                .Add(new DynamicBody(0.35f, 1f))
+                .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
+                .Add(new PhysicsWorldRef { Handle = collision.Handle }));
 
             sim.World.GetComponent<DynamicBody>(ballA).Velocity = new Vector3(5f, 0f, 1f);
             for (int i = 0; i < 300; i++)

@@ -99,7 +99,7 @@ public class SimulationRunnerTests
     [Test]
     public async Task agent_moves_on_the_very_first_tick()
     {
-        // E2E pin of snapshot-read execution + dt seeding: NavMeshFollowSystem reads
+        // E2E pin of snapshot-read execution + dt seeding: MovementSystem reads
         // SimulationContext from the CURRENT (previous-tick) world. On tick 1 that is the
         // initial snapshot — if SpawnAgent didn't seed DeltaSeconds, the system would see
         // dt == 0 and skip the tick.
@@ -129,6 +129,26 @@ public class SimulationRunnerTests
         await Assert.That(p1.X).IsGreaterThan(2f);   // moved +X at MoveSpeed
         await Assert.That(p1.Y).IsEqualTo(0.9f);     // planar contract: Y untouched
         await Assert.That(p1.Z).IsEqualTo(2f);
+    }
+
+    [Test]
+    public async Task direct_move_overrides_an_active_path_the_same_tick()
+    {
+        // WASD is applied BEFORE the schedule: DirectMover clears HasPath (steering skips, so the
+        // path intent is never written) and its own intent is what MovementSystem integrates —
+        // the very tick both inputs are present, WASD wins.
+        using var runner = new SimulationRunner(FlatGround());
+        Entity agent = runner.SpawnAgent(new Vector3(10, 0, 10), Quaternion.Identity, moveSpeed: 6f, angularSpeed: 720f, arriveRadius: 0.25f);
+        runner.EnqueueMoveTo(agent, new Vector3(10, 0, 18)); // path wants +Z
+        runner.SetMoveInput(agent, new Vector3(1, 0, 0));    // WASD wants +X
+
+        runner.TickOnce();
+
+        runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
+        Vector3 p = latest.GetComponent<LocalTransform>(agent).Position;
+        await Assert.That(p.X).IsGreaterThan(10f);                        // moved +X (WASD)
+        await Assert.That(p.Z).IsEqualTo(10f);                            // not +Z (path suppressed)
+        await Assert.That(latest.GetComponent<NavPath>(agent).HasPath).IsEqualTo((byte)0); // path cleared
     }
 
     [Test]

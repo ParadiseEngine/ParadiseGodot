@@ -63,7 +63,10 @@ public class NavMeshFollowTests
             .Add(new NavPath())
             .Add(new MoveIntent())
             .Add(new CharacterBody(radius: 0.4f, halfLength: 0.5f))
-            .Add(new SimulationContext()));
+            // Seeded: read-only system fields see LAST tick's SimulationContext under snapshot
+            // reads — seeding avoids a dt=0 first-tick warmup.
+            .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
+            .Add(new PhysicsWorldRef())); // no collision world → unobstructed movement
     }
 
     private static Vector3 PositionOf(GameSimulation sim, Entity e) => sim.World.GetComponent<LocalTransform>(e).Position;

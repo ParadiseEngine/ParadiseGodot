@@ -2,8 +2,8 @@ namespace ParadiseGame;
 
 /// <summary>
 /// All entities carrying the shared <see cref="SimulationContext"/>. Used by
-/// <see cref="GameSimulation.Tick"/> to refresh per-frame data (delta time) on every simulated agent
-/// before the systems run.
+/// <see cref="SimulationTick.PrepareFrame"/> to refresh per-frame data (delta time) on every
+/// simulated entity before the systems run.
 /// </summary>
 [Queryable]
 [With<SimulationContext>]
@@ -14,15 +14,25 @@ public readonly ref partial struct SimulationContexts;
 [With<MoveIntent>]
 public readonly ref partial struct MoveIntents;
 
-/// <summary>Movable characters: steering intent integrated against the collision world.</summary>
+/// <summary>
+/// Player/NPC agents for the unified <see cref="MovementSystem"/>: steering + transform state
+/// (writable) and movement config (read-only, snapshot-bound under snapshot-read execution).
+/// Agents also act as the kinematic pushers for ball dynamics.
+/// </summary>
 [Queryable]
 [With<LocalTransform>]
+[With<NavPath>]
 [With<MoveIntent>]
-[With<CharacterBody>]
-public readonly ref partial struct CharacterMovers;
+[With<NavAgent>(IsReadOnly = true)]
+[With<CharacterBody>(IsReadOnly = true)]
+[With<SimulationContext>(IsReadOnly = true)]
+[With<PhysicsWorldRef>(IsReadOnly = true)]
+public readonly ref partial struct Agents;
 
-/// <summary>Dynamic physics bodies (spheres) resolved by the planar dynamics step each tick.</summary>
+/// <summary>Dynamic physics balls for the unified <see cref="MovementSystem"/>.</summary>
 [Queryable]
 [With<LocalTransform>]
 [With<DynamicBody>]
-public readonly ref partial struct DynamicBodies;
+[With<SimulationContext>(IsReadOnly = true)]
+[With<PhysicsWorldRef>(IsReadOnly = true)]
+public readonly ref partial struct Balls;

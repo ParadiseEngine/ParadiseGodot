@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Threading;
 using ParadiseGame.Navigation;
-using ParadiseGame.Physics;
 
 namespace ParadiseGame;
 
@@ -107,13 +106,16 @@ public sealed class SimulationRunner : IDisposable
             .Add(new CharacterBody(bodyRadius, bodyHalfLength))
             // Seeded: under snapshot reads, systems see the CURRENT world's SimulationContext
             // (written last tick); seeding removes the one-tick dt warmup on the very first tick.
-            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds }));
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
+            .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
 
     /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.</summary>
     public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f) =>
         Current.CreateEntity(EntityBuilder.Create()
             .Add(new LocalTransform(position, rotation))
-            .Add(new DynamicBody(radius, mass)));
+            .Add(new DynamicBody(radius, mass))
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
+            .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
 
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
 
@@ -195,12 +197,8 @@ public sealed class SimulationRunner : IDisposable
             }
         }
 
-        // Steering: path following writes MoveIntent (no position writes). Systems' read-only
-        // fields bind to `current` (the immutable previous-tick snapshot) — snapshot-read mode.
-        _runByWorld[write](current);
-
-        // Direct (WASD) input — applied after the schedule so it overrides the path intent this
-        // tick and clears the path for subsequent ones.
+        // Direct (WASD) input — applied before the schedule; it overrides path following because
+        // Apply clears HasPath (steering skips) and writes the intent MovementSystem integrates.
         foreach (var kv in _moveInput)
         {
             if (write.IsAlive(kv.Key))
@@ -209,10 +207,10 @@ public sealed class SimulationRunner : IDisposable
             }
         }
 
-        // Integration: resolve intents against the static collision world (planar, Y untouched),
-        // then run the dynamics step (character pushes, ball↔static, ball↔ball).
-        CharacterMoveIntegrator.Step(write, _collisionWorld, (float)FixedDeltaSeconds);
-        DynamicBodyIntegrator.Step(write, _collisionWorld, (float)FixedDeltaSeconds);
+        // MovementSystem (steering + character slide + ball dynamics — the sole transform
+        // writer) runs inside the schedule. Systems' read-only fields bind to `current` (the
+        // immutable previous-tick snapshot) — snapshot-read mode.
+        _runByWorld[write](current);
 
         lock (_lock)
         {
@@ -252,7 +250,7 @@ public sealed class SimulationRunner : IDisposable
     {
         World world = _shared.CreateWorld();
         var schedule = SystemSchedule.Create(world)
-            .Add<NavMeshFollowSystem>()
+            .AddWorld<MovementSystem>()
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
         _schedules.Add(schedule);
         _runByWorld[world] = schedule.Run;
