@@ -143,8 +143,9 @@ complete (bank-heist's "physics state is ECS state" principle).
   component; position = sphere center in `LocalTransform`). The resolver is the engine's
   stateless `Paradise.Physics.PlanarSphereDynamics` (bank-heist pipeline: kinematic character
   push → damp/integrate with cast-and-bounce vs statics → pairwise sphere impulses → static
-  depenetration pass); the game's `MovementSystem.StepBalls` only marshals components ↔ pooled
-  spans and runs right after the per-agent steer/slide passes. Characters are infinite-mass pushers
+  depenetration pass); the game's `MovementSystem.StepBalls` only marshals components ↔
+  unmanaged scratch spans (stackalloc ≤64 bodies, else `NativeMemory` — the tick never touches
+  the GC heap) and runs right after the per-agent steer/slide passes. Characters are infinite-mass pushers
   (`PushStrength` carry-along, never displaced by balls). Planar contract holds: Y untouched,
   floor excluded from dynamic casts. Balls (scene group `paradise_ball`) are **not** in
   `navigation_source` — they affect neither the navmesh bake nor the static CollisionWorld, so

@@ -1,6 +1,6 @@
 using System;
-using System.Buffers;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using Paradise.Physics;
 using ParadiseGame.Physics;
 
@@ -27,6 +27,10 @@ public ref partial struct MovementSystem : IWorldSystem
     public const float Skin = 0.02f;
 
     private const float MinMoveSq = 1e-10f;
+
+    /// <summary>Body counts up to this use stackalloc scratch; above it, NativeMemory — the
+    /// tick never touches the GC heap either way (same idiom as the generated segment tables).</summary>
+    private const int MaxStackBodies = 64;
 
     private static readonly PlanarDynamicsSettings BallSettings = PlanarDynamicsSettings.Default with
     {
@@ -135,10 +139,10 @@ public ref partial struct MovementSystem : IWorldSystem
         transform.Position = new Vector3(position.X, start.Y, position.Z);
     }
 
-    /// <summary>Gather balls + character pushers into pooled spans, run one stateless
+    /// <summary>Gather balls + character pushers into unmanaged scratch spans, run one stateless
     /// <see cref="PlanarSphereDynamics"/> step, scatter back with rolling rotation. Global by
     /// nature (pairwise collisions) — the reason this is a world system.</summary>
-    private void StepBalls()
+    private unsafe void StepBalls()
     {
         int sphereCount = Balls.Length;
         if (sphereCount == 0)
@@ -153,10 +157,21 @@ public ref partial struct MovementSystem : IWorldSystem
         }
 
         int pusherCount = Agents.Length;
-        DynamicSphere[] spheres = ArrayPool<DynamicSphere>.Shared.Rent(sphereCount);
-        KinematicCapsule[] pushers = ArrayPool<KinematicCapsule>.Shared.Rent(Math.Max(1, pusherCount));
+        DynamicSphere* sphereAlloc = null;
+        KinematicCapsule* pusherAlloc = null;
         try
         {
+            Span<DynamicSphere> spheres = (sphereCount <= MaxStackBodies
+                ? stackalloc DynamicSphere[MaxStackBodies]
+                : new Span<DynamicSphere>(
+                    sphereAlloc = (DynamicSphere*)NativeMemory.Alloc((nuint)sphereCount, (nuint)sizeof(DynamicSphere)),
+                    sphereCount))[..sphereCount];
+            Span<KinematicCapsule> pushers = (pusherCount <= MaxStackBodies
+                ? stackalloc KinematicCapsule[MaxStackBodies]
+                : new Span<KinematicCapsule>(
+                    pusherAlloc = (KinematicCapsule*)NativeMemory.Alloc((nuint)pusherCount, (nuint)sizeof(KinematicCapsule)),
+                    pusherCount))[..pusherCount];
+
             for (int i = 0; i < sphereCount; i++)
             {
                 spheres[i] = new DynamicSphere
@@ -181,8 +196,7 @@ public ref partial struct MovementSystem : IWorldSystem
             }
 
             CollisionWorldHandle statics = Balls.PhysicsWorldRef[0].Handle;
-            PlanarSphereDynamics.Step(spheres.AsSpan(0, sphereCount), pushers.AsSpan(0, pusherCount),
-                statics, BallSettings, dt);
+            PlanarSphereDynamics.Step(spheres, pushers, statics, BallSettings, dt);
 
             for (int i = 0; i < sphereCount; i++)
             {
@@ -207,8 +221,8 @@ public ref partial struct MovementSystem : IWorldSystem
         }
         finally
         {
-            ArrayPool<DynamicSphere>.Shared.Return(spheres);
-            ArrayPool<KinematicCapsule>.Shared.Return(pushers);
+            if (sphereAlloc != null) NativeMemory.Free(sphereAlloc);
+            if (pusherAlloc != null) NativeMemory.Free(pusherAlloc);
         }
     }
 
