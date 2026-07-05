@@ -130,9 +130,15 @@ complete (bank-heist's "physics state is ECS state" principle).
   capsule cast-and-slide + ground containment, and the global ball dynamics step in fixed order.
   Collision reaches the generated system through the read-only `PhysicsWorldRef` component: an
   unmanaged `CollisionWorldHandle` borrowed from the runner-owned `CollisionWorld`
-  (default/invalid handle = unobstructed movement). NOTE: `PlanarGroundSupport.Clamp` with an
-  invalid handle would freeze the mover (no support found anywhere), so the slide step guards on
-  `Handle.IsValid`; `PlanarSphereDynamics` guards internally.
+  (default/invalid handle = unobstructed movement — casts miss and `PlanarGroundSupport.Clamp`
+  accepts the full move; the slide step's `Handle.IsValid` guard just skips pointless casts).
+- **Spawn contract** — the `Agents`/`Balls` queryables REQUIRE `PhysicsWorldRef` and
+  `SimulationContext` (and `Agents` requires `NavPath`/`MoveIntent`/`NavAgent`/`CharacterBody`).
+  An entity missing any required component silently doesn't match the query: `MovementSystem`
+  never sees it and it simply never moves, with no error anywhere. ALWAYS spawn through
+  `SimulationRunner.SpawnAgent`/`SpawnBall` (or copy their builder chains verbatim, seeding
+  `DeltaSeconds` and the collision handle) — a dt of 0 likewise makes the system skip the
+  entity.
 - **Navmesh is pathfinding-only** — `INavigationMesh.MoveAlongSurface` was removed; the bake's
   agent-radius erosion still matters so planned paths keep corners clear of walls
   (`BakedNavMeshClearanceTests`).

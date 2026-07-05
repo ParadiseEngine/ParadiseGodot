@@ -150,6 +150,9 @@ public ref partial struct MovementSystem : IWorldSystem
             return;
         }
 
+        // dt and the collision handle are read from ball 0 and applied batch-wide: every entity
+        // is seeded from the same runner-owned CollisionWorld and the same fixed timestep. A
+        // future per-entity world/timestep would need per-ball plumbing here.
         float dt = Balls.SimulationContext[0].DeltaSeconds;
         if (dt <= 0f)
         {
