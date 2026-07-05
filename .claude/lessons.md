@@ -52,6 +52,16 @@
 
 - [hits: 1] **`Paradise.BLOB.Test` carried dead Unity remnants** that broke compilation: unguarded references to deleted port types `UnityStringBuilder` / `UnityBlobString` (in `TestBlobBuilder.cs` + a `TestUnityBlobString` class in `TestBlobDataTypes.cs`), plus `#if UNITY_BLOB`-guarded parity examples against `Unity.Entities` in `Examples.cs`. All removed (2026-07-01); every test kept its engine-side (`ValueBuilder`/`ArrayBuilder`/`StringBuilder<>`/`Ptr*Builder`) assertion. 625 tests pass; full `ParadiseGodot.sln` builds 0/0. Note: this lost the side-by-side Unity-vs-port parity scaffolding — re-add behind `UNITY_BLOB` only if byte-parity verification against Unity is ever needed again.
 
+- [hits: 1] **The local-only `ParadiseEngine` symlink at the repo root is INSIDE `res://`, so the
+  Godot editor scans the whole engine tree on startup** — once the engine's sample projects have
+  build output, the scan spews `Unrecognized binary resource file: res://ParadiseEngine/src/
+  Paradise.*.Sample/bin/...` errors and wastes time walking thousands of bin/obj files. Fix: an
+  empty `.gdignore` at `~/proj/ParadiseEngine/.gdignore` (Godot skips any directory containing
+  one). The symlink is gitignored in the game repo and the `.gdignore` lives in the engine repo
+  — if it goes missing (fresh engine clone), the error spam comes back. Also: a rename/deletion
+  of a C# project leaves stale `<old-name>/obj` NuGet leftovers that survive `git rm` — delete
+  the directory itself, not just tracked files.
+
 ## Engine: Slang shader bootstrap (macOS)
 
 - [hits: 1] **macOS Slang release tarballs cannot be extracted by .NET's managed `System.Formats.Tar`.** They are packed by Apple `bsdtar` and carry PAX extended-header records for extended attributes (e.g. `LIBARCHIVE.xattr.com.apple.cs.CodeSignature`) whose values are raw binary. `TarReader` throws `InvalidDataException: The extended header contains invalid records` and the process aborts (SIGABRT / exit 134) — which looks like a "download failure" but the download is byte-perfect (SHA256 matches). Fix in `ParadiseEngine/tools/slang/SlangBootstrap.cs`: extract `.tar.gz` by shelling out to the platform `tar` (libarchive/GNU tar) instead of `TarFile.ExtractToDirectoryAsync`. `tar.gz` is never the Windows archive format here (Windows uses `.zip`).
