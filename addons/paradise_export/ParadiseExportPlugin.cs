@@ -1,12 +1,12 @@
 #if TOOLS
 using Godot;
-using ParadiseExport.Core;
+using ParadiseExport;
 
 namespace ParadiseGodot
 {
     /// <summary>
     /// Phase 0 editor plugin scaffold. Registers a Project &gt; Tools menu item and confirms the
-    /// engine-neutral <c>ParadiseExport.Core</c> library is wired in. Export logic arrives in
+    /// engine-neutral <c>ParadiseExport</c> library is wired in. Export logic arrives in
     /// later phases — see MIGRATION.md.
     /// </summary>
     [Tool]

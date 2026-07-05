@@ -8,13 +8,13 @@ namespace ParadiseGodot.Export
     /// <summary>
     /// Bakes a navmesh from the edited scene's static collision geometry via NavigationServer3D and
     /// returns its triangulation in the export contract's convention, ready for
-    /// <see cref="ParadiseExport.Core.NavMesh.NavMeshBinaryWriter"/>.
+    /// <see cref="ParadiseExport.NavMesh.NavMeshBinaryWriter"/>.
     ///
     /// Agent exclusion: only StaticColliders are parsed, so moving agents (CharacterBody3D /
     /// RigidBody3D) are naturally excluded from the walkable surface — the Godot-idiomatic
     /// equivalent of the Unity tool's EntityAuthoring.IsAgent filter.
     ///
-    /// Bake cell sizes match <see cref="ParadiseExport.Core.NavMesh.NavMeshBinaryWriter"/>'s
+    /// Bake cell sizes match <see cref="ParadiseExport.NavMesh.NavMeshBinaryWriter"/>'s
     /// quantization (0.1) so the exported geometry resolution is consistent.
     /// </summary>
     internal static class NavMeshBake

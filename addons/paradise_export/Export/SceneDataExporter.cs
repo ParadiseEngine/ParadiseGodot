@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using ParadiseExport.Core.Data;
-using ParadiseExport.Core.Geometry;
-using ParadiseExport.Core.NavMesh;
-using ParadiseExport.Core.Paths;
-using ParadiseExport.Core.Serialization;
+using ParadiseExport.Data;
+using ParadiseExport.Geometry;
+using ParadiseExport.NavMesh;
+using ParadiseExport.Paths;
+using ParadiseExport.Serialization;
 using ParadiseGodot.Authoring;
 using SN = System.Numerics;
 

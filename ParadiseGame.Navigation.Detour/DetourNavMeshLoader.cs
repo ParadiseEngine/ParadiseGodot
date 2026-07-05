@@ -1,11 +1,11 @@
 using System.IO;
 using DotRecast.Detour.Io;
-using ParadiseGame.Core.Navigation;
+using ParadiseGame.Navigation;
 
 namespace ParadiseGame.Navigation.Detour;
 
 /// <summary>
-/// Loads a DotRecast <c>MeshSet</c> binary (as written by ParadiseExport.Core's
+/// Loads a DotRecast <c>MeshSet</c> binary (as written by ParadiseExport's
 /// <c>NavMeshBinaryWriter</c> — <c>data/scenes/&lt;Scene&gt;.navmesh.bin</c>) into an
 /// <see cref="INavigationMesh"/>. This is the engine-independent runtime path: Godot and the
 /// ParadiseEngine runtime both load the same file with this loader — neither touches Godot's

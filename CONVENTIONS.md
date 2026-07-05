@@ -1,7 +1,7 @@
 # Export Contract Conventions (pinned)
 
 These are the conventions the Godot export tools **must** reproduce, enforced by
-`ParadiseExport.Core.Tests`.
+`ParadiseExport.Tests`.
 
 ## Handedness — the contract is right-handed (Godot / glTF standard)
 
@@ -114,16 +114,31 @@ complete (bank-heist's "physics state is ECS state" principle).
   `navigation_source` group the navmesh bakes from (Box/Sphere/Capsule, scale folded per
   `ColliderScaleFold`), so physics and pathfinding agree on the world.
 - **Layers** — Godot `collision_layer` maps to `CollisionFilter.BelongsTo`: bit 1 = Floor,
-  bit 2 = Obstacle (`ParadiseGame.Core/Physics/PhysicsLayers`). Character movement casts collide
+  bit 2 = Obstacle (`ParadiseGame/Physics/PhysicsLayers`). Character movement casts collide
   with **Obstacle only** — the capsule rests exactly on the floor, which must never block
   horizontal motion. Click rays hit Floor | Obstacle.
-- **Planar contract** — physics NEVER modifies Y. `CharacterMoveIntegrator` casts the character
+- **Planar contract** — physics NEVER modifies Y. `MovementSystem` casts the character
   capsule (origin = capsule **center**, matching scene authoring) along the horizontal intent and
   slides along flattened wall normals (≤4 iterations, 0.02 m skin). Gravity/steps/slopes are a
   future phase.
-- **Tick order** (bank-heist steering→resolve): zero `MoveIntent` → plan clicked paths → steering
-  systems write intent (`NavMeshFollowSystem`) → WASD `DirectMover` overrides intent → integrator
-  resolves against the collision world → publish snapshot.
+- **Tick order** (bank-heist steering→resolve): zero `MoveIntent` → plan clicked paths → WASD
+  `DirectMover` (clears the path + writes intent, so it overrides path following the same tick)
+  → `MovementSystem` (steer → slide → ball dynamics, writing every final transform) → publish
+  snapshot.
+- **`MovementSystem` is the sole owner of the final `LocalTransform`** — one generated
+  `IWorldSystem` (whole-query segment access, one `Execute` per tick) merging navmesh steering,
+  capsule cast-and-slide + ground containment, and the global ball dynamics step in fixed order.
+  Collision reaches the generated system through the read-only `PhysicsWorldRef` component: an
+  unmanaged `CollisionWorldHandle` borrowed from the runner-owned `CollisionWorld`
+  (default/invalid handle = unobstructed movement — casts miss and `PlanarGroundSupport.Clamp`
+  accepts the full move; the slide step's `Handle.IsValid` guard just skips pointless casts).
+- **Spawn contract** — the `Agents`/`Balls` queryables REQUIRE `PhysicsWorldRef` and
+  `SimulationContext` (and `Agents` requires `NavPath`/`MoveIntent`/`NavAgent`/`CharacterBody`).
+  An entity missing any required component silently doesn't match the query: `MovementSystem`
+  never sees it and it simply never moves, with no error anywhere. ALWAYS spawn through
+  `SimulationRunner.SpawnAgent`/`SpawnBall` (or copy their builder chains verbatim, seeding
+  `DeltaSeconds` and the collision handle) — a dt of 0 likewise makes the system skip the
+  entity.
 - **Navmesh is pathfinding-only** — `INavigationMesh.MoveAlongSurface` was removed; the bake's
   agent-radius erosion still matters so planned paths keep corners clear of walls
   (`BakedNavMeshClearanceTests`).
@@ -134,8 +149,9 @@ complete (bank-heist's "physics state is ECS state" principle).
   component; position = sphere center in `LocalTransform`). The resolver is the engine's
   stateless `Paradise.Physics.PlanarSphereDynamics` (bank-heist pipeline: kinematic character
   push → damp/integrate with cast-and-bounce vs statics → pairwise sphere impulses → static
-  depenetration pass); the game's `DynamicBodyIntegrator` only marshals components ↔ spans and
-  runs right after `CharacterMoveIntegrator` each tick. Characters are infinite-mass pushers
+  depenetration pass); the game's `MovementSystem.StepBalls` only marshals components ↔
+  unmanaged scratch spans (stackalloc ≤64 bodies, else `NativeMemory` — the tick never touches
+  the GC heap) and runs right after the per-agent steer/slide passes. Characters are infinite-mass pushers
   (`PushStrength` carry-along, never displaced by balls). Planar contract holds: Y untouched,
   floor excluded from dynamic casts. Balls (scene group `paradise_ball`) are **not** in
   `navigation_source` — they affect neither the navmesh bake nor the static CollisionWorld, so
@@ -157,9 +173,46 @@ complete (bank-heist's "physics state is ECS state" principle).
   layer only, 10 m depth) from the new position still hits ground; per-axis fallback slides
   movers along open edges (`Paradise.Physics.PlanarGroundSupport`). Balls kill the rejected
   velocity component and rest at the rim.
-- **Rolling visuals** — game-side (engine stays transcendental-free): `DynamicBodyIntegrator`
+- **Rolling visuals** — game-side (engine stays transcendental-free): `MovementSystem`
   integrates ω = (Up × v)/r into `LocalTransform.Rotation` on write-back; the renderer's
   existing Slerp interpolation picks it up. Cosmetic only — sphere collision ignores rotation.
+
+## Snapshot-read execution (systems run fully parallel)
+
+`ParadiseGame` opts into two assembly attributes that together define the system memory
+model (`AssemblyInfo.cs`):
+
+- **`[assembly: SingleWriter]`** — every component has at most ONE writer system (PECS3008
+  analyzer error otherwise) ⇒ system writes are disjoint.
+- **`[assembly: SnapshotReadSystems]`** — codegen binds systems' **read-only fields**
+  (`ref readonly T`, `ReadOnlySpan<T>`, read-only queryable segments, all-readonly queryable
+  data) to the **immutable CURRENT world** passed to `SystemSchedule.Run(readWorld)` (the
+  previous tick), while **writable fields** bind to the WRITE world (`CopyFrom`-seeded, so a
+  sole writer reads its own current values) ⇒ reads never alias in-flight writes.
+
+Consequences and rules:
+- The runner builds schedules with `SnapshotDagScheduler` (waves split only on write∩write and
+  explicit `[After]`) + `ParallelWaveScheduler` — with the two attributes, all systems collapse
+  into ONE fully parallel wave, deterministically (outcome independent of interleaving).
+- **Read-only views are one tick stale by design.** Intra-tick chains must flow through writable
+  fields of the same component — which is exactly why steering, slide, and ball dynamics were
+  merged into one `MovementSystem`: intents are produced and consumed inside a single `Execute`,
+  so the merged design needs no cross-system latency at all.
+- **Managed pre-pass writes to the write world are invisible to read-only system fields** (they
+  bind to the current world). This is why spawn builders seed `SimulationContext.DeltaSeconds`
+  AND `PhysicsWorldRef` — without them the first tick reads dt = 0 / an invalid handle. A dt of
+  0 makes `MovementSystem` skip the entity entirely.
+- **World systems (`IWorldSystem`)** get whole-query flat segment access
+  (`ComponentSegments<T>` per component, index-correlated across components) — use them for
+  global work (pairwise physics, gather/solve/scatter) that per-entity systems can't express.
+  They still schedule by masks like any system; a world system serializes within itself.
+- No structural changes between `CopyFrom` and the schedule run (spawn/despawn go through the
+  ECB or before the copy); entities born mid-tick fall back to same-world reads for that tick.
+- `GameSimulation` runs the SAME model as the runner: it keeps a private previous-world snapshot
+  (`CopyFrom(World)` at each tick start) as the read source and executes systems via
+  `SnapshotDagScheduler` + `ParallelWaveScheduler` — the runner's semantics, minus the thread and
+  snapshot pool. Both drivers therefore need `SimulationContext.DeltaSeconds` and
+  `PhysicsWorldRef` seeded at spawn.
 
 ## Prefabs (Phase 5)
 
@@ -194,7 +247,7 @@ proves it needs the flags, in which case a `.tscn` parser would be required.
 ## Asset pipeline (Phase 6)
 
 Both external CLIs are kept (per the migration decision); their orchestration ports near-verbatim
-to engine-neutral Core (`ParadiseExport.Core.Pipeline`), with only the trigger changing from Unity's
+to engine-neutral Core (`ParadiseExport.Pipeline`), with only the trigger changing from Unity's
 `AssetPostprocessor` to a Godot menu (`Paradise/Convert Models (FBX→GLB→KTX2)`).
 
 - **`BlenderFbxGlb`** — headless Blender (`--background --factory-startup`, embedded Python,

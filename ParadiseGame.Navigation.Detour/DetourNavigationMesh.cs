@@ -3,15 +3,15 @@ using System.Collections.Generic;
 using System.Numerics;
 using DotRecast.Core.Numerics;
 using DotRecast.Detour;
-using ParadiseExport.Core.NavMesh;
-using ParadiseGame.Core.Navigation;
+using ParadiseExport.NavMesh;
+using ParadiseGame.Navigation;
 
 namespace ParadiseGame.Navigation.Detour;
 
 /// <summary>
 /// DotRecast-backed <see cref="INavigationMesh"/> — the single shared nav backend for Godot and the
 /// engine runtime. Builds a queryable <see cref="DtNavMesh"/> from right-handed triangles (via
-/// ParadiseExport.Core's <see cref="NavMeshBinaryWriter.BuildNavMesh"/>) and answers path queries with
+/// ParadiseExport's <see cref="NavMeshBinaryWriter.BuildNavMesh"/>) and answers path queries with
 /// a <see cref="DtNavMeshQuery"/>. Query state and buffers are reused across calls — not thread-safe.
 /// Query/steering shape adapted from bank-heist's DetourNavigationMesh.
 /// </summary>
