@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": 1,
+  "SchemaVersion": 2,
   "Camera": {
     "Position": [
       0,
@@ -100,5 +100,7 @@
   "Interactables": [],
   "Entities": [],
   "NavMeshFile": null,
-  "Materials": []
+  "Materials": [],
+  "EnvironmentMesh": null,
+  "StaticColliders": []
 }

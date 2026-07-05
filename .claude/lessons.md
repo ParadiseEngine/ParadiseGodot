@@ -65,3 +65,17 @@
 ## Engine: Slang shader bootstrap (macOS)
 
 - [hits: 1] **macOS Slang release tarballs cannot be extracted by .NET's managed `System.Formats.Tar`.** They are packed by Apple `bsdtar` and carry PAX extended-header records for extended attributes (e.g. `LIBARCHIVE.xattr.com.apple.cs.CodeSignature`) whose values are raw binary. `TarReader` throws `InvalidDataException: The extended header contains invalid records` and the process aborts (SIGABRT / exit 134) — which looks like a "download failure" but the download is byte-perfect (SHA256 matches). Fix in `ParadiseEngine/tools/slang/SlangBootstrap.cs`: extract `.tar.gz` by shelling out to the platform `tar` (libarchive/GNU tar) instead of `TarFile.ExtractToDirectoryAsync`. `tar.gz` is never the Windows archive format here (Windows uses `.zip`).
+
+## Godot GLTF export (MeshGlbExporter)
+
+- [hits: 1] **`GltfDocument.AppendFromScene` exports only OWNED descendants (the same rule as
+  `PackedScene.Pack`)** — a `Node.Duplicate()` clone keeps children but their `Owner` points at
+  the original scene root, so the exported GLB silently contains ONLY the root node (272-byte
+  files, zero meshes, no error). After duplicating a subtree for export, re-own every
+  descendant (`child.Owner = cloneRoot`, recursively) before `AppendFromScene`.
+
+- [hits: 1] **Procedural textures (GradientTexture2D etc.) do NOT export into GLBs or material
+  JSON** — `MaterialExporter.TexturePath` needs a `ResourcePath` (file-backed resource), and
+  Godot's GLTF exporter didn't bake the sample's procedural stripes either. Data-driven
+  renderers show factor-only materials for such surfaces; author file-based textures for
+  anything that must survive the export contract.

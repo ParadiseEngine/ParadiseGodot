@@ -24,6 +24,9 @@
 
   <ItemGroup>
     <ProjectReference Include="../ParadiseExport/ParadiseExport.csproj" />
+    <!-- Real sibling path (NOT the in-tree ParadiseEngine symlink): the engine's GLB reader
+         cross-checks committed data/meshes fixtures against the real producer. -->
+    <ProjectReference Include="../../ParadiseEngine/src/Paradise.Assets.Gltf/Paradise.Assets.Gltf.csproj" />
   </ItemGroup>
 
   <ItemGroup>

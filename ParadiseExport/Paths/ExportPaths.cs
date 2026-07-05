@@ -43,6 +43,13 @@ namespace ParadiseExport.Paths
         public string GetMaterialDataOutputPath(string materialField) =>
             Path.Combine(_dataDir, materialField.Replace('/', Path.DirectorySeparatorChar));
 
+        /// <summary>Absolute output path for a mesh field like <c>meshes/foo.glb</c>.</summary>
+        public string GetMeshOutputPath(string meshField) =>
+            Path.Combine(_dataDir, meshField.Replace('/', Path.DirectorySeparatorChar));
+
+        /// <summary>Contract field for an exported mesh GLB: <c>meshes/&lt;key&gt;.glb</c>.</summary>
+        public static string MeshFileField(string key) => $"meshes/{key}.glb";
+
         /// <summary>Absolute output path for a prefab field like <c>prefabs/foo.json</c>.</summary>
         public string GetPrefabDataOutputPath(string prefabField) =>
             Path.Combine(_dataDir, prefabField.Replace('/', Path.DirectorySeparatorChar));
@@ -84,7 +91,17 @@ namespace ParadiseExport.Paths
         public static string MaterialFileField(string materialNameOrPath)
         {
             string normalized = materialNameOrPath.Replace('\\', '/').Trim('/');
-            string name = normalized.Length == 0 ? "material" : Path.GetFileNameWithoutExtension(normalized);
+            // Sub-resource materials ("res://scene.tscn::mat_ball1") take their name from the
+            // sub-resource id — previously every embedded material of a scene collapsed onto
+            // the scene's filename and collided.
+            int subResource = normalized.LastIndexOf("::", StringComparison.Ordinal);
+            string name = subResource >= 0
+                ? normalized[(subResource + 2)..]
+                : normalized.Length == 0 ? "material" : Path.GetFileNameWithoutExtension(normalized);
+            if (name.Length == 0)
+            {
+                name = "material";
+            }
             return $"materials/{name}.json";
         }
 

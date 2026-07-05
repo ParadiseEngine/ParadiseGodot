@@ -86,6 +86,51 @@ material under `data/materials/`. Mapping:
 - Entity `Materials` slot lists are filled from the entity's `MeshInstance3D` surfaces; the
   top-level `LevelData.Materials` stays empty (matches the Unity baseline).
 
+## Meshes & environment (schema v2)
+
+- **`Renderable.Mesh`** — each entity with visuals exports its subtree to
+  `data/meshes/<content-key>.glb` via Godot's native `GltfDocument` (no Blender round-trip for
+  scene-authored meshes), in ENTITY-LOCAL space (the entity's `WorldMatrix` places it).
+  Content-keyed dedupe: identical visual compositions (the two crates, the three balls) share
+  one GLB; per-entity looks come from the `Materials` slot overrides.
+- **Slot order contract** — the GLB's primitive order equals the entity's `Materials` slot
+  order (both walk the same depth-first `MeshInstance3D` traversal). A null slot means the
+  GLB's own embedded material is authoritative; non-null slots override with
+  `materials/*.json` (factor-only at runtime — material-JSON texture paths reference Godot
+  SOURCE files; the supported texturing route is GLB-embedded KTX2).
+- **KTX2-only textures** — the toktx pass (`ToktxKtx2.ConvertEmbeddedTextures`) is MANDATORY
+  for GLBs embedding convertible images; the engine reader rejects PNG/JPEG payloads.
+  Textureless GLBs pass without the tool (tool resolution happens only after the texture
+  scan). Procedural textures (GradientTexture2D…) do NOT export — author file-based textures
+  for anything that must survive the contract.
+- **`EnvironmentMesh`** — non-entity visuals (floor, walls) export as ONE world-space GLB
+  (`meshes/<scene>.environment.glb`); the runtime renders it as a single static instance at
+  identity, with the GLB's own materials.
+- **`StaticColliders`** — world-space collision harvested from `navigation_source` bodies
+  that do NOT belong to an entity (entity colliders export through their `Collider`
+  component; no double representation). Together they rebuild the simulation CollisionWorld
+  from data alone. `Rigidbody.BodyType` now includes `Dynamic` (authored via
+  `EntityExport.IsDynamicBody` + `BodyMass`) — the runtime spawns those as simulated balls.
+- **Material naming** — sub-resource materials take their field name from the sub-resource id
+  (`materials/mat_ball1.json`), not the scene filename (which used to collide).
+- **Headless export** — `PARADISE_EXPORT_SCENE=res://scenes/x.tscn godot --headless --editor
+  --path .` regenerates `data/` and exits (the CI/regeneration entry).
+
+## Runtime (ParadiseRuntime)
+
+`ParadiseRuntime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
+exported `data/` (scene JSON via `ExportJsonReader`, GLBs via the engine's
+`Paradise.Assets.Gltf`, navmesh via Detour), rebuilds the CollisionWorld from
+`StaticColliders` + static entity colliders, spawns the SAME `SimulationRunner` sim (Agent →
+`SpawnAgent`, first agent = player; `Rigidbody.Dynamic` → `SpawnBall`), and PBR-renders
+snapshots interpolated at the bridge's constants (delay 2/60, max lag 4/60, Lerp/Slerp).
+WASD is camera-relative planar; left-click unprojects through `PbrMath.TryScreenPointToRay`
+and ray-casts `PhysicsLayers.ClickRay`. Contract matrices are column-vector layout —
+`SceneAssembler.ToModelMatrix` transposes to System.Numerics row-vector convention. The
+camera projection mode is NOT in the contract (schema v3 candidate): the runtime defaults to
+perspective 75° (Godot's default) with `--ortho`/`--fov` overrides.
+`dotnet run --project ParadiseRuntime -- --scene data/scenes/sample.json [--headless N]`.
+
 ## NavMesh (Phase 4)
 
 The scene navmesh is baked from **static collision geometry** (`NavigationServer3D` +

@@ -24,7 +24,7 @@ namespace ParadiseExport.Data
     public sealed record LevelData
     {
         public const int UnversionedSchemaVersion = 1;
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
 
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
         public CameraData? Camera { get; set; }
@@ -34,6 +34,24 @@ namespace ParadiseExport.Data
         public List<LevelEntityData> Entities { get; set; } = new();
         public string? NavMeshFile { get; set; }
         public List<LevelMaterialData> Materials { get; set; } = new();
+
+        /// <summary>
+        /// Schema v2: one GLB (<c>meshes/&lt;scene&gt;.environment.glb</c>) holding every
+        /// NON-entity visual (floor, walls, props without an EntityExport) in WORLD space —
+        /// the runtime renders it as a single static instance at identity. Materials are the
+        /// GLB's own embedded ones. Null when the scene has no non-entity visuals.
+        /// </summary>
+        public string? EnvironmentMesh { get; set; }
+
+        /// <summary>
+        /// Schema v2: static collision shapes harvested from <c>navigation_source</c> bodies
+        /// that do NOT belong to an entity (those export through their entity's Collider
+        /// component instead — no double representation). WORLD-space placement:
+        /// <see cref="ColliderShapeData.LocalCenter"/>/<see cref="ColliderShapeData.LocalRotation"/>
+        /// hold the world transform, sizes carry folded scale — together with entity colliders
+        /// this reconstructs the simulation CollisionWorld from data alone.
+        /// </summary>
+        public List<ColliderShapeData> StaticColliders { get; set; } = new();
     }
 
     public sealed record PrefabTemplateData
@@ -97,8 +115,23 @@ namespace ParadiseExport.Data
         public AgentComponentData? Agent { get; set; }
     }
 
+    /// <summary>
+    /// Renderable marker + mesh reference (schema v2). <see cref="Mesh"/> is a GLB path
+    /// relative to <c>data/</c> (e.g. <c>meshes/&lt;key&gt;.glb</c>) holding the entity's visual
+    /// subtree in ENTITY-LOCAL space (the entity's WorldMatrix places it). Contract rule: the
+    /// GLB's primitive order equals <see cref="LevelEntityData.Materials"/> slot order — both
+    /// walk the same MeshInstance3D traversal; a null slot means the GLB's own embedded
+    /// material is authoritative. Textures inside the GLB are ALWAYS KTX2 (the toktx pass is
+    /// mandatory for textured meshes; the engine reader rejects PNG/JPEG). <see cref="MeshNode"/>
+    /// optionally names a single node inside the GLB (reserved; null = whole default scene).
+    /// Schema v1 documents carry neither field (null = no mesh exported).
+    /// </summary>
     [ParadiseComponent("a1d3f6b0-0000-4000-8000-000000000001")]
-    public sealed record RenderableComponentData;
+    public sealed record RenderableComponentData
+    {
+        public string? Mesh { get; set; }
+        public string? MeshNode { get; set; }
+    }
 
     [ParadiseComponent("a1d3f6b0-0000-4000-8000-000000000002")]
     public sealed record ColliderComponentData
