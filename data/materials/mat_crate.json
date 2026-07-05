@@ -1,0 +1,28 @@
+{
+  "Path": "materials/mat_crate.json",
+  "Name": "sample",
+  "BaseColorFactor": {
+    "r": 0.38039216,
+    "g": 0.14901961,
+    "b": 0.039215688,
+    "a": 1
+  },
+  "BaseColorTexture": null,
+  "MetallicFactor": 0,
+  "RoughnessFactor": 0.85,
+  "MetallicRoughnessTexture": null,
+  "EmissiveFactor": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  },
+  "EmissiveTexture": null,
+  "NormalScale": 1,
+  "NormalTexture": null,
+  "OcclusionStrength": 1,
+  "OcclusionTexture": null,
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}

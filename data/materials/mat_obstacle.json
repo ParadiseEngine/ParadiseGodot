@@ -1,0 +1,28 @@
+{
+  "Path": "materials/mat_obstacle.json",
+  "Name": "sample",
+  "BaseColorFactor": {
+    "r": 0.17254902,
+    "g": 0.17254902,
+    "b": 0.19607843,
+    "a": 1
+  },
+  "BaseColorTexture": null,
+  "MetallicFactor": 0.1,
+  "RoughnessFactor": 0.7,
+  "MetallicRoughnessTexture": null,
+  "EmissiveFactor": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  },
+  "EmissiveTexture": null,
+  "NormalScale": 1,
+  "NormalTexture": null,
+  "OcclusionStrength": 1,
+  "OcclusionTexture": null,
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}

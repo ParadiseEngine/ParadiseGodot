@@ -8,7 +8,10 @@ bin/
 obj/
 *.user
 
-# Exported engine-neutral data (build output; regenerate via Paradise/Export)
+# Exported engine-neutral data (build output; regenerate via Paradise/Export or the
+# PARADISE_EXPORT_SCENE headless hook). The sample scene's export IS tracked (force-added):
+# it is the fixture set for ParadiseExport.Tests / ParadiseRuntime(.Tests) and the engine's
+# real-producer GLB cross-checks.
 /data/
 
 # JetBrains IDE
