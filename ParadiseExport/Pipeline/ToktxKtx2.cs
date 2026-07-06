@@ -44,14 +44,6 @@ namespace ParadiseExport.Pipeline
             Action<string>? log = null,
             Action<string>? error = null)
         {
-            string? toktxPath = FindToktx(repoRoot);
-            if (string.IsNullOrWhiteSpace(toktxPath))
-            {
-                error?.Invoke(
-                    $"toktx not found. Set {ToktxPathEnvironmentVariable}, vendor KTX-Software under third_party/tools/KTX-Software, or add toktx to PATH.");
-                return ConversionResult.ToolMissing;
-            }
-
             if (!File.Exists(glbFullPath) || !GlbBinary.TryRead(glbFullPath, out JsonObject gltf, out byte[] binChunk))
             {
                 error?.Invoke($"Failed to parse GLB '{glbFullPath}'.");
@@ -62,6 +54,22 @@ namespace ParadiseExport.Pipeline
                 gltf["bufferViews"] is not JsonArray bufferViews)
             {
                 return ConversionResult.NoConvertibleTextures;
+            }
+
+            // Resolve the tool only once the GLB is known to embed convertible images —
+            // textureless meshes must not fail on a missing encoder (ToolMissing is now a
+            // meaningful signal: "textures exist and could not be converted").
+            if (!HasConvertibleImages(images))
+            {
+                return ConversionResult.NoConvertibleTextures;
+            }
+
+            string? toktxPath = FindToktx(repoRoot);
+            if (string.IsNullOrWhiteSpace(toktxPath))
+            {
+                error?.Invoke(
+                    $"toktx not found. Set {ToktxPathEnvironmentVariable}, vendor KTX-Software under third_party/tools/KTX-Software, or add toktx to PATH.");
+                return ConversionResult.ToolMissing;
             }
 
             var convertedImageIndices = new HashSet<int>();
@@ -573,6 +581,20 @@ namespace ParadiseExport.Pipeline
                     }
                 }
             }
+        }
+
+        private static bool HasConvertibleImages(JsonArray images)
+        {
+            foreach (JsonObject image in images.OfType<JsonObject>())
+            {
+                string mimeType = image["mimeType"]?.GetValue<string>() ?? "";
+                if (IsPngOrJpeg(mimeType) && image["bufferView"] != null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsPngOrJpeg(string mimeType) =>

@@ -34,11 +34,20 @@ namespace ParadiseGodot.Export
                 return null;
             }
 
+            return ExportRoot(root);
+        }
+
+        /// <summary>Export an arbitrary IN-TREE scene root (exporters read GlobalTransform, so
+        /// the node must be inside a tree). Used by the editor path above and by the headless
+        /// export hook (PARADISE_EXPORT_SCENE) that regenerates data/ in CI.</summary>
+        public static string? ExportRoot(Node root)
+        {
             string sceneName = ResolveSceneName(root);
             var paths = new ExportPaths(ProjectSettings.GlobalizePath("res://data"));
             var document = new LevelData();
             var materials = new MaterialExporter();
             var prefabs = new PrefabExporter(materials, paths);
+            var meshes = new MeshGlbExporter(paths);
             paths.EnsureOutputDirectory();
             foreach (Node node in Descendants(root))
             {
@@ -51,7 +60,7 @@ namespace ParadiseGodot.Export
                         EnsureLightingState(document).Lights.Add(ExportLight(light));
                         break;
                     case EntityExport entity:
-                        document.Entities.Add(ExportEntity(entity, materials, prefabs));
+                        document.Entities.Add(ExportEntity(entity, materials, prefabs, meshes));
                         break;
                 }
             }
@@ -146,7 +155,7 @@ namespace ParadiseGodot.Export
             }
         }
 
-        private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials, PrefabExporter prefabs)
+        private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials, PrefabExporter prefabs, MeshGlbExporter meshes)
         {
             SN.Vector3 localPos = ToSN(entity.Position);
             SN.Quaternion localRot = ToSN(entity.Quaternion);
@@ -182,7 +191,7 @@ namespace ParadiseGodot.Export
                 LocalMatrix = ContractMatrix.Trs(localPos, localRot, localScale),
                 WorldMatrix = ContractMatrix.Trs(worldPos, worldRot, worldScale),
                 Materials = materials.ExportMaterialSlots(entity),
-                Components = BuildComponents(entity),
+                Components = BuildComponents(entity, meshes),
             };
         }
 
@@ -199,10 +208,18 @@ namespace ParadiseGodot.Export
             return null;
         }
 
-        private static EntityComponentsData BuildComponents(EntityExport entity)
+        private static EntityComponentsData BuildComponents(EntityExport entity, MeshGlbExporter meshes)
         {
             var components = new EntityComponentsData();
-            if (!string.IsNullOrEmpty(entity.ModelPath))
+            // Schema v2: the mesh GLB is exported from the entity's actual visual subtree, so
+            // Renderable presence follows "has meshes", not the authored ModelPath hint. A
+            // ModelPath entity whose model children exist in the scene gets the same treatment.
+            string? meshField = meshes.Export(entity);
+            if (meshField is not null)
+            {
+                components.Renderable = new RenderableComponentData { Mesh = meshField };
+            }
+            else if (!string.IsNullOrEmpty(entity.ModelPath))
             {
                 components.Renderable = new RenderableComponentData();
             }
@@ -238,13 +255,14 @@ namespace ParadiseGodot.Export
             return components;
         }
 
-        // No RigidBody3D detection yet (EntityExport is a plain Node3D): mirror the Unity fallback —
-        // an agent is kinematic, anything else static. Dynamic-body export arrives with the physics
-        // pass in a later phase.
+        // No RigidBody3D detection (EntityExport is a plain Node3D): the authored IsDynamicBody
+        // flag marks dynamic bodies (balls), an agent is kinematic, anything else static.
         private static RigidbodyComponentData BuildRigidbody(EntityExport entity) => new()
         {
-            BodyType = entity.IsAgent ? PhysicsBodyType.Kinematic : PhysicsBodyType.Static,
-            Mass = 0f,
+            BodyType = entity.IsDynamicBody
+                ? PhysicsBodyType.Dynamic
+                : entity.IsAgent ? PhysicsBodyType.Kinematic : PhysicsBodyType.Static,
+            Mass = entity.IsDynamicBody ? entity.BodyMass : 0f,
             LinearDamping = 0f,
             Restitution = 0.2f,
             Friction = 0.5f,

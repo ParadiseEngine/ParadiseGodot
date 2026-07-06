@@ -18,6 +18,10 @@
     <Compile Remove="ParadiseGame/**/*.cs" />
     <Compile Remove="ParadiseGame.Tests/**/*.cs" />
     <Compile Remove="ParadiseGame.Navigation.Detour/**/*.cs" />
+    <!-- ParadiseRuntime is the standalone SDL/engine-renderer host; keep its sources (and its
+         obj/ generated AssemblyInfo — CS0579 duplicates otherwise) out of this glob. -->
+    <Compile Remove="ParadiseRuntime/**/*.cs" />
+    <Compile Remove="ParadiseRuntime.Tests/**/*.cs" />
     <!-- ParadiseEngine is a local-only symlink for reference (see .gitignore);
          keep its sources out of this assembly's recursive **/*.cs glob. -->
     <Compile Remove="ParadiseEngine/**/*.cs" />

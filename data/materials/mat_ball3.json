@@ -1,0 +1,28 @@
+{
+  "Path": "materials/mat_ball3.json",
+  "Name": "sample",
+  "BaseColorFactor": {
+    "r": 0.8901961,
+    "g": 0.6039216,
+    "b": 0.03137255,
+    "a": 1
+  },
+  "BaseColorTexture": "scenes/sample.tscn::tex_ball",
+  "MetallicFactor": 0,
+  "RoughnessFactor": 0.4,
+  "MetallicRoughnessTexture": null,
+  "EmissiveFactor": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  },
+  "EmissiveTexture": null,
+  "NormalScale": 1,
+  "NormalTexture": null,
+  "OcclusionStrength": 1,
+  "OcclusionTexture": null,
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}

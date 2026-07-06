@@ -1,0 +1,48 @@
+{
+  "SchemaVersion": 1,
+  "Physics": {
+    "CollisionMatrix": {
+      "LayerMasks": [
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1,
+        -1
+      ]
+    }
+  },
+  "Rendering": {
+    "RenderScale": 1,
+    "MsaaSamples": 1,
+    "AnisotropicLevel": 16,
+    "SpecularAaVariance": 0.5,
+    "SpecularAaClamp": 0.25
+  }
+}

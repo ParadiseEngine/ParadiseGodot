@@ -32,6 +32,12 @@ namespace ParadiseGodot.Authoring
 
         [Export] public string InitialAnimation { get; set; } = "";
 
+        [ExportGroup("Physics Body")]
+        // Dynamic bodies (balls, debris) export Rigidbody.BodyType = Dynamic so the runtime
+        // spawns them as simulated dynamic spheres instead of static scenery.
+        [Export] public bool IsDynamicBody { get; set; }
+        [Export] public float BodyMass { get; set; } = 1f;
+
         [ExportGroup("Collider Export")]
         [Export] public Godot.Collections.Array<NodePath> PhysicsColliders { get; set; } = new();
         [Export] public Godot.Collections.Array<NodePath> InteractionColliders { get; set; } = new();

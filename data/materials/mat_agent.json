@@ -1,0 +1,28 @@
+{
+  "Path": "materials/mat_agent.json",
+  "Name": "sample",
+  "BaseColorFactor": {
+    "r": 0.47843137,
+    "g": 0.03137255,
+    "b": 0.02745098,
+    "a": 1
+  },
+  "BaseColorTexture": null,
+  "MetallicFactor": 0.2,
+  "RoughnessFactor": 0.5,
+  "MetallicRoughnessTexture": null,
+  "EmissiveFactor": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  },
+  "EmissiveTexture": null,
+  "NormalScale": 1,
+  "NormalTexture": null,
+  "OcclusionStrength": 1,
+  "OcclusionTexture": null,
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}

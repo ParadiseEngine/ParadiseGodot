@@ -59,6 +59,9 @@ roughness = 0.85
 radius = 0.35
 height = 0.7
 
+[sub_resource type="SphereShape3D" id="shape_ball"]
+radius = 0.35
+
 [sub_resource type="Gradient" id="grad_ball"]
 interpolation_mode = 1
 offsets = PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875)
@@ -117,34 +120,49 @@ light_color = Color(1, 0.95, 0.85, 1)
 light_energy = 1.5
 shadow_enabled = true
 
-[node name="Ground" type="StaticBody3D" parent="." unique_id=1053927207 groups=["navigation_source"]]
+[node name="Ground" type="Node3D" parent="." unique_id=1053927207]
+script = ExtResource("1_entity")
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "e63c73bca31b48a7b7411a9eb265ff98"
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground" unique_id=1373994500]
+[node name="StaticBody3D" type="StaticBody3D" parent="Ground" groups=["navigation_source"]]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground/StaticBody3D" unique_id=1373994500]
 shape = SubResource("shape_ground")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground" unique_id=1551463515]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground/StaticBody3D" unique_id=1551463515]
 mesh = SubResource("mesh_ground")
 surface_material_override/0 = SubResource("mat_ground")
 
-[node name="Obstacle1" type="StaticBody3D" parent="." unique_id=1827508925 groups=["navigation_source"]]
+[node name="Obstacle1" type="Node3D" parent="." unique_id=1827508925]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 2, 0)
+script = ExtResource("1_entity")
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "737ca5eda98447968d5091b08c8cb584"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Obstacle1" groups=["navigation_source"]]
 collision_layer = 2
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Obstacle1" unique_id=444743421]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Obstacle1/StaticBody3D" unique_id=444743421]
 shape = SubResource("shape_obstacle")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Obstacle1" unique_id=522209080]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Obstacle1/StaticBody3D" unique_id=522209080]
 mesh = SubResource("mesh_obstacle")
 surface_material_override/0 = SubResource("mat_obstacle")
 
-[node name="Obstacle2" type="StaticBody3D" parent="." unique_id=1536670941 groups=["navigation_source"]]
+[node name="Obstacle2" type="Node3D" parent="." unique_id=1536670941]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4, 2, 3)
+script = ExtResource("1_entity")
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "282f0a34516746a0b6ffb81e8701b19c"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="Obstacle2" groups=["navigation_source"]]
 collision_layer = 2
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Obstacle2" unique_id=1948872578]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Obstacle2/StaticBody3D" unique_id=1948872578]
 shape = SubResource("shape_obstacle")
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Obstacle2" unique_id=121203506]
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Obstacle2/StaticBody3D" unique_id=121203506]
 mesh = SubResource("mesh_obstacle")
 surface_material_override/0 = SubResource("mat_obstacle")
 
@@ -181,6 +199,10 @@ mesh = SubResource("mesh_crate")
 surface_material_override/0 = SubResource("mat_crate")
 
 [node name="Ball1" type="Node3D" parent="." groups=["paradise_ball"]]
+script = ExtResource("1_entity")
+Kind = "Prop"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0.85, 2)
 metadata/paradise_entity_guid = "5a1c9f02b7d34e6f8a20c3d4e5f60711"
 
@@ -188,7 +210,14 @@ metadata/paradise_entity_guid = "5a1c9f02b7d34e6f8a20c3d4e5f60711"
 mesh = SubResource("mesh_ball")
 surface_material_override/0 = SubResource("mat_ball1")
 
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball1"]
+shape = SubResource("shape_ball")
+
 [node name="Ball2" type="Node3D" parent="." groups=["paradise_ball"]]
+script = ExtResource("1_entity")
+Kind = "Prop"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 0.85, 1)
 metadata/paradise_entity_guid = "6b2da013c8e45f709b31d4e5f6071822"
 
@@ -196,13 +225,23 @@ metadata/paradise_entity_guid = "6b2da013c8e45f709b31d4e5f6071822"
 mesh = SubResource("mesh_ball")
 surface_material_override/0 = SubResource("mat_ball2")
 
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball2"]
+shape = SubResource("shape_ball")
+
 [node name="Ball3" type="Node3D" parent="." groups=["paradise_ball"]]
+script = ExtResource("1_entity")
+Kind = "Prop"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5, 0.85, -1.5)
 metadata/paradise_entity_guid = "7c3eb124d9f56081ac42e5f60718293"
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Ball3"]
 mesh = SubResource("mesh_ball")
 surface_material_override/0 = SubResource("mat_ball3")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball3"]
+shape = SubResource("shape_ball")
 
 [node name="Guard" type="Node3D" parent="." unique_id=605771265 groups=["paradise_player"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 4)

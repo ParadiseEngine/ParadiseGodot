@@ -24,6 +24,14 @@ namespace ParadiseGodot
             // Automation: re-export scene data whenever the edited scene is saved.
             SceneSaved += OnSceneSaved;
             GD.Print($"[ParadiseExport] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
+
+            // Headless/CI regeneration hook: PARADISE_EXPORT_SCENE=res://scenes/sample.tscn
+            // godot --headless --editor --path . — exports the scene and quits the editor.
+            string headlessScene = OS.GetEnvironment("PARADISE_EXPORT_SCENE");
+            if (!string.IsNullOrEmpty(headlessScene))
+            {
+                Callable.From(() => RunHeadlessExport(headlessScene)).CallDeferred();
+            }
         }
 
         public override void _ExitTree()
@@ -57,6 +65,37 @@ namespace ParadiseGodot
         private void OnConvertModels()
         {
             Pipeline.AssetPipeline.ConvertAllModels();
+        }
+
+        private void RunHeadlessExport(string scenePath)
+        {
+            int exitCode = 0;
+            try
+            {
+                var packed = GD.Load<PackedScene>(scenePath);
+                Node root = packed.Instantiate();
+                // Exporters read GlobalTransform, which requires tree membership — parent the
+                // instance under the plugin for the duration of the export.
+                AddChild(root);
+                try
+                {
+                    string? output = Export.SceneDataExporter.ExportRoot(root);
+                    GD.Print($"[ParadiseExport] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
+                    if (output is null) exitCode = 1;
+                }
+                finally
+                {
+                    RemoveChild(root);
+                    root.QueueFree();
+                }
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[ParadiseExport] Headless export failed: {ex}");
+                exitCode = 1;
+            }
+
+            GetTree().Quit(exitCode);
         }
 
         private void OnExportActiveScene()
