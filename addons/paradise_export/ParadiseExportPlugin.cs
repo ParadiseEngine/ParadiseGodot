@@ -15,14 +15,21 @@ namespace ParadiseGodot
         private const string ExportMenuItem = "Paradise/Export Active Scene";
         private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
         private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
+        private const string SettingsMenuItem = "Paradise/Settings…";
 
         private Button? _playDotnetButton;
+        private ParadiseSettingsDialog? _settingsDialog;
 
         public override void _EnterTree()
         {
+            // Saved tool paths (toktx/Blender) take effect for the whole session — including
+            // headless exports — before anything can invoke the pipeline.
+            ParadiseSettingsDialog.ApplySavedSettings();
+
             AddToolMenuItem(ExportMenuItem, Callable.From(OnExportActiveScene));
             AddToolMenuItem(GeneratePrefabsMenuItem, Callable.From(OnGenerateModelPrefabs));
             AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
+            AddToolMenuItem(SettingsMenuItem, Callable.From(OnOpenSettings));
             _playDotnetButton = new Button
             {
                 Text = "Play .NET",
@@ -49,7 +56,13 @@ namespace ParadiseGodot
             RemoveToolMenuItem(ExportMenuItem);
             RemoveToolMenuItem(GeneratePrefabsMenuItem);
             RemoveToolMenuItem(ConvertModelsMenuItem);
+            RemoveToolMenuItem(SettingsMenuItem);
             SceneSaved -= OnSceneSaved;
+            if (_settingsDialog is not null)
+            {
+                _settingsDialog.QueueFree();
+                _settingsDialog = null;
+            }
             if (_playDotnetButton is not null)
             {
                 RemoveControlFromContainer(CustomControlContainer.Toolbar, _playDotnetButton);
@@ -203,6 +216,17 @@ namespace ParadiseGodot
         private void OnExportActiveScene()
         {
             Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
+        }
+
+        private void OnOpenSettings()
+        {
+            if (_settingsDialog is null)
+            {
+                _settingsDialog = new ParadiseSettingsDialog();
+                EditorInterface.Singleton.GetBaseControl().AddChild(_settingsDialog);
+            }
+
+            _settingsDialog.PopupCentered();
         }
     }
 }
