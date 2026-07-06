@@ -7,8 +7,9 @@ namespace ParadiseExport.Geometry
     /// <summary>
     /// Engine-neutral collider scale-folding, ported from ParadiseUnityEditor's
     /// ColliderExportUtility. The export contract bakes the collider's lossy scale (relative to
-    /// the entity root) into the shape's dimensions, so the runtime needs no scale on collider
-    /// shapes.
+    /// the entity root) into the shape's dimensions; the root's OWN scale stays in the entity
+    /// WorldMatrix, so a data consumer folds it in with these same rules (see
+    /// ParadiseRuntime.SceneAssembler.AppendCollider).
     ///
     /// Godot's <c>CapsuleShape3D</c> is always Y-axis aligned (unlike Unity's <c>direction</c>
     /// enum), so only the Y-aligned capsule case is modeled here — it matches Unity's

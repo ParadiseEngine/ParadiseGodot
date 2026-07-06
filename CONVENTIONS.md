@@ -45,7 +45,11 @@ snapshots that guard against serializer drift, not byte-for-byte Unity matches.
 ## Colliders (Phase 2)
 
 Collider shapes are emitted in the **entity root's local space with lossy scale folded into the
-dimensions** (`ColliderScaleFold`), matching the Unity tool:
+dimensions** (`ColliderScaleFold`), matching the Unity tool. The fold is the collider's scale
+**relative to its entity root** — the root's own scale still lives in the entity `WorldMatrix`,
+so a data consumer must fold it into the dimensions with the same rules and take the pose
+rotation from a proper decomposition, never from the raw (scale-bearing) matrix basis
+(`SceneAssembler.AppendCollider` / `DecomposePose` in ParadiseRuntime is the reference):
 
 | Shape | Folded dimension |
 |---|---|

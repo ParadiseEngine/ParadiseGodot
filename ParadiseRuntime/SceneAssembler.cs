@@ -4,6 +4,7 @@ using Paradise.ECS;
 using Paradise.Physics;
 using Paradise.Rendering.Pbr;
 using ParadiseExport.Data;
+using ParadiseExport.Geometry;
 using ParadiseGame;
 using ParadiseGame.Physics;
 
@@ -58,34 +59,62 @@ public static class SceneAssembler
             System.Runtime.InteropServices.CollectionsMarshal.AsSpan(transforms));
     }
 
+    /// <summary>Scale-free pose of a possibly-scaled model matrix. Rotation MUST come from a
+    /// decomposition — Quaternion.CreateFromRotationMatrix assumes an orthonormal basis and is
+    /// not scale-invariant (even uniform scale yields a non-unit quaternion).</summary>
+    public static (Vector3 Position, Quaternion Rotation) DecomposePose(in Matrix4x4 model)
+    {
+        if (Matrix4x4.Decompose(model, out _, out var rotation, out var translation))
+        {
+            return (translation, rotation);
+        }
+        // Degenerate (zero/sheared) basis: keep the position, best-effort unit rotation.
+        return (model.Translation, Quaternion.Normalize(Quaternion.CreateFromRotationMatrix(model)));
+    }
+
+    private static Vector3 OwnerScale(in Matrix4x4 ownerModel) =>
+        ownerModel.IsIdentity || !Matrix4x4.Decompose(ownerModel, out var scale, out _, out _)
+            ? Vector3.One
+            : scale;
+
     private static void AppendCollider(
         ColliderShapeData shape, in Matrix4x4 ownerModel, List<Collider> colliders, List<RigidTransform> transforms)
     {
         var filter = new CollisionFilter { BelongsTo = 1u << shape.Layer, CollidesWith = ~0u };
+
+        // Exported dimensions only fold the collider's scale RELATIVE to its entity root
+        // (ColliderScaleFold at export time); the root's own scale arrives via the contract
+        // matrix and folds in here with the same rules. Shapes rotated against the scaled axes
+        // share export-time folding's axis-mapping approximation.
+        var ownerScale = OwnerScale(ownerModel);
         Collider collider;
         switch (shape.ShapeType)
         {
             case PhysicsShapeType.Box:
-                collider = Collider.CreateBox(shape.Size * 0.5f, filter);
+                collider = Collider.CreateBox(ColliderScaleFold.BoxSize(shape.Size, ownerScale) * 0.5f, filter);
                 break;
             case PhysicsShapeType.Sphere:
-                collider = Collider.CreateSphere(shape.Radius, filter);
+                collider = Collider.CreateSphere(ColliderScaleFold.SphereRadius(shape.Radius, ownerScale), filter);
                 break;
             case PhysicsShapeType.Capsule:
-                collider = Collider.CreateCapsule(shape.Radius, MathF.Max(0f, shape.Height * 0.5f - shape.Radius), filter);
+                var radius = ColliderScaleFold.CapsuleRadius(shape.Radius, ownerScale);
+                var height = ColliderScaleFold.CapsuleHeight(shape.Height, ownerScale);
+                collider = Collider.CreateCapsule(radius, MathF.Max(0f, height * 0.5f - radius), filter);
                 break;
             default:
                 return;
         }
 
-        // Row-vector composition: collider local pose × owner model. Scale is already folded
-        // into the shape dimensions by the exporter.
+        // Row-vector composition: collider local pose × owner model. The full matrix transforms
+        // LocalCenter (owner scale displaces it — the exporter stores it in the root's unscaled
+        // local space), while the pose rotation comes from a scale-free decomposition.
         var local = Matrix4x4.CreateFromQuaternion(shape.LocalRotation)
             * Matrix4x4.CreateTranslation(shape.LocalCenter);
         var world = local * ownerModel;
+        var (position, rotation) = DecomposePose(world);
 
         colliders.Add(collider);
-        transforms.Add(new RigidTransform(world.Translation, Quaternion.CreateFromRotationMatrix(world)));
+        transforms.Add(new RigidTransform(position, rotation));
     }
 
     // -------- simulation spawns + render instances --------
@@ -119,8 +148,7 @@ public static class SceneAssembler
             }
 
             Entity? simEntity = null;
-            var position = model.Translation;
-            var rotation = Quaternion.CreateFromRotationMatrix(model);
+            var (position, rotation) = DecomposePose(model);
             var components = entity.Components;
             if (components.Agent is { } agent)
             {
