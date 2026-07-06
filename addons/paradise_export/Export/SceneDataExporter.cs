@@ -123,7 +123,9 @@ namespace ParadiseGodot.Export
             return document.Lighting.States[0];
         }
 
-        private static string ResolveSceneName(Node root)
+        // Internal: the plugin's Play .NET button derives the exported JSON path from the same
+        // name rule without re-exporting.
+        internal static string ResolveSceneName(Node root)
         {
             string scenePath = root.SceneFilePath;
             return string.IsNullOrEmpty(scenePath)

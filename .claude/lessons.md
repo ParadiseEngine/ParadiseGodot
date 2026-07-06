@@ -74,8 +74,13 @@
   files, zero meshes, no error). After duplicating a subtree for export, re-own every
   descendant (`child.Owner = cloneRoot`, recursively) before `AppendFromScene`.
 
-- [hits: 1] **Procedural textures (GradientTexture2D etc.) do NOT export into GLBs or material
-  JSON** — `MaterialExporter.TexturePath` needs a `ResourcePath` (file-backed resource), and
-  Godot's GLTF exporter didn't bake the sample's procedural stripes either. Data-driven
-  renderers show factor-only materials for such surfaces; author file-based textures for
-  anything that must survive the export contract.
+- [hits: 2] **Procedural textures (GradientTexture2D etc.) export differently in GUI vs headless
+  editors.** Material JSON never references them (`MaterialExporter.TexturePath` needs a
+  `ResourcePath`). GLB baking depends on the renderer: a HEADLESS editor exports textureless
+  GLBs (no GPU to rasterize the gradient), but the GUI editor bakes the rendered image into the
+  GLB as embedded PNG — which then makes the toktx KTX2 pass MANDATORY and rewrites content-key
+  fixtures with textured variants. Consequences: (a) `data/` fixtures must be regenerated
+  headless to stay stable; (b) a GUI scene save (auto-export hook) fails with ToolMissing unless
+  toktx is installed (`PARADISE_TOKTX_PATH` / vendored `third_party/tools/KTX-Software` — a
+  GUI-launched editor does not inherit the shell PATH); (c) editor-side launch actions must not
+  export as a side effect (the Play .NET button deliberately only consumes existing data/).

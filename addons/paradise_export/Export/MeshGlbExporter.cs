@@ -56,8 +56,24 @@ namespace ParadiseGodot.Export
             string field = ExportPaths.MeshFileField(key);
             string outputPath = _paths.GetMeshOutputPath(field);
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
-            WriteGlb(entity, outputPath);
-            RunKtx2Pass(outputPath);
+
+            // Write-then-move: the KTX2 pass rewrites the GLB and THROWS on missing/failed
+            // toktx — running it against the final path would leave a PNG-embedded GLB behind
+            // (unreadable by the engine's KTX2-only reader) and poison data/ for the runtime.
+            string tempPath = outputPath + ".tmp";
+            try
+            {
+                WriteGlb(entity, tempPath);
+                RunKtx2Pass(tempPath);
+                File.Move(tempPath, outputPath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
 
             _fieldByKey[key] = field;
             return field;
