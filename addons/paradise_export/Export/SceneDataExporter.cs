@@ -65,8 +65,6 @@ namespace ParadiseGodot.Export
                 }
             }
 
-            document.EnvironmentMesh = meshes.ExportEnvironment(root, sceneName);
-            HarvestStaticColliders(root, document);
             ProjectSettingsExporter.Export(paths);
             materials.WriteExportedMaterials(paths);
             ExportNavMesh(root, sceneName, paths, document);
@@ -74,75 +72,6 @@ namespace ParadiseGodot.Export
             Writer.Write(outputPath, document);
             GD.Print($"[ParadiseExport] Exported scene data: {outputPath}");
             return outputPath;
-        }
-
-        /// <summary>Schema v2: world-space static collision from navigation_source bodies that
-        /// do NOT belong to an entity (entity colliders export through their Collider component
-        /// — no double representation). Same scale-fold rules as the entity path; the runtime
-        /// rebuilds the simulation CollisionWorld from this list + entity colliders.</summary>
-        private static void HarvestStaticColliders(Node root, LevelData document)
-        {
-            foreach (Node node in Descendants(root))
-            {
-                if (node is not StaticBody3D body || !body.IsInGroup("navigation_source") || HasEntityAncestor(body))
-                {
-                    continue;
-                }
-
-                foreach (Node child in Descendants(body))
-                {
-                    if (child is not CollisionShape3D shapeNode || shapeNode.Disabled || shapeNode.Shape is null)
-                    {
-                        continue;
-                    }
-
-                    SN.Vector3 scale = ToSN(shapeNode.GlobalBasis.Scale);
-                    var data = new ColliderShapeData
-                    {
-                        Id = shapeNode.Name.ToString(),
-                        Path = body.Name.ToString(),
-                        IsStatic = true,
-                        Layer = (int)System.Numerics.BitOperations.TrailingZeroCount(body.CollisionLayer == 0 ? 1u : (uint)body.CollisionLayer),
-                        LocalCenter = ToSN(shapeNode.GlobalPosition),
-                        LocalRotation = ToSN(shapeNode.GlobalBasis.Orthonormalized().GetRotationQuaternion()),
-                    };
-
-                    switch (shapeNode.Shape)
-                    {
-                        case BoxShape3D box:
-                            data.ShapeType = PhysicsShapeType.Box;
-                            data.Size = ColliderScaleFold.BoxSize(ToSN(box.Size), scale);
-                            break;
-                        case SphereShape3D sphere:
-                            data.ShapeType = PhysicsShapeType.Sphere;
-                            data.Radius = ColliderScaleFold.SphereRadius(sphere.Radius, scale);
-                            break;
-                        case CapsuleShape3D capsule:
-                            data.ShapeType = PhysicsShapeType.Capsule;
-                            data.Radius = ColliderScaleFold.CapsuleRadius(capsule.Radius, scale);
-                            data.Height = ColliderScaleFold.CapsuleHeight(capsule.Height, scale);
-                            break;
-                        default:
-                            GD.PushWarning($"[ParadiseExport] Unsupported static collision shape '{shapeNode.Shape.GetType().Name}' — skipped.");
-                            continue;
-                    }
-
-                    document.StaticColliders.Add(data);
-                }
-            }
-        }
-
-        private static bool HasEntityAncestor(Node node)
-        {
-            for (Node? parent = node.GetParent(); parent is not null; parent = parent.GetParent())
-            {
-                if (parent is EntityExport)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
 
         private static CameraData ExportCamera(Camera3D camera) => new()

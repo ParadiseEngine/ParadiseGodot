@@ -28,9 +28,9 @@ public class RuntimeAssemblyTests
     public async Task loader_reads_the_committed_sample_scene()
     {
         var level = LoadSample();
-        await Assert.That(level.Level.Entities.Count).IsEqualTo(6);
-        await Assert.That(level.MeshAssets.Count).IsEqualTo(4); // 3 entity GLBs + environment
-        await Assert.That(level.Level.EnvironmentMesh).IsNotNull();
+        await Assert.That(level.Level.Entities.Count).IsEqualTo(9);
+        // Ground, obstacle (×2 shared), crate (×2 shared), ball (×3 shared), guard.
+        await Assert.That(level.MeshAssets.Count).IsEqualTo(5);
         await Assert.That(level.NavigationMesh).IsNotNull();
         // Every referenced material slot resolved.
         foreach (var entity in level.Level.Entities)
@@ -63,7 +63,7 @@ public class RuntimeAssemblyTests
         var level = LoadSample();
         using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
         await Assert.That(world).IsNotNull();
-        // 3 scene statics (ground + 2 obstacles) + 2 static crates × 1 box each.
+        // 5 static entities × 1 box each: ground, 2 obstacles, 2 crates.
         await Assert.That(world.NumBodies).IsEqualTo(5);
 
         // A downward click-filter ray from above the origin must hit the ground slab.

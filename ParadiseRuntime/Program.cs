@@ -51,8 +51,7 @@ internal static class Program
             var level = LevelLoader.Load(scenePath);
             Console.WriteLine(
                 $"[ParadiseRuntime] {scenePath}: {level.Level.Entities.Count} entities, " +
-                $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials, " +
-                $"{level.Level.StaticColliders.Count} static colliders.");
+                $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
             return headlessFrames is { } n
                 ? RunHeadless(level, n, orthographic, fovDegrees)
                 : RunWindowed(level, orthographic, fovDegrees);

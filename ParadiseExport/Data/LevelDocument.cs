@@ -34,24 +34,6 @@ namespace ParadiseExport.Data
         public List<LevelEntityData> Entities { get; set; } = new();
         public string? NavMeshFile { get; set; }
         public List<LevelMaterialData> Materials { get; set; } = new();
-
-        /// <summary>
-        /// Schema v2: one GLB (<c>meshes/&lt;scene&gt;.environment.glb</c>) holding every
-        /// NON-entity visual (floor, walls, props without an EntityExport) in WORLD space —
-        /// the runtime renders it as a single static instance at identity. Materials are the
-        /// GLB's own embedded ones. Null when the scene has no non-entity visuals.
-        /// </summary>
-        public string? EnvironmentMesh { get; set; }
-
-        /// <summary>
-        /// Schema v2: static collision shapes harvested from <c>navigation_source</c> bodies
-        /// that do NOT belong to an entity (those export through their entity's Collider
-        /// component instead — no double representation). WORLD-space placement:
-        /// <see cref="ColliderShapeData.LocalCenter"/>/<see cref="ColliderShapeData.LocalRotation"/>
-        /// hold the world transform, sizes carry folded scale — together with entity colliders
-        /// this reconstructs the simulation CollisionWorld from data alone.
-        /// </summary>
-        public List<ColliderShapeData> StaticColliders { get; set; } = new();
     }
 
     public sealed record PrefabTemplateData

@@ -77,31 +77,11 @@ public class ExportedMeshGlbTests
             meshFields.Add(renderable.GetProperty("Mesh").GetString()!);
         }
 
-        // Crate1+Crate2 share one GLB and Ball1..3 share another (dedupe ignores material
-        // overrides — those live in the per-entity Materials slots): 6 renderables, 3 GLBs.
-        await Assert.That(meshFields.Count).IsEqualTo(6);
+        // Crate1+Crate2 share one GLB, Ball1..3 share another, Obstacle1+Obstacle2 share a
+        // third (dedupe ignores material overrides — those live in the per-entity Materials
+        // slots); Ground and Guard are unique: 9 renderables, 5 GLBs.
+        await Assert.That(meshFields.Count).IsEqualTo(9);
         var distinct = new HashSet<string>(meshFields, StringComparer.Ordinal);
-        await Assert.That(distinct.Count).IsEqualTo(3);
-    }
-
-    [Test]
-    public async Task environment_mesh_holds_the_non_entity_visuals()
-    {
-        var root = RepoRoot();
-        using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "data", "scenes", "sample.json")));
-        var envField = document.RootElement.GetProperty("EnvironmentMesh").GetString();
-        await Assert.That(envField).IsNotNull();
-
-        var asset = GltfSceneReader.Read(File.ReadAllBytes(Path.Combine(root, "data", envField!)));
-        var primitiveCount = 0;
-        foreach (var instance in asset.Instances)
-        {
-            primitiveCount += asset.Meshes[instance.MeshIndex].Primitives.Length;
-        }
-        // Ground + Obstacle1 + Obstacle2 — the balls are entities now, not scenery.
-        await Assert.That(primitiveCount).IsEqualTo(3);
-
-        var statics = document.RootElement.GetProperty("StaticColliders");
-        await Assert.That(statics.GetArrayLength()).IsEqualTo(3);
+        await Assert.That(distinct.Count).IsEqualTo(5);
     }
 }

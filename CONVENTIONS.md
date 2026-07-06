@@ -107,13 +107,11 @@ material under `data/materials/`. Mapping:
   Textureless GLBs pass without the tool (tool resolution happens only after the texture
   scan). Procedural textures (GradientTexture2D…) do NOT export — author file-based textures
   for anything that must survive the contract.
-- **`EnvironmentMesh`** — non-entity visuals (floor, walls) export as ONE world-space GLB
-  (`meshes/<scene>.environment.glb`); the runtime renders it as a single static instance at
-  identity, with the GLB's own materials.
-- **`StaticColliders`** — world-space collision harvested from `navigation_source` bodies
-  that do NOT belong to an entity (entity colliders export through their `Collider`
-  component; no double representation). Together they rebuild the simulation CollisionWorld
-  from data alone. `Rigidbody.BodyType` now includes `Dynamic` (authored via
+- **Everything is an entity** — static scenery (floor, walls, obstacles) is authored with
+  `EntityExport` like every prop (a `Node3D` root wrapping the `StaticBody3D` that keeps the
+  `navigation_source` group), so ONE path covers visuals (`Renderable.Mesh` + dedupe),
+  collision (`Collider` component) and placement (`WorldMatrix`); the CollisionWorld rebuilds
+  from entity colliders alone. `Rigidbody.BodyType` includes `Dynamic` (authored via
   `EntityExport.IsDynamicBody` + `BodyMass`) — the runtime spawns those as simulated balls.
 - **Material naming** — sub-resource materials take their field name from the sub-resource id
   (`materials/mat_ball1.json`), not the scene filename (which used to collide).
@@ -124,8 +122,8 @@ material under `data/materials/`. Mapping:
 
 `ParadiseRuntime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
 exported `data/` (scene JSON via `ExportJsonReader`, GLBs via the engine's
-`Paradise.Assets.Gltf`, navmesh via Detour), rebuilds the CollisionWorld from
-`StaticColliders` + static entity colliders, spawns the SAME `SimulationRunner` sim (Agent →
+`Paradise.Assets.Gltf`, navmesh via Detour), rebuilds the CollisionWorld from the static
+entities' colliders, spawns the SAME `SimulationRunner` sim (Agent →
 `SpawnAgent`, first agent = player; `Rigidbody.Dynamic` → `SpawnBall`), and PBR-renders
 snapshots interpolated at the bridge's constants (delay 2/60, max lag 4/60, Lerp/Slerp).
 WASD is camera-relative planar; left-click unprojects through `PbrMath.TryScreenPointToRay`

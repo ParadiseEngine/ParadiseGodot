@@ -100,6 +100,384 @@
   "Interactables": [],
   "Entities": [
     {
+      "Id": "Ground",
+      "EntityGuid": "e63c73bc-a31b-48a7-b741-1a9eb265ff98",
+      "StableId": "Ground",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        0,
+        0,
+        0
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1
+      ],
+      "Materials": [
+        "materials/mat_ground.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "meshes/b10c17201bc3feee.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "StaticBody3D/CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Box",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                20,
+                1,
+                20
+              ],
+              "Radius": 0,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Static",
+          "Mass": 0,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Obstacle1",
+      "EntityGuid": "737ca5ed-a984-4796-8d50-91b08c8cb584",
+      "StableId": "Obstacle1",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        5,
+        2,
+        0
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        5,
+        2,
+        0,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        5,
+        2,
+        0,
+        1
+      ],
+      "Materials": [
+        "materials/mat_obstacle.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "meshes/b1915ef13b6552a3.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "StaticBody3D/CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Box",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                2,
+                3,
+                2
+              ],
+              "Radius": 0,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Static",
+          "Mass": 0,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Obstacle2",
+      "EntityGuid": "282f0a34-5167-46a0-b6ff-b81e8701b19c",
+      "StableId": "Obstacle2",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -4,
+        2,
+        3
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -4,
+        2,
+        3,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -4,
+        2,
+        3,
+        1
+      ],
+      "Materials": [
+        "materials/mat_obstacle.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "meshes/b1915ef13b6552a3.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "StaticBody3D/CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Box",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                2,
+                3,
+                2
+              ],
+              "Radius": 0,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Static",
+          "Mass": 0,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
       "Id": "Crate1",
       "EntityGuid": "e2832dd3-71aa-4e93-8094-1d38c326f788",
       "StableId": "Crate1",
@@ -605,7 +983,7 @@
     },
     {
       "Id": "Ball3",
-      "EntityGuid": "9bf5cf17-b752-457f-836a-1cf92d531ad9",
+      "EntityGuid": "ebe39798-4c33-4427-864d-78b185331230",
       "StableId": "Ball3",
       "DisplayName": null,
       "Kind": "Prop",
@@ -863,92 +1241,5 @@
     }
   ],
   "NavMeshFile": "sample.navmesh.bin",
-  "Materials": [],
-  "EnvironmentMesh": "meshes/sample.environment.glb",
-  "StaticColliders": [
-    {
-      "Id": "CollisionShape3D",
-      "Path": "Ground",
-      "IsStatic": true,
-      "Layer": 0,
-      "LayerName": null,
-      "IsTrigger": false,
-      "ShapeType": "Box",
-      "LocalCenter": [
-        0,
-        0,
-        0
-      ],
-      "LocalRotation": [
-        0,
-        0,
-        0,
-        1
-      ],
-      "Size": [
-        20,
-        1,
-        20
-      ],
-      "Radius": 0,
-      "Height": 0,
-      "NavObstacle": null
-    },
-    {
-      "Id": "CollisionShape3D",
-      "Path": "Obstacle1",
-      "IsStatic": true,
-      "Layer": 1,
-      "LayerName": null,
-      "IsTrigger": false,
-      "ShapeType": "Box",
-      "LocalCenter": [
-        5,
-        2,
-        0
-      ],
-      "LocalRotation": [
-        0,
-        0,
-        0,
-        1
-      ],
-      "Size": [
-        2,
-        3,
-        2
-      ],
-      "Radius": 0,
-      "Height": 0,
-      "NavObstacle": null
-    },
-    {
-      "Id": "CollisionShape3D",
-      "Path": "Obstacle2",
-      "IsStatic": true,
-      "Layer": 1,
-      "LayerName": null,
-      "IsTrigger": false,
-      "ShapeType": "Box",
-      "LocalCenter": [
-        -4,
-        2,
-        3
-      ],
-      "LocalRotation": [
-        0,
-        0,
-        0,
-        1
-      ],
-      "Size": [
-        2,
-        3,
-        2
-      ],
-      "Radius": 0,
-      "Height": 0,
-      "NavObstacle": null
-    }
-  ]
+  "Materials": []
 }

@@ -36,11 +36,6 @@ public static class SceneAssembler
         var colliders = new List<Collider>();
         var transforms = new List<RigidTransform>();
 
-        foreach (var shape in level.StaticColliders)
-        {
-            AppendCollider(shape, Matrix4x4.Identity, colliders, transforms);
-        }
-
         foreach (var entity in level.Entities)
         {
             // Only truly static bodies join the static world — kinematic agents and dynamic
@@ -130,12 +125,6 @@ public static class SceneAssembler
         var geometry = new GeometryCache(pbr);
         var instances = new List<RuntimeInstance>();
         Entity? player = null;
-
-        if (level.Level.EnvironmentMesh is { } environmentField)
-        {
-            var mesh = geometry.InstantiateMesh(level.MeshAssets[environmentField], slotOverrides: [], level);
-            instances.Add(new RuntimeInstance(null, new PbrInstance { Mesh = mesh }));
-        }
 
         foreach (var entity in level.Level.Entities)
         {

@@ -100,7 +100,5 @@
   "Interactables": [],
   "Entities": [],
   "NavMeshFile": null,
-  "Materials": [],
-  "EnvironmentMesh": null,
-  "StaticColliders": []
+  "Materials": []
 }

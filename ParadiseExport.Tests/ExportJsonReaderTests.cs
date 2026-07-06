@@ -19,18 +19,32 @@ public class ExportJsonReaderTests
                 Rotation = new Vector3(10f, 20f, 30f),
                 OrthographicSize = 5.5f,
             },
-            EnvironmentMesh = "meshes/sample.environment.glb",
             NavMeshFile = "sample.navmesh.bin",
         };
-        document.StaticColliders.Add(new ColliderShapeData
+        document.Entities.Add(new LevelEntityData
         {
             Id = "Ground",
-            IsStatic = true,
-            Layer = 0,
-            ShapeType = PhysicsShapeType.Box,
-            LocalCenter = new Vector3(0f, -0.5f, 0f),
-            LocalRotation = Quaternion.Identity,
-            Size = new Vector3(20f, 1f, 20f),
+            WorldMatrix = Matrix4x4.Identity,
+            Components = new EntityComponentsData
+            {
+                Rigidbody = new RigidbodyComponentData { BodyType = PhysicsBodyType.Static },
+                Collider = new ColliderComponentData
+                {
+                    Colliders =
+                    [
+                        new ColliderShapeData
+                        {
+                            Id = "Ground",
+                            IsStatic = true,
+                            Layer = 0,
+                            ShapeType = PhysicsShapeType.Box,
+                            LocalCenter = new Vector3(0f, -0.5f, 0f),
+                            LocalRotation = Quaternion.Identity,
+                            Size = new Vector3(20f, 1f, 20f),
+                        },
+                    ],
+                },
+            },
         });
         document.Entities.Add(new LevelEntityData
         {
@@ -52,12 +66,13 @@ public class ExportJsonReaderTests
 
         await Assert.That(parsed.SchemaVersion).IsEqualTo(LevelData.CurrentSchemaVersion);
         await Assert.That(parsed.Camera!.Position).IsEqualTo(new Vector3(1.5f, 2.25f, -3.125f));
-        await Assert.That(parsed.EnvironmentMesh).IsEqualTo("meshes/sample.environment.glb");
-        await Assert.That(parsed.StaticColliders.Count).IsEqualTo(1);
-        await Assert.That(parsed.StaticColliders[0].Size).IsEqualTo(new Vector3(20f, 1f, 20f));
-        await Assert.That(parsed.StaticColliders[0].ShapeType).IsEqualTo(PhysicsShapeType.Box);
 
-        var entity = parsed.Entities[0];
+        var ground = parsed.Entities[0];
+        await Assert.That(ground.Components.Rigidbody!.BodyType).IsEqualTo(PhysicsBodyType.Static);
+        await Assert.That(ground.Components.Collider!.Colliders[0].Size).IsEqualTo(new Vector3(20f, 1f, 20f));
+        await Assert.That(ground.Components.Collider!.Colliders[0].ShapeType).IsEqualTo(PhysicsShapeType.Box);
+
+        var entity = parsed.Entities[1];
         await Assert.That(entity.WorldMatrix!.Value.Translation).IsEqualTo(new Vector3(1f, 0.85f, 2f));
         await Assert.That(entity.Components.Renderable!.Mesh).IsEqualTo("meshes/abc.glb");
         await Assert.That(entity.Components.Rigidbody!.BodyType).IsEqualTo(PhysicsBodyType.Dynamic);
@@ -70,9 +85,7 @@ public class ExportJsonReaderTests
         var root = FindRepoRoot();
         var level = ExportJsonReader.ReadLevel(File.ReadAllText(Path.Combine(root, "data", "scenes", "sample.json")));
         await Assert.That(level.SchemaVersion).IsEqualTo(2);
-        await Assert.That(level.Entities.Count).IsEqualTo(6);
-        await Assert.That(level.StaticColliders.Count).IsEqualTo(3);
-        await Assert.That(level.EnvironmentMesh).IsNotNull();
+        await Assert.That(level.Entities.Count).IsEqualTo(9);
 
         var settings = ExportJsonReader.ReadProjectSettings(File.ReadAllText(Path.Combine(root, "data", "ProjectSettings.json")));
         await Assert.That(settings.Rendering).IsNotNull();

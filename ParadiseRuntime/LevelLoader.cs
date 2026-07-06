@@ -45,10 +45,6 @@ public static class LevelLoader
                 LoadMesh(dataDir, meshField, meshAssets);
             }
         }
-        if (level.EnvironmentMesh is { } environmentField)
-        {
-            LoadMesh(dataDir, environmentField, meshAssets);
-        }
 
         var navMeshFile = level.NavMeshFile
             ?? throw new InvalidDataException("Level document has no NavMeshFile — the runtime needs a navmesh.");
