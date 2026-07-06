@@ -983,7 +983,7 @@
     },
     {
       "Id": "Ball3",
-      "EntityGuid": "c3e0134c-2fe3-4247-a59e-88fe135f886a",
+      "EntityGuid": "216920dc-c645-4fed-ba74-860d1c64c3d0",
       "StableId": "Ball3",
       "DisplayName": null,
       "Kind": "Prop",
@@ -1231,7 +1231,7 @@
         },
         "Interactable": null,
         "Agent": {
-          "MoveSpeed": 1.4,
+          "MoveSpeed": 7,
           "Acceleration": 40,
           "IdleClip": "Idle",
           "WalkClip": "Walk"

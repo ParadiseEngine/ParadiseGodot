@@ -28,8 +28,11 @@ namespace ParadiseGodot.Runtime
         [Export] public string PlayerGroup { get; set; } = "paradise_player";
         [Export] public string BallGroup { get; set; } = "paradise_ball";
         [Export(PropertyHint.File, "*.bin")] public string NavMeshFile { get; set; } = "";
-        [Export] public float MoveSpeed { get; set; } = 3.5f;
         [Export] public float ArriveRadius { get; set; } = 0.25f;
+
+        // Used only when the player node carries no authored EntityExport.MoveSpeed — the
+        // entity's value is the single source of truth, shared with the export contract.
+        private const float FallbackMoveSpeed = 3.5f;
 
         // Fallback character capsule dims when the player node has no CapsuleShape3D to read.
         [Export] public float CharacterRadius { get; set; } = 0.4f;
@@ -81,7 +84,7 @@ namespace ParadiseGodot.Runtime
                 if (node.IsInGroup(PlayerGroup))
                 {
                     (float bodyRadius, float bodyHalfLength) = ReadPlayerCapsule(node);
-                    _player = _runner.SpawnAgent(pos, rot, MoveSpeed, ArriveRadius, bodyRadius, bodyHalfLength);
+                    _player = _runner.SpawnAgent(pos, rot, ReadAuthoredMoveSpeed(node), ArriveRadius, bodyRadius, bodyHalfLength);
                     _hasPlayer = true;
                     _agents.Add((node, _player));
                 }
@@ -320,6 +323,15 @@ namespace ParadiseGodot.Runtime
             return Paradise.Physics.CollisionWorld.Build(
                 System.Runtime.InteropServices.CollectionsMarshal.AsSpan(colliders),
                 System.Runtime.InteropServices.CollectionsMarshal.AsSpan(transforms));
+        }
+
+        // The authored EntityExport.MoveSpeed — read dynamically because EntityExport is a
+        // TOOLS-only type this runtime bridge must not reference at compile time.
+        private static float ReadAuthoredMoveSpeed(Node3D playerNode)
+        {
+            Variant value = playerNode.Get("MoveSpeed");
+            float speed = value.VariantType == Variant.Type.Float ? (float)value.AsDouble() : 0f;
+            return float.IsFinite(speed) && speed > 0f ? speed : FallbackMoveSpeed;
         }
 
         private (float Radius, float HalfLength) ReadPlayerCapsule(Node3D playerNode)
