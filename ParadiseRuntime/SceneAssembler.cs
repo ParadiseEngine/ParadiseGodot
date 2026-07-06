@@ -218,6 +218,54 @@ public static class SceneAssembler
 
     private static Vector3 ToVector3(Color32 color) => new(color.R, color.G, color.B);
 
+    // -------- materials --------
+
+    public static bool HasAnyTexture(in GltfMaterialData material) =>
+        material.BaseColorImage >= 0 || material.MetallicRoughnessImage >= 0 ||
+        material.NormalImage >= 0 || material.OcclusionImage >= 0 || material.EmissiveImage >= 0;
+
+    /// <summary>A slot-override material: the override JSON's FACTORS over the GLB material's
+    /// TEXTURES (glTF factor × texture — Godot parity for surface_material_override with
+    /// textured materials).</summary>
+    public static GltfMaterialData BuildSlotOverrideMaterial(LevelMaterialData data, in GltfMaterialData glbMaterial) =>
+        ToGltfMaterial(data) with
+        {
+            BaseColorImage = glbMaterial.BaseColorImage,
+            MetallicRoughnessImage = glbMaterial.MetallicRoughnessImage,
+            NormalImage = glbMaterial.NormalImage,
+            OcclusionImage = glbMaterial.OcclusionImage,
+            EmissiveImage = glbMaterial.EmissiveImage,
+            BaseColorUvTransform = glbMaterial.BaseColorUvTransform,
+        };
+
+    /// <summary>Level material JSON → the renderer's material shape (factors only — texture
+    /// paths in material documents reference Godot-project SOURCE files, not runtime assets;
+    /// the texturing route is GLB-embedded KTX2, inherited by slot overrides via
+    /// <see cref="BuildSlotOverrideMaterial"/>).</summary>
+    private static GltfMaterialData ToGltfMaterial(LevelMaterialData data) => new(
+        Name: data.Name,
+        BaseColorFactor: new Vector4(data.BaseColorFactor.R, data.BaseColorFactor.G, data.BaseColorFactor.B, data.BaseColorFactor.A),
+        MetallicFactor: data.MetallicFactor,
+        RoughnessFactor: data.RoughnessFactor,
+        EmissiveFactor: new Vector3(data.EmissiveFactor.R, data.EmissiveFactor.G, data.EmissiveFactor.B),
+        NormalScale: data.NormalScale,
+        OcclusionStrength: data.OcclusionStrength,
+        TransmissionFactor: data.TransmissionFactor,
+        AlphaMode: data.AlphaMode switch
+        {
+            "Blend" => GltfAlphaMode.Blend,
+            "Mask" => GltfAlphaMode.Mask,
+            _ => GltfAlphaMode.Opaque,
+        },
+        AlphaCutoff: 0.5f,
+        DoubleSided: false,
+        BaseColorImage: -1,
+        MetallicRoughnessImage: -1,
+        NormalImage: -1,
+        OcclusionImage: -1,
+        EmissiveImage: -1,
+        BaseColorUvTransform: GltfUvTransform.Identity);
+
     // -------- geometry/material caches --------
 
     /// <summary>Uploads each GLB's geometry once and shares the buffers across entities; each
@@ -225,8 +273,8 @@ public static class SceneAssembler
     /// order == Materials order is the schema-v2 contract rule.</summary>
     private sealed class GeometryCache(PbrRenderer pbr)
     {
-        private readonly Dictionary<GltfAsset, (PbrPrimitive Primitive, Matrix4x4 Bake, int GlbMaterialId)[]> _uploaded = new();
-        private readonly Dictionary<string, int> _levelMaterialIds = new(StringComparer.Ordinal);
+        private readonly Dictionary<GltfAsset, (PbrPrimitive Primitive, Matrix4x4 Bake, int GlbMaterialId, int GlbMaterialIndex)[]> _uploaded = new();
+        private readonly Dictionary<(GltfAsset? Asset, int MaterialIndex, string Field), int> _levelMaterialIds = new();
 
         public PbrMesh InstantiateMesh(GltfAsset asset, IReadOnlyList<string?> slotOverrides, RuntimeLevel level)
         {
@@ -234,16 +282,16 @@ public static class SceneAssembler
             var primitives = new PbrPrimitive[uploaded.Length];
             for (var i = 0; i < uploaded.Length; i++)
             {
-                var (primitive, _, glbMaterialId) = uploaded[i];
+                var (primitive, _, glbMaterialId, glbMaterialIndex) = uploaded[i];
                 var overrideField = i < slotOverrides.Count ? slotOverrides[i] : null;
                 primitives[i] = overrideField is null
                     ? primitive with { MaterialId = glbMaterialId }
-                    : primitive with { MaterialId = ResolveLevelMaterial(overrideField, level) };
+                    : primitive with { MaterialId = ResolveLevelMaterial(overrideField, level, asset, glbMaterialIndex) };
             }
             return new PbrMesh(primitives);
         }
 
-        private (PbrPrimitive Primitive, Matrix4x4 Bake, int GlbMaterialId)[] Upload(GltfAsset asset)
+        private (PbrPrimitive Primitive, Matrix4x4 Bake, int GlbMaterialId, int GlbMaterialIndex)[] Upload(GltfAsset asset)
         {
             if (_uploaded.TryGetValue(asset, out var cached)) return cached;
 
@@ -255,7 +303,7 @@ public static class SceneAssembler
             }
             var fallback = -1;
 
-            var list = new List<(PbrPrimitive, Matrix4x4, int)>();
+            var list = new List<(PbrPrimitive, Matrix4x4, int, int)>();
             foreach (var instance in asset.Instances)
             {
                 foreach (var primitive in asset.Meshes[instance.MeshIndex].Primitives)
@@ -266,7 +314,7 @@ public static class SceneAssembler
                     var materialId = primitive.MaterialIndex >= 0
                         ? glbMaterialIds[primitive.MaterialIndex]
                         : (fallback >= 0 ? fallback : fallback = pbr.Materials.AddDefaultMaterial(new Vector4(0.8f, 0.8f, 0.8f, 1f)));
-                    list.Add((pbr.UploadPrimitive(vertices, primitive.Indices, materialId), instance.WorldTransform, materialId));
+                    list.Add((pbr.UploadPrimitive(vertices, primitive.Indices, materialId), instance.WorldTransform, materialId, primitive.MaterialIndex));
                 }
             }
 
@@ -275,42 +323,26 @@ public static class SceneAssembler
             return result;
         }
 
-        private int ResolveLevelMaterial(string field, RuntimeLevel level)
+        private int ResolveLevelMaterial(string field, RuntimeLevel level, GltfAsset asset, int glbMaterialIndex)
         {
-            if (_levelMaterialIds.TryGetValue(field, out var id)) return id;
-            var data = level.Materials[field];
-            id = pbr.Materials.AddMaterial(ToGltfMaterial(data), []);
-            _levelMaterialIds[field] = id;
+            // Slot overrides carry the FACTORS; textures stay with the GLB's own material
+            // (glTF semantics: factor × texture — the Godot-parity behaviour for
+            // surface_material_override with textured materials). The cache key includes the
+            // texture source so the same override JSON over differently-textured primitives
+            // yields distinct GPU materials.
+            var inherit = glbMaterialIndex >= 0 && HasAnyTexture(asset.Materials[glbMaterialIndex]);
+            var key = inherit ? (asset, glbMaterialIndex, field) : ((GltfAsset?)null, -1, field);
+            if (_levelMaterialIds.TryGetValue(key, out var id)) return id;
+
+            var material = inherit
+                ? BuildSlotOverrideMaterial(level.Materials[field], in asset.Materials[glbMaterialIndex])
+                : ToGltfMaterial(level.Materials[field]);
+            var images = inherit ? asset.Images : [];
+
+            id = pbr.Materials.AddMaterial(in material, images);
+            _levelMaterialIds[key] = id;
             return id;
         }
-
-        /// <summary>Level material JSON → the renderer's material shape. Texture paths in
-        /// material documents reference Godot-project SOURCE files, not runtime assets — the
-        /// supported texturing route is GLB-embedded KTX2 (null slots); overrides are
-        /// factor-only.</summary>
-        private static GltfMaterialData ToGltfMaterial(LevelMaterialData data) => new(
-            Name: data.Name,
-            BaseColorFactor: new Vector4(data.BaseColorFactor.R, data.BaseColorFactor.G, data.BaseColorFactor.B, data.BaseColorFactor.A),
-            MetallicFactor: data.MetallicFactor,
-            RoughnessFactor: data.RoughnessFactor,
-            EmissiveFactor: new Vector3(data.EmissiveFactor.R, data.EmissiveFactor.G, data.EmissiveFactor.B),
-            NormalScale: data.NormalScale,
-            OcclusionStrength: data.OcclusionStrength,
-            TransmissionFactor: data.TransmissionFactor,
-            AlphaMode: data.AlphaMode switch
-            {
-                "Blend" => GltfAlphaMode.Blend,
-                "Mask" => GltfAlphaMode.Mask,
-                _ => GltfAlphaMode.Opaque,
-            },
-            AlphaCutoff: 0.5f,
-            DoubleSided: false,
-            BaseColorImage: -1,
-            MetallicRoughnessImage: -1,
-            NormalImage: -1,
-            OcclusionImage: -1,
-            EmissiveImage: -1,
-            BaseColorUvTransform: GltfUvTransform.Identity);
 
         private static float[] BakeTransform(float[] vertices, in Matrix4x4 transform)
         {
