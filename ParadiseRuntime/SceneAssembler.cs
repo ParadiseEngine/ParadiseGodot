@@ -146,7 +146,7 @@ public static class SceneAssembler
                 var halfLength = capsule is { } c ? MathF.Max(0f, c.Height * 0.5f - c.Radius) : 0.5f;
                 var spawned = runner.SpawnAgent(
                     position, rotation,
-                    agent.MoveSpeed, agent.AngularSpeed, DefaultArriveRadius,
+                    agent.MoveSpeed, DefaultArriveRadius,
                     radius, halfLength);
                 simEntity = spawned;
                 player ??= spawned; // first agent is the player (bridge convention)

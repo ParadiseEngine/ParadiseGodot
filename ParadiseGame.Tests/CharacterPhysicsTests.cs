@@ -52,7 +52,7 @@ public class CharacterPhysicsTests
             [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
             [FloorPose, new RigidTransform(new Vector3(5f, 1.5f, 2f), Quaternion.Identity)]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 0.25f);
 
         runner.SetMoveInput(agent, new Vector3(1f, 0f, 0f)); // drive straight into the face
         Tick(runner, 600);
@@ -70,7 +70,7 @@ public class CharacterPhysicsTests
             [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 10f))],
             [FloorPose, new RigidTransform(new Vector3(5f, 1.5f, 10f), Quaternion.Identity)]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 0.25f);
 
         runner.SetMoveInput(agent, Vector3.Normalize(new Vector3(1f, 0f, 1f)));
         Tick(runner, 600);
@@ -87,7 +87,7 @@ public class CharacterPhysicsTests
             [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
             [FloorPose, new RigidTransform(new Vector3(5f, 1.5f, 2f), Quaternion.Identity)]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 0.25f);
 
         runner.SetMoveInput(agent, new Vector3(1f, 0f, 0f));
         for (int i = 0; i < 600; i++)
@@ -104,7 +104,7 @@ public class CharacterPhysicsTests
     {
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 6f, 720f, 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 6f, 0.25f);
 
         // Simulated click: ray from above the goal straight down, ground-picking filter.
         var click = new RaycastInput
@@ -135,7 +135,7 @@ public class CharacterPhysicsTests
         // tick, so once input stops the stale intent must not keep integrating.
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 0.25f);
 
         runner.SetMoveInput(agent, new Vector3(1f, 0f, 0f));
         Tick(runner, 30);
@@ -157,7 +157,7 @@ public class CharacterPhysicsTests
         // The Floor layer is excluded from character casts, so horizontal movement is unobstructed.
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2f, 0.9f, 2f), Quaternion.Identity, 3.5f, 0.25f);
 
         runner.SetMoveInput(agent, new Vector3(1f, 0f, 0f));
         Tick(runner, 60);

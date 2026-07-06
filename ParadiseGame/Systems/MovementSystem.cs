@@ -102,10 +102,9 @@ public ref partial struct MovementSystem : IWorldSystem
         float speed = MathF.Min(agent.MoveSpeed, distance / dt);
         Agents.MoveIntent[i].DesiredVelocity = direction * speed;
 
-        // Face the movement direction (cosmetic). Model forward is −Z (right-handed).
+        // Face the movement direction instantly (cosmetic). Model forward is −Z (right-handed).
         float yaw = MathF.Atan2(-direction.X, -direction.Z);
-        Quaternion desired = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
-        transform.Rotation = RotateTowards(transform.Rotation, desired, DegToRad(agent.AngularSpeed) * dt);
+        transform.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
     }
 
     /// <summary>Capsule cast-and-slide against static geometry, then ground containment — the
@@ -234,28 +233,5 @@ public ref partial struct MovementSystem : IWorldSystem
         float dx = a.X - b.X;
         float dz = a.Z - b.Z;
         return dx * dx + dz * dz;
-    }
-
-    private static float DegToRad(float degrees) => degrees * (MathF.PI / 180f);
-
-    private static Quaternion RotateTowards(Quaternion from, Quaternion to, float maxRadians)
-    {
-        from = Quaternion.Normalize(from);
-        to = Quaternion.Normalize(to);
-        float dot = Math.Clamp(Quaternion.Dot(from, to), -1f, 1f);
-        if (dot < 0f)
-        {
-            to = -to;
-            dot = -dot;
-        }
-
-        float angle = MathF.Acos(Math.Clamp(dot, -1f, 1f)) * 2f;
-        if (angle <= 1e-4f || maxRadians <= 0f)
-        {
-            return from;
-        }
-
-        float t = Math.Clamp(maxRadians / angle, 0f, 1f);
-        return Quaternion.Normalize(Quaternion.Slerp(from, to, t));
     }
 }

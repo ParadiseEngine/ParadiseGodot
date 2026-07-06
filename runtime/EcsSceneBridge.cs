@@ -29,7 +29,6 @@ namespace ParadiseGodot.Runtime
         [Export] public string BallGroup { get; set; } = "paradise_ball";
         [Export(PropertyHint.File, "*.bin")] public string NavMeshFile { get; set; } = "";
         [Export] public float MoveSpeed { get; set; } = 3.5f;
-        [Export] public float AngularSpeed { get; set; } = 720f;
         [Export] public float ArriveRadius { get; set; } = 0.25f;
 
         // Fallback character capsule dims when the player node has no CapsuleShape3D to read.
@@ -82,7 +81,7 @@ namespace ParadiseGodot.Runtime
                 if (node.IsInGroup(PlayerGroup))
                 {
                     (float bodyRadius, float bodyHalfLength) = ReadPlayerCapsule(node);
-                    _player = _runner.SpawnAgent(pos, rot, MoveSpeed, AngularSpeed, ArriveRadius, bodyRadius, bodyHalfLength);
+                    _player = _runner.SpawnAgent(pos, rot, MoveSpeed, ArriveRadius, bodyRadius, bodyHalfLength);
                     _hasPlayer = true;
                     _agents.Add((node, _player));
                 }

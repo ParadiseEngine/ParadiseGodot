@@ -47,7 +47,7 @@ public class DynamicBallTests
     {
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 0.25f);
         Entity ball = runner.SpawnBall(new Vector3(4f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
 
         runner.SetMoveInput(player, new Vector3(1f, 0f, 0f)); // walk into the ball
@@ -125,7 +125,7 @@ public class DynamicBallTests
             [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
             [FloorPose, new RigidTransform(new Vector3(9f, 1.5f, 5f), Quaternion.Identity)]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 0.25f);
         Entity ball = runner.SpawnBall(new Vector3(4f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
 
         runner.SetMoveInput(player, new Vector3(1f, 0f, 0f)); // push the ball into the obstacle
@@ -152,7 +152,7 @@ public class DynamicBallTests
 
             Entity player = sim.World.CreateEntity(EntityBuilder.Create()
                 .Add(new LocalTransform(new Vector3(2f, 0.9f, 5f), Quaternion.Identity))
-                .Add(new NavAgent(3.5f, 720f, 0.25f))
+                .Add(new NavAgent(3.5f, 0.25f))
                 .Add(new NavPath())
                 .Add(new MoveIntent())
                 .Add(new CharacterBody(0.4f, 0.5f))

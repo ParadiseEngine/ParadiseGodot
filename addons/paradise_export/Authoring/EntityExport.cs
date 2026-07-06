@@ -56,7 +56,6 @@ namespace ParadiseGodot.Authoring
         }
 
         [Export] public float MoveSpeed { get; set; } = ParadiseAuthoringDefaults.MoveSpeed;
-        [Export] public float AngularSpeed { get; set; } = ParadiseAuthoringDefaults.AngularSpeed;
         [Export] public float Acceleration { get; set; } = ParadiseAuthoringDefaults.Acceleration;
         [Export] public string IdleAnimation { get; set; } = "";
         [Export] public string WalkAnimation { get; set; } = "";
@@ -65,7 +64,6 @@ namespace ParadiseGodot.Authoring
         // the Unity tool's defaults/fallbacks.
         public string ResolvedKind => string.IsNullOrWhiteSpace(Kind) ? "Prop" : Kind;
         public float ResolvedMoveSpeed => Sanitize(MoveSpeed, ParadiseAuthoringDefaults.MoveSpeed);
-        public float ResolvedAngularSpeed => Sanitize(AngularSpeed, ParadiseAuthoringDefaults.AngularSpeed);
         public float ResolvedAcceleration => Sanitize(Acceleration, ParadiseAuthoringDefaults.Acceleration);
 
         public string ResolvedIdleAnimation =>
@@ -101,7 +99,6 @@ namespace ParadiseGodot.Authoring
             StringName name = property["name"].AsStringName();
             if (!IsAgent && (
                 name == PropertyName.MoveSpeed ||
-                name == PropertyName.AngularSpeed ||
                 name == PropertyName.Acceleration ||
                 name == PropertyName.IdleAnimation ||
                 name == PropertyName.WalkAnimation))

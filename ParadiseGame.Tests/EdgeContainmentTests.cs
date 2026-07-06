@@ -36,7 +36,7 @@ public class EdgeContainmentTests
     {
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 0.25f);
 
         runner.SetMoveInput(player, new Vector3(-1f, 0f, 0f)); // straight at the x = 0 edge
         for (int i = 0; i < 600; i++)
@@ -56,7 +56,7 @@ public class EdgeContainmentTests
     {
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
         using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 720f, 0.25f);
+        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 0.25f);
 
         runner.SetMoveInput(player, Vector3.Normalize(new Vector3(-1f, 0f, 1f)));
         for (int i = 0; i < 400; i++)

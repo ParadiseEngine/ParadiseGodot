@@ -247,7 +247,6 @@ namespace ParadiseGodot.Export
                 components.Agent = new AgentComponentData
                 {
                     MoveSpeed = entity.ResolvedMoveSpeed,
-                    AngularSpeed = entity.ResolvedAngularSpeed,
                     Acceleration = entity.ResolvedAcceleration,
                     IdleClip = entity.ResolvedIdleAnimation,
                     WalkClip = entity.ResolvedWalkAnimation,

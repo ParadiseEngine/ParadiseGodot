@@ -11,9 +11,6 @@ namespace ParadiseExport.Authoring
         /// <summary>Default agent movement speed, meters/second.</summary>
         public const float MoveSpeed = 1.4f;
 
-        /// <summary>Default agent turn rate, degrees/second.</summary>
-        public const float AngularSpeed = 720f;
-
         /// <summary>Default agent acceleration, meters/second^2.</summary>
         public const float Acceleration = 40f;
 

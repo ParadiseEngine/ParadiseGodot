@@ -96,11 +96,11 @@ public sealed class SimulationRunner : IDisposable
     public Entity SpawnStatic(Vector3 position, Quaternion rotation) =>
         Current.CreateEntity(EntityBuilder.Create().Add(new LocalTransform(position, rotation)));
 
-    public Entity SpawnAgent(Vector3 position, Quaternion rotation, float moveSpeed, float angularSpeed, float arriveRadius,
+    public Entity SpawnAgent(Vector3 position, Quaternion rotation, float moveSpeed, float arriveRadius,
         float bodyRadius = 0.4f, float bodyHalfLength = 0.5f) =>
         Current.CreateEntity(EntityBuilder.Create()
             .Add(new LocalTransform(position, rotation))
-            .Add(new NavAgent(moveSpeed, angularSpeed, arriveRadius))
+            .Add(new NavAgent(moveSpeed, arriveRadius))
             .Add(new NavPath())
             .Add(new MoveIntent())
             .Add(new CharacterBody(bodyRadius, bodyHalfLength))

@@ -29,18 +29,17 @@ public partial struct LocalTransform
     }
 }
 
-/// <summary>Steering parameters for a navmesh-following agent (metres/sec, degrees/sec, metres).</summary>
+/// <summary>Steering parameters for a navmesh-following agent (metres/sec, metres). Facing is
+/// instant — the agent snaps to its movement direction, no angular speed.</summary>
 [Component]
 public partial struct NavAgent
 {
     public float MoveSpeed;
-    public float AngularSpeed;
     public float ArriveRadius;
 
-    public NavAgent(float moveSpeed, float angularSpeed, float arriveRadius)
+    public NavAgent(float moveSpeed, float arriveRadius)
     {
         MoveSpeed = moveSpeed;
-        AngularSpeed = angularSpeed;
         ArriveRadius = arriveRadius;
     }
 }

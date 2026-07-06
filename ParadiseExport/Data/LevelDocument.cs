@@ -137,7 +137,6 @@ namespace ParadiseExport.Data
     public sealed record AgentComponentData
     {
         public float MoveSpeed { get; set; } = 1.4f;
-        public float AngularSpeed { get; set; } = 720f;
         public float Acceleration { get; set; } = 40f;
         public string? IdleClip { get; set; }
         public string? WalkClip { get; set; }

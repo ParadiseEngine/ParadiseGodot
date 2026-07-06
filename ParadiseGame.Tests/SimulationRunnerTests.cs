@@ -30,7 +30,7 @@ public class SimulationRunnerTests
     public async Task snapshots_advance_the_agent_toward_its_destination()
     {
         using var runner = new SimulationRunner(FlatGround());
-        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 6f, angularSpeed: 720f, arriveRadius: 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 6f, arriveRadius: 0.25f);
         var goal = new Vector3(18, 0, 18);
         runner.EnqueueMoveTo(agent, goal);
 
@@ -49,7 +49,7 @@ public class SimulationRunnerTests
     public async Task consecutive_snapshots_preserve_the_handle_and_interpolate()
     {
         using var runner = new SimulationRunner(FlatGround());
-        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 3f, angularSpeed: 720f, arriveRadius: 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 3f, arriveRadius: 0.25f);
         runner.EnqueueMoveTo(agent, new Vector3(18, 0, 2)); // move along +X so positions change each tick
 
         Tick(runner, 20); // agent is mid-travel; several snapshots in the ring
@@ -80,7 +80,7 @@ public class SimulationRunnerTests
     public async Task held_snapshot_is_not_recycled_while_the_renderer_reads_it()
     {
         using var runner = new SimulationRunner(FlatGround());
-        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, 3f, 720f, 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, 3f, 0.25f);
         runner.EnqueueMoveTo(agent, new Vector3(18, 0, 2));
         Tick(runner, 10);
 
@@ -104,7 +104,7 @@ public class SimulationRunnerTests
         // initial snapshot — if SpawnAgent didn't seed DeltaSeconds, the system would see
         // dt == 0 and skip the tick.
         using var runner = new SimulationRunner(FlatGround());
-        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 6f, angularSpeed: 720f, arriveRadius: 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 6f, arriveRadius: 0.25f);
         runner.EnqueueMoveTo(agent, new Vector3(18, 0, 18));
 
         runner.TickOnce();
@@ -120,7 +120,7 @@ public class SimulationRunnerTests
         // Movement collision is owned by physics now (see CharacterPhysicsTests); with no collision
         // world the intent integrates unobstructed. The navmesh no longer clamps WASD movement.
         using var runner = new SimulationRunner(FlatGround());
-        Entity agent = runner.SpawnAgent(new Vector3(2, 0.9f, 2), Quaternion.Identity, moveSpeed: 6f, angularSpeed: 720f, arriveRadius: 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(2, 0.9f, 2), Quaternion.Identity, moveSpeed: 6f, arriveRadius: 0.25f);
 
         runner.SetMoveInput(agent, new Vector3(1, 0, 0)); // hold +X
         Tick(runner, 60);
@@ -138,7 +138,7 @@ public class SimulationRunnerTests
         // path intent is never written) and its own intent is what MovementSystem integrates —
         // the very tick both inputs are present, WASD wins.
         using var runner = new SimulationRunner(FlatGround());
-        Entity agent = runner.SpawnAgent(new Vector3(10, 0, 10), Quaternion.Identity, moveSpeed: 6f, angularSpeed: 720f, arriveRadius: 0.25f);
+        Entity agent = runner.SpawnAgent(new Vector3(10, 0, 10), Quaternion.Identity, moveSpeed: 6f, arriveRadius: 0.25f);
         runner.EnqueueMoveTo(agent, new Vector3(10, 0, 18)); // path wants +Z
         runner.SetMoveInput(agent, new Vector3(1, 0, 0));    // WASD wants +X
 
@@ -155,7 +155,7 @@ public class SimulationRunnerTests
     public async Task sample_before_first_and_after_latest_clamp()
     {
         using var runner = new SimulationRunner(FlatGround());
-        runner.SpawnAgent(new Vector3(5, 0, 5), Quaternion.Identity, 3f, 720f, 0.25f);
+        runner.SpawnAgent(new Vector3(5, 0, 5), Quaternion.Identity, 3f, 0.25f);
         Tick(runner, 5);
 
         // Way in the past clamps to a single snapshot (a == b).
