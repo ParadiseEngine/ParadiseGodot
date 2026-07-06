@@ -983,7 +983,7 @@
     },
     {
       "Id": "Ball3",
-      "EntityGuid": "ebe39798-4c33-4427-864d-78b185331230",
+      "EntityGuid": "c3e0134c-2fe3-4247-a59e-88fe135f886a",
       "StableId": "Ball3",
       "DisplayName": null,
       "Kind": "Prop",
@@ -1185,7 +1185,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/c73a751b72b2a6fa.glb",
+          "Mesh": "meshes/7de91d07ee464de7.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -1232,7 +1232,6 @@
         "Interactable": null,
         "Agent": {
           "MoveSpeed": 1.4,
-          "AngularSpeed": 720,
           "Acceleration": 40,
           "IdleClip": "Idle",
           "WalkClip": "Walk"

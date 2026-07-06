@@ -257,7 +257,6 @@ metadata/paradise_entity_guid = "c1fd4aa5467a487586e76b382a2ef39c"
 shape = SubResource("shape_agent")
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Guard/CharacterBody3D" unique_id=556251306]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.070952296, 0, 0.1562109)
 mesh = SubResource("mesh_agent")
 surface_material_override/0 = SubResource("mat_agent")
 
