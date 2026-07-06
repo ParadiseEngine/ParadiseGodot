@@ -78,9 +78,9 @@
   editors.** Material JSON never references them (`MaterialExporter.TexturePath` needs a
   `ResourcePath`). GLB baking depends on the renderer: a HEADLESS editor exports textureless
   GLBs (no GPU to rasterize the gradient), but the GUI editor bakes the rendered image into the
-  GLB as embedded PNG — which then makes the toktx KTX2 pass MANDATORY and rewrites content-key
+  GLB as embedded PNG — which then makes the KTX2 encode pass MANDATORY and rewrites content-key
   fixtures with textured variants. Consequences: (a) `data/` fixtures must be regenerated
   headless to stay stable; (b) a GUI scene save (auto-export hook) fails with ToolMissing unless
-  toktx is installed (`PARADISE_TOKTX_PATH` / vendored `third_party/tools/KTX-Software` — a
+  the `ktx` CLI is installed (`PARADISE_KTX_PATH` / vendored `third_party/tools/KTX-Software` — a
   GUI-launched editor does not inherit the shell PATH); (c) editor-side launch actions must not
   export as a side effect (the Play .NET button deliberately only consumes existing data/).

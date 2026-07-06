@@ -9,17 +9,18 @@ namespace ParadiseExport.Pipeline
 {
     /// <summary>
     /// Converts the PNG/JPEG textures embedded in a GLB to KTX2 (Basis Universal) via the Khronos
-    /// <c>toktx</c> CLI, rewriting the GLB to reference them through <c>KHR_texture_basisu</c>.
-    /// Engine-neutral port of the Unity GlbKtx2TextureProcessor core. Resolves <c>toktx</c> from
-    /// <c>PARADISE_TOKTX_PATH</c>, a repo-local <c>third_party/tools/KTX-Software</c>, or PATH; when
+    /// <c>ktx create</c> CLI (KTX-Software v5 — the replacement for the removed legacy toktx),
+    /// rewriting the GLB to reference them through <c>KHR_texture_basisu</c>. Engine-neutral port
+    /// of the Unity GlbKtx2TextureProcessor core. Resolves <c>ktx</c> from
+    /// <c>PARADISE_KTX_PATH</c>, a repo-local <c>third_party/tools/KTX-Software</c>, or PATH; when
     /// unavailable the conversion fails gracefully and the GLB is left as-is.
     /// </summary>
-    public static class ToktxKtx2
+    public static class KtxCreate
     {
-        public const string ToktxPathEnvironmentVariable = "PARADISE_TOKTX_PATH";
+        public const string KtxPathEnvironmentVariable = "PARADISE_KTX_PATH";
         private const string Ktx2MimeType = "image/ktx2";
         private const string Ktx2ExtensionName = "KHR_texture_basisu";
-        private const int ToktxTimeoutMilliseconds = 30 * 60 * 1000;
+        private const int KtxTimeoutMilliseconds = 30 * 60 * 1000;
 
         public enum TextureEncodingPreset
         {
@@ -64,11 +65,11 @@ namespace ParadiseExport.Pipeline
                 return ConversionResult.NoConvertibleTextures;
             }
 
-            string? toktxPath = FindToktx(repoRoot);
-            if (string.IsNullOrWhiteSpace(toktxPath))
+            string? ktxPath = FindKtx(repoRoot);
+            if (string.IsNullOrWhiteSpace(ktxPath))
             {
                 error?.Invoke(
-                    $"toktx not found. Set {ToktxPathEnvironmentVariable}, vendor KTX-Software under third_party/tools/KTX-Software, or add toktx to PATH.");
+                    $"ktx not found. Set {KtxPathEnvironmentVariable}, vendor KTX-Software v5 under third_party/tools/KTX-Software, or add ktx to PATH.");
                 return ConversionResult.ToolMissing;
             }
 
@@ -98,7 +99,7 @@ namespace ParadiseExport.Pipeline
                     ? matched
                     : PresetFromImageName(image);
 
-                if (!TryConvertImageBytes(toktxPath, sourceBytes, sourceExtension, preset, out byte[] ktx2Bytes, error))
+                if (!TryConvertImageBytes(ktxPath, sourceBytes, sourceExtension, preset, out byte[] ktx2Bytes, error))
                 {
                     continue;
                 }
@@ -130,30 +131,35 @@ namespace ParadiseExport.Pipeline
             return ConversionResult.ConvertedAllTextures;
         }
 
-        // ---- toktx invocation -------------------------------------------------------------------
+        // ---- `ktx create` invocation --------------------------------------------------------------
+        //
+        // v5 differences from the removed toktx: KTX2 output is implicit (no --t2), top-left
+        // origin is the default (no --upper_left_maps_to_s0t0), --format is mandatory, the
+        // transfer function rides on the format (+ --assign-tf for the input), ETC1S is spelled
+        // `basis-lz`, Zstandard is --zstd, and the positional order is INPUT then OUTPUT.
 
-        public static string BuildToktxArguments(TextureEncodingPreset preset, string outputPath, string sourcePath)
+        public static string BuildCreateArguments(TextureEncodingPreset preset, string outputPath, string sourcePath)
         {
-            var arguments = new List<string> { "--t2", "--upper_left_maps_to_s0t0", "--genmipmap" };
+            var arguments = new List<string> { "create", "--generate-mipmap" };
 
             switch (preset)
             {
                 case TextureEncodingPreset.UastcNormalLinear:
-                    arguments.AddRange(new[] { "--assign_oetf", "linear", "--normal_mode", "--encode", "uastc", "--uastc_quality", "2", "--zcmp", "10" });
+                    arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--normal-mode", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
                     break;
                 case TextureEncodingPreset.UastcDataLinear:
-                    arguments.AddRange(new[] { "--assign_oetf", "linear", "--encode", "uastc", "--uastc_quality", "2", "--zcmp", "10" });
+                    arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
                     break;
                 case TextureEncodingPreset.BasisLzLinear:
-                    arguments.AddRange(new[] { "--assign_oetf", "linear", "--encode", "etc1s", "--clevel", "5", "--qlevel", "255" });
+                    arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "basis-lz", "--clevel", "5", "--qlevel", "255" });
                     break;
                 default:
-                    arguments.AddRange(new[] { "--assign_oetf", "srgb", "--encode", "etc1s", "--clevel", "5", "--qlevel", "255" });
+                    arguments.AddRange(new[] { "--format", "R8G8B8A8_SRGB", "--assign-tf", "srgb", "--encode", "basis-lz", "--clevel", "5", "--qlevel", "255" });
                     break;
             }
 
-            arguments.Add(ProcessTools.QuoteArgument(outputPath));
             arguments.Add(ProcessTools.QuoteArgument(sourcePath));
+            arguments.Add(ProcessTools.QuoteArgument(outputPath));
             return string.Join(" ", arguments);
         }
 
@@ -195,7 +201,7 @@ namespace ParadiseExport.Pipeline
         }
 
         private static bool TryConvertImageBytes(
-            string toktxPath,
+            string ktxPath,
             byte[] sourceBytes,
             string sourceExtension,
             TextureEncodingPreset preset,
@@ -213,21 +219,21 @@ namespace ParadiseExport.Pipeline
                 File.WriteAllBytes(sourcePath, sourceBytes);
 
                 ProcessTools.ProcessResult run = ProcessTools.Run(
-                    toktxPath,
-                    BuildToktxArguments(preset, outputPath, sourcePath),
-                    ToktxTimeoutMilliseconds,
-                    ToktxEnvironment(toktxPath));
+                    ktxPath,
+                    BuildCreateArguments(preset, outputPath, sourcePath),
+                    KtxTimeoutMilliseconds,
+                    KtxEnvironment(ktxPath));
 
                 if (!run.Succeeded || !File.Exists(outputPath))
                 {
-                    error?.Invoke($"toktx failed (code {run.ExitCode}).\n{run.Stdout}{run.Stderr}");
+                    error?.Invoke($"ktx create failed (code {run.ExitCode}).\n{run.Stdout}{run.Stderr}");
                     return false;
                 }
 
                 ktx2Bytes = File.ReadAllBytes(outputPath);
                 if (!IsValidKtx2(ktx2Bytes, out string validationError))
                 {
-                    error?.Invoke($"toktx produced an invalid KTX2 texture: {validationError}");
+                    error?.Invoke($"ktx create produced an invalid KTX2 texture: {validationError}");
                     ktx2Bytes = Array.Empty<byte>();
                     return false;
                 }
@@ -246,21 +252,21 @@ namespace ParadiseExport.Pipeline
             }
         }
 
-        // On macOS, point the dynamic loader at toktx's bundled libs.
-        private static IReadOnlyDictionary<string, string>? ToktxEnvironment(string toktxPath)
+        // On macOS, point the dynamic loader at the vendored libktx next to the ktx binary.
+        private static IReadOnlyDictionary<string, string>? KtxEnvironment(string ktxPath)
         {
             if (!OperatingSystem.IsMacOS())
             {
                 return null;
             }
 
-            string? toktxDirectory = Path.GetDirectoryName(toktxPath);
-            if (string.IsNullOrWhiteSpace(toktxDirectory))
+            string? ktxDirectory = Path.GetDirectoryName(ktxPath);
+            if (string.IsNullOrWhiteSpace(ktxDirectory))
             {
                 return null;
             }
 
-            string libDirectory = Path.GetFullPath(Path.Combine(toktxDirectory, "..", "lib"));
+            string libDirectory = Path.GetFullPath(Path.Combine(ktxDirectory, "..", "lib"));
             if (!Directory.Exists(libDirectory))
             {
                 return null;
@@ -545,18 +551,18 @@ namespace ParadiseExport.Pipeline
 
         // ---- tool resolution --------------------------------------------------------------------
 
-        public static string? FindToktx(string? repoRoot = null) =>
+        public static string? FindKtx(string? repoRoot = null) =>
             ProcessTools.FindExecutable(
-                Environment.GetEnvironmentVariable(ToktxPathEnvironmentVariable),
-                RepositoryToktxPaths(repoRoot),
-                "toktx");
+                Environment.GetEnvironmentVariable(KtxPathEnvironmentVariable),
+                RepositoryKtxPaths(repoRoot),
+                "ktx");
 
-        private static IEnumerable<string> RepositoryToktxPaths(string? repoRoot)
+        private static IEnumerable<string> RepositoryKtxPaths(string? repoRoot)
         {
             string root = Path.GetFullPath(Path.Combine(repoRoot ?? Directory.GetCurrentDirectory(), "third_party", "tools", "KTX-Software"));
             if (OperatingSystem.IsMacOS())
             {
-                yield return Path.Combine(root, "Darwin-arm64", "bin", "toktx");
+                yield return Path.Combine(root, "Darwin-arm64", "bin", "ktx");
             }
 
             if (!Directory.Exists(root))
@@ -565,10 +571,10 @@ namespace ParadiseExport.Pipeline
             }
 
             string[] fileNames = OperatingSystem.IsWindows()
-                ? new[] { "toktx.exe" }
+                ? new[] { "ktx.exe" }
                 : OperatingSystem.IsMacOS()
-                    ? new[] { "toktx" }
-                    : new[] { "toktx", "toktx.exe" };
+                    ? new[] { "ktx" }
+                    : new[] { "ktx", "ktx.exe" };
 
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string fileName in fileNames)

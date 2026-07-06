@@ -22,9 +22,9 @@ namespace ParadiseGodot.Export
     /// - GLB primitive order == the entity's Materials slot order (both are the same
     ///   depth-first MeshInstance3D walk; the exporter feeds GltfDocument the whole subtree,
     ///   which preserves node order and per-mesh surface order).
-    /// - Textures are ALWAYS KTX2: the toktx pass is MANDATORY when the GLB embeds convertible
-    ///   images — ToolMissing/Failed on a textured mesh is an export error, because the engine
-    ///   reader rejects PNG/JPEG payloads (KTX2-only pipeline).
+    /// - Textures are ALWAYS KTX2: the `ktx create` pass is MANDATORY when the GLB embeds
+    ///   convertible images — ToolMissing/Failed on a textured mesh is an export error, because
+    ///   the engine reader rejects PNG/JPEG payloads (KTX2-only pipeline).
     /// </summary>
     internal sealed class MeshGlbExporter
     {
@@ -125,23 +125,23 @@ namespace ParadiseGodot.Export
 
         private static void RunKtx2Pass(string glbFullPath)
         {
-            ToktxKtx2.ConversionResult result = ToktxKtx2.ConvertEmbeddedTextures(
+            KtxCreate.ConversionResult result = KtxCreate.ConvertEmbeddedTextures(
                 glbFullPath,
                 log: message => GD.Print($"[ParadiseExport] {message}"),
                 error: message => GD.PushError($"[ParadiseExport] {message}"));
 
             switch (result)
             {
-                case ToktxKtx2.ConversionResult.NoConvertibleTextures:
-                case ToktxKtx2.ConversionResult.ConvertedAllTextures:
+                case KtxCreate.ConversionResult.NoConvertibleTextures:
+                case KtxCreate.ConversionResult.ConvertedAllTextures:
                     return;
-                case ToktxKtx2.ConversionResult.ToolMissing:
-                    // KTX2-only contract: a textured GLB without the toktx pass is unreadable
+                case KtxCreate.ConversionResult.ToolMissing:
+                    // KTX2-only contract: a textured GLB without the ktx-create pass is unreadable
                     // by the engine (PNG/JPEG images are rejected), so this is an export error,
                     // not a warning.
                     throw new IOException(
-                        $"toktx is required to convert '{glbFullPath}' textures to KTX2 but was not found. " +
-                        "Set PARADISE_TOKTX_PATH or install KTX-Software.");
+                        $"ktx (KTX-Software v5) is required to convert '{glbFullPath}' textures to KTX2 but was not found. " +
+                        "Set PARADISE_KTX_PATH or install KTX-Software.");
                 default:
                     throw new IOException($"KTX2 conversion failed for '{glbFullPath}'.");
             }

@@ -102,7 +102,7 @@ material under `data/materials/`. Mapping:
   GLB's own embedded material is authoritative; non-null slots override with
   `materials/*.json` (factor-only at runtime — material-JSON texture paths reference Godot
   SOURCE files; the supported texturing route is GLB-embedded KTX2).
-- **KTX2-only textures** — the toktx pass (`ToktxKtx2.ConvertEmbeddedTextures`) is MANDATORY
+- **KTX2-only textures** — the `ktx create` pass (`KtxCreate.ConvertEmbeddedTextures`) is MANDATORY
   for GLBs embedding convertible images; the engine reader rejects PNG/JPEG payloads.
   Textureless GLBs pass without the tool (tool resolution happens only after the texture
   scan). Procedural textures (GradientTexture2D…) do NOT export — author file-based textures
@@ -300,12 +300,17 @@ to engine-neutral Core (`ParadiseExport.Pipeline`), with only the trigger changi
 - **`BlenderFbxGlb`** — headless Blender (`--background --factory-startup`, embedded Python,
   `export_yup=True`) converts FBX→GLB. Skips when unchanged: a SHA-256 of the FBX is stored in the
   GLB's `asset.extras`. Resolved from `PARADISE_BLENDER_PATH` / standard installs / PATH.
-- **`ToktxKtx2`** — toktx converts the GLB's embedded PNG/JPEG to KTX2 (Basis Universal) and
+- **`KtxCreate`** — the KTX-Software v5 `ktx create` CLI (toktx was removed in v5) converts the
+  GLB's embedded PNG/JPEG to KTX2 (Basis Universal) and
   rewrites the GLB to reference them via `KHR_texture_basisu`. Per-texture encoding preset is chosen
   from material slot usage (base/emissive → sRGB BasisLZ; metallic-roughness/occlusion → linear
   UASTC; normal → linear UASTC normal-mode), falling back to the image name. Resolved from
-  `PARADISE_TOKTX_PATH` / `third_party/tools/KTX-Software` / PATH; macOS sets `DYLD_*` to the
-  bundled libs.
+  `PARADISE_KTX_PATH` / the vendored `third_party/tools/KTX-Software/Darwin-arm64` (v5.0.0-rc1
+  `bin/ktx` + `lib/libktx`) / PATH; macOS sets `DYLD_*` to the bundled libs.
+- **Settings window** — `Project > Tools > Paradise/Settings…` sets machine-level ktx/Blender
+  paths (stored in EditorSettings `paradise/tools/*`, never committed) and applies them as the
+  `PARADISE_*_PATH` environment variables above at plugin load and on save — the first stop of
+  both tools' resolution chains, so GUI-launched editors work without a shell PATH.
 - **Graceful degradation** — a missing CLI reports a warning and leaves the asset unconverted
   rather than failing the run.
 - `GlbBinary` / `ProcessTools` are shared engine-neutral helpers (the GLB container read/write was

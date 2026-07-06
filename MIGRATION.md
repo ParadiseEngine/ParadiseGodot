@@ -14,7 +14,7 @@ Engine runtime (`~/proj/ParadiseEngine`). **The export contract is fixed** — o
 |---|---|---|
 | **Language** | **Godot .NET (C#)** ✅ *confirmed* | Preserves the ~25–30% engine-neutral C# that ports verbatim; keeps DotRecast + Newtonsoft + subprocess orchestration. GDScript would rewrite all of it for no gain. |
 | FBX → GLB | **Keep Blender** (`bpy.ops.export_scene.gltf`) | Fidelity on skins/animation/materials. Godot-native `ufbx` rejected. |
-| PNG/JPG → KTX2 | **Keep toktx** | Godot cannot encode `.ktx2` (import-only, no `Image.save_ktx2()`). |
+| PNG/JPG → KTX2 | **Keep KTX-Software** (`ktx create`, v5 — toktx removed upstream) | Godot cannot encode `.ktx2` (import-only, no `Image.save_ktx2()`). |
 | NavMesh binary | **Keep DotRecast** (pure C#) | Writer ports verbatim; runtime expects DotRecast `MeshSet` format. |
 | JSON | **Keep Newtonsoft** (NuGet) | `ExportJsonWriter` + `System.Numerics` converter port verbatim. |
 | Convention | Y-up, **right-handed**, meters, column-major matrices | Godot is natively right-handed (Unity was left-handed) — see Risk #1. |
@@ -29,7 +29,7 @@ ParadiseExport/            ← class library, NO Godot reference. Unit-testable 
   Data/ParadiseComponentAttribute.cs
   Serialization/                ← ExportJsonWriter, ISceneDocumentWriter, JsonSceneDocumentWriter (verbatim)
   Pipeline/BlenderFbxGlb.cs     ← Blender subprocess + embedded Python + GLB parse (verbatim core)
-  Pipeline/ToktxKtx2.cs         ← toktx subprocess + GLB-JSON rewrite (verbatim core)
+  Pipeline/KtxCreate.cs         ← `ktx create` subprocess + GLB-JSON rewrite (verbatim core)
   NavMesh/DotRecastWriter.cs    ← DotRecast serialization (verbatim core)
   Paths/SceneExportPaths.cs     ← res:// path mapping (light rewrite)
 
@@ -116,7 +116,7 @@ Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract befo
 - **Exit:** generated prefab instances export with correct prefab refs + overrides.
 
 ### Phase 6 — Asset pipeline (Blender + toktx)
-- Move Blender (`FbxGlbExportPostprocessor`) and toktx (`GlbKtx2TextureProcessor`) cores into `Core/Pipeline` (verbatim); env-var tool resolution (`PARADISE_BLENDER_PATH`, `PARADISE_TOKTX_PATH`).
+- Move Blender (`FbxGlbExportPostprocessor`) and toktx (`GlbKtx2TextureProcessor`) cores into `Core/Pipeline` (verbatim); env-var tool resolution (`PARADISE_BLENDER_PATH`, `PARADISE_KTX_PATH`).
 - Wire triggers via Godot `EditorImportPlugin` / `EditorFileSystem` filesystem signals.
 - **Exit:** importing an FBX produces GLB → KTX2 with `KHR_texture_basisu`, matching Unity output.
 

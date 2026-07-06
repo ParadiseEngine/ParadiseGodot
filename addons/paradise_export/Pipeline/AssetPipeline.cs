@@ -8,8 +8,8 @@ namespace ParadiseGodot.Pipeline
 {
     /// <summary>
     /// Godot entry point for the asset pipeline: walks <c>res://models</c> for FBX files and runs the
-    /// engine-neutral Core converters — Blender FBX→GLB, then toktx GLB→KTX2. Both degrade gracefully
-    /// when the external CLI is missing (Blender / toktx). Triggered from the
+    /// engine-neutral Core converters — Blender FBX→GLB, then `ktx create` GLB→KTX2. Both degrade gracefully
+    /// when the external CLI is missing (Blender / ktx). Triggered from the
     /// <c>Paradise/Convert Models (FBX→GLB→KTX2)</c> menu.
     /// </summary>
     internal static class AssetPipeline
@@ -36,14 +36,14 @@ namespace ParadiseGodot.Pipeline
                 }
 
                 glbCount++;
-                ToktxKtx2.ConversionResult ktx2 = ToktxKtx2.ConvertEmbeddedTextures(
+                KtxCreate.ConversionResult ktx2 = KtxCreate.ConvertEmbeddedTextures(
                     glbFull,
                     repoRoot,
                     Path.GetDirectoryName(glbFull),
                     msg => GD.Print($"[ParadiseExport] {msg}"),
                     msg => GD.PushError($"[ParadiseExport] {msg}"));
 
-                if (ktx2 == ToktxKtx2.ConversionResult.ConvertedAllTextures)
+                if (ktx2 == KtxCreate.ConversionResult.ConvertedAllTextures)
                 {
                     ktx2Count++;
                 }
