@@ -78,6 +78,38 @@ public class RuntimeAssemblyTests
     }
 
     [Test]
+    public async Task obstacle_colliders_land_on_the_obstacle_layer_not_the_floor()
+    {
+        // Regression: the exporter must carry each collider's Godot collision_layer (obstacle
+        // mask 2 → contract layer index 1). If it exports 0 (the old bug), every static lands on
+        // the Floor bit, so the character's Obstacle-only movement cast passes straight through
+        // obstacles — "no collider on obstacles in .NET". Guard both directions of the filter.
+        var level = LoadSample();
+        using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
+
+        // Horizontal cast at obstacle height toward Obstacle1 (authored at x=5, box half-extent 1
+        // → near face at x=4), filtered to the Obstacle layer only (the movement-capsule filter).
+        var throughObstacle = new RaycastInput
+        {
+            Start = new Vector3(0f, 2f, 0f),
+            End = new Vector3(10f, 2f, 0f),
+            Filter = PhysicsLayers.CharacterCast,
+        };
+        await Assert.That(world.CastRay(throughObstacle, out var obstacleHit)).IsTrue();
+        await Assert.That(MathF.Abs(obstacleHit.Position.X - 4f)).IsLessThan(1e-3f);
+
+        // The same Obstacle-only filter must NOT see the ground slab (it belongs to the Floor
+        // layer) — proves the layers are actually distinct, not just "everything hits everything".
+        var intoGround = new RaycastInput
+        {
+            Start = new Vector3(0f, 10f, 0f),
+            End = new Vector3(0f, -10f, 0f),
+            Filter = PhysicsLayers.CharacterCast,
+        };
+        await Assert.That(world.CastRay(intoGround, out _)).IsFalse();
+    }
+
+    [Test]
     public async Task camera_ray_through_screen_center_hits_the_walkable_ground()
     {
         var level = LoadSample();

@@ -318,10 +318,40 @@ namespace ParadiseGodot.Export
             data.Id = collider.Name.ToString();
             data.Path = RelativePath(root, collider);
             data.IsTrigger = false;
+            data.Layer = ResolveLayerIndex(collider);
             data.LayerName = "";
             data.LocalCenter = ToSN(rootLocal.Origin);
             data.LocalRotation = ToSN(rootLocal.Basis.GetRotationQuaternion());
             return true;
+        }
+
+        // Godot stores collision layers as a bitmask on the owning body; the engine-neutral
+        // contract carries a Unity-style single layer INDEX (consumers do 1u << Layer — see
+        // ParadiseRuntime.SceneAssembler.AppendCollider). Map the nearest CollisionObject3D
+        // ancestor's mask to the index of its lowest set bit; an unlayered body maps to 0.
+        // (Godot's default collision_layer is 1 → index 0; obstacle mask 2 → index 1.)
+        private static int ResolveLayerIndex(Node shape)
+        {
+            for (Node? node = shape; node is not null; node = node.GetParent())
+            {
+                if (node is CollisionObject3D body)
+                {
+                    uint mask = body.CollisionLayer;
+                    if (CollisionLayerContract.IsMultiLayer(mask))
+                    {
+                        // The single-int contract can't carry multi-layer membership — the .NET
+                        // runtime would see only the lowest bit while the Godot bridge keeps all.
+                        // Be loud instead of silently lossy.
+                        GD.PushWarning(
+                            $"[ParadiseExport] Body '{body.GetPath()}' is on multiple collision layers " +
+                            $"(mask {mask}); the export contract keeps only the lowest (index {CollisionLayerContract.MaskToLayerIndex(mask)}).");
+                    }
+
+                    return CollisionLayerContract.MaskToLayerIndex(mask);
+                }
+            }
+
+            return 0;
         }
 
         // Root-exclusive path (matches the Unity convention: empty when target == root).
