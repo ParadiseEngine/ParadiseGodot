@@ -318,10 +318,30 @@ namespace ParadiseGodot.Export
             data.Id = collider.Name.ToString();
             data.Path = RelativePath(root, collider);
             data.IsTrigger = false;
+            data.Layer = ResolveLayerIndex(collider);
             data.LayerName = "";
             data.LocalCenter = ToSN(rootLocal.Origin);
             data.LocalRotation = ToSN(rootLocal.Basis.GetRotationQuaternion());
             return true;
+        }
+
+        // Godot stores collision layers as a bitmask on the owning body; the engine-neutral
+        // contract carries a Unity-style single layer INDEX (consumers do 1u << Layer — see
+        // ParadiseRuntime.SceneAssembler.AppendCollider). Map the nearest CollisionObject3D
+        // ancestor's mask to the index of its lowest set bit; an unlayered body maps to 0.
+        // (Godot's default collision_layer is 1 → index 0; obstacle mask 2 → index 1.)
+        private static int ResolveLayerIndex(Node shape)
+        {
+            for (Node? node = shape; node is not null; node = node.GetParent())
+            {
+                if (node is CollisionObject3D body)
+                {
+                    uint mask = body.CollisionLayer;
+                    return mask == 0u ? 0 : SN.BitOperations.TrailingZeroCount(mask);
+                }
+            }
+
+            return 0;
         }
 
         // Root-exclusive path (matches the Unity convention: empty when target == root).
