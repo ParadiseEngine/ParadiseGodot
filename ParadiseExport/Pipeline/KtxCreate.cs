@@ -131,6 +131,222 @@ namespace ParadiseExport.Pipeline
             return ConversionResult.ConvertedAllTextures;
         }
 
+        /// <summary>
+        /// Rewrites a GLB so every texture is an EXTERNAL KTX2 sidecar file (<c>&lt;stem&gt;_&lt;i&gt;.ktx2</c>
+        /// next to the GLB) referenced through <c>images[].uri</c>, and the image bytes are removed
+        /// from the BIN chunk (the GLB shrinks to geometry). Embedded KTX2 images are extracted
+        /// as-is; embedded PNG/JPEG are transcoded first (requires <c>ktx</c>). Already-external
+        /// images are left untouched, so this is idempotent (re-running yields
+        /// <see cref="ConversionResult.NoConvertibleTextures"/>). Both hosts read the sidecars:
+        /// Godot's glTF importer and the runtime's <c>GltfSceneReader</c> external-image resolver.
+        /// </summary>
+        public static ConversionResult ExternalizeTextures(
+            string glbFullPath,
+            string? repoRoot = null,
+            Action<string>? log = null,
+            Action<string>? error = null)
+        {
+            if (!File.Exists(glbFullPath) || !GlbBinary.TryRead(glbFullPath, out JsonObject gltf, out byte[] binChunk))
+            {
+                error?.Invoke($"Failed to parse GLB '{glbFullPath}'.");
+                return ConversionResult.Failed;
+            }
+
+            if (gltf["images"] is not JsonArray images || gltf["textures"] is not JsonArray textures ||
+                gltf["bufferViews"] is not JsonArray bufferViews)
+            {
+                return ConversionResult.NoConvertibleTextures;
+            }
+
+            // Embedded images (bufferView present) are the ones to externalize; already-external
+            // (uri, no bufferView) images are skipped — this is what makes the pass idempotent.
+            int embeddedImageCount = images.OfType<JsonObject>().Count(im => im["bufferView"] != null);
+            if (embeddedImageCount == 0)
+            {
+                return ConversionResult.NoConvertibleTextures;
+            }
+
+            string directory = Path.GetDirectoryName(glbFullPath) ?? ".";
+            string stem = Path.GetFileNameWithoutExtension(glbFullPath);
+            Dictionary<int, TextureEncodingPreset> presets = GetImageEncodingPresets(gltf, textures, images);
+            string? ktxPath = null; // resolved lazily, only if a PNG/JPEG image needs transcoding
+
+            var droppedViews = new HashSet<int>();
+            var transcodedImageIndices = new HashSet<int>();
+            int externalized = 0;
+
+            foreach (JsonObject image in images.OfType<JsonObject>())
+            {
+                if (image["bufferView"] == null)
+                {
+                    continue; // already external
+                }
+
+                int imageIndex = images.IndexOf(image);
+                if (!TryGetSourceImageBytes(image, bufferViews, binChunk, directory, out byte[] sourceBytes, out int bufferViewIndex))
+                {
+                    error?.Invoke($"Could not read texture #{imageIndex} in '{glbFullPath}'.");
+                    return ConversionResult.Failed;
+                }
+
+                byte[] ktx2Bytes;
+                if (IsKtx2Magic(sourceBytes))
+                {
+                    ktx2Bytes = sourceBytes; // already KTX2 — extract verbatim
+                }
+                else
+                {
+                    string mimeType = image["mimeType"]?.GetValue<string>() ?? "";
+                    if (!IsPngOrJpeg(mimeType))
+                    {
+                        error?.Invoke($"Texture #{imageIndex} in '{glbFullPath}' is neither KTX2 nor PNG/JPEG; cannot externalize.");
+                        return ConversionResult.Failed;
+                    }
+
+                    ktxPath ??= FindKtx(repoRoot);
+                    if (string.IsNullOrWhiteSpace(ktxPath))
+                    {
+                        error?.Invoke(
+                            $"ktx not found. Set {KtxPathEnvironmentVariable}, vendor KTX-Software v5 under third_party/tools/KTX-Software, or add ktx to PATH.");
+                        return ConversionResult.ToolMissing;
+                    }
+
+                    string sourceExtension = string.Equals(mimeType, "image/jpeg", StringComparison.OrdinalIgnoreCase) ? ".jpg" : ".png";
+                    TextureEncodingPreset preset = presets.TryGetValue(imageIndex, out TextureEncodingPreset matched) ? matched : PresetFromImageName(image);
+                    if (!TryConvertImageBytes(ktxPath, sourceBytes, sourceExtension, preset, out ktx2Bytes, error))
+                    {
+                        return ConversionResult.Failed;
+                    }
+
+                    transcodedImageIndices.Add(imageIndex);
+                }
+
+                string sidecarName = $"{stem}_{imageIndex}.ktx2";
+                File.WriteAllBytes(Path.Combine(directory, sidecarName), ktx2Bytes);
+
+                image.Remove("bufferView");
+                image["uri"] = sidecarName;
+                image["mimeType"] = Ktx2MimeType;
+                image["name"] = Ktx2ImageName(image, imageIndex);
+                droppedViews.Add(bufferViewIndex);
+                externalized++;
+            }
+
+            // A PNG source that was transcoded needs the KHR_texture_basisu extension added; images
+            // that were already embedded KTX2 already carry it.
+            if (transcodedImageIndices.Count > 0)
+            {
+                ApplyBasisTextureExtensions(gltf, textures, transcodedImageIndices);
+            }
+
+            binChunk = RebuildBinaryChunkDropping(gltf, bufferViews, binChunk, droppedViews);
+            UpdateFirstBufferLength(gltf, binChunk.Length);
+            GlbBinary.Write(glbFullPath, gltf, binChunk);
+            log?.Invoke($"Externalized {externalized} texture(s) from '{glbFullPath}' to sidecar .ktx2 file(s).");
+            return ConversionResult.ConvertedAllTextures;
+        }
+
+        // Repacks the BIN chunk keeping only bufferViews NOT in <paramref name="droppedViews"/>,
+        // then removes the dropped entries from the array and re-indexes every referrer (accessors,
+        // sparse accessors, remaining embedded images) through the old→new map. Buffer-1+ views are
+        // left untouched (external buffers aren't repacked into chunk 0).
+        private static byte[] RebuildBinaryChunkDropping(JsonObject gltf, JsonArray bufferViews, byte[] sourceBin, ISet<int> droppedViews)
+        {
+            var kept = new List<int>();
+            for (int i = 0; i < bufferViews.Count; i++)
+            {
+                if (!droppedViews.Contains(i))
+                {
+                    kept.Add(i);
+                }
+            }
+
+            var newOffset = new Dictionary<int, int>();
+            var newLength = new Dictionary<int, int>();
+            byte[] newBin;
+            using (var rebuilt = new MemoryStream())
+            {
+                foreach (int i in kept)
+                {
+                    if (bufferViews[i] is not JsonObject bv)
+                    {
+                        continue;
+                    }
+
+                    // Views on external buffers keep their offsets verbatim (not in chunk 0).
+                    if ((bv["buffer"]?.GetValue<int>() ?? 0) != 0)
+                    {
+                        newOffset[i] = bv["byteOffset"]?.GetValue<int>() ?? 0;
+                        newLength[i] = bv["byteLength"]?.GetValue<int>() ?? 0;
+                        continue;
+                    }
+
+                    int off = bv["byteOffset"]?.GetValue<int>() ?? 0;
+                    int len = bv["byteLength"]?.GetValue<int>() ?? 0;
+                    GlbBinary.WritePadding(rebuilt, 0x00);
+                    newOffset[i] = (int)rebuilt.Position;
+                    newLength[i] = len;
+                    if (len > 0 && off >= 0 && off + len <= sourceBin.Length)
+                    {
+                        rebuilt.Write(sourceBin, off, len);
+                    }
+                }
+
+                GlbBinary.WritePadding(rebuilt, 0x00);
+                newBin = rebuilt.ToArray();
+            }
+
+            var remap = new Dictionary<int, int>();
+            var newViews = new JsonArray();
+            for (int n = 0; n < kept.Count; n++)
+            {
+                int oldIndex = kept[n];
+                remap[oldIndex] = n;
+                var bv = (JsonObject)bufferViews[oldIndex]!.DeepClone();
+                if ((bv["buffer"]?.GetValue<int>() ?? 0) == 0)
+                {
+                    bv["byteOffset"] = newOffset[oldIndex];
+                    bv["byteLength"] = newLength[oldIndex];
+                }
+                newViews.Add(bv);
+            }
+            gltf["bufferViews"] = newViews;
+
+            if (gltf["accessors"] is JsonArray accessors)
+            {
+                foreach (JsonObject accessor in accessors.OfType<JsonObject>())
+                {
+                    RemapBufferView(accessor, remap);
+                    if (accessor["sparse"] is JsonObject sparse)
+                    {
+                        if (sparse["indices"] is JsonObject indices) RemapBufferView(indices, remap);
+                        if (sparse["values"] is JsonObject values) RemapBufferView(values, remap);
+                    }
+                }
+            }
+
+            foreach (JsonObject image in ((JsonArray)gltf["images"]!).OfType<JsonObject>())
+            {
+                if (image["bufferView"] != null) RemapBufferView(image, remap);
+            }
+
+            return newBin;
+        }
+
+        private static void RemapBufferView(JsonObject node, IReadOnlyDictionary<int, int> remap)
+        {
+            if (node["bufferView"] is JsonValue value && value.TryGetValue(out int old) && remap.TryGetValue(old, out int updated))
+            {
+                node["bufferView"] = updated;
+            }
+        }
+
+        private static bool IsKtx2Magic(ReadOnlySpan<byte> bytes)
+        {
+            ReadOnlySpan<byte> magic = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
+            return bytes.Length >= magic.Length && bytes[..magic.Length].SequenceEqual(magic);
+        }
+
         // ---- `ktx create` invocation --------------------------------------------------------------
         //
         // v5 differences from the removed toktx: KTX2 output is implicit (no --t2), top-left

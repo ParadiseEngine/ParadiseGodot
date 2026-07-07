@@ -141,6 +141,15 @@ namespace ParadiseGodot.Export
             }
 
             string path = texture.ResourcePath;
+            // Sub-resource textures (procedural GradientTexture2D/NoiseTexture, embedded in a
+            // scene/resource as "res://foo.tscn::id") are not standalone loadable files, so the
+            // contract must not reference them — the runtime textures via GLB-embedded/external
+            // KTX2, and such a material keeps its color factor only.
+            if (path.Contains("::", StringComparison.Ordinal))
+            {
+                return null;
+            }
+
             return path.StartsWith("res://", StringComparison.Ordinal) ? path["res://".Length..] : path;
         }
 

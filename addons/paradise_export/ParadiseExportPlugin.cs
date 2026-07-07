@@ -14,11 +14,14 @@ namespace ParadiseGodot
     {
         private const string ExportMenuItem = "Paradise/Export Active Scene";
         private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
+        private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
         private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
+        private const string ConvertDataGlbsMenuItem = "Paradise/Convert data GLBs → KTX2";
         private const string SettingsMenuItem = "Paradise/Settings…";
 
         private Button? _playDotnetButton;
         private ParadiseSettingsDialog? _settingsDialog;
+        private readonly Pipeline.DataGlbImportHook _dataGlbHook = new();
 
         public override void _EnterTree()
         {
@@ -28,8 +31,13 @@ namespace ParadiseGodot
 
             AddToolMenuItem(ExportMenuItem, Callable.From(OnExportActiveScene));
             AddToolMenuItem(GeneratePrefabsMenuItem, Callable.From(OnGenerateModelPrefabs));
+            AddToolMenuItem(GeneratePrimitivesMenuItem, Callable.From(OnGeneratePrimitives));
             AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
+            AddToolMenuItem(ConvertDataGlbsMenuItem, Callable.From(OnConvertDataGlbs));
             AddToolMenuItem(SettingsMenuItem, Callable.From(OnOpenSettings));
+            // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
+            // dropped into data/ is runtime-ready with no manual step.
+            EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported += _dataGlbHook.OnResourcesReimported;
             _playDotnetButton = new Button
             {
                 Text = "Play .NET",
@@ -42,12 +50,16 @@ namespace ParadiseGodot
             SceneSaved += OnSceneSaved;
             GD.Print($"[ParadiseExport] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
 
-            // Headless/CI regeneration hook: PARADISE_EXPORT_SCENE=res://scenes/sample.tscn
-            // godot --headless --editor --path . — exports the scene and quits the editor.
-            string headlessScene = OS.GetEnvironment("PARADISE_EXPORT_SCENE");
-            if (!string.IsNullOrEmpty(headlessScene))
+            // Headless/CI hook: run one or more migration tasks then quit. Any combination of:
+            //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
+            //   PARADISE_CONVERT_DATA_GLBS=1     transcode data/ GLB textures → KTX2 in place
+            //   PARADISE_EXPORT_SCENE=res://...   export that scene's data/ contract
+            // e.g. godot --headless --editor --path . — tasks run in the above order, then quit.
+            if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1" ||
+                OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1" ||
+                !string.IsNullOrEmpty(OS.GetEnvironment("PARADISE_EXPORT_SCENE")))
             {
-                Callable.From(() => RunHeadlessExport(headlessScene)).CallDeferred();
+                Callable.From(RunHeadlessTasks).CallDeferred();
             }
         }
 
@@ -55,9 +67,12 @@ namespace ParadiseGodot
         {
             RemoveToolMenuItem(ExportMenuItem);
             RemoveToolMenuItem(GeneratePrefabsMenuItem);
+            RemoveToolMenuItem(GeneratePrimitivesMenuItem);
             RemoveToolMenuItem(ConvertModelsMenuItem);
+            RemoveToolMenuItem(ConvertDataGlbsMenuItem);
             RemoveToolMenuItem(SettingsMenuItem);
             SceneSaved -= OnSceneSaved;
+            EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported -= _dataGlbHook.OnResourcesReimported;
             if (_settingsDialog is not null)
             {
                 _settingsDialog.QueueFree();
@@ -177,40 +192,71 @@ namespace ParadiseGodot
             Pipeline.ModelPrefabGenerator.GenerateAll();
         }
 
+        private void OnGeneratePrimitives()
+        {
+            Pipeline.PrimitiveGlbGenerator.GenerateAll();
+        }
+
         private void OnConvertModels()
         {
             Pipeline.AssetPipeline.ConvertAllModels();
         }
 
-        private void RunHeadlessExport(string scenePath)
+        private void OnConvertDataGlbs()
+        {
+            Pipeline.DataGlbConverter.ConvertAll();
+        }
+
+        // Headless orchestrator: run whichever migration tasks the env selects, in a fixed order
+        // (generate primitives → convert data GLBs → export scene), then quit with a combined code.
+        private void RunHeadlessTasks()
         {
             int exitCode = 0;
             try
             {
-                var packed = GD.Load<PackedScene>(scenePath);
-                Node root = packed.Instantiate();
-                // Exporters read GlobalTransform, which requires tree membership — parent the
-                // instance under the plugin for the duration of the export.
-                AddChild(root);
-                try
+                if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1")
                 {
-                    string? output = Export.SceneDataExporter.ExportRoot(root);
-                    GD.Print($"[ParadiseExport] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
-                    if (output is null) exitCode = 1;
+                    Pipeline.PrimitiveGlbGenerator.GenerateAll();
                 }
-                finally
+
+                if (OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")
                 {
-                    RemoveChild(root);
-                    root.QueueFree();
+                    Pipeline.DataGlbConverter.ConvertAll();
+                }
+
+                string scenePath = OS.GetEnvironment("PARADISE_EXPORT_SCENE");
+                if (!string.IsNullOrEmpty(scenePath) && !RunHeadlessExport(scenePath))
+                {
+                    exitCode = 1;
                 }
             }
             catch (System.Exception ex)
             {
-                GD.PushError($"[ParadiseExport] Headless export failed: {ex}");
+                GD.PushError($"[ParadiseExport] Headless task failed: {ex}");
                 exitCode = 1;
             }
 
             GetTree().Quit(exitCode);
+        }
+
+        private bool RunHeadlessExport(string scenePath)
+        {
+            var packed = GD.Load<PackedScene>(scenePath);
+            Node root = packed.Instantiate();
+            // Exporters read GlobalTransform, which requires tree membership — parent the
+            // instance under the plugin for the duration of the export.
+            AddChild(root);
+            try
+            {
+                string? output = Export.SceneDataExporter.ExportRoot(root);
+                GD.Print($"[ParadiseExport] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
+                return output is not null;
+            }
+            finally
+            {
+                RemoveChild(root);
+                root.QueueFree();
+            }
         }
 
         private void OnExportActiveScene()
