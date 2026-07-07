@@ -6,9 +6,10 @@ using Paradise.Rendering.WebGPU;
 namespace ParadiseRuntime.Tests;
 
 /// <summary>Texture rendering through the REAL runtime path and the REAL committed fixture:
-/// the ball GLB's GUI-baked KTX2 (v5 `ktx create` output) must transcode, upload, and draw
-/// with its texture bound — headless GPU, skip-not-fail without an adapter. (No pixel readback
-/// exists in the renderer yet; GPU validation failing the draw is the tripwire.)</summary>
+/// a character source GLB's KTX2 (v5 `ktx create` output, embedded at data/ import) must
+/// transcode, upload, and draw with its texture bound — headless GPU, skip-not-fail without an
+/// adapter. (No pixel readback exists in the renderer yet; GPU validation failing the draw is the
+/// tripwire.)</summary>
 public class TexturedRenderingGpuTests
 {
     private static string RepoRoot()
@@ -25,28 +26,32 @@ public class TexturedRenderingGpuTests
     public async Task slot_override_inherits_the_glb_textures_and_keeps_its_factors()
     {
         var level = LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
+        // Ball2 references the shared textured sphere_ball.glb (external gradient KTX2) and carries
+        // its own color-only slot override — the canonical "textured GLB + differing tint" case.
         var ball2 = level.Level.Entities.First(e => e.Id == "Ball2");
         GltfAsset asset = level.MeshAssets[ball2.Components.Renderable!.Mesh!];
         var overrideJson = level.Materials[ball2.Materials[0]!];
+        // Precondition: the GLB material this slot maps to is genuinely textured.
+        await Assert.That(SceneAssembler.HasAnyTexture(in asset.Materials[0])).IsTrue();
 
         var material = SceneAssembler.BuildSlotOverrideMaterial(overrideJson, in asset.Materials[0]);
 
-        // Texture comes from the GLB…
+        // The texture indices come from the GLB (the slot override never carries runtime textures)…
         await Assert.That(material.BaseColorImage).IsEqualTo(asset.Materials[0].BaseColorImage);
         await Assert.That(SceneAssembler.HasAnyTexture(in material)).IsTrue();
-        // …while the factors are the override's (Ball2's tint, not the GLB-baked Ball1 red).
+        // …while the color factors are the override's (Ball2's blue tint, NOT the GLB's white base).
         await Assert.That(material.BaseColorFactor.X).IsEqualTo(overrideJson.BaseColorFactor.R);
         await Assert.That(material.BaseColorFactor.Y).IsEqualTo(overrideJson.BaseColorFactor.G);
-        var glbFactor = asset.Materials[0].BaseColorFactor;
-        await Assert.That(material.BaseColorFactor != glbFactor).IsTrue();
+        await Assert.That(material.BaseColorFactor != asset.Materials[0].BaseColorFactor).IsTrue();
     }
 
     [Test]
-    public async Task committed_ktx2_ball_texture_uploads_and_renders()
+    public async Task committed_ktx2_character_texture_uploads_and_renders()
     {
         var level = LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
-        var ballMeshField = level.Level.Entities.First(e => e.Id == "Ball1").Components.Renderable!.Mesh!;
-        GltfAsset ball = level.MeshAssets[ballMeshField];
+        // Dragon references a single-material, single-KTX2-image source GLB.
+        var meshField = level.Level.Entities.First(e => e.Id == "Dragon").Components.Renderable!.Mesh!;
+        GltfAsset ball = level.MeshAssets[meshField];
 
         // The fixture really is textured: one KTX2 image, referenced as the base color.
         await Assert.That(ball.Images.Length).IsEqualTo(1);

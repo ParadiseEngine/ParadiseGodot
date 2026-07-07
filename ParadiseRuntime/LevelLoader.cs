@@ -70,6 +70,11 @@ public static class LevelLoader
     {
         if (meshAssets.ContainsKey(field)) return;
         var path = Path.Combine(dataDir, field.Replace('/', Path.DirectorySeparatorChar));
-        meshAssets[field] = GltfSceneReader.Read(File.ReadAllBytes(path));
+        // External-KTX2 textures are sidecar .ktx2 files next to the GLB; resolve image URIs
+        // relative to the GLB's directory.
+        var glbDir = Path.GetDirectoryName(path)!;
+        meshAssets[field] = GltfSceneReader.Read(
+            File.ReadAllBytes(path),
+            uri => File.ReadAllBytes(Path.Combine(glbDir, uri.Replace('/', Path.DirectorySeparatorChar))));
     }
 }

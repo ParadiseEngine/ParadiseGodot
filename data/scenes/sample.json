@@ -107,7 +107,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/cube.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -126,12 +126,12 @@
         1
       ],
       "LocalScale": [
+        20,
         1,
-        1,
-        1
+        20
       ],
       "LocalMatrix": [
-        1,
+        20,
         0,
         0,
         0,
@@ -141,7 +141,7 @@
         0,
         0,
         0,
-        1,
+        20,
         0,
         0,
         0,
@@ -149,7 +149,7 @@
         1
       ],
       "WorldMatrix": [
-        1,
+        20,
         0,
         0,
         0,
@@ -159,7 +159,7 @@
         0,
         0,
         0,
-        1,
+        20,
         0,
         0,
         0,
@@ -177,7 +177,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/b10c17201bc3feee.glb",
+          "Mesh": "primitives/cube.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -202,9 +202,9 @@
                 1
               ],
               "Size": [
-                20,
                 1,
-                20
+                1,
+                1
               ],
               "Radius": 0,
               "Height": 0,
@@ -233,7 +233,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/cube.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -252,22 +252,22 @@
         1
       ],
       "LocalScale": [
-        1,
-        1,
-        1
+        2,
+        3,
+        2
       ],
       "LocalMatrix": [
-        1,
+        2,
         0,
         0,
         0,
         0,
-        1,
+        3,
         0,
         0,
         0,
         0,
-        1,
+        2,
         0,
         5,
         2,
@@ -275,17 +275,17 @@
         1
       ],
       "WorldMatrix": [
-        1,
+        2,
         0,
         0,
         0,
         0,
-        1,
+        3,
         0,
         0,
         0,
         0,
-        1,
+        2,
         0,
         5,
         2,
@@ -303,7 +303,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/b1915ef13b6552a3.glb",
+          "Mesh": "primitives/cube.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -328,9 +328,9 @@
                 1
               ],
               "Size": [
-                2,
-                3,
-                2
+                1,
+                1,
+                1
               ],
               "Radius": 0,
               "Height": 0,
@@ -359,7 +359,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/cube.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -378,22 +378,22 @@
         1
       ],
       "LocalScale": [
-        1,
-        1,
-        1
+        2,
+        3,
+        2
       ],
       "LocalMatrix": [
-        1,
+        2,
         0,
         0,
         0,
         0,
-        1,
+        3,
         0,
         0,
         0,
         0,
-        1,
+        2,
         0,
         -4,
         2,
@@ -401,17 +401,17 @@
         1
       ],
       "WorldMatrix": [
-        1,
+        2,
         0,
         0,
         0,
         0,
-        1,
+        3,
         0,
         0,
         0,
         0,
-        1,
+        2,
         0,
         -4,
         2,
@@ -429,7 +429,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/b1915ef13b6552a3.glb",
+          "Mesh": "primitives/cube.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -454,9 +454,9 @@
                 1
               ],
               "Size": [
-                2,
-                3,
-                2
+                1,
+                1,
+                1
               ],
               "Radius": 0,
               "Height": 0,
@@ -485,7 +485,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/cube.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -555,7 +555,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/86ce4e74251e7f22.glb",
+          "Mesh": "primitives/cube.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -611,7 +611,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/cube.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -681,7 +681,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/86ce4e74251e7f22.glb",
+          "Mesh": "primitives/cube.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -737,7 +737,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -756,22 +756,22 @@
         1
       ],
       "LocalScale": [
-        1,
-        1,
-        1
+        0.7,
+        0.7,
+        0.7
       ],
       "LocalMatrix": [
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         1,
         0.85,
@@ -779,17 +779,17 @@
         1
       ],
       "WorldMatrix": [
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         1,
         0.85,
@@ -807,7 +807,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/5351e01c48b8b531.glb",
+          "Mesh": "primitives/sphere_ball.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -836,7 +836,7 @@
                 0,
                 0
               ],
-              "Radius": 0.35,
+              "Radius": 0.5,
               "Height": 0,
               "NavObstacle": null
             }
@@ -863,7 +863,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -882,22 +882,22 @@
         1
       ],
       "LocalScale": [
-        1,
-        1,
-        1
+        0.7,
+        0.7,
+        0.7
       ],
       "LocalMatrix": [
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         -1.5,
         0.85,
@@ -905,17 +905,17 @@
         1
       ],
       "WorldMatrix": [
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         -1.5,
         0.85,
@@ -933,7 +933,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/5351e01c48b8b531.glb",
+          "Mesh": "primitives/sphere_ball.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -962,7 +962,7 @@
                 0,
                 0
               ],
-              "Radius": 0.35,
+              "Radius": 0.5,
               "Height": 0,
               "NavObstacle": null
             }
@@ -989,7 +989,7 @@
       "Kind": "Prop",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -1008,22 +1008,22 @@
         1
       ],
       "LocalScale": [
-        1,
-        1,
-        1
+        0.7,
+        0.7,
+        0.7
       ],
       "LocalMatrix": [
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0.5,
         0.85,
@@ -1031,17 +1031,17 @@
         1
       ],
       "WorldMatrix": [
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0,
         0,
         0,
-        1,
+        0.7,
         0,
         0.5,
         0.85,
@@ -1059,7 +1059,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/5351e01c48b8b531.glb",
+          "Mesh": "primitives/sphere_ball.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -1088,7 +1088,7 @@
                 0,
                 0
               ],
-              "Radius": 0.35,
+              "Radius": 0.5,
               "Height": 0,
               "NavObstacle": null
             }
@@ -1115,7 +1115,7 @@
       "Kind": "Character",
       "SpawnPhase": "LevelStart",
       "IsActive": true,
-      "Prefab": null,
+      "Prefab": "res://data/primitives/capsule.glb",
       "PrefabAssetPath": "res://scenes/sample.tscn",
       "NearestInstanceRoot": "Sample",
       "PrefabGuid": "uid://cbf3nx0sn7cpw",
@@ -1185,7 +1185,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/7de91d07ee464de7.glb",
+          "Mesh": "primitives/capsule.glb",
           "MeshNode": null
         },
         "Collider": {
@@ -1236,6 +1236,967 @@
           "IdleClip": "Idle",
           "WalkClip": "Walk"
         }
+      }
+    },
+    {
+      "Id": "Knight",
+      "EntityGuid": "323184d8-cb14-485a-ad21-c68ffdb1f68c",
+      "StableId": "Knight",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -6,
+        0.5,
+        2
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -6,
+        0.5,
+        2,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -6,
+        0.5,
+        2,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_sxuas.json",
+        "materials/StandardMaterial3D_ptwso.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/knight.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Elf",
+      "EntityGuid": "7d009fcc-df47-466a-8f6e-98efe2880f21",
+      "StableId": "Elf",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        6,
+        0.5,
+        5
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        6,
+        0.5,
+        5,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        6,
+        0.5,
+        5,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_a08xm.json",
+        "materials/StandardMaterial3D_urhvv.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/elf.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Mage",
+      "EntityGuid": "adc91a6b-037c-4c8e-9a38-4101c168f97c",
+      "StableId": "Mage",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -7,
+        0.5,
+        -2
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -7,
+        0.5,
+        -2,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -7,
+        0.5,
+        -2,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_wcf2a.json",
+        "materials/StandardMaterial3D_abc2g.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/mage.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Nain",
+      "EntityGuid": "c66e0c81-9781-4672-8567-ac529e39c44d",
+      "StableId": "Nain",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        7,
+        0.5,
+        1
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        7,
+        0.5,
+        1,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        7,
+        0.5,
+        1,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_shu20.json",
+        "materials/StandardMaterial3D_l1aav.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/nain.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Dragon",
+      "EntityGuid": "cd895c1a-e7e4-43f4-abe1-790d09306d64",
+      "StableId": "Dragon",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        0,
+        0.5,
+        -8
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.5,
+        -8,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.5,
+        -8,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_7hpfs.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/dragon.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Plant1",
+      "EntityGuid": "26ce2ba1-90fa-4ba3-bcb8-8e0414004406",
+      "StableId": "Plant1",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -8,
+        0.5,
+        -6
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -8,
+        0.5,
+        -6,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -8,
+        0.5,
+        -6,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_0f24c.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/plants/plant_001.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Plant5",
+      "EntityGuid": "a0c9d2d4-5591-40b4-a47d-b574f3aa910c",
+      "StableId": "Plant5",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        8,
+        0.5,
+        -6
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        8,
+        0.5,
+        -6,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        8,
+        0.5,
+        -6,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_g7qk0.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/plants/plant_005.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Plant10",
+      "EntityGuid": "035b8d5c-9f3e-4e9f-81d8-294ee9d3adce",
+      "StableId": "Plant10",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -8,
+        0.5,
+        7
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -8,
+        0.5,
+        7,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -8,
+        0.5,
+        7,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_4m7ut.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/plants/plant_010.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Plant15",
+      "EntityGuid": "9fcd4100-1fa4-4f66-bc06-079ee6eb72ec",
+      "StableId": "Plant15",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        8,
+        0.5,
+        8
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        8,
+        0.5,
+        8,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        8,
+        0.5,
+        8,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_ms0uw.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/plants/plant_015.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Plant20",
+      "EntityGuid": "a874cb3d-412a-4dae-b54b-ee35a231cd9e",
+      "StableId": "Plant20",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        3,
+        0.5,
+        7
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        3,
+        0.5,
+        7,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        3,
+        0.5,
+        7,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_iu08j.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/plants/plant_020.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "Plant",
+      "EntityGuid": "8361afe8-c982-4d7b-8fad-4193b946e152",
+      "StableId": "Plant",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -3,
+        0.5,
+        8
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -3,
+        0.5,
+        8,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        -3,
+        0.5,
+        8,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_p8the.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/plants/plant.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
       }
     }
   ],

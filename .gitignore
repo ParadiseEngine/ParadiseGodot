@@ -9,9 +9,15 @@ obj/
 *.user
 
 # Exported engine-neutral data (build output; regenerate via Paradise/Export or the
-# PARADISE_EXPORT_SCENE headless hook). The sample scene's export IS tracked (force-added):
-# it is the fixture set for ParadiseExport.Tests / ParadiseRuntime(.Tests) and the engine's
-# real-producer GLB cross-checks.
+# PARADISE_EXPORT_SCENE headless hook). The sample fixture set IS tracked (force-added): the
+# scene contract (data/scenes/sample.*), materials (data/materials/*.json), the shared unit
+# primitive GLBs (data/primitives/*.glb, from Paradise/Generate Primitive GLBs), the source model
+# GLBs the scene references (data/Models/**/*.glb — geometry only), and their EXTERNAL texture
+# sidecars (data/Models/**/*.ktx2, <glbstem>_<i>.ktx2, from Paradise/Convert data GLBs → KTX2).
+# A GLB and its .ktx2 sidecars must be committed together (relative image URIs). These back
+# ParadiseExport.Tests / ParadiseRuntime(.Tests) and the engine's real-producer GLB cross-checks.
+# NOT tracked: Godot import sidecars (*.import, *.uid) and any extracted texture PNGs — regenerated
+# on import.
 /data/
 
 # JetBrains IDE

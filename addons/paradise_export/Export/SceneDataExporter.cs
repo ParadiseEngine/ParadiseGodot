@@ -47,7 +47,6 @@ namespace ParadiseGodot.Export
             var document = new LevelData();
             var materials = new MaterialExporter();
             var prefabs = new PrefabExporter(materials, paths);
-            var meshes = new MeshGlbExporter(paths);
             paths.EnsureOutputDirectory();
             foreach (Node node in Descendants(root))
             {
@@ -60,7 +59,7 @@ namespace ParadiseGodot.Export
                         EnsureLightingState(document).Lights.Add(ExportLight(light));
                         break;
                     case EntityExport entity:
-                        document.Entities.Add(ExportEntity(entity, materials, prefabs, meshes));
+                        document.Entities.Add(ExportEntity(entity, materials, prefabs, paths));
                         break;
                 }
             }
@@ -157,7 +156,7 @@ namespace ParadiseGodot.Export
             }
         }
 
-        private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials, PrefabExporter prefabs, MeshGlbExporter meshes)
+        private static LevelEntityData ExportEntity(EntityExport entity, MaterialExporter materials, PrefabExporter prefabs, ExportPaths paths)
         {
             SN.Vector3 localPos = ToSN(entity.Position);
             SN.Quaternion localRot = ToSN(entity.Quaternion);
@@ -193,7 +192,7 @@ namespace ParadiseGodot.Export
                 LocalMatrix = ContractMatrix.Trs(localPos, localRot, localScale),
                 WorldMatrix = ContractMatrix.Trs(worldPos, worldRot, worldScale),
                 Materials = materials.ExportMaterialSlots(entity),
-                Components = BuildComponents(entity, meshes),
+                Components = BuildComponents(entity, paths),
             };
         }
 
@@ -210,13 +209,72 @@ namespace ParadiseGodot.Export
             return null;
         }
 
-        private static EntityComponentsData BuildComponents(EntityExport entity, MeshGlbExporter meshes)
+        // Resolve the entity's SOURCE mesh GLB to a data/-relative contract field. Prefers the
+        // authored ModelPath; otherwise the nearest instanced model child (a node whose
+        // SceneFilePath is a .glb/.gltf under data/). A .tscn/.scn ModelPath is a prefab hint, not
+        // a mesh, so it is ignored here (the caller keeps the ModelPath-hint Renderable branch).
+        // Returns null when no GLB is found or it resolves OUTSIDE data/ (unreachable at runtime).
+        private static string? ResolveMeshField(EntityExport entity, ExportPaths paths)
+        {
+            if (IsGlbPath(entity.ModelPath))
+            {
+                return WarnIfUnreachable(paths.DataRelativeMeshField(entity.ModelPath), entity, entity.ModelPath);
+            }
+
+            foreach (Node descendant in ModelDescendants(entity))
+            {
+                if (IsGlbPath(descendant.SceneFilePath))
+                {
+                    return WarnIfUnreachable(paths.DataRelativeMeshField(descendant.SceneFilePath), entity, descendant.SceneFilePath);
+                }
+            }
+
+            return null;
+        }
+
+        // Descendants of the entity, NOT descending into a nested EntityExport (that child owns
+        // its own model), so a parent never claims a child entity's instanced GLB.
+        private static IEnumerable<Node> ModelDescendants(Node node)
+        {
+            foreach (Node child in node.GetChildren())
+            {
+                if (child is EntityExport)
+                {
+                    continue;
+                }
+
+                yield return child;
+                foreach (Node descendant in ModelDescendants(child))
+                {
+                    yield return descendant;
+                }
+            }
+        }
+
+        private static bool IsGlbPath(string? path) =>
+            !string.IsNullOrEmpty(path) &&
+            (path.EndsWith(".glb", System.StringComparison.OrdinalIgnoreCase) ||
+             path.EndsWith(".gltf", System.StringComparison.OrdinalIgnoreCase));
+
+        private static string? WarnIfUnreachable(string? field, EntityExport entity, string source)
+        {
+            if (field is null)
+            {
+                GD.PushWarning(
+                    $"[ParadiseExport] Entity '{entity.Name}' references model '{source}' outside res://data/ — " +
+                    "the runtime resolves meshes under data/, so it will not render. Move the asset under data/.");
+            }
+
+            return field;
+        }
+
+        private static EntityComponentsData BuildComponents(EntityExport entity, ExportPaths paths)
         {
             var components = new EntityComponentsData();
-            // Schema v2: the mesh GLB is exported from the entity's actual visual subtree, so
-            // Renderable presence follows "has meshes", not the authored ModelPath hint. A
-            // ModelPath entity whose model children exist in the scene gets the same treatment.
-            string? meshField = meshes.Export(entity);
+            // Schema v2 (source-GLB pipeline): Renderable.Mesh REFERENCES the entity's source GLB
+            // under data/ (no per-entity bake). The runtime resolves it as data/<field> and reads
+            // the shared, KTX2-converted GLB — the same file the Godot editor renders.
+            string? meshField = ResolveMeshField(entity, paths);
             if (meshField is not null)
             {
                 components.Renderable = new RenderableComponentData { Mesh = meshField };

@@ -47,8 +47,48 @@ namespace ParadiseExport.Paths
         public string GetMeshOutputPath(string meshField) =>
             Path.Combine(_dataDir, meshField.Replace('/', Path.DirectorySeparatorChar));
 
-        /// <summary>Contract field for an exported mesh GLB: <c>meshes/&lt;key&gt;.glb</c>.</summary>
-        public static string MeshFileField(string key) => $"meshes/{key}.glb";
+        /// <summary>
+        /// Maps a source model reference — a <c>res://</c> path (e.g. a node's
+        /// <c>SceneFilePath</c> or an authored <c>ModelPath</c>) or a filesystem path — to its
+        /// contract mesh field: the path RELATIVE to the data directory
+        /// (<c>res://data/Models/knight.glb</c> → <c>Models/knight.glb</c>). The runtime resolves
+        /// mesh fields under <c>data/</c> (<c>Path.Combine(dataDir, field)</c>), so a reference
+        /// that resolves OUTSIDE the data directory is unreachable at runtime and returns
+        /// <c>null</c> (the caller warns). <c>res://</c> is the project root, whose child
+        /// <c>data/</c> is this instance's data directory.
+        /// </summary>
+        public string? DataRelativeMeshField(string resOrPath)
+        {
+            if (string.IsNullOrWhiteSpace(resOrPath))
+            {
+                return null;
+            }
+
+            string normalized = resOrPath.Replace('\\', '/');
+            string projectRoot = Path.GetDirectoryName(_dataDir) ?? _dataDir;
+
+            string full;
+            if (normalized.StartsWith("res://", StringComparison.Ordinal))
+            {
+                full = Path.GetFullPath(Path.Combine(projectRoot, normalized["res://".Length..]));
+            }
+            else if (Path.IsPathRooted(normalized))
+            {
+                full = Path.GetFullPath(normalized);
+            }
+            else
+            {
+                full = Path.GetFullPath(Path.Combine(projectRoot, normalized));
+            }
+
+            string relative = Path.GetRelativePath(_dataDir, full).Replace('\\', '/');
+            if (relative == ".." || relative.StartsWith("../", StringComparison.Ordinal) || Path.IsPathRooted(relative))
+            {
+                return null;
+            }
+
+            return relative;
+        }
 
         /// <summary>Absolute output path for a prefab field like <c>prefabs/foo.json</c>.</summary>
         public string GetPrefabDataOutputPath(string prefabField) =>

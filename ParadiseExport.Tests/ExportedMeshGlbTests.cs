@@ -3,12 +3,12 @@ using Paradise.Assets.Gltf;
 
 namespace ParadiseExport.Tests;
 
-/// <summary>The real-producer cross-check: the committed <c>data/meshes/*.glb</c> fixtures
-/// (exported by Godot's GltfDocument through MeshGlbExporter) must parse with the ENGINE's GLB
-/// reader, and each entity's GLB primitive count must equal its Materials slot count — the
-/// schema-v2 contract rule the runtime's slot-wise material override depends on. This also
-/// anchors the reader's TRS/column-major conventions against a real third-party producer
-/// (the independent-verification item from the engine PR #68 review).</summary>
+/// <summary>The real-producer cross-check: the committed source GLBs each entity REFERENCES
+/// (<c>data/Models/*.glb</c> characters/plants, <c>data/primitives/*.glb</c> shared primitives)
+/// must parse with the ENGINE's GLB reader, and each entity's GLB primitive count must equal its
+/// Materials slot count — the schema-v2 contract rule the runtime's slot-wise material override
+/// depends on. This also anchors the reader's TRS/column-major conventions against real
+/// third-party producers (the independent-verification item from the engine PR #68 review).</summary>
 public class ExportedMeshGlbTests
 {
     private static string RepoRoot()
@@ -38,7 +38,11 @@ public class ExportedMeshGlbTests
             await Assert.That(meshField).IsNotNull();
 
             var glbPath = Path.Combine(root, "data", meshField!.Replace('/', Path.DirectorySeparatorChar));
-            var asset = GltfSceneReader.Read(File.ReadAllBytes(glbPath));
+            // Textures are external KTX2 sidecars next to the GLB — resolve image URIs from there.
+            var glbDir = Path.GetDirectoryName(glbPath)!;
+            var asset = GltfSceneReader.Read(
+                File.ReadAllBytes(glbPath),
+                uri => File.ReadAllBytes(Path.Combine(glbDir, uri.Replace('/', Path.DirectorySeparatorChar))));
 
             var primitiveCount = 0;
             foreach (var instance in asset.Instances)
@@ -65,7 +69,7 @@ public class ExportedMeshGlbTests
     }
 
     [Test]
-    public async Task deduplicated_crates_share_one_glb_file()
+    public async Task entities_reference_shared_source_glbs_under_data()
     {
         var root = RepoRoot();
         using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "data", "scenes", "sample.json")));
@@ -77,11 +81,17 @@ public class ExportedMeshGlbTests
             meshFields.Add(renderable.GetProperty("Mesh").GetString()!);
         }
 
-        // Crate1+Crate2 share one GLB, Ball1..3 share another, Obstacle1+Obstacle2 share a
-        // third (dedupe ignores material overrides — those live in the per-entity Materials
-        // slots); Ground and Guard are unique: 9 renderables, 5 GLBs.
-        await Assert.That(meshFields.Count).IsEqualTo(9);
+        // Source-GLB references (no per-entity bake): the primitive entities share the unit GLBs —
+        // cube (Ground + 2 obstacles + 2 crates), sphere (3 balls), capsule (guard) — while the 11
+        // character/plant entities each reference their own model. 20 renderables, 14 distinct GLBs,
+        // all under data/ (Models/… or primitives/…).
+        await Assert.That(meshFields.Count).IsEqualTo(20);
         var distinct = new HashSet<string>(meshFields, StringComparer.Ordinal);
-        await Assert.That(distinct.Count).IsEqualTo(5);
+        await Assert.That(distinct.Count).IsEqualTo(14);
+        foreach (var field in distinct)
+        {
+            await Assert.That(field.StartsWith("Models/", StringComparison.Ordinal) ||
+                              field.StartsWith("primitives/", StringComparison.Ordinal)).IsTrue();
+        }
     }
 }
