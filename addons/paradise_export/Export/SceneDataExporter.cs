@@ -337,7 +337,17 @@ namespace ParadiseGodot.Export
                 if (node is CollisionObject3D body)
                 {
                     uint mask = body.CollisionLayer;
-                    return mask == 0u ? 0 : SN.BitOperations.TrailingZeroCount(mask);
+                    if (CollisionLayerContract.IsMultiLayer(mask))
+                    {
+                        // The single-int contract can't carry multi-layer membership — the .NET
+                        // runtime would see only the lowest bit while the Godot bridge keeps all.
+                        // Be loud instead of silently lossy.
+                        GD.PushWarning(
+                            $"[ParadiseExport] Body '{body.GetPath()}' is on multiple collision layers " +
+                            $"(mask {mask}); the export contract keeps only the lowest (index {CollisionLayerContract.MaskToLayerIndex(mask)}).");
+                    }
+
+                    return CollisionLayerContract.MaskToLayerIndex(mask);
                 }
             }
 
