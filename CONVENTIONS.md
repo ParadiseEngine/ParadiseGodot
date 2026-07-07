@@ -90,18 +90,40 @@ material under `data/materials/`. Mapping:
 - Entity `Materials` slot lists are filled from the entity's `MeshInstance3D` surfaces; the
   top-level `LevelData.Materials` stays empty (matches the Unity baseline).
 
-## Meshes & environment (schema v2)
+## Resource identity — GUID references + manifest (schema v3)
+
+Level documents reference generated assets by **GUID**, not by data-relative path. A
+single `data/resources.json` maps every GUID → its data-relative file
+(`{ "SchemaVersion", "Resources": { "<guid>": "meshes/<key>.glb", … } }`). This keeps
+resource identity uniform with the contract's entity/prefab GUIDs and lets a runtime dedupe,
+relocate, or lazily load assets without parsing paths out of every field.
+
+- **Minting** — generated artifacts (content-keyed GLBs, materials, navmesh) have no Godot
+  UID of their own, so `ResourceGuid.FromString(dataRelativePath)` mints a **deterministic
+  name-based GUID** (SHA-256 of the data-relative path folded into an RFC 9562 v8 GUID). Same
+  input → same GUID across exports and machines, so `resources.json` and every reference are
+  stable in git. (Mesh paths already embed the content key, so a mesh's GUID changes iff its
+  geometry does.) `ResourceManifestBuilder.Register(guid, path)` is the seam for later folding
+  a real Godot `uid://` (file-backed source assets) into the same namespace.
+- **Reference fields** — `Renderable.Mesh`, the entity `Materials` slots, and
+  `LevelData.NavMeshFile` carry GUIDs (schema v3). Manifest paths are uniformly
+  **data-relative**. The runtime rejects any document whose `SchemaVersion` is not the current
+  one and any reference field that is not a manifest-resolvable GUID — there is no legacy
+  path-passthrough (schema is bumped in lockstep across export + runtime; re-export on mismatch).
+
+## Meshes & environment (schema v2+)
 
 - **`Renderable.Mesh`** — each entity with visuals exports its subtree to
   `data/meshes/<content-key>.glb` via Godot's native `GltfDocument` (no Blender round-trip for
   scene-authored meshes), in ENTITY-LOCAL space (the entity's `WorldMatrix` places it).
   Content-keyed dedupe: identical visual compositions (the two crates, the three balls) share
-  one GLB; per-entity looks come from the `Materials` slot overrides.
+  one GLB; per-entity looks come from the `Materials` slot overrides. The field itself is a
+  GUID (schema v3) resolved through `resources.json`.
 - **Slot order contract** — the GLB's primitive order equals the entity's `Materials` slot
   order (both walk the same depth-first `MeshInstance3D` traversal). A null slot means the
-  GLB's own embedded material is authoritative; non-null slots override with
-  `materials/*.json` (factor-only at runtime — material-JSON texture paths reference Godot
-  SOURCE files; the supported texturing route is GLB-embedded KTX2).
+  GLB's own embedded material is authoritative; non-null slots **inherit the GLB material's
+  textures and apply their own factors** (glTF `factor × texture`, Godot parity for
+  `surface_material_override`) — the runtime does this in `SceneAssembler.BuildSlotOverrideMaterial`.
 - **KTX2-only textures** — the `ktx create` pass (`KtxCreate.ConvertEmbeddedTextures`) is MANDATORY
   for GLBs embedding convertible images; the engine reader rejects PNG/JPEG payloads.
   Textureless GLBs pass without the tool (tool resolution happens only after the texture
@@ -121,8 +143,10 @@ material under `data/materials/`. Mapping:
 ## Runtime (ParadiseRuntime)
 
 `ParadiseRuntime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
-exported `data/` (scene JSON via `ExportJsonReader`, GLBs via the engine's
-`Paradise.Assets.Gltf`, navmesh via Detour), rebuilds the CollisionWorld from the static
+exported `data/` (scene JSON via `ExportJsonReader`, then resolves every mesh/material/navmesh
+GUID through `resources.json` — `LevelLoader` requires the current schema version and a
+manifest-resolvable GUID for every reference; GLBs via the engine's `Paradise.Assets.Gltf`,
+navmesh via Detour), rebuilds the CollisionWorld from the static
 entities' colliders, spawns the SAME `SimulationRunner` sim (Agent →
 `SpawnAgent`, first agent = player; `Rigidbody.Dynamic` → `SpawnBall`), and PBR-renders
 snapshots interpolated at the bridge's constants (delay 2/60, max lag 4/60, Lerp/Slerp).

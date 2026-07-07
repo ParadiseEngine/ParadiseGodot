@@ -31,6 +31,10 @@ public static class LevelLoader
             ?? throw new InvalidOperationException($"Cannot resolve the data directory from '{sceneFullPath}'.");
 
         var level = ExportJsonReader.ReadLevel(File.ReadAllText(sceneFullPath));
+        if (level.SchemaVersion != LevelData.CurrentSchemaVersion)
+            throw new InvalidDataException(
+                $"Scene '{sceneFullPath}' is schema v{level.SchemaVersion}; the runtime requires v{LevelData.CurrentSchemaVersion}. Re-export the scene.");
+        var manifest = LoadManifest(dataDir);
 
         var materials = new Dictionary<string, LevelMaterialData>(StringComparer.Ordinal);
         var meshAssets = new Dictionary<string, GltfAsset>(StringComparer.Ordinal);
@@ -38,18 +42,18 @@ public static class LevelLoader
         {
             foreach (var slot in entity.Materials)
             {
-                if (slot is not null) LoadMaterial(dataDir, slot, materials);
+                if (slot is not null) LoadMaterial(dataDir, slot, Resolve(slot, manifest), materials);
             }
             if (entity.Components.Renderable?.Mesh is { } meshField)
             {
-                LoadMesh(dataDir, meshField, meshAssets);
+                LoadMesh(dataDir, meshField, Resolve(meshField, manifest), meshAssets);
             }
         }
 
         var navMeshFile = level.NavMeshFile
             ?? throw new InvalidDataException("Level document has no NavMeshFile — the runtime needs a navmesh.");
-        var navMesh = DetourNavMeshLoader.LoadFromBytes(
-            File.ReadAllBytes(Path.Combine(dataDir, "scenes", navMeshFile)));
+        var navMeshPath = Path.Combine(dataDir, Resolve(navMeshFile, manifest).Replace('/', Path.DirectorySeparatorChar));
+        var navMesh = DetourNavMeshLoader.LoadFromBytes(File.ReadAllBytes(navMeshPath));
 
         var settingsPath = Path.Combine(dataDir, "ProjectSettings.json");
         var renderSettings = File.Exists(settingsPath)
@@ -59,17 +63,35 @@ public static class LevelLoader
         return new RuntimeLevel(dataDir, level, materials, meshAssets, navMesh, renderSettings);
     }
 
-    private static void LoadMaterial(string dataDir, string field, Dictionary<string, LevelMaterialData> materials)
+    /// <summary>Resolve a resource GUID reference to its data-relative path via the manifest.</summary>
+    private static string Resolve(string field, IReadOnlyDictionary<string, string> manifest)
+    {
+        if (!ResourceGuid.IsGuid(field))
+            throw new InvalidDataException($"Resource reference '{field}' is not a GUID — re-export the scene (schema v3).");
+        if (!manifest.TryGetValue(field, out var path))
+            throw new InvalidDataException($"Resource '{field}' is not in resources.json — re-export the scene.");
+        return path;
+    }
+
+    private static Dictionary<string, string> LoadManifest(string dataDir)
+    {
+        var manifestPath = Path.Combine(dataDir, "resources.json");
+        if (!File.Exists(manifestPath))
+            throw new FileNotFoundException($"Resource manifest not found: {manifestPath} — re-export the scene (schema v3).", manifestPath);
+        return ExportJsonReader.ReadManifest(File.ReadAllText(manifestPath)).Resources;
+    }
+
+    private static void LoadMaterial(string dataDir, string field, string relativePath, Dictionary<string, LevelMaterialData> materials)
     {
         if (materials.ContainsKey(field)) return;
-        var path = Path.Combine(dataDir, field.Replace('/', Path.DirectorySeparatorChar));
+        var path = Path.Combine(dataDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
         materials[field] = ExportJsonReader.ReadMaterial(File.ReadAllText(path));
     }
 
-    private static void LoadMesh(string dataDir, string field, Dictionary<string, GltfAsset> meshAssets)
+    private static void LoadMesh(string dataDir, string field, string relativePath, Dictionary<string, GltfAsset> meshAssets)
     {
         if (meshAssets.ContainsKey(field)) return;
-        var path = Path.Combine(dataDir, field.Replace('/', Path.DirectorySeparatorChar));
+        var path = Path.Combine(dataDir, relativePath.Replace('/', Path.DirectorySeparatorChar));
         meshAssets[field] = GltfSceneReader.Read(File.ReadAllBytes(path));
     }
 }

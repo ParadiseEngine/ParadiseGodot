@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": 2,
+  "SchemaVersion": 3,
   "Camera": {
     "Position": [
       0,
@@ -167,7 +167,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_ground.json"
+        "81e7bc9f-d8aa-8685-a8e0-c1e086b42a66"
       ],
       "Overrides": {
         "Transform": false,
@@ -177,7 +177,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/b10c17201bc3feee.glb",
+          "Mesh": "ed31801e-6b98-7780-83b8-c91e255f35f0",
           "MeshNode": null
         },
         "Collider": {
@@ -293,7 +293,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_obstacle.json"
+        "2b442061-1655-5f8e-ae72-9a3a693de18a"
       ],
       "Overrides": {
         "Transform": false,
@@ -303,7 +303,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/b1915ef13b6552a3.glb",
+          "Mesh": "268333c0-d51d-8c85-a08a-70bdf44e9cce",
           "MeshNode": null
         },
         "Collider": {
@@ -419,7 +419,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_obstacle.json"
+        "2b442061-1655-5f8e-ae72-9a3a693de18a"
       ],
       "Overrides": {
         "Transform": false,
@@ -429,7 +429,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/b1915ef13b6552a3.glb",
+          "Mesh": "268333c0-d51d-8c85-a08a-70bdf44e9cce",
           "MeshNode": null
         },
         "Collider": {
@@ -545,7 +545,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_crate.json"
+        "e97d42a0-acc8-c98b-a668-a1e20ab1e7a3"
       ],
       "Overrides": {
         "Transform": false,
@@ -555,7 +555,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/86ce4e74251e7f22.glb",
+          "Mesh": "4e1f0ca2-d9c5-df84-a041-cd006e1e80bc",
           "MeshNode": null
         },
         "Collider": {
@@ -671,7 +671,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_crate.json"
+        "e97d42a0-acc8-c98b-a668-a1e20ab1e7a3"
       ],
       "Overrides": {
         "Transform": false,
@@ -681,7 +681,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/86ce4e74251e7f22.glb",
+          "Mesh": "4e1f0ca2-d9c5-df84-a041-cd006e1e80bc",
           "MeshNode": null
         },
         "Collider": {
@@ -797,7 +797,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_ball1.json"
+        "3c2d5833-2f89-8c8c-bee2-19db83b44e0f"
       ],
       "Overrides": {
         "Transform": false,
@@ -807,7 +807,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/5351e01c48b8b531.glb",
+          "Mesh": "bfcfc75e-e204-b781-b34a-7442b47b48cd",
           "MeshNode": null
         },
         "Collider": {
@@ -923,7 +923,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_ball2.json"
+        "fa966977-eba7-5d8d-8e12-ca6f344702b0"
       ],
       "Overrides": {
         "Transform": false,
@@ -933,7 +933,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/5351e01c48b8b531.glb",
+          "Mesh": "bfcfc75e-e204-b781-b34a-7442b47b48cd",
           "MeshNode": null
         },
         "Collider": {
@@ -1049,7 +1049,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_ball3.json"
+        "22adfed9-4463-0c8a-803a-668eca7e1b74"
       ],
       "Overrides": {
         "Transform": false,
@@ -1059,7 +1059,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/5351e01c48b8b531.glb",
+          "Mesh": "bfcfc75e-e204-b781-b34a-7442b47b48cd",
           "MeshNode": null
         },
         "Collider": {
@@ -1175,7 +1175,7 @@
         1
       ],
       "Materials": [
-        "materials/mat_agent.json"
+        "0ada106b-5664-9782-a8ef-33081f40975a"
       ],
       "Overrides": {
         "Transform": false,
@@ -1185,7 +1185,7 @@
       },
       "Components": {
         "Renderable": {
-          "Mesh": "meshes/7de91d07ee464de7.glb",
+          "Mesh": "1ebcfee7-b5ba-278d-a859-ebcd1261b586",
           "MeshNode": null
         },
         "Collider": {
@@ -1239,6 +1239,6 @@
       }
     }
   ],
-  "NavMeshFile": "sample.navmesh.bin",
+  "NavMeshFile": "b73957ff-8ed8-558c-a528-2b08ded4335c",
   "Materials": []
 }

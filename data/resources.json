@@ -1,0 +1,18 @@
+{
+  "SchemaVersion": 1,
+  "Resources": {
+    "81e7bc9f-d8aa-8685-a8e0-c1e086b42a66": "materials/mat_ground.json",
+    "2b442061-1655-5f8e-ae72-9a3a693de18a": "materials/mat_obstacle.json",
+    "e97d42a0-acc8-c98b-a668-a1e20ab1e7a3": "materials/mat_crate.json",
+    "3c2d5833-2f89-8c8c-bee2-19db83b44e0f": "materials/mat_ball1.json",
+    "fa966977-eba7-5d8d-8e12-ca6f344702b0": "materials/mat_ball2.json",
+    "22adfed9-4463-0c8a-803a-668eca7e1b74": "materials/mat_ball3.json",
+    "0ada106b-5664-9782-a8ef-33081f40975a": "materials/mat_agent.json",
+    "ed31801e-6b98-7780-83b8-c91e255f35f0": "meshes/b10c17201bc3feee.glb",
+    "268333c0-d51d-8c85-a08a-70bdf44e9cce": "meshes/b1915ef13b6552a3.glb",
+    "4e1f0ca2-d9c5-df84-a041-cd006e1e80bc": "meshes/86ce4e74251e7f22.glb",
+    "bfcfc75e-e204-b781-b34a-7442b47b48cd": "meshes/5351e01c48b8b531.glb",
+    "1ebcfee7-b5ba-278d-a859-ebcd1261b586": "meshes/7de91d07ee464de7.glb",
+    "b73957ff-8ed8-558c-a528-2b08ded4335c": "scenes/sample.navmesh.bin"
+  }
+}

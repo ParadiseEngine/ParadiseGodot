@@ -23,8 +23,7 @@ namespace ParadiseExport.Data
     // conversion (see CONVENTIONS.md).
     public sealed record LevelData
     {
-        public const int UnversionedSchemaVersion = 1;
-        public const int CurrentSchemaVersion = 2;
+        public const int CurrentSchemaVersion = 3;
 
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
         public CameraData? Camera { get; set; }

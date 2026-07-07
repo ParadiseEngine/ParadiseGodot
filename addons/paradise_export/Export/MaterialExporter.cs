@@ -19,8 +19,14 @@ namespace ParadiseGodot.Export
     /// </summary>
     internal sealed class MaterialExporter
     {
+        private readonly ResourceManifestBuilder _manifest;
         private readonly Dictionary<string, LevelMaterialData> _exported = new(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, string> _fieldSource = new(StringComparer.OrdinalIgnoreCase);
+
+        public MaterialExporter(ResourceManifestBuilder manifest)
+        {
+            _manifest = manifest;
+        }
 
         /// <summary>Per-surface material field paths for a node's MeshInstance3D descendants (the
         /// entity's <c>Materials</c> slot list), registering each unique material for writing.</summary>
@@ -56,6 +62,8 @@ namespace ParadiseGodot.Export
 
             string source = SourceId(pbr);
             string field = ExportPaths.MaterialFileField(source);
+            // Schema v3: the slot list carries the resource GUID; the manifest maps it to the file.
+            string guid = _manifest.Register(field);
             if (_exported.ContainsKey(field))
             {
                 // Same field from a different source = filename collision across directories;
@@ -72,7 +80,7 @@ namespace ParadiseGodot.Export
                 _fieldSource[field] = source;
             }
 
-            return field;
+            return guid;
         }
 
         private static LevelMaterialData ToLevelMaterial(string field, BaseMaterial3D m)

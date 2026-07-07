@@ -19,10 +19,10 @@ public class RenderableDataShapeTests
     }
 
     [Test]
-    public async Task schema_version_is_two()
+    public async Task schema_version_is_three()
     {
-        await Assert.That(LevelData.CurrentSchemaVersion).IsEqualTo(2);
-        await Assert.That(new LevelData().SchemaVersion).IsEqualTo(2);
+        await Assert.That(LevelData.CurrentSchemaVersion).IsEqualTo(3);
+        await Assert.That(new LevelData().SchemaVersion).IsEqualTo(3);
     }
 
     [Test]

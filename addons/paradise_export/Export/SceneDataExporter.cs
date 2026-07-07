@@ -45,9 +45,10 @@ namespace ParadiseGodot.Export
             string sceneName = ResolveSceneName(root);
             var paths = new ExportPaths(ProjectSettings.GlobalizePath("res://data"));
             var document = new LevelData();
-            var materials = new MaterialExporter();
+            var manifest = new ResourceManifestBuilder();
+            var materials = new MaterialExporter(manifest);
             var prefabs = new PrefabExporter(materials, paths);
-            var meshes = new MeshGlbExporter(paths);
+            var meshes = new MeshGlbExporter(paths, manifest);
             paths.EnsureOutputDirectory();
             foreach (Node node in Descendants(root))
             {
@@ -67,7 +68,8 @@ namespace ParadiseGodot.Export
 
             ProjectSettingsExporter.Export(paths);
             materials.WriteExportedMaterials(paths);
-            ExportNavMesh(root, sceneName, paths, document);
+            ExportNavMesh(root, sceneName, paths, document, manifest);
+            ExportJsonWriter.WriteJsonDocument(System.IO.Path.Combine(paths.DataDir, "resources.json"), manifest.Data);
             string outputPath = paths.GetLevelDataOutputPath(sceneName);
             Writer.Write(outputPath, document);
             GD.Print($"[ParadiseExport] Exported scene data: {outputPath}");
@@ -136,7 +138,7 @@ namespace ParadiseGodot.Export
         // Bake the scene's static-collider navmesh and write it as the runtime's DotRecast binary,
         // recording the filename on the document. Failures (no walkable geometry, bake error) leave
         // NavMeshFile null rather than aborting the scene export.
-        private static void ExportNavMesh(Node root, string sceneName, ExportPaths paths, LevelData document)
+        private static void ExportNavMesh(Node root, string sceneName, ExportPaths paths, LevelData document, ResourceManifestBuilder manifest)
         {
             try
             {
@@ -148,7 +150,9 @@ namespace ParadiseGodot.Export
                 string navMeshPath = paths.GetNavMeshOutputPath(sceneName);
                 NavMeshBinaryWriter.Write(navMeshPath, vertices, triangles,
                     message => GD.PushWarning($"[ParadiseExport] {message}"));
-                document.NavMeshFile = paths.GetNavMeshFileField(sceneName);
+                // Manifest paths are uniformly DATA-relative (the legacy field was
+                // scenes/-relative).
+                document.NavMeshFile = manifest.Register($"scenes/{paths.GetNavMeshFileField(sceneName)}");
                 GD.Print($"[ParadiseExport] Exported navmesh: {navMeshPath}");
             }
             catch (System.Exception ex)

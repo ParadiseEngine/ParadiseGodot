@@ -5,6 +5,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using Godot;
+using ParadiseExport.Data;
 using ParadiseExport.Paths;
 using ParadiseExport.Pipeline;
 using ParadiseGodot.Authoring;
@@ -29,15 +30,18 @@ namespace ParadiseGodot.Export
     internal sealed class MeshGlbExporter
     {
         private readonly ExportPaths _paths;
-        private readonly Dictionary<string, string> _fieldByKey = new();
+        private readonly ResourceManifestBuilder _manifest;
+        private readonly Dictionary<string, string> _guidByKey = new();
 
-        public MeshGlbExporter(ExportPaths paths)
+        public MeshGlbExporter(ExportPaths paths, ResourceManifestBuilder manifest)
         {
             _paths = paths;
+            _manifest = manifest;
         }
 
-        /// <summary>Export <paramref name="entity"/>'s visual subtree; returns the contract
-        /// field (<c>meshes/&lt;key&gt;.glb</c>) or null when the entity has no meshes.</summary>
+        /// <summary>Export <paramref name="entity"/>'s visual subtree; returns the mesh's
+        /// resource GUID (schema v3 — resources.json maps it to <c>meshes/&lt;key&gt;.glb</c>)
+        /// or null when the entity has no meshes.</summary>
         public string? Export(EntityExport entity)
         {
             var meshes = new List<MeshInstance3D>();
@@ -48,7 +52,7 @@ namespace ParadiseGodot.Export
             }
 
             string key = BuildContentKey(entity, meshes);
-            if (_fieldByKey.TryGetValue(key, out string? cached))
+            if (_guidByKey.TryGetValue(key, out string? cached))
             {
                 return cached;
             }
@@ -75,8 +79,9 @@ namespace ParadiseGodot.Export
                 }
             }
 
-            _fieldByKey[key] = field;
-            return field;
+            string guid = _manifest.Register(field);
+            _guidByKey[key] = guid;
+            return guid;
         }
 
         private static void WriteGlb(EntityExport entity, string outputPath)

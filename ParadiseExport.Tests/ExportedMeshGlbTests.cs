@@ -1,5 +1,7 @@
 using System.Text.Json;
 using Paradise.Assets.Gltf;
+using ParadiseExport.Data;
+using ParadiseExport.Serialization;
 
 namespace ParadiseExport.Tests;
 
@@ -22,6 +24,12 @@ public class ExportedMeshGlbTests
         return dir?.FullName ?? throw new InvalidOperationException("Repo root with data/scenes/sample.json not found.");
     }
 
+    private static string ResolveGuid(string root, string reference)
+    {
+        var manifest = ExportJsonReader.ReadManifest(File.ReadAllText(Path.Combine(root, "data", "resources.json")));
+        return manifest.Resources[reference];
+    }
+
     [Test]
     public async Task every_sample_entity_mesh_parses_and_matches_its_material_slot_count()
     {
@@ -36,8 +44,10 @@ public class ExportedMeshGlbTests
             if (renderable.ValueKind == JsonValueKind.Null) continue;
             var meshField = renderable.GetProperty("Mesh").GetString();
             await Assert.That(meshField).IsNotNull();
+            // Schema v3: the reference is a GUID resolved through resources.json.
+            await Assert.That(ResourceGuid.IsGuid(meshField)).IsTrue();
 
-            var glbPath = Path.Combine(root, "data", meshField!.Replace('/', Path.DirectorySeparatorChar));
+            var glbPath = Path.Combine(root, "data", ResolveGuid(root, meshField!).Replace('/', Path.DirectorySeparatorChar));
             var asset = GltfSceneReader.Read(File.ReadAllBytes(glbPath));
 
             var primitiveCount = 0;

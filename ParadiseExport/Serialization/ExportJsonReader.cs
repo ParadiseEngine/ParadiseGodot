@@ -44,6 +44,8 @@ namespace ParadiseExport.Serialization
 
         public static ProjectSettingsData ReadProjectSettings(string json) => Deserialize<ProjectSettingsData>(json);
 
+        public static ResourceManifestData ReadManifest(string json) => Deserialize<ResourceManifestData>(json);
+
         private static T Deserialize<T>(string json)
         {
             var typeInfo = (JsonTypeInfo<T>)Options.GetTypeInfo(typeof(T));

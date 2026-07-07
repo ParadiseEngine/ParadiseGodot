@@ -25,6 +25,24 @@ public class RuntimeAssemblyTests
         LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
 
     [Test]
+    public async Task loader_rejects_a_non_current_schema_document()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"paradise_legacy_{Guid.NewGuid():N}", "scenes");
+        Directory.CreateDirectory(dir);
+        var scenePath = Path.Combine(dir, "legacy.json");
+        // A schema-v2 document (pre-GUID references) must be refused, not silently mis-loaded.
+        File.WriteAllText(scenePath, """{"SchemaVersion":2,"Entities":[],"NavMeshFile":"legacy.navmesh.bin"}""");
+        try
+        {
+            await Assert.That(() => LevelLoader.Load(scenePath)).Throws<InvalidDataException>();
+        }
+        finally
+        {
+            Directory.Delete(Path.GetDirectoryName(dir)!, recursive: true);
+        }
+    }
+
+    [Test]
     public async Task loader_reads_the_committed_sample_scene()
     {
         var level = LoadSample();

@@ -16,6 +16,7 @@ namespace ParadiseExport.Serialization
     /// </summary>
     [JsonSourceGenerationOptions(WriteIndented = true, DefaultIgnoreCondition = JsonIgnoreCondition.Never)]
     [JsonSerializable(typeof(LevelData))]
+    [JsonSerializable(typeof(ResourceManifestData))]
     [JsonSerializable(typeof(ProjectSettingsData))]
     [JsonSerializable(typeof(LevelMaterialData))]
     [JsonSerializable(typeof(PrefabTemplateData))]
