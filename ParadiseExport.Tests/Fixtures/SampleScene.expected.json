@@ -45,6 +45,13 @@
             "a": 1
           },
           "Exposure": 1,
+          "AmbientEnergy": 1,
+          "BackgroundColor": {
+            "r": 0.5019608,
+            "g": 0.52156866,
+            "b": 0.56078434,
+            "a": 1
+          },
           "FogEnabled": false,
           "FogColor": {
             "r": 0.21568628,
@@ -52,7 +59,10 @@
             "b": 0.21568628,
             "a": 1
           },
-          "FogDensity": 0.01
+          "FogDensity": 0.01,
+          "TonemapMode": "Linear",
+          "TonemapExposure": 1,
+          "TonemapWhite": 1
         },
         "Lights": [
           {

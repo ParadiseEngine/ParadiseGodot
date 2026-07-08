@@ -51,11 +51,13 @@ public sealed class RuntimeLoop : IDisposable
         }
 
         _camera = new CameraRig(level.Level.Camera, orthographic, fovDegrees);
-        SceneAssembler.PopulateLighting(level, _scene);
+        // Camera background is the fallback clear; PopulateLighting overrides it with the exported
+        // environment background (the sky tone) when one is present.
         if (level.Level.Camera?.BackgroundColor is { } clear)
         {
             _scene.ClearColor = new ColorRgba(clear.R, clear.G, clear.B, 1f);
         }
+        SceneAssembler.PopulateLighting(level, _scene);
     }
 
     public CollisionWorld? CollisionWorld => _collisionWorld;

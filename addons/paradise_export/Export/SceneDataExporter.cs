@@ -55,6 +55,9 @@ namespace ParadiseGodot.Export
                     case Camera3D camera when document.Camera is null:
                         document.Camera = ExportCamera(camera);
                         break;
+                    case WorldEnvironment { Environment: { } env }:
+                        ExportEnvironment(env, EnsureLightingState(document).Environment);
+                        break;
                     case Light3D light:
                         EnsureLightingState(document).Lights.Add(ExportLight(light));
                         break;
@@ -84,6 +87,43 @@ namespace ParadiseGodot.Export
             // the exact source is resolved with lighting/environment fidelity in a later phase.
         };
 
+        // Export the Godot Environment. For now only tone mapping is carried across (the runtime
+        // renderer applies the matching operator before the sRGB encode); ambient/sky/fog fidelity
+        // is resolved in a later pass. TonemapMode names follow Godot's ToneMapper enum
+        // (Linear, Reinhardt, Filmic, Aces, Agx) — the runtime parses them case-insensitively.
+        private static void ExportEnvironment(Godot.Environment env, EnvironmentData data)
+        {
+            data.TonemapMode = env.TonemapMode.ToString();
+            data.TonemapExposure = env.TonemapExposure;
+            data.TonemapWhite = env.TonemapWhite;
+
+            // Ambient: a Sky source is a hemisphere lit by the sky's top/horizon/ground colors;
+            // any other source is a flat ambient colour. Colours are linearized to match the
+            // engine's linear-space ambient term (same convention as emission export).
+            bool skyAmbient = env.AmbientLightSource == Godot.Environment.AmbientSource.Sky;
+            data.AmbientMode = skyAmbient ? "Skybox" : "Color";
+            data.AmbientEnergy = env.AmbientLightEnergy;
+
+            if (skyAmbient && env.Sky?.SkyMaterial is ProceduralSkyMaterial sky)
+            {
+                data.AmbientColor = ToColor32(sky.SkyTopColor.SrgbToLinear());
+                data.AmbientEquatorColor = ToColor32(sky.SkyHorizonColor.SrgbToLinear());
+                data.AmbientGroundColor = ToColor32(sky.GroundBottomColor.SrgbToLinear());
+                // A downward-looking camera sees mostly the sky's lower (ground) hemisphere, so use
+                // its bottom colour as the clear tone. Kept in sRGB (the clear bypasses the shader
+                // tonemap/OETF, and the scene pixels around it are sRGB-encoded).
+                data.BackgroundColor = ToColor32(sky.GroundBottomColor);
+            }
+            else
+            {
+                Color a = env.AmbientLightColor.SrgbToLinear();
+                data.AmbientColor = data.AmbientEquatorColor = data.AmbientGroundColor = ToColor32(a);
+                data.BackgroundColor = ToColor32(env.BackgroundColor);
+            }
+        }
+
+        private static Color32 ToColor32(Color c) => Color32.FromRgba(c.R, c.G, c.B, c.A);
+
         private static SceneLightData ExportLight(Light3D light)
         {
             // Godot lights aim down their local -Z; the contract is right-handed, so this world-space
@@ -100,6 +140,8 @@ namespace ParadiseGodot.Export
                 Enabled = light.Visible,
                 Intensity = light.LightEnergy,
                 ShadowsEnabled = light.ShadowEnabled,
+                // Godot's shadow_opacity (1 = fully dark) maps to the contract's shadow strength.
+                ShadowStrength = light.ShadowOpacity,
                 // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis→edge); the
                 // contract/shader use the FULL cone angle, so double it.
                 Range = light switch

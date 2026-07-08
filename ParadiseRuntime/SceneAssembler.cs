@@ -2,6 +2,7 @@ using System.Numerics;
 using Paradise.Assets.Gltf;
 using Paradise.ECS;
 using Paradise.Physics;
+using Paradise.Rendering;
 using Paradise.Rendering.Pbr;
 using ParadiseExport.Data;
 using ParadiseExport.Geometry;
@@ -189,8 +190,18 @@ public static class SceneAssembler
             Sky = ToVector3(environment.AmbientColor),
             Equator = ToVector3(environment.AmbientEquatorColor),
             Ground = ToVector3(environment.AmbientGroundColor),
-            Exposure = environment.Exposure,
+            // Ambient energy drives the hemisphere strength (Godot ambient_light_energy).
+            Exposure = environment.AmbientEnergy,
             Flat = !string.Equals(environment.AmbientMode, "Skybox", StringComparison.OrdinalIgnoreCase),
+        };
+        // Background/clear tone from the environment (the sky) so the .NET background matches Godot.
+        var bg = environment.BackgroundColor;
+        scene.ClearColor = new ColorRgba(bg.R, bg.G, bg.B, 1f);
+        scene.Tonemap = new PbrTonemap
+        {
+            Mode = ParseTonemapMode(environment.TonemapMode),
+            Exposure = environment.TonemapExposure,
+            White = environment.TonemapWhite,
         };
 
         foreach (var light in state.Lights)
@@ -223,6 +234,17 @@ public static class SceneAssembler
     }
 
     private static Vector3 ToVector3(Color32 color) => new(color.R, color.G, color.B);
+
+    // Map the exported tonemap name (Godot's ToneMapper enum: Linear/Reinhardt/Filmic/Aces/Agx) to
+    // the engine's operator. Case-insensitive; unknown values fall back to Linear (no tonemap).
+    private static PbrTonemapMode ParseTonemapMode(string? mode) => mode?.Trim().ToLowerInvariant() switch
+    {
+        "reinhard" or "reinhardt" => PbrTonemapMode.Reinhard,
+        "filmic" => PbrTonemapMode.Filmic,
+        "aces" => PbrTonemapMode.Aces,
+        "agx" => PbrTonemapMode.Agx,
+        _ => PbrTonemapMode.Linear,
+    };
 
     // -------- materials --------
 

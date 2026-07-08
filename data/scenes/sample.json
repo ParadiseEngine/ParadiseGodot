@@ -25,26 +25,33 @@
       {
         "Name": "Default",
         "Environment": {
-          "AmbientMode": "Color",
+          "AmbientMode": "Skybox",
           "AmbientColor": {
-            "r": 0.5019608,
-            "g": 0.52156866,
-            "b": 0.56078434,
+            "r": 0.12156863,
+            "g": 0.17254902,
+            "b": 0.2627451,
             "a": 1
           },
           "AmbientEquatorColor": {
-            "r": 0.5019608,
-            "g": 0.52156866,
-            "b": 0.56078434,
+            "r": 0.3764706,
+            "g": 0.3882353,
+            "b": 0.40784314,
             "a": 1
           },
           "AmbientGroundColor": {
-            "r": 0.2,
-            "g": 0.1882353,
-            "b": 0.18039216,
+            "r": 0.03137255,
+            "g": 0.023529412,
+            "b": 0.015686275,
             "a": 1
           },
           "Exposure": 1,
+          "AmbientEnergy": 1,
+          "BackgroundColor": {
+            "r": 0.2,
+            "g": 0.16862746,
+            "b": 0.13333334,
+            "a": 1
+          },
           "FogEnabled": false,
           "FogColor": {
             "r": 0.5019608,
@@ -52,7 +59,10 @@
             "b": 0.56078434,
             "a": 1
           },
-          "FogDensity": 0
+          "FogDensity": 0,
+          "TonemapMode": "Filmic",
+          "TonemapExposure": 1,
+          "TonemapWhite": 1
         },
         "Lights": [
           {
