@@ -91,6 +91,80 @@
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
+          },
+          {
+            "Id": "PointLight",
+            "Type": "Point",
+            "Position": [
+              -5,
+              3,
+              -3
+            ],
+            "Direction": [
+              -0,
+              -0,
+              -1
+            ],
+            "Color": {
+              "r": 1,
+              "g": 0,
+              "b": 0,
+              "a": 1
+            },
+            "Enabled": true,
+            "Intensity": 13.451,
+            "UseColorTemperature": false,
+            "ColorTemperature": 6570,
+            "Range": 14,
+            "SpotAngle": 0,
+            "InnerSpotAngle": 0,
+            "AreaSize": [
+              0,
+              0
+            ],
+            "ShadowsEnabled": true,
+            "ShadowType": "",
+            "ShadowStrength": 1,
+            "LayerMask": 0,
+            "RenderingLayerMask": 0,
+            "Group": ""
+          },
+          {
+            "Id": "SpotLight",
+            "Type": "Spot",
+            "Position": [
+              1,
+              8,
+              2
+            ],
+            "Direction": [
+              -0,
+              -1,
+              -0
+            ],
+            "Color": {
+              "r": 1,
+              "g": 0.8509804,
+              "b": 0.6,
+              "a": 1
+            },
+            "Enabled": true,
+            "Intensity": 6,
+            "UseColorTemperature": false,
+            "ColorTemperature": 6570,
+            "Range": 20,
+            "SpotAngle": 70,
+            "InnerSpotAngle": 0,
+            "AreaSize": [
+              0,
+              0
+            ],
+            "ShadowsEnabled": true,
+            "ShadowType": "",
+            "ShadowStrength": 1,
+            "LayerMask": 0,
+            "RenderingLayerMask": 0,
+            "Group": ""
           }
         ]
       }

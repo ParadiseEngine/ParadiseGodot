@@ -100,6 +100,15 @@ namespace ParadiseGodot.Export
                 Enabled = light.Visible,
                 Intensity = light.LightEnergy,
                 ShadowsEnabled = light.ShadowEnabled,
+                // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis→edge); the
+                // contract/shader use the FULL cone angle, so double it.
+                Range = light switch
+                {
+                    OmniLight3D omni => omni.OmniRange,
+                    SpotLight3D spot => spot.SpotRange,
+                    _ => 0f,
+                },
+                SpotAngle = light is SpotLight3D s ? s.SpotAngle * 2f : 0f,
             };
         }
 
