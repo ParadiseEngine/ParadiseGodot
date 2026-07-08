@@ -212,6 +212,10 @@ public static class SceneAssembler
                 Range = light.Range,
                 SpotOuterDegrees = light.SpotAngle,
                 SpotInnerDegrees = light.InnerSpotAngle,
+                // Real-time shadows (engine currently casts from the directional light).
+                CastsShadows = light.ShadowsEnabled,
+                ShadowStrength = light.ShadowStrength,
+                SoftShadows = light.ShadowsEnabled && !string.Equals(light.ShadowType, "Hard", StringComparison.OrdinalIgnoreCase),
             });
         }
     }

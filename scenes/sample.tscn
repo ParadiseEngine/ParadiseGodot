@@ -37,18 +37,9 @@ agent_height = 1.8
 agent_radius = 0.4
 agent_max_climb = 0.3
 
-[sub_resource type="BoxMesh" id="mesh_unit_box"]
-size = Vector3(1, 1, 1)
-
 [sub_resource type="BoxShape3D" id="shape_unit_box"]
-size = Vector3(1, 1, 1)
 
-[sub_resource type="SphereMesh" id="mesh_unit_sphere"]
-radius = 0.5
-height = 1.0
-
-[sub_resource type="SphereShape3D" id="shape_unit_sphere"]
-radius = 0.5
+[sub_resource type="BoxMesh" id="mesh_unit_box"]
 
 [sub_resource type="StandardMaterial3D" id="mat_ground"]
 albedo_color = Color(0.32, 0.45, 0.28, 1)
@@ -63,12 +54,15 @@ roughness = 0.7
 albedo_color = Color(0.65, 0.42, 0.22, 1)
 roughness = 0.85
 
+[sub_resource type="SphereMesh" id="mesh_unit_sphere"]
+
 [sub_resource type="Gradient" id="grad_ball"]
 interpolation_mode = 1
 offsets = PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75)
 colors = PackedColorArray(1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2)
 
 [sub_resource type="GradientTexture2D" id="tex_ball"]
+resource_name = "sample"
 gradient = SubResource("grad_ball")
 width = 256
 height = 256
@@ -77,6 +71,8 @@ height = 256
 albedo_color = Color(0.85, 0.25, 0.25, 1)
 albedo_texture = SubResource("tex_ball")
 roughness = 0.4
+
+[sub_resource type="SphereShape3D" id="shape_unit_sphere"]
 
 [sub_resource type="StandardMaterial3D" id="mat_ball2"]
 albedo_color = Color(0.25, 0.55, 0.85, 1)
@@ -118,6 +114,22 @@ transform = Transform3D(0.8660254, 0.38302222, -0.32139382, 0, 0.64278764, 0.766
 light_color = Color(1, 0.95, 0.85, 1)
 light_energy = 1.5
 shadow_enabled = true
+
+[node name="PointLight" type="OmniLight3D" parent="." unique_id=1449251335]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -5, 3, -3)
+light_color = Color(1, 0, 0, 1)
+light_energy = 13.451
+light_size = 0.59
+shadow_enabled = true
+omni_range = 14.0
+
+[node name="SpotLight" type="SpotLight3D" parent="." unique_id=1449251336]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 1, 8, 2)
+light_color = Color(1, 0.85, 0.6, 1)
+light_energy = 6.0
+shadow_enabled = true
+spot_range = 20.0
+spot_angle = 35.0
 
 [node name="Ground" type="Node3D" parent="." unique_id=1053927207]
 transform = Transform3D(20, 0, 0, 0, 1, 0, 0, 0, 20, 0, 0, 0)
