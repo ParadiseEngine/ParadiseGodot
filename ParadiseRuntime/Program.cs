@@ -23,6 +23,7 @@ internal static class Program
     {
         string scenePath = "data/scenes/sample.json";
         int? headlessFrames = null;
+        string? screenshotPath = null;
         var orthographic = false;
         var fovDegrees = 75f; // Godot Camera3D default (vertical)
         for (var i = 0; i < args.Length; i++)
@@ -35,6 +36,10 @@ internal static class Program
                 case "--headless" when i + 1 < args.Length && int.TryParse(args[i + 1], out var frames):
                     headlessFrames = frames;
                     i++;
+                    break;
+                case "--screenshot" when i + 1 < args.Length:
+                    screenshotPath = args[++i];
+                    headlessFrames ??= 8; // headless implied; a few frames so the sim settles
                     break;
                 case "--ortho":
                     orthographic = true;
@@ -53,7 +58,7 @@ internal static class Program
                 $"[ParadiseRuntime] {scenePath}: {level.Level.Entities.Count} entities, " +
                 $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
             return headlessFrames is { } n
-                ? RunHeadless(level, n, orthographic, fovDegrees)
+                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath)
                 : RunWindowed(level, orthographic, fovDegrees);
         }
         catch (Exception ex)
@@ -63,7 +68,7 @@ internal static class Program
         }
     }
 
-    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees)
+    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath)
     {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy"u8);
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
@@ -90,12 +95,48 @@ internal static class Program
             Console.WriteLine(
                 $"[ParadiseRuntime] Headless: rendered {frameCount} frames, {loop.InstanceCount} instances, " +
                 $"player={(loop.HasPlayer ? "yes" : "no")}, collision={(loop.CollisionWorld is not null ? "yes" : "no")}.");
+
+            if (screenshotPath is not null)
+            {
+                var pixels = renderer.ReadbackColor(out var w, out var h);
+                WriteBmp(screenshotPath, pixels, w, h);
+                Console.WriteLine($"[ParadiseRuntime] Screenshot: {screenshotPath} ({w}x{h}).");
+            }
             return 0;
         }
         finally
         {
             SDL_Quit();
         }
+    }
+
+    /// <summary>Write tightly-packed top-down BGRA8 pixels as an uncompressed 32-bit BMP (bottom-up,
+    /// BI_RGB — BMP stores BGRA natively). Dependency-free; convert to PNG with `sips` if needed.</summary>
+    private static void WriteBmp(string path, byte[] bgra, uint width, uint height)
+    {
+        const int headerSize = 54; // 14-byte file header + 40-byte info header
+        var imageSize = (int)(width * height * 4);
+        using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
+        using var w = new BinaryWriter(fs);
+        // BITMAPFILEHEADER
+        w.Write((byte)'B'); w.Write((byte)'M');
+        w.Write(headerSize + imageSize); // file size
+        w.Write(0);                      // reserved
+        w.Write(headerSize);             // pixel data offset
+        // BITMAPINFOHEADER
+        w.Write(40);                     // header size
+        w.Write((int)width);
+        w.Write((int)height);            // positive = bottom-up
+        w.Write((short)1);               // planes
+        w.Write((short)32);              // bpp
+        w.Write(0);                      // BI_RGB (no compression)
+        w.Write(imageSize);
+        w.Write(2835); w.Write(2835);    // ~72 DPI x/y
+        w.Write(0); w.Write(0);          // palette
+        // Pixel rows, bottom-up: source row 0 is the top, so emit from the last row upward.
+        var stride = (int)(width * 4);
+        for (var y = (int)height - 1; y >= 0; y--)
+            w.Write(bgra, y * stride, stride);
     }
 
     private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees)
