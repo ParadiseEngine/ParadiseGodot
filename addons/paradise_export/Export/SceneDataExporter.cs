@@ -57,7 +57,7 @@ namespace ParadiseGodot.Export
                         document.Camera = ExportCamera(camera);
                         break;
                     case WorldEnvironment { Environment: { } env } when !environmentExported:
-                        ExportEnvironment(env, EnsureLightingState(document).Environment);
+                        ExportEnvironment(env, EnsureLightingState(document).Environment, FindSun(root));
                         environmentExported = true;
                         break;
                     case Light3D light:
@@ -93,7 +93,21 @@ namespace ParadiseGodot.Export
         // renderer applies the matching operator before the sRGB encode); ambient/sky/fog fidelity
         // is resolved in a later pass. TonemapMode names follow Godot's ToneMapper enum
         // (Linear, Reinhardt, Filmic, Aces, Agx) — the runtime parses them case-insensitively.
-        private static void ExportEnvironment(Godot.Environment env, EnvironmentData data)
+        // First DirectionalLight3D that contributes to the sky (Godot's "sun" for the ProceduralSky).
+        private static DirectionalLight3D? FindSun(Node root)
+        {
+            foreach (Node node in Descendants(root))
+            {
+                if (node is DirectionalLight3D dir && dir.Visible &&
+                    dir.SkyMode != DirectionalLight3D.SkyModeEnum.LightOnly)
+                {
+                    return dir;
+                }
+            }
+            return null;
+        }
+
+        private static void ExportEnvironment(Godot.Environment env, EnvironmentData data, DirectionalLight3D? sun)
         {
             data.TonemapMode = env.TonemapMode.ToString();
             data.TonemapExposure = env.TonemapExposure;
@@ -120,15 +134,45 @@ namespace ParadiseGodot.Export
             if (skyAmbient && env.Sky?.SkyMaterial is ProceduralSkyMaterial sky)
             {
                 data.AmbientMode = "Skybox";
-                // Hemisphere-ambient IRRADIANCE per zone, not raw directional sky radiance. An
-                // up-facing surface integrates the whole upper sky (bright ≈ mean of top+horizon);
-                // a side-facing surface sees roughly half sky + half ground; a down-facing surface
-                // sees the dark sky-ground. This 3-point lerp APPROXIMATES Godot's sky-SH ambient
-                // distribution (up brightest, sides/undersides dark) — the raw zenith colour was too
-                // dim up and the raw horizon colour far too bright on sides, which flattened shading.
-                Color skyIrr = sky.SkyTopColor.SrgbToLinear().Lerp(sky.SkyHorizonColor.SrgbToLinear(), 0.5f);
-                Color groundIrr = sky.GroundBottomColor.SrgbToLinear();
-                Color sideIrr = skyIrr.Lerp(groundIrr, 0.5f);
+                // Hemisphere-ambient IRRADIANCE per zone: the cosine-weighted average of Godot's
+                // ProceduralSky radiance over each zone-normal's hemisphere (numerically integrated),
+                // which is the diffuse ambient colour Godot's sky-SH produces. This replaces an earlier
+                // 3-point colour lerp that under-integrated the up-facing sky (measured ~2x too dim vs
+                // a Godot ambient-off capture). Zones: up (sky), horizontal (equator), down (ground).
+                // Bake in the material's brightness multipliers exactly where Godot does
+                // (set_sky_*_color multiplies the colour by *_energy_multiplier before the shader; the
+                // final COLOR is scaled by energy_multiplier): sky term × sky_energy, ground term ×
+                // ground_energy, everything × energy_multiplier (applied to the integral below).
+                float skyEnergy = (float)sky.SkyEnergyMultiplier;
+                float groundEnergy = (float)sky.GroundEnergyMultiplier;
+                float energyMul = (float)sky.EnergyMultiplier;
+                Color skyTopLin = (sky.SkyTopColor * skyEnergy).SrgbToLinear();
+                Color skyHorizonLin = (sky.SkyHorizonColor * skyEnergy).SrgbToLinear();
+                Color grBottomLin = (sky.GroundBottomColor * groundEnergy).SrgbToLinear();
+                Color grHorizonLin = (sky.GroundHorizonColor * groundEnergy).SrgbToLinear();
+                float invSkyCurve = sky.SkyCurve > 1e-4f ? 0.6f / sky.SkyCurve : 4f;
+                float invGroundCurve = sky.GroundCurve > 1e-4f ? 0.6f / sky.GroundCurve : 30f;
+                // Godot's sky includes the directional light's warm sun disk/halo, which contributes
+                // substantially to the diffuse ambient (the gradient alone integrates too dim). Reproduce
+                // its sun params (sky_material.cpp's sky()): to-sun direction, colour*energy, and the
+                // disk/halo cosine thresholds. Absent sun → cone that never triggers.
+                var sky4 = new SkyGradient(skyTopLin, skyHorizonLin, grBottomLin, grHorizonLin, invSkyCurve, invGroundCurve);
+                // FindSun takes the first sky-contributing directional; Godot's sky sums up to 4 lights,
+                // but scenes have a single sun in practice — extra suns' sky contribution is not modelled.
+                Vector3 sunDir = sun is not null ? sun.GlobalTransform.Basis.Z.Normalized() : Vector3.Up;
+                Color sunColor = sun is not null ? sun.LightColor.SrgbToLinear() * (float)sun.LightEnergy : new Color(0f, 0f, 0f);
+                float sunSize = sun is not null ? Mathf.Cos(Mathf.DegToRad((float)sun.LightAngularDistance)) : 2f;
+                float sunAngleMax = Mathf.Cos(Mathf.DegToRad(sky.SunAngleMax));
+                float invSunCurve = sky.SunCurve > 1e-4f ? 1.6f / Mathf.Pow(sky.SunCurve, 1.4f) : 24f;
+                var sunP = new SunParams(sun is not null, sunDir, sunColor, sunSize, sunAngleMax, invSunCurve);
+                // The integrated irradiance E carries the full radiance (see IntegrateSkyIrradiance);
+                // energy_multiplier scales the final sky COLOR in Godot, so apply it here. NOTE: the
+                // ambient is stored as Color32 (0..1) — a very bright sky/sun could clamp a channel at
+                // unity before the runtime's AmbientEnergy is applied. Fine for typical skies (this
+                // scene's brightest channel is ~0.88); a scene that clamps would need HDR ambient.
+                Color skyIrr = IntegrateSkyIrradiance(new Vector3(0f, 1f, 0f), sky4, sunP, energyMul);
+                Color sideIrr = IntegrateSkyIrradiance(new Vector3(0f, 0f, 1f), sky4, sunP, energyMul);
+                Color groundIrr = IntegrateSkyIrradiance(new Vector3(0f, -1f, 0f), sky4, sunP, energyMul);
                 data.AmbientColor = ToColor32(skyIrr);
                 data.AmbientEquatorColor = ToColor32(sideIrr);
                 data.AmbientGroundColor = ToColor32(groundIrr);
@@ -189,6 +233,63 @@ namespace ParadiseGodot.Export
                 Curve(linear.R * exposure) / w,
                 Curve(linear.G * exposure) / w,
                 Curve(linear.B * exposure) / w, 1f);
+        }
+
+        private readonly record struct SkyGradient(
+            Color SkyTop, Color SkyHorizon, Color GroundBottom, Color GroundHorizon,
+            float InvSkyCurve, float InvGroundCurve);
+
+        private readonly record struct SunParams(
+            bool Enabled, Vector3 Dir, Color ColorEnergy, float Size, float AngleMax, float InvCurve);
+
+        // Cosine-weighted average of the ProceduralSky radiance over the hemisphere around `normal` —
+        // the diffuse ambient colour (E/π) for a surface with that normal. Fibonacci-sphere sampling.
+        // `energyMul` is Godot's sky energy_multiplier (a final linear scale on the sky COLOR).
+        private static Color IntegrateSkyIrradiance(Vector3 normal, SkyGradient sky, SunParams sun, float energyMul)
+        {
+            const int samples = 1024;
+            float goldenAngle = Mathf.Pi * (3f - Mathf.Sqrt(5f));
+            float r = 0f, g = 0f, b = 0f, wSum = 0f;
+            for (int i = 0; i < samples; i++)
+            {
+                float y = 1f - (i + 0.5f) / samples * 2f;      // -1..1
+                float rad = Mathf.Sqrt(Mathf.Max(0f, 1f - y * y));
+                float theta = goldenAngle * i;
+                var dir = new Vector3(Mathf.Cos(theta) * rad, y, Mathf.Sin(theta) * rad);
+                float ndl = normal.Dot(dir);
+                if (ndl <= 0f) continue;
+                Color c = EvalProceduralSky(dir, sky, sun);
+                r += c.R * ndl; g += c.G * ndl; b += c.B * ndl; wSum += ndl;
+            }
+            if (wSum <= 0f) return new Color(0f, 0f, 0f);
+            // Σ(L·ndl)/Σ(ndl) is E/π (cosine-weighted average radiance). The runtime's diffuse drops the
+            // 1/π (Godot non-physical convention — light_energy absorbs π; see pbr.slang), so the ambient
+            // must be the full irradiance E to match, i.e. multiply the average by π. energyMul is Godot's
+            // final sky-COLOR scale (applied linearly, alpha preserved at 1).
+            float k = Mathf.Pi * energyMul;
+            return new Color(r / wSum * k, g / wSum * k, b / wSum * k, 1f);
+        }
+
+        // Godot ProceduralSkyMaterial radiance (linear) for a view direction — the two-part gradient
+        // (sky above the horizon, ground below) plus the sun disk/halo, matching sky_material.cpp.
+        private static Color EvalProceduralSky(Vector3 dir, SkyGradient sky, SunParams sun)
+        {
+            float v = Mathf.Clamp(dir.Y, -1f, 1f);
+            Color color = dir.Y >= 0f
+                ? sky.SkyTop.Lerp(sky.SkyHorizon, Mathf.Clamp(Mathf.Pow(1f - v, sky.InvSkyCurve), 0f, 1f))
+                : sky.GroundBottom.Lerp(sky.GroundHorizon, Mathf.Clamp(Mathf.Pow(1f + v, sky.InvGroundCurve), 0f, 1f));
+            if (sun.Enabled)
+            {
+                float sunAngle = sun.Dir.Dot(dir);
+                if (sunAngle > sun.Size)
+                    color = sun.ColorEnergy;
+                else if (sunAngle > sun.AngleMax)
+                {
+                    float c2 = (sun.Size - sunAngle) / (sun.Size - sun.AngleMax);
+                    color = color.Lerp(sun.ColorEnergy, Mathf.Clamp(Mathf.Pow(1f - c2, sun.InvCurve), 0f, 1f));
+                }
+            }
+            return color;
         }
 
         private static SceneLightData ExportLight(Light3D light)
