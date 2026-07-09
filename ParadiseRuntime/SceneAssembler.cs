@@ -213,6 +213,13 @@ public static class SceneAssembler
             Exposure = environment.TonemapExposure,
             White = environment.TonemapWhite,
         };
+        scene.Ssao = new PbrSsao
+        {
+            Enabled = environment.SsaoEnabled,
+            Radius = environment.SsaoRadius,
+            Intensity = environment.SsaoIntensity,
+            Power = environment.SsaoPower,
+        };
 
         foreach (var light in state.Lights)
         {

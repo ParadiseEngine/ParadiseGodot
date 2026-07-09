@@ -74,6 +74,10 @@
             "a": 1
           },
           "FogDensity": 0,
+          "SsaoEnabled": false,
+          "SsaoRadius": 1,
+          "SsaoIntensity": 2,
+          "SsaoPower": 1.5,
           "TonemapMode": "Filmic",
           "TonemapExposure": 1,
           "TonemapWhite": 1
