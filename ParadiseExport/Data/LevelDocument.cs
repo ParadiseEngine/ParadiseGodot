@@ -306,6 +306,10 @@ namespace ParadiseExport.Data
         public bool UseColorTemperature { get; set; }
         public float ColorTemperature { get; set; } = 6570f;
         public float Range { get; set; }
+        // Distance-falloff exponent (Godot LIGHT_PARAM_ATTENUATION / omni_/spot_attenuation). The
+        // runtime applies pow(distance, -exponent) for point/spot lights; Godot's default 1.0 is
+        // inverse-linear (not inverse-square). Unused by directionals.
+        public float AttenuationExponent { get; set; } = 1f;
         public float SpotAngle { get; set; }
         public float InnerSpotAngle { get; set; }
         public Vector2 AreaSize { get; set; } = Vector2.Zero;

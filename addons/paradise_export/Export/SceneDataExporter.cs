@@ -209,6 +209,10 @@ namespace ParadiseGodot.Export
                     _ => 0f,
                 },
                 SpotAngle = light is SpotLight3D s ? s.SpotAngle * 2f : 0f,
+                // Distance-falloff exponent (Godot's LIGHT_PARAM_ATTENUATION, i.e. omni_/spot_attenuation).
+                // Godot's default 1.0 is inverse-linear; the shader applies pow(distance, -exponent).
+                // Directionals have no range falloff, so the value is exported but unused for them.
+                AttenuationExponent = (float)light.GetParam(Light3D.Param.Attenuation),
             };
         }
 
