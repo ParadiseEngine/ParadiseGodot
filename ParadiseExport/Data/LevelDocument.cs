@@ -279,6 +279,13 @@ namespace ParadiseExport.Data
         public Color32 FogColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
         public float FogDensity { get; set; }
 
+        // Screen-space ambient occlusion (Godot Environment.ssao_*). When enabled, the runtime runs a
+        // world-position pre-pass and darkens the ambient term in creases/contacts.
+        public bool SsaoEnabled { get; set; }
+        public float SsaoRadius { get; set; } = 1f;
+        public float SsaoIntensity { get; set; } = 2f;
+        public float SsaoPower { get; set; } = 1.5f;
+
         // Tone mapping exported from Godot's Environment (Environment.tonemap_*). TonemapMode names
         // match Godot's ToneMapper enum (Linear, Reinhardt, Filmic, Aces, Agx). The runtime renderer
         // applies the matching operator before the sRGB encode so the .NET render matches Godot.

@@ -99,6 +99,13 @@ namespace ParadiseGodot.Export
             data.TonemapExposure = env.TonemapExposure;
             data.TonemapWhite = env.TonemapWhite;
 
+            // Screen-space AO (Godot Environment.ssao_*). The runtime approximates Godot's GTAO with
+            // a world-position pre-pass + hemisphere estimate — radius/intensity map across directly.
+            data.SsaoEnabled = env.SsaoEnabled;
+            data.SsaoRadius = env.SsaoRadius;
+            data.SsaoIntensity = env.SsaoIntensity;
+            data.SsaoPower = env.SsaoPower;
+
             // Ambient: a Sky source with a procedural sky is a hemisphere lit by the sky's
             // top/horizon/ground colours; anything else is a flat ambient colour. AmbientMode is set
             // by the branch that actually runs (a Sky source with a non-procedural/null material
