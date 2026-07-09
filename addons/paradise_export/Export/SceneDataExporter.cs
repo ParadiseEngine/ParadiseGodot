@@ -111,9 +111,18 @@ namespace ParadiseGodot.Export
             if (skyAmbient && env.Sky?.SkyMaterial is ProceduralSkyMaterial sky)
             {
                 data.AmbientMode = "Skybox";
-                data.AmbientColor = ToColor32(sky.SkyTopColor.SrgbToLinear());
-                data.AmbientEquatorColor = ToColor32(sky.SkyHorizonColor.SrgbToLinear());
-                data.AmbientGroundColor = ToColor32(sky.GroundBottomColor.SrgbToLinear());
+                // Hemisphere-ambient IRRADIANCE per zone, not raw directional sky radiance. An
+                // up-facing surface integrates the whole upper sky (bright ≈ mean of top+horizon);
+                // a side-facing surface sees roughly half sky + half ground; a down-facing surface
+                // sees the dark sky-ground. This matches Godot's sky-SH ambient distribution (up
+                // brightest, sides/undersides dark) — the raw zenith colour was too dim up and the
+                // raw horizon colour far too bright on sides, which flattened object shading.
+                Color skyIrr = sky.SkyTopColor.SrgbToLinear().Lerp(sky.SkyHorizonColor.SrgbToLinear(), 0.5f);
+                Color groundIrr = sky.GroundBottomColor.SrgbToLinear();
+                Color sideIrr = skyIrr.Lerp(groundIrr, 0.5f);
+                data.AmbientColor = ToColor32(skyIrr);
+                data.AmbientEquatorColor = ToColor32(sideIrr);
+                data.AmbientGroundColor = ToColor32(groundIrr);
                 // A downward-looking camera sees mostly the sky's lower (ground) hemisphere, so use
                 // its bottom colour as the clear tone. Kept in sRGB (the clear bypasses the shader
                 // tonemap/OETF, and the scene pixels around it are sRGB-encoded).
