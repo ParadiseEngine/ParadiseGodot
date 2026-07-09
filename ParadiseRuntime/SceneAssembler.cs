@@ -202,6 +202,11 @@ public static class SceneAssembler
             var bg = environment.BackgroundColor;
             scene.ClearColor = new ColorRgba(bg.R, bg.G, bg.B, 1f);
         }
+        // Gradient-sky background (Sky source): a fullscreen top→horizon gradient instead of the flat
+        // clear, matching Godot's procedural sky behind the scene.
+        scene.HasSkyBackground = environment.SkyGradient;
+        scene.SkyTopColor = ToVector3(environment.SkyTopColor);
+        scene.SkyHorizonColor = ToVector3(environment.SkyHorizonColor);
         scene.Tonemap = new PbrTonemap
         {
             Mode = ParseTonemapMode(environment.TonemapMode),

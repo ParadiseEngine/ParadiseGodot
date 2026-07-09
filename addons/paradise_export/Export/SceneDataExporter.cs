@@ -124,9 +124,20 @@ namespace ParadiseGodot.Export
                 data.AmbientEquatorColor = ToColor32(sideIrr);
                 data.AmbientGroundColor = ToColor32(groundIrr);
                 // A downward-looking camera sees mostly the sky's lower (ground) hemisphere, so use
-                // its bottom colour as the clear tone. Kept in sRGB (the clear bypasses the shader
-                // tonemap/OETF, and the scene pixels around it are sRGB-encoded).
+                // its bottom colour as the flat clear tone. Kept in sRGB (the clear bypasses the
+                // shader tonemap/OETF, and the scene pixels around it are sRGB-encoded).
                 data.BackgroundColor = ToColor32(sky.GroundBottomColor);
+
+                // Gradient-sky background. With the camera pitched down, the visible background is the
+                // sky's dark lower/ground hemisphere everywhere, lifting slightly toward the top edge
+                // where it catches the horizon band. So: screen top = ground bottom lifted a little
+                // toward the horizon colour; screen bottom = the dark ground bottom. Tone-mapped
+                // (Filmic) here so the shader just lerps + encodes and it matches the tonemapped scene.
+                Color groundBottomLin = sky.GroundBottomColor.SrgbToLinear();
+                Color groundHorizonLin = sky.GroundHorizonColor.SrgbToLinear();
+                data.SkyGradient = true;
+                data.SkyTopColor = ToColor32(FilmicTonemap(groundBottomLin.Lerp(groundHorizonLin, 0.12f)));
+                data.SkyHorizonColor = ToColor32(FilmicTonemap(groundBottomLin));
             }
             else
             {
@@ -138,6 +149,20 @@ namespace ParadiseGodot.Export
         }
 
         private static Color32 ToColor32(Color c) => Color32.FromRgba(c.R, c.G, c.B, c.A);
+
+        // Godot's Filmic tone operator (Environment tonemap_mode = 2), per channel, matching
+        // pbr.slang's tonemapFilmic. Applied to sky gradient colours at export so the sky background
+        // sits in the same tonemapped space as the rendered scene.
+        private static Color FilmicTonemap(Color linear)
+        {
+            static float Curve(float x)
+            {
+                const float A = 0.22f * 4f, B = 0.30f * 2f, C = 0.10f, D = 0.20f, E = 0.01f, F = 0.30f;
+                return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
+            }
+            float w = Curve(1f);
+            return new Color(Curve(linear.R) / w, Curve(linear.G) / w, Curve(linear.B) / w, 1f);
+        }
 
         private static SceneLightData ExportLight(Light3D light)
         {
