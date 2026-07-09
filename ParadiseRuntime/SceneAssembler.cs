@@ -194,9 +194,14 @@ public static class SceneAssembler
             Exposure = environment.AmbientEnergy,
             Flat = !string.Equals(environment.AmbientMode, "Skybox", StringComparison.OrdinalIgnoreCase),
         };
-        // Background/clear tone from the environment (the sky) so the .NET background matches Godot.
-        var bg = environment.BackgroundColor;
-        scene.ClearColor = new ColorRgba(bg.R, bg.G, bg.B, 1f);
+        // Background/clear tone from the environment (the sky) so the .NET background matches Godot —
+        // but only when a real WorldEnvironment was exported. A default EnvironmentData must not stomp
+        // the camera-derived clear (which RuntimeLoop set before calling this).
+        if (environment.HasBackground)
+        {
+            var bg = environment.BackgroundColor;
+            scene.ClearColor = new ColorRgba(bg.R, bg.G, bg.B, 1f);
+        }
         scene.Tonemap = new PbrTonemap
         {
             Mode = ParseTonemapMode(environment.TonemapMode),

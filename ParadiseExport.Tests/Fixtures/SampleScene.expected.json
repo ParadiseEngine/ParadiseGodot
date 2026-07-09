@@ -46,6 +46,7 @@
           },
           "Exposure": 1,
           "AmbientEnergy": 1,
+          "HasBackground": false,
           "BackgroundColor": {
             "r": 0.5019608,
             "g": 0.52156866,

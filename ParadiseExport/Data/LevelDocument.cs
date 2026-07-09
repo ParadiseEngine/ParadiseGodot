@@ -265,7 +265,10 @@ namespace ParadiseExport.Data
         // Ambient light energy (Godot Environment.ambient_light_energy). Scales the hemisphere ambient.
         public float AmbientEnergy { get; set; } = 1f;
         // Resolved background/clear tone (from the sky when background_mode is Sky), used as the
-        // runtime clear color so the .NET background matches Godot instead of a flat neutral.
+        // runtime clear color so the .NET background matches Godot instead of a flat neutral. Only
+        // authoritative when HasBackground is set (a WorldEnvironment was actually exported); a
+        // default-constructed EnvironmentData must NOT override the camera-derived clear.
+        public bool HasBackground { get; set; }
         public Color32 BackgroundColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
         public bool FogEnabled { get; set; }
         public Color32 FogColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);

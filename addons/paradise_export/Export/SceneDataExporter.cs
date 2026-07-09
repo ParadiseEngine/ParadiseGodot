@@ -48,6 +48,7 @@ namespace ParadiseGodot.Export
             var materials = new MaterialExporter();
             var prefabs = new PrefabExporter(materials, paths);
             paths.EnsureOutputDirectory();
+            var environmentExported = false; // only the first WorldEnvironment in the tree is used
             foreach (Node node in Descendants(root))
             {
                 switch (node)
@@ -55,8 +56,9 @@ namespace ParadiseGodot.Export
                     case Camera3D camera when document.Camera is null:
                         document.Camera = ExportCamera(camera);
                         break;
-                    case WorldEnvironment { Environment: { } env }:
+                    case WorldEnvironment { Environment: { } env } when !environmentExported:
                         ExportEnvironment(env, EnsureLightingState(document).Environment);
+                        environmentExported = true;
                         break;
                     case Light3D light:
                         EnsureLightingState(document).Lights.Add(ExportLight(light));
@@ -97,15 +99,18 @@ namespace ParadiseGodot.Export
             data.TonemapExposure = env.TonemapExposure;
             data.TonemapWhite = env.TonemapWhite;
 
-            // Ambient: a Sky source is a hemisphere lit by the sky's top/horizon/ground colors;
-            // any other source is a flat ambient colour. Colours are linearized to match the
-            // engine's linear-space ambient term (same convention as emission export).
-            bool skyAmbient = env.AmbientLightSource == Godot.Environment.AmbientSource.Sky;
-            data.AmbientMode = skyAmbient ? "Skybox" : "Color";
+            // Ambient: a Sky source with a procedural sky is a hemisphere lit by the sky's
+            // top/horizon/ground colours; anything else is a flat ambient colour. AmbientMode is set
+            // by the branch that actually runs (a Sky source with a non-procedural/null material
+            // still falls through to flat, and must read "Color", not "Skybox"). Colours are
+            // linearized to match the engine's linear-space ambient term (as with emission export).
             data.AmbientEnergy = env.AmbientLightEnergy;
+            data.HasBackground = true; // a real WorldEnvironment was exported → its clear is authoritative
 
+            bool skyAmbient = env.AmbientLightSource == Godot.Environment.AmbientSource.Sky;
             if (skyAmbient && env.Sky?.SkyMaterial is ProceduralSkyMaterial sky)
             {
+                data.AmbientMode = "Skybox";
                 data.AmbientColor = ToColor32(sky.SkyTopColor.SrgbToLinear());
                 data.AmbientEquatorColor = ToColor32(sky.SkyHorizonColor.SrgbToLinear());
                 data.AmbientGroundColor = ToColor32(sky.GroundBottomColor.SrgbToLinear());
@@ -116,6 +121,7 @@ namespace ParadiseGodot.Export
             }
             else
             {
+                data.AmbientMode = "Color";
                 Color a = env.AmbientLightColor.SrgbToLinear();
                 data.AmbientColor = data.AmbientEquatorColor = data.AmbientGroundColor = ToColor32(a);
                 data.BackgroundColor = ToColor32(env.BackgroundColor);
