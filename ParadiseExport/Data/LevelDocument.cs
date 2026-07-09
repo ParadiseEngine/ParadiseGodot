@@ -270,11 +270,17 @@ namespace ParadiseExport.Data
         // default-constructed EnvironmentData must NOT override the camera-derived clear.
         public bool HasBackground { get; set; }
         public Color32 BackgroundColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
-        // Gradient-sky background colours (linear, already tone-mapped), set only for a Sky source.
-        // The runtime draws a fullscreen top→horizon gradient when SkyGradient is true.
+        // Procedural-sky background (Godot ProceduralSkyMaterial), colours linear + already tone-mapped,
+        // set only for a Sky source. The runtime evaluates Godot's two-part gradient per view ray: sky
+        // (top→horizon) above the horizon, ground (bottom→horizon) below. Curves are Godot's inverse
+        // curves (inv_sky_curve = 0.6/sky_curve, inv_ground_curve = 0.6/ground_curve).
         public bool SkyGradient { get; set; }
         public Color32 SkyTopColor { get; set; } = Color32.FromRgba(0.03f, 0.024f, 0.016f);
         public Color32 SkyHorizonColor { get; set; } = Color32.FromRgba(0.2f, 0.2f, 0.21f);
+        public Color32 SkyGroundBottomColor { get; set; } = Color32.FromRgba(0.03f, 0.024f, 0.016f);
+        public Color32 SkyGroundHorizonColor { get; set; } = Color32.FromRgba(0.2f, 0.2f, 0.21f);
+        public float SkySkyCurveInv { get; set; } = 4f;
+        public float SkyGroundCurveInv { get; set; } = 30f;
         public bool FogEnabled { get; set; }
         public Color32 FogColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
         public float FogDensity { get; set; }

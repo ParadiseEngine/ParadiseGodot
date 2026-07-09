@@ -145,13 +145,22 @@ namespace ParadiseGodot.Export
                 // scene's tonemapped space. NOTE: always uses the Filmic curve regardless of
                 // TonemapMode — for a non-Filmic scene this is an approximation, which is acceptable
                 // for a background gradient (the exposure/white ARE honoured for all modes).
-                Color groundBottomLin = sky.GroundBottomColor.SrgbToLinear();
-                Color groundHorizonLin = sky.GroundHorizonColor.SrgbToLinear();
+                // Godot ProceduralSkyMaterial's four gradient colours, tone-mapped (exposure + white)
+                // into the scene's tonemapped space so the runtime sky shader only blends + encodes.
+                // The runtime evaluates the two-part gradient per view ray (sky above the horizon,
+                // ground below), so the horizon-relative shape matches Godot for a pitched camera.
+                // NOTE: always uses the Filmic curve regardless of TonemapMode — an acceptable
+                // approximation for the background (exposure/white ARE honoured for all modes).
                 float tmExposure = env.TonemapExposure;
                 float tmWhite = env.TonemapWhite;
                 data.SkyGradient = true;
-                data.SkyTopColor = ToColor32(FilmicTonemap(groundBottomLin.Lerp(groundHorizonLin, 0.12f), tmExposure, tmWhite));
-                data.SkyHorizonColor = ToColor32(FilmicTonemap(groundBottomLin, tmExposure, tmWhite));
+                data.SkyTopColor = ToColor32(FilmicTonemap(sky.SkyTopColor.SrgbToLinear(), tmExposure, tmWhite));
+                data.SkyHorizonColor = ToColor32(FilmicTonemap(sky.SkyHorizonColor.SrgbToLinear(), tmExposure, tmWhite));
+                data.SkyGroundBottomColor = ToColor32(FilmicTonemap(sky.GroundBottomColor.SrgbToLinear(), tmExposure, tmWhite));
+                data.SkyGroundHorizonColor = ToColor32(FilmicTonemap(sky.GroundHorizonColor.SrgbToLinear(), tmExposure, tmWhite));
+                // Godot: inv_sky_curve = 0.6/sky_curve, inv_ground_curve = 0.6/ground_curve.
+                data.SkySkyCurveInv = sky.SkyCurve > 1e-4f ? 0.6f / sky.SkyCurve : 4f;
+                data.SkyGroundCurveInv = sky.GroundCurve > 1e-4f ? 0.6f / sky.GroundCurve : 30f;
             }
             else
             {
