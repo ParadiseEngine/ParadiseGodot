@@ -207,6 +207,10 @@ public static class SceneAssembler
         scene.HasSkyBackground = environment.SkyGradient;
         scene.SkyTopColor = ToVector3(environment.SkyTopColor);
         scene.SkyHorizonColor = ToVector3(environment.SkyHorizonColor);
+        scene.SkyGroundBottom = ToVector3(environment.SkyGroundBottomColor);
+        scene.SkyGroundHorizon = ToVector3(environment.SkyGroundHorizonColor);
+        scene.SkySkyCurveInv = environment.SkySkyCurveInv;
+        scene.SkyGroundCurveInv = environment.SkyGroundCurveInv;
         scene.Tonemap = new PbrTonemap
         {
             Mode = ParseTonemapMode(environment.TonemapMode),
