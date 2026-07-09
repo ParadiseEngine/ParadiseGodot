@@ -238,6 +238,7 @@ public static class SceneAssembler
                 Color = ToVector3(light.Color),
                 Intensity = light.Intensity,
                 Range = light.Range,
+                AttenuationExponent = light.AttenuationExponent,
                 SpotOuterDegrees = light.SpotAngle,
                 SpotInnerDegrees = light.InnerSpotAngle,
                 // Real-time shadows — the engine casts from directional, spot, and point lights via

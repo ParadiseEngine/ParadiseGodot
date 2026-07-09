@@ -107,6 +107,7 @@
             "UseColorTemperature": false,
             "ColorTemperature": 6570,
             "Range": 0,
+            "AttenuationExponent": 1,
             "SpotAngle": 0,
             "InnerSpotAngle": 0,
             "AreaSize": [
@@ -144,6 +145,7 @@
             "UseColorTemperature": false,
             "ColorTemperature": 6570,
             "Range": 14,
+            "AttenuationExponent": 1,
             "SpotAngle": 0,
             "InnerSpotAngle": 0,
             "AreaSize": [
@@ -181,6 +183,7 @@
             "UseColorTemperature": false,
             "ColorTemperature": 6570,
             "Range": 20,
+            "AttenuationExponent": 1,
             "SpotAngle": 70,
             "InnerSpotAngle": 0,
             "AreaSize": [

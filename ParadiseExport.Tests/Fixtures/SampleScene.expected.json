@@ -107,6 +107,7 @@
             "UseColorTemperature": true,
             "ColorTemperature": 5000,
             "Range": 10,
+            "AttenuationExponent": 1,
             "SpotAngle": 30,
             "InnerSpotAngle": 21.80208,
             "AreaSize": [
