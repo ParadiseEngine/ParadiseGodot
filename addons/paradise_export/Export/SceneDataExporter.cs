@@ -124,9 +124,25 @@ namespace ParadiseGodot.Export
                 data.AmbientEquatorColor = ToColor32(sideIrr);
                 data.AmbientGroundColor = ToColor32(groundIrr);
                 // A downward-looking camera sees mostly the sky's lower (ground) hemisphere, so use
-                // its bottom colour as the clear tone. Kept in sRGB (the clear bypasses the shader
-                // tonemap/OETF, and the scene pixels around it are sRGB-encoded).
+                // its bottom colour as the flat clear tone. Kept in sRGB (the clear bypasses the
+                // shader tonemap/OETF, and the scene pixels around it are sRGB-encoded).
                 data.BackgroundColor = ToColor32(sky.GroundBottomColor);
+
+                // Gradient-sky background. With the camera pitched down, the visible background is the
+                // sky's dark lower/ground hemisphere everywhere, lifting slightly toward the top edge
+                // where it catches the horizon band. So: screen top = ground bottom lifted a little
+                // toward the horizon colour; screen bottom = the dark ground bottom. Tone-mapped here
+                // (exposure + white applied) so the shader just lerps + encodes and the sky sits in the
+                // scene's tonemapped space. NOTE: always uses the Filmic curve regardless of
+                // TonemapMode — for a non-Filmic scene this is an approximation, which is acceptable
+                // for a background gradient (the exposure/white ARE honoured for all modes).
+                Color groundBottomLin = sky.GroundBottomColor.SrgbToLinear();
+                Color groundHorizonLin = sky.GroundHorizonColor.SrgbToLinear();
+                float tmExposure = env.TonemapExposure;
+                float tmWhite = env.TonemapWhite;
+                data.SkyGradient = true;
+                data.SkyTopColor = ToColor32(FilmicTonemap(groundBottomLin.Lerp(groundHorizonLin, 0.12f), tmExposure, tmWhite));
+                data.SkyHorizonColor = ToColor32(FilmicTonemap(groundBottomLin, tmExposure, tmWhite));
             }
             else
             {
@@ -138,6 +154,24 @@ namespace ParadiseGodot.Export
         }
 
         private static Color32 ToColor32(Color c) => Color32.FromRgba(c.R, c.G, c.B, c.A);
+
+        // Godot's Filmic tone operator (Environment tonemap_mode = 2), per channel, matching
+        // pbr.slang's tonemapFilmic (exposure_bias 2 → A=0.22*4, B=0.30*2; white-point normalized).
+        // exposure scales the linear input, white sets the normalization point — both applied so the
+        // exported sky sits in the scene's tonemapped space for any exposure/white.
+        private static Color FilmicTonemap(Color linear, float exposure, float white)
+        {
+            static float Curve(float x)
+            {
+                const float A = 0.22f * 4f, B = 0.30f * 2f, C = 0.10f, D = 0.20f, E = 0.01f, F = 0.30f;
+                return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
+            }
+            float w = Curve(white < 1e-4f ? 1e-4f : white);
+            return new Color(
+                Curve(linear.R * exposure) / w,
+                Curve(linear.G * exposure) / w,
+                Curve(linear.B * exposure) / w, 1f);
+        }
 
         private static SceneLightData ExportLight(Light3D light)
         {

@@ -270,6 +270,11 @@ namespace ParadiseExport.Data
         // default-constructed EnvironmentData must NOT override the camera-derived clear.
         public bool HasBackground { get; set; }
         public Color32 BackgroundColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
+        // Gradient-sky background colours (linear, already tone-mapped), set only for a Sky source.
+        // The runtime draws a fullscreen top→horizon gradient when SkyGradient is true.
+        public bool SkyGradient { get; set; }
+        public Color32 SkyTopColor { get; set; } = Color32.FromRgba(0.03f, 0.024f, 0.016f);
+        public Color32 SkyHorizonColor { get; set; } = Color32.FromRgba(0.2f, 0.2f, 0.21f);
         public bool FogEnabled { get; set; }
         public Color32 FogColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
         public float FogDensity { get; set; }

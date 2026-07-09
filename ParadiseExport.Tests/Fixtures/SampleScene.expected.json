@@ -53,6 +53,19 @@
             "b": 0.56078434,
             "a": 1
           },
+          "SkyGradient": false,
+          "SkyTopColor": {
+            "r": 0.03137255,
+            "g": 0.023529412,
+            "b": 0.015686275,
+            "a": 1
+          },
+          "SkyHorizonColor": {
+            "r": 0.2,
+            "g": 0.2,
+            "b": 0.21176471,
+            "a": 1
+          },
           "FogEnabled": false,
           "FogColor": {
             "r": 0.21568628,
