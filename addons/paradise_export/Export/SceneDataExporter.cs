@@ -100,7 +100,9 @@ namespace ParadiseGodot.Export
             data.TonemapWhite = env.TonemapWhite;
 
             // Screen-space AO (Godot Environment.ssao_*). The runtime approximates Godot's GTAO with
-            // a world-position pre-pass + hemisphere estimate — radius/intensity map across directly.
+            // a world-position pre-pass + hemisphere estimate — radius/intensity/power map across
+            // directly. ssao_detail/horizon/sharpness/light_affect are GTAO-specific tuning that the
+            // hemisphere approximation doesn't model, so they're intentionally not forwarded.
             data.SsaoEnabled = env.SsaoEnabled;
             data.SsaoRadius = env.SsaoRadius;
             data.SsaoIntensity = env.SsaoIntensity;
