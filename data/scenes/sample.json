@@ -165,6 +165,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 1,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -204,6 +205,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0.59,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -243,6 +245,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -282,6 +285,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -321,6 +325,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -360,6 +365,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -399,6 +405,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -438,6 +445,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -477,6 +485,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -516,6 +525,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -555,6 +565,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -594,6 +605,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -633,6 +645,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -672,6 +685,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -711,6 +725,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -750,6 +765,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -789,6 +805,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -828,6 +845,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -867,6 +885,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -906,6 +925,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -945,6 +965,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -984,6 +1005,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1023,6 +1045,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1062,6 +1085,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1101,6 +1125,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1140,6 +1165,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1179,6 +1205,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1218,6 +1245,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1257,6 +1285,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1296,6 +1325,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1335,6 +1365,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1374,6 +1405,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -1413,6 +1445,7 @@
             "ShadowType": "",
             "ShadowStrength": 1,
             "Specular": 0.5,
+            "Size": 0,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
