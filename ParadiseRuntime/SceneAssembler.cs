@@ -261,7 +261,12 @@ public static class SceneAssembler
                 Position = light.Position,
                 // Contract stores the light's aim (forward); the shader wants surface→light.
                 Direction = Vector3.Normalize(-light.Direction),
-                Color = ToVector3(light.Color),
+                // Contract light colours are sRGB-encoded (Godot's light_color property verbatim);
+                // Godot linearizes them for rendering (source_color), so decode here — the same
+                // convention as the sky-sun colour and the exporter's ambient sun integral. A raw
+                // sRGB colour in linear lighting math skewed mixed colours cool (e.g. the warm
+                // directional (1,.949,.851) lit surfaces with too much G/B).
+                Color = SrgbToLinear(ToVector3(light.Color)),
                 Intensity = light.Intensity,
                 Range = light.Range,
                 AttenuationExponent = light.AttenuationExponent,
