@@ -318,6 +318,188 @@ metadata/paradise_entity_guid = "9b68c5e6c58d454db3bc43f9b5a6cae2"
 
 [node name="Model" parent="Props/WaterBottle" unique_id=2061877778 instance=ExtResource("14_bottle")]
 
+[node name="StressLights" type="Node3D" parent="." unique_id=987654001]
+
+[node name="Stress01" type="OmniLight3D" parent="StressLights" unique_id=987654100]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 1.4, -6)
+light_color = Color(1.0000, 0.1500, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress02" type="OmniLight3D" parent="StressLights" unique_id=987654101]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 1.4, -6)
+light_color = Color(0.1500, 0.3980, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress03" type="OmniLight3D" parent="StressLights" unique_id=987654102]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.4, -6)
+light_color = Color(0.6461, 1.0000, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress04" type="OmniLight3D" parent="StressLights" unique_id=987654103]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.4, -6)
+light_color = Color(1.0000, 0.1500, 0.8941, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress05" type="OmniLight3D" parent="StressLights" unique_id=987654104]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 1.4, -6)
+light_color = Color(0.1500, 1.0000, 0.8579, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress06" type="OmniLight3D" parent="StressLights" unique_id=987654105]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 1.4, -6)
+light_color = Color(1.0000, 0.6099, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress07" type="OmniLight3D" parent="StressLights" unique_id=987654106]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 1.4, -3)
+light_color = Color(0.3618, 0.1500, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress08" type="OmniLight3D" parent="StressLights" unique_id=987654107]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 1.4, -3)
+light_color = Color(0.1862, 1.0000, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress09" type="OmniLight3D" parent="StressLights" unique_id=987654108]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.4, -3)
+light_color = Color(1.0000, 0.1500, 0.4342, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress10" type="OmniLight3D" parent="StressLights" unique_id=987654109]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.4, -3)
+light_color = Color(0.1500, 0.6822, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress11" type="OmniLight3D" parent="StressLights" unique_id=987654110]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 1.4, -3)
+light_color = Color(0.9303, 1.0000, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress12" type="OmniLight3D" parent="StressLights" unique_id=987654111]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 1.4, -3)
+light_color = Color(0.8217, 0.1500, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress13" type="OmniLight3D" parent="StressLights" unique_id=987654112]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 1.4, 0)
+light_color = Color(0.1500, 1.0000, 0.5737, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress14" type="OmniLight3D" parent="StressLights" unique_id=987654113]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 1.4, 0)
+light_color = Color(1.0000, 0.3257, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress15" type="OmniLight3D" parent="StressLights" unique_id=987654114]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.4, 0)
+light_color = Color(0.1500, 0.2224, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress16" type="OmniLight3D" parent="StressLights" unique_id=987654115]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.4, 0)
+light_color = Color(0.4704, 1.0000, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress17" type="OmniLight3D" parent="StressLights" unique_id=987654116]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 1.4, 0)
+light_color = Color(1.0000, 0.1500, 0.7184, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress18" type="OmniLight3D" parent="StressLights" unique_id=987654117]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 1.4, 0)
+light_color = Color(0.1500, 0.9665, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress19" type="OmniLight3D" parent="StressLights" unique_id=987654118]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 1.4, 3)
+light_color = Color(1.0000, 0.7855, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress20" type="OmniLight3D" parent="StressLights" unique_id=987654119]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 1.4, 3)
+light_color = Color(0.5375, 0.1500, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress21" type="OmniLight3D" parent="StressLights" unique_id=987654120]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.4, 3)
+light_color = Color(0.1500, 1.0000, 0.2895, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress22" type="OmniLight3D" parent="StressLights" unique_id=987654121]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.4, 3)
+light_color = Color(1.0000, 0.1500, 0.2586, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress23" type="OmniLight3D" parent="StressLights" unique_id=987654122]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 1.4, 3)
+light_color = Color(0.1500, 0.5066, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress24" type="OmniLight3D" parent="StressLights" unique_id=987654123]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 1.4, 3)
+light_color = Color(0.7546, 1.0000, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress25" type="OmniLight3D" parent="StressLights" unique_id=987654124]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7.5, 1.4, 6)
+light_color = Color(0.9974, 0.1500, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress26" type="OmniLight3D" parent="StressLights" unique_id=987654125]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -4.5, 1.4, 6)
+light_color = Color(0.1500, 1.0000, 0.7493, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress27" type="OmniLight3D" parent="StressLights" unique_id=987654126]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.5, 1.4, 6)
+light_color = Color(1.0000, 0.5013, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress28" type="OmniLight3D" parent="StressLights" unique_id=987654127]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.5, 1.4, 6)
+light_color = Color(0.2533, 0.1500, 1.0000, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress29" type="OmniLight3D" parent="StressLights" unique_id=987654128]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4.5, 1.4, 6)
+light_color = Color(0.2947, 1.0000, 0.1500, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="Stress30" type="OmniLight3D" parent="StressLights" unique_id=987654129]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.5, 1.4, 6)
+light_color = Color(1.0000, 0.1500, 0.5428, 1)
+light_energy = 2.5
+omni_range = 3.0
+
 [node name="Plants" type="Node3D" parent="." unique_id=1263148729]
 
 [node name="Plant1" type="Node3D" parent="Plants" unique_id=1619968921]
