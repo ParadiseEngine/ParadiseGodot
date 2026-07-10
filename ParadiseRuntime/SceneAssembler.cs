@@ -275,6 +275,7 @@ public static class SceneAssembler
                 // Real-time shadows — the engine casts from directional, spot, and point lights via
                 // its shadow atlas. Soft (5-tap PCF) whenever shadows are on; the contract carries no
                 // hard/soft flag yet, so it's not data-driven.
+                Specular = light.Specular,
                 CastsShadows = light.ShadowsEnabled,
                 ShadowStrength = light.ShadowStrength,
                 SoftShadows = light.ShadowsEnabled,
