@@ -22,10 +22,16 @@ namespace ParadiseExport.Pipeline
         private const string Ktx2ExtensionName = "KHR_texture_basisu";
         private const int KtxTimeoutMilliseconds = 30 * 60 * 1000;
 
+        // All textures encode to UASTC (high quality, near-lossless) rather than ETC1S/basis-lz.
+        // ETC1S is ~2 bpp and visibly degrades detailed/saturated colour maps (it lifts dark, saturated
+        // texels), which diverged the .NET runtime's albedo from Godot's (Godot imports the source PNG
+        // at full quality). UASTC transcodes to the same BC7 the engine already uses and matches Godot's
+        // fidelity, unifying the two hosts on one high-quality format. Zstd supercompression keeps the
+        // on-disk size reasonable.
         public enum TextureEncodingPreset
         {
-            BasisLzSrgb,
-            BasisLzLinear,
+            UastcColorSrgb,
+            UastcColorLinear,
             UastcDataLinear,
             UastcNormalLinear,
         }
@@ -364,13 +370,11 @@ namespace ParadiseExport.Pipeline
                     arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--normal-mode", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
                     break;
                 case TextureEncodingPreset.UastcDataLinear:
+                case TextureEncodingPreset.UastcColorLinear:
                     arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
                     break;
-                case TextureEncodingPreset.BasisLzLinear:
-                    arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "basis-lz", "--clevel", "5", "--qlevel", "255" });
-                    break;
-                default:
-                    arguments.AddRange(new[] { "--format", "R8G8B8A8_SRGB", "--assign-tf", "srgb", "--encode", "basis-lz", "--clevel", "5", "--qlevel", "255" });
+                default: // UastcColorSrgb — base colour / emissive
+                    arguments.AddRange(new[] { "--format", "R8G8B8A8_SRGB", "--assign-tf", "srgb", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
                     break;
             }
 
@@ -511,8 +515,8 @@ namespace ParadiseExport.Pipeline
             foreach (JsonObject material in materials.OfType<JsonObject>())
             {
                 var pbr = material["pbrMetallicRoughness"] as JsonObject;
-                ApplyTexturePreset(pbr?["baseColorTexture"], textures, images, TextureEncodingPreset.BasisLzSrgb, presets);
-                ApplyTexturePreset(material["emissiveTexture"], textures, images, TextureEncodingPreset.BasisLzSrgb, presets);
+                ApplyTexturePreset(pbr?["baseColorTexture"], textures, images, TextureEncodingPreset.UastcColorSrgb, presets);
+                ApplyTexturePreset(material["emissiveTexture"], textures, images, TextureEncodingPreset.UastcColorSrgb, presets);
                 ApplyTexturePreset(pbr?["metallicRoughnessTexture"], textures, images, TextureEncodingPreset.UastcDataLinear, presets);
                 ApplyTexturePreset(material["normalTexture"], textures, images, TextureEncodingPreset.UastcNormalLinear, presets);
                 ApplyTexturePreset(material["occlusionTexture"], textures, images, TextureEncodingPreset.UastcDataLinear, presets);
@@ -541,7 +545,7 @@ namespace ParadiseExport.Pipeline
             }
 
             presets[imageIndex.Value] = MergeEncodingPreset(
-                presets.TryGetValue(imageIndex.Value, out TextureEncodingPreset existing) ? existing : TextureEncodingPreset.BasisLzSrgb,
+                presets.TryGetValue(imageIndex.Value, out TextureEncodingPreset existing) ? existing : TextureEncodingPreset.UastcColorSrgb,
                 preset);
         }
 
@@ -557,12 +561,12 @@ namespace ParadiseExport.Pipeline
                 return TextureEncodingPreset.UastcDataLinear;
             }
 
-            if (existing == TextureEncodingPreset.BasisLzLinear || next == TextureEncodingPreset.BasisLzLinear)
+            if (existing == TextureEncodingPreset.UastcColorLinear || next == TextureEncodingPreset.UastcColorLinear)
             {
-                return TextureEncodingPreset.BasisLzLinear;
+                return TextureEncodingPreset.UastcColorLinear;
             }
 
-            return TextureEncodingPreset.BasisLzSrgb;
+            return TextureEncodingPreset.UastcColorSrgb;
         }
 
         public static TextureEncodingPreset PresetFromImageName(JsonObject image)
@@ -580,10 +584,10 @@ namespace ParadiseExport.Pipeline
 
             if (ContainsAny(imageName, "Mask", "Height", "Displacement"))
             {
-                return TextureEncodingPreset.BasisLzLinear;
+                return TextureEncodingPreset.UastcColorLinear;
             }
 
-            return TextureEncodingPreset.BasisLzSrgb;
+            return TextureEncodingPreset.UastcColorSrgb;
         }
 
         private static bool ContainsAny(string value, params string[] needles)
