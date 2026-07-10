@@ -276,6 +276,7 @@ public static class SceneAssembler
                 // its shadow atlas. Soft (5-tap PCF) whenever shadows are on; the contract carries no
                 // hard/soft flag yet, so it's not data-driven.
                 Specular = light.Specular,
+                Size = light.Size,
                 CastsShadows = light.ShadowsEnabled,
                 ShadowStrength = light.ShadowStrength,
                 SoftShadows = light.ShadowsEnabled,

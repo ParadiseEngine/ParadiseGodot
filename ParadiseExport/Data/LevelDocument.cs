@@ -338,6 +338,9 @@ namespace ParadiseExport.Data
         public float ShadowStrength { get; set; } = 1f;
         // Godot Light3D LIGHT_PARAM_SPECULAR: scales only the specular lobe (Godot default 0.5).
         public float Specular { get; set; } = 0.5f;
+        // Godot Light3D LIGHT_PARAM_SIZE (light_size / angular_distance): directional = angular
+        // diameter in DEGREES; point/spot = world radius in meters. Softens specular highlights.
+        public float Size { get; set; }
         public int LayerMask { get; set; }
         public int RenderingLayerMask { get; set; }
         public string Group { get; set; } = "";

@@ -349,6 +349,7 @@ namespace ParadiseGodot.Export
                 Intensity = light.LightEnergy,
                 ShadowsEnabled = light.ShadowEnabled,
                 Specular = light.GetParam(Light3D.Param.Specular),
+                Size = light.GetParam(Light3D.Param.Size),
                 // Godot's shadow_opacity (1 = fully dark) maps to the contract's shadow strength.
                 ShadowStrength = light.ShadowOpacity,
                 // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis→edge); the
