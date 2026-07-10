@@ -73,3 +73,4 @@ jobs:
           name: parity-compare
           path: ParadiseGodot/.parity/
           if-no-files-found: ignore
+          include-hidden-files: true # .parity/ is dot-hidden; v4 excludes hidden by default
