@@ -25,3 +25,6 @@ obj/
 
 # Symlink to the reference ParadiseEngine repo (local-only)
 /ParadiseEngine
+
+# Render-parity harness output (tools/render_parity.py)
+/.parity
