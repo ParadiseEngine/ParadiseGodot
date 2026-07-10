@@ -37,9 +37,9 @@ public class PipelineTests
     [Test]
     public async Task ktx_create_args_srgb_default_vs_normal_preset()
     {
-        string srgb = KtxCreate.BuildCreateArguments(KtxCreate.TextureEncodingPreset.BasisLzSrgb, "out.ktx2", "in.png");
+        string srgb = KtxCreate.BuildCreateArguments(KtxCreate.TextureEncodingPreset.UastcColorSrgb, "out.ktx2", "in.png");
         await Assert.That(srgb).Contains("--format R8G8B8A8_SRGB");
-        await Assert.That(srgb).Contains("--encode basis-lz");
+        await Assert.That(srgb).Contains("--encode uastc");
         await Assert.That(srgb).Contains("--generate-mipmap");
         // v5 positional order: input before output.
         await Assert.That(srgb.IndexOf("in.png", StringComparison.Ordinal))
@@ -60,7 +60,7 @@ public class PipelineTests
         await Assert.That(KtxCreate.PresetFromImageName(new JsonObject { ["name"] = "Steel_Roughness" }))
             .IsEqualTo(KtxCreate.TextureEncodingPreset.UastcDataLinear);
         await Assert.That(KtxCreate.PresetFromImageName(new JsonObject { ["name"] = "Hero_Albedo" }))
-            .IsEqualTo(KtxCreate.TextureEncodingPreset.BasisLzSrgb);
+            .IsEqualTo(KtxCreate.TextureEncodingPreset.UastcColorSrgb);
     }
 
     // 8x8 transparent RGBA PNG (stdlib-generated once); enough for a real encode.
