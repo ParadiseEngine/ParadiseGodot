@@ -15,6 +15,7 @@
 [ext_resource type="PackedScene" uid="uid://dnpqd3usqcbvm" path="res://data/Models/plants/plant.glb" id="13_plant"]
 [ext_resource type="PackedScene" uid="uid://nns2r2u4khv4" path="res://data/Models/waterbottle.glb" id="14_bottle"]
 [ext_resource type="PackedScene" uid="uid://c1cn25jlx2tnu" path="res://data/primitives/sphere_ball.glb" id="15_ball"]
+[ext_resource type="Texture2D" path="res://data/primitives/sphere_ball_albedo.png" id="16_balltex"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -56,36 +57,21 @@ roughness = 0.7
 albedo_color = Color(0.65, 0.42, 0.22, 1)
 roughness = 0.85
 
-[sub_resource type="Gradient" id="grad_ball"]
-; 8 equal constant bands alternating white/dark — MUST stay identical to the image
-; PrimitiveGlbGenerator bakes into sphere_ball.glb (the runtime renders that bake; this
-; procedural copy is only the Godot-side preview). 8 stops × 4 floats, properly RGBA-aligned:
-; a previous hand-authored array was misaligned and rasterized as a white→yellow→red ramp.
-interpolation_mode = 1
-offsets = PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875)
-colors = PackedColorArray(1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1)
-
-[sub_resource type="GradientTexture2D" id="tex_ball"]
-resource_name = "sample"
-gradient = SubResource("grad_ball")
-width = 256
-height = 256
-
 [sub_resource type="StandardMaterial3D" id="mat_ball1"]
 albedo_color = Color(0.85, 0.25, 0.25, 1)
-albedo_texture = SubResource("tex_ball")
+albedo_texture = ExtResource("16_balltex")
 roughness = 0.4
 
 [sub_resource type="SphereShape3D" id="shape_unit_sphere"]
 
 [sub_resource type="StandardMaterial3D" id="mat_ball2"]
 albedo_color = Color(0.25, 0.55, 0.85, 1)
-albedo_texture = SubResource("tex_ball")
+albedo_texture = ExtResource("16_balltex")
 roughness = 0.4
 
 [sub_resource type="StandardMaterial3D" id="mat_ball3"]
 albedo_color = Color(0.95, 0.8, 0.2, 1)
-albedo_texture = SubResource("tex_ball")
+albedo_texture = ExtResource("16_balltex")
 roughness = 0.4
 
 [sub_resource type="CapsuleShape3D" id="shape_agent"]
