@@ -203,12 +203,14 @@ public static class SceneAssembler
             scene.ClearColor = new ColorRgba(bg.R, bg.G, bg.B, 1f);
         }
         // Gradient-sky background (Sky source): a fullscreen top→horizon gradient instead of the flat
-        // clear, matching Godot's procedural sky behind the scene.
+        // clear, matching Godot's procedural sky behind the scene. The contract stores the endpoint
+        // colours sRGB-ENCODED and untonemapped (exact in 8-bit Color32); PbrScene wants LINEAR —
+        // the sky shader blends in linear and tonemaps per-pixel (Godot's order).
         scene.HasSkyBackground = environment.SkyGradient;
-        scene.SkyTopColor = ToVector3(environment.SkyTopColor);
-        scene.SkyHorizonColor = ToVector3(environment.SkyHorizonColor);
-        scene.SkyGroundBottom = ToVector3(environment.SkyGroundBottomColor);
-        scene.SkyGroundHorizon = ToVector3(environment.SkyGroundHorizonColor);
+        scene.SkyTopColor = SrgbToLinear(ToVector3(environment.SkyTopColor));
+        scene.SkyHorizonColor = SrgbToLinear(ToVector3(environment.SkyHorizonColor));
+        scene.SkyGroundBottom = SrgbToLinear(ToVector3(environment.SkyGroundBottomColor));
+        scene.SkyGroundHorizon = SrgbToLinear(ToVector3(environment.SkyGroundHorizonColor));
         scene.SkySkyCurveInv = environment.SkySkyCurveInv;
         scene.SkyGroundCurveInv = environment.SkyGroundCurveInv;
         scene.Tonemap = new PbrTonemap
@@ -256,6 +258,15 @@ public static class SceneAssembler
     }
 
     private static Vector3 ToVector3(Color32 color) => new(color.R, color.G, color.B);
+
+    // sRGB EOTF (the exact piecewise curve, matching Godot's Color.SrgbToLinear and the
+    // shaders' srgb helpers) — for contract colours stored sRGB-encoded (the sky gradient).
+    private static Vector3 SrgbToLinear(Vector3 srgb)
+    {
+        static float Channel(float c) =>
+            c <= 0.04045f ? c / 12.92f : MathF.Pow((c + 0.055f) / 1.055f, 2.4f);
+        return new Vector3(Channel(srgb.X), Channel(srgb.Y), Channel(srgb.Z));
+    }
 
     // Map the exported tonemap name (Godot's ToneMapper enum: Linear/Reinhardt/Filmic/Aces/Agx) to
     // the engine's operator. Case-insensitive; unknown values fall back to Linear (no tonemap).

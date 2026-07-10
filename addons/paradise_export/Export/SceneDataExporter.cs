@@ -181,27 +181,22 @@ namespace ParadiseGodot.Export
                 // shader tonemap/OETF, and the scene pixels around it are sRGB-encoded).
                 data.BackgroundColor = ToColor32(sky.GroundBottomColor);
 
-                // Gradient-sky background. With the camera pitched down, the visible background is the
-                // sky's dark lower/ground hemisphere everywhere, lifting slightly toward the top edge
-                // where it catches the horizon band. So: screen top = ground bottom lifted a little
-                // toward the horizon colour; screen bottom = the dark ground bottom. Tone-mapped here
-                // (exposure + white applied) so the shader just lerps + encodes and the sky sits in the
-                // scene's tonemapped space. NOTE: always uses the Filmic curve regardless of
-                // TonemapMode — for a non-Filmic scene this is an approximation, which is acceptable
-                // for a background gradient (the exposure/white ARE honoured for all modes).
-                // Godot ProceduralSkyMaterial's four gradient colours, tone-mapped (exposure + white)
-                // into the scene's tonemapped space so the runtime sky shader only blends + encodes.
-                // The runtime evaluates the two-part gradient per view ray (sky above the horizon,
-                // ground below), so the horizon-relative shape matches Godot for a pitched camera.
-                // NOTE: always uses the Filmic curve regardless of TonemapMode — an acceptable
-                // approximation for the background (exposure/white ARE honoured for all modes).
-                float tmExposure = env.TonemapExposure;
-                float tmWhite = env.TonemapWhite;
+                // Godot ProceduralSkyMaterial's four gradient colours, stored sRGB-ENCODED and
+                // UNTONEMAPPED (display-referred — the natural encoding for the 8-bit Color32
+                // contract; with unit energy multipliers this is bit-exact the authored colour).
+                // The runtime converts to linear, blends the two-part gradient per view ray (sky
+                // above the horizon, ground below), and applies the environment tone operator
+                // PER-PIXEL — Godot's order. The previous scheme (tone-mapped endpoints, lerp in
+                // tonemapped space) hue-shifted the mid-gradient, because tonemap(lerp) ≠
+                // lerp(tonemap) for nonlinear operators. Energy multipliers are linear scales, so
+                // they commute with the lerp and are folded into the endpoints (sky/ground energy
+                // premultiplied in sRGB exactly like Godot's setters — the *Lin values above —
+                // and energy_multiplier applied in linear, then re-encoded).
                 data.SkyGradient = true;
-                data.SkyTopColor = ToColor32(FilmicTonemap(sky.SkyTopColor.SrgbToLinear(), tmExposure, tmWhite));
-                data.SkyHorizonColor = ToColor32(FilmicTonemap(sky.SkyHorizonColor.SrgbToLinear(), tmExposure, tmWhite));
-                data.SkyGroundBottomColor = ToColor32(FilmicTonemap(sky.GroundBottomColor.SrgbToLinear(), tmExposure, tmWhite));
-                data.SkyGroundHorizonColor = ToColor32(FilmicTonemap(sky.GroundHorizonColor.SrgbToLinear(), tmExposure, tmWhite));
+                data.SkyTopColor = ToColor32((skyTopLin * energyMul).LinearToSrgb());
+                data.SkyHorizonColor = ToColor32((skyHorizonLin * energyMul).LinearToSrgb());
+                data.SkyGroundBottomColor = ToColor32((grBottomLin * energyMul).LinearToSrgb());
+                data.SkyGroundHorizonColor = ToColor32((grHorizonLin * energyMul).LinearToSrgb());
                 // Godot: inv_sky_curve = 0.6/sky_curve, inv_ground_curve = 0.6/ground_curve.
                 data.SkySkyCurveInv = sky.SkyCurve > 1e-4f ? 0.6f / sky.SkyCurve : 4f;
                 data.SkyGroundCurveInv = sky.GroundCurve > 1e-4f ? 0.6f / sky.GroundCurve : 30f;
@@ -216,24 +211,6 @@ namespace ParadiseGodot.Export
         }
 
         private static Color32 ToColor32(Color c) => Color32.FromRgba(c.R, c.G, c.B, c.A);
-
-        // Godot's Filmic tone operator (Environment tonemap_mode = 2), per channel, matching
-        // pbr.slang's tonemapFilmic (exposure_bias 2 → A=0.22*4, B=0.30*2; white-point normalized).
-        // exposure scales the linear input, white sets the normalization point — both applied so the
-        // exported sky sits in the scene's tonemapped space for any exposure/white.
-        private static Color FilmicTonemap(Color linear, float exposure, float white)
-        {
-            static float Curve(float x)
-            {
-                const float A = 0.22f * 4f, B = 0.30f * 2f, C = 0.10f, D = 0.20f, E = 0.01f, F = 0.30f;
-                return ((x * (A * x + C * B) + D * E) / (x * (A * x + B) + D * F)) - E / F;
-            }
-            float w = Curve(white < 1e-4f ? 1e-4f : white);
-            return new Color(
-                Curve(linear.R * exposure) / w,
-                Curve(linear.G * exposure) / w,
-                Curve(linear.B * exposure) / w, 1f);
-        }
 
         private readonly record struct SkyGradient(
             Color SkyTop, Color SkyHorizon, Color GroundBottom, Color GroundHorizon,
