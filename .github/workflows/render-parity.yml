@@ -1,0 +1,76 @@
+# Render-parity gate: renders the sample scene in BOTH hosts (the .NET runtime and Godot)
+# and fails the PR when any region's diff exceeds the thresholds in tools/render_parity.py.
+#
+# Runs on a GitHub-hosted macOS (arm64) runner: Godot's 3D renderer and the runtime's
+# WebGPU/Metal backend both need a GPU, which the macOS runners' paravirtualised Metal
+# provides. If a future runner image drops GPU support, switch to a self-hosted runner.
+#
+# The editor repo builds against a SIBLING ../ParadiseEngine checkout (see
+# ParadiseRuntime.csproj), so both repos are checked out side by side.
+name: render-parity
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: parity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  parity:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: ParadiseGodot
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ParadiseEngine/ParadiseEngine
+          path: ParadiseEngine
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: ParadiseGodot/global.json
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: godot-app
+          key: godot-4.7-stable-mono-macos
+
+      - name: Download Godot 4.7 mono
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          curl -sL -o godot.zip https://github.com/godotengine/godot/releases/download/4.7-stable/Godot_v4.7-stable_mono_macos.universal.zip
+          mkdir godot-app && unzip -q godot.zip -d godot-app
+
+      - name: Install Pillow
+        run: pip3 install --break-system-packages pillow
+
+      # First-run resource import: play-mode runs don't import; the capture needs the
+      # .godot import cache. The C# assembly must exist before the editor pass.
+      - name: Import Godot project
+        working-directory: ParadiseGodot
+        run: |
+          dotnet build ParadiseGodot.csproj -v q --nologo
+          "$GITHUB_WORKSPACE/godot-app/Godot_mono.app/Contents/MacOS/Godot" --headless --editor --path . --quit || true
+
+      - name: Run parity gate
+        working-directory: ParadiseGodot
+        env:
+          GODOT_BIN: ${{ github.workspace }}/godot-app/Godot_mono.app/Contents/MacOS/Godot
+        run: python3 tools/render_parity.py
+
+      - name: Upload comparison artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: parity-compare
+          path: ParadiseGodot/.parity/
+          if-no-files-found: ignore
+          include-hidden-files: true # .parity/ is dot-hidden; v4 excludes hidden by default

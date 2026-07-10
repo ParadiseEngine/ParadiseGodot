@@ -1,0 +1,28 @@
+{
+  "Path": "materials/StandardMaterial3D_urhvv.json",
+  "Name": "elfsecond",
+  "BaseColorFactor": {
+    "r": 1,
+    "g": 1,
+    "b": 1,
+    "a": 1
+  },
+  "BaseColorTexture": "data/Models/elf_1.ktx2",
+  "MetallicFactor": 0,
+  "RoughnessFactor": 1,
+  "MetallicRoughnessTexture": null,
+  "EmissiveFactor": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  },
+  "EmissiveTexture": null,
+  "NormalScale": 1,
+  "NormalTexture": null,
+  "OcclusionStrength": 1,
+  "OcclusionTexture": null,
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}

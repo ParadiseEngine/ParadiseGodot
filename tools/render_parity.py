@@ -72,11 +72,29 @@ THRESHOLDS: dict[str, float] = {
     "shadow-edge": 2.9,
 }
 
+# Renders through an offscreen SubViewport at EXACTLY the target size: the OS window can be
+# clamped by small virtual displays (CI runners), which changes the viewport aspect and
+# therefore the camera framing. The SubViewport shares the scene's World3D (own_world_3d is
+# false by default) and gets a clone of the active camera.
 CAPTURE_GD = """extends Node
 func _ready():
 \tawait get_tree().create_timer(2.0).timeout
+\tvar src_cam := get_viewport().get_camera_3d()
+\tvar sub := SubViewport.new()
+\tsub.size = Vector2i({width}, {height})
+\tsub.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+\tadd_child(sub)
+\tvar cam := Camera3D.new()
+\tsub.add_child(cam)
+\tcam.global_transform = src_cam.global_transform
+\tcam.fov = src_cam.fov
+\tcam.near = src_cam.near
+\tcam.far = src_cam.far
+\tcam.keep_aspect = src_cam.keep_aspect
+\tcam.make_current()
 \tawait RenderingServer.frame_post_draw
-\tget_viewport().get_texture().get_image().save_png("{out_png}")
+\tawait RenderingServer.frame_post_draw
+\tsub.get_texture().get_image().save_png("{out_png}")
 \tprint("[PARITY-CAPTURE] saved")
 \tget_tree().quit()
 """
@@ -112,7 +130,7 @@ def capture_godot(godot: str, out_png: Path) -> None:
     capture = REPO / "_parity_capture.gd"
     backup = project.read_text()
     try:
-        capture.write_text(CAPTURE_GD.format(out_png=out_png))
+        capture.write_text(CAPTURE_GD.format(out_png=out_png, width=SIZE[0], height=SIZE[1]))
         if "[autoload]" not in backup:
             project.write_text(backup.rstrip() + "\n\n[autoload]\n\nParityCapture=\"*res://_parity_capture.gd\"\n")
         else:
