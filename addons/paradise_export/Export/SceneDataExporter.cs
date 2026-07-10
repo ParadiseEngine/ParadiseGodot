@@ -134,6 +134,9 @@ namespace ParadiseGodot.Export
             if (skyAmbient && env.Sky?.SkyMaterial is ProceduralSkyMaterial sky)
             {
                 data.AmbientMode = "Skybox";
+                // Ambient SPECULAR from the sky (Godot reflected_light_source: Bg — the default,
+                // and the background here IS the sky — or Sky). Disabled turns it off.
+                data.SkyReflections = env.ReflectedLightSource != Godot.Environment.ReflectionSource.Disabled;
                 // Hemisphere-ambient IRRADIANCE per zone: the cosine-weighted average of Godot's
                 // ProceduralSky radiance over each zone-normal's hemisphere (numerically integrated),
                 // which is the diffuse ambient colour Godot's sky-SH produces. This replaces an earlier
@@ -165,6 +168,13 @@ namespace ParadiseGodot.Export
                 float sunAngleMax = Mathf.Cos(Mathf.DegToRad(sky.SunAngleMax));
                 float invSunCurve = sky.SunCurve > 1e-4f ? 1.6f / Mathf.Pow(sky.SunCurve, 1.4f) : 24f;
                 var sunP = new SunParams(sun is not null, sunDir, sunColor, sunSize, sunAngleMax, invSunCurve);
+                // Sky sun disk/halo params for the runtime BACKGROUND (same values the ambient
+                // integral uses): cosine thresholds + curve. The runtime pairs them with the first
+                // enabled directional light so a disabled light removes the sun from the sky, like
+                // hiding the light does in Godot.
+                data.SkySunSizeCos = sunSize;
+                data.SkySunAngleMaxCos = sunAngleMax;
+                data.SkySunInvCurve = invSunCurve;
                 // The integrated irradiance E carries the full radiance (see IntegrateSkyIrradiance);
                 // energy_multiplier scales the final sky COLOR in Godot, so apply it here. NOTE: the
                 // ambient is stored as Color32 (0..1) — a very bright sky/sun could clamp a channel at
@@ -176,6 +186,9 @@ namespace ParadiseGodot.Export
                 data.AmbientColor = ToColor32(skyIrr);
                 data.AmbientEquatorColor = ToColor32(sideIrr);
                 data.AmbientGroundColor = ToColor32(groundIrr);
+                // L2 SH projection of the same radiance — the per-normal ambient Godot's sky-SH
+                // produces (the 3 zones above stay as the fallback for older consumers).
+                data.AmbientSh = ProjectSkyIrradianceSh(sky4, sunP, energyMul);
                 // A downward-looking camera sees mostly the sky's lower (ground) hemisphere, so use
                 // its bottom colour as the flat clear tone. Kept in sRGB (the clear bypasses the
                 // shader tonemap/OETF, and the scene pixels around it are sRGB-encoded).
@@ -247,6 +260,54 @@ namespace ParadiseGodot.Export
             // sky-COLOR scale (applied linearly, alpha preserved at 1).
             float k = energyMul;
             return new Color(r / wSum * k, g / wSum * k, b / wSum * k, 1f);
+        }
+
+        // Projects the ProceduralSky radiance onto L2 spherical harmonics and returns the 9 RGB
+        // irradiance coefficients (27 floats, Ramamoorthi order: Y00, Y1-1, Y10, Y11, Y2-2, Y2-1,
+        // Y20, Y21, Y22). The band factors Â=(1, 2/3, 1/4) — the cosine-lobe convolution divided
+        // by π, so the reconstruction yields E/π like IntegrateSkyIrradiance — and energyMul are
+        // premultiplied; the shader applies only the basis constants. Coefficients can be negative
+        // (that's SH), hence float[] rather than Color32.
+        private static float[] ProjectSkyIrradianceSh(SkyGradient sky, SunParams sun, float energyMul)
+        {
+            const int samples = 4096;
+            float goldenAngle = Mathf.Pi * (3f - Mathf.Sqrt(5f));
+            float[] basis = new float[9];
+            float[] coeffs = new float[27];
+            for (int i = 0; i < samples; i++)
+            {
+                float y = 1f - (i + 0.5f) / samples * 2f;      // -1..1 (full sphere)
+                float rad = Mathf.Sqrt(Mathf.Max(0f, 1f - y * y));
+                float theta = goldenAngle * i;
+                var d = new Vector3(Mathf.Cos(theta) * rad, y, Mathf.Sin(theta) * rad);
+                Color c = EvalProceduralSky(d, sky, sun);
+                basis[0] = 0.282095f;
+                basis[1] = 0.488603f * d.Y;
+                basis[2] = 0.488603f * d.Z;
+                basis[3] = 0.488603f * d.X;
+                basis[4] = 1.092548f * d.X * d.Y;
+                basis[5] = 1.092548f * d.Y * d.Z;
+                basis[6] = 0.315392f * (3f * d.Z * d.Z - 1f);
+                basis[7] = 1.092548f * d.X * d.Z;
+                basis[8] = 0.546274f * (d.X * d.X - d.Y * d.Y);
+                for (int k = 0; k < 9; k++)
+                {
+                    coeffs[k * 3 + 0] += c.R * basis[k];
+                    coeffs[k * 3 + 1] += c.G * basis[k];
+                    coeffs[k * 3 + 2] += c.B * basis[k];
+                }
+            }
+            // Monte-Carlo weight (4π/N), band factors Â_l = A_l/π = (1, 2/3, 1/4), energy multiplier.
+            float w = 4f * Mathf.Pi / samples * energyMul;
+            float[] bandHat = [1f, 2f / 3f, 2f / 3f, 2f / 3f, 0.25f, 0.25f, 0.25f, 0.25f, 0.25f];
+            for (int k = 0; k < 9; k++)
+            {
+                float s = w * bandHat[k];
+                coeffs[k * 3 + 0] *= s;
+                coeffs[k * 3 + 1] *= s;
+                coeffs[k * 3 + 2] *= s;
+            }
+            return coeffs;
         }
 
         // Godot ProceduralSkyMaterial radiance (linear) for a view direction — the two-part gradient

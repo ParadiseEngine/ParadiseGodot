@@ -38,7 +38,10 @@ public class PipelineTests
     public async Task ktx_create_args_srgb_default_vs_normal_preset()
     {
         string srgb = KtxCreate.BuildCreateArguments(KtxCreate.TextureEncodingPreset.UastcColorSrgb, "out.ktx2", "in.png");
-        await Assert.That(srgb).Contains("--format R8G8B8A8_SRGB");
+        // Colour texels are sRGB-encoded but the container is tagged LINEAR — the workaround for
+        // Godot's KHR_texture_basisu double sRGB decode (see BuildCreateArguments).
+        await Assert.That(srgb).Contains("--format R8G8B8A8_UNORM");
+        await Assert.That(srgb).Contains("--assign-tf linear");
         await Assert.That(srgb).Contains("--encode uastc");
         await Assert.That(srgb).Contains("--generate-mipmap");
         // v5 positional order: input before output.

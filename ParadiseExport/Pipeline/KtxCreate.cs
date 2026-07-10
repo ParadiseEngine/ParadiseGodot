@@ -374,7 +374,14 @@ namespace ParadiseExport.Pipeline
                     arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
                     break;
                 default: // UastcColorSrgb — base colour / emissive
-                    arguments.AddRange(new[] { "--format", "R8G8B8A8_SRGB", "--assign-tf", "srgb", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
+                    // The texels ARE sRGB-encoded, but the container is deliberately tagged LINEAR:
+                    // Godot 4.7 double-decodes glTF KHR_texture_basisu KTX2s whose DFD says sRGB
+                    // (one decode at import + one via the sRGB VRAM format), rendering colour
+                    // textures visibly darker than authored (gray 188 read back as 128). A
+                    // linear-tagged container makes Godot decode exactly once, and the .NET runtime
+                    // picks its GPU format by USAGE (ColorSrgb → BC7-sRGB), ignoring the DFD — so
+                    // both hosts show the authored colours. Revisit if Godot fixes the double decode.
+                    arguments.AddRange(new[] { "--format", "R8G8B8A8_UNORM", "--assign-tf", "linear", "--encode", "uastc", "--uastc-quality", "2", "--zstd", "10" });
                     break;
             }
 
