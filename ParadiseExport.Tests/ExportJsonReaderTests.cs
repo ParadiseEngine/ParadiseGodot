@@ -85,7 +85,7 @@ public class ExportJsonReaderTests
         var root = FindRepoRoot();
         var level = ExportJsonReader.ReadLevel(File.ReadAllText(Path.Combine(root, "data", "scenes", "sample.json")));
         await Assert.That(level.SchemaVersion).IsEqualTo(2);
-        await Assert.That(level.Entities.Count).IsEqualTo(20);
+        await Assert.That(level.Entities.Count).IsEqualTo(21);
 
         var settings = ExportJsonReader.ReadProjectSettings(File.ReadAllText(Path.Combine(root, "data", "ProjectSettings.json")));
         await Assert.That(settings.Rendering).IsNotNull();

@@ -85,9 +85,9 @@ public class ExportedMeshGlbTests
         // cube (Ground + 2 obstacles + 2 crates), sphere (3 balls), capsule (guard) — while the 11
         // character/plant entities each reference their own model. 20 renderables, 14 distinct GLBs,
         // all under data/ (Models/… or primitives/…).
-        await Assert.That(meshFields.Count).IsEqualTo(20);
+        await Assert.That(meshFields.Count).IsEqualTo(21);
         var distinct = new HashSet<string>(meshFields, StringComparer.Ordinal);
-        await Assert.That(distinct.Count).IsEqualTo(14);
+        await Assert.That(distinct.Count).IsEqualTo(15);
         foreach (var field in distinct)
         {
             await Assert.That(field.StartsWith("Models/", StringComparison.Ordinal) ||

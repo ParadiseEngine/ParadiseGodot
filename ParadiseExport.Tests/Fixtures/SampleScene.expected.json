@@ -136,6 +136,7 @@
             "ShadowsEnabled": true,
             "ShadowType": "Soft",
             "ShadowStrength": 1,
+            "Specular": 0.5,
             "LayerMask": -1,
             "RenderingLayerMask": 1,
             "Group": "Default"

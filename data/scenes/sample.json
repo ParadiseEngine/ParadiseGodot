@@ -164,6 +164,7 @@
             "ShadowsEnabled": true,
             "ShadowType": "",
             "ShadowStrength": 1,
+            "Specular": 1,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -202,6 +203,7 @@
             "ShadowsEnabled": true,
             "ShadowType": "",
             "ShadowStrength": 1,
+            "Specular": 0.5,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
@@ -240,6 +242,7 @@
             "ShadowsEnabled": true,
             "ShadowType": "",
             "ShadowStrength": 1,
+            "Specular": 0.5,
             "LayerMask": 0,
             "RenderingLayerMask": 0,
             "Group": ""
