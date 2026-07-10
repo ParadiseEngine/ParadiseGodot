@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" uid="uid://cn8wkotsqmftj" path="res://data/Models/plants/plant_020.glb" id="12_plant20"]
 [ext_resource type="PackedScene" uid="uid://dnpqd3usqcbvm" path="res://data/Models/plants/plant.glb" id="13_plant"]
 [ext_resource type="PackedScene" uid="uid://nns2r2u4khv4" path="res://data/Models/waterbottle.glb" id="14_bottle"]
+[ext_resource type="PackedScene" uid="uid://c1cn25jlx2tnu" path="res://data/primitives/sphere_ball.glb" id="15_ball"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -55,12 +56,14 @@ roughness = 0.7
 albedo_color = Color(0.65, 0.42, 0.22, 1)
 roughness = 0.85
 
-[sub_resource type="SphereMesh" id="mesh_unit_sphere"]
-
 [sub_resource type="Gradient" id="grad_ball"]
+; 8 equal constant bands alternating white/dark — MUST stay identical to the image
+; PrimitiveGlbGenerator bakes into sphere_ball.glb (the runtime renders that bake; this
+; procedural copy is only the Godot-side preview). 8 stops × 4 floats, properly RGBA-aligned:
+; a previous hand-authored array was misaligned and rasterized as a white→yellow→red ramp.
 interpolation_mode = 1
-offsets = PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75)
-colors = PackedColorArray(1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 0.2, 0.2, 0.2)
+offsets = PackedFloat32Array(0, 0.125, 0.25, 0.375, 0.5, 0.625, 0.75, 0.875)
+colors = PackedColorArray(1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1, 1, 1, 1, 1, 0.2, 0.2, 0.2, 1)
 
 [sub_resource type="GradientTexture2D" id="tex_ball"]
 resource_name = "sample"
@@ -224,8 +227,9 @@ IsDynamicBody = true
 PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
 metadata/paradise_entity_guid = "5a1c9f02b7d34e6f8a20c3d4e5f60711"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Ball1" unique_id=1719142054]
-mesh = SubResource("mesh_unit_sphere")
+[node name="Model" parent="Ball1" unique_id=1719142054 instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="Ball1/Model" index="0"]
 surface_material_override/0 = SubResource("mat_ball1")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ball1" unique_id=259647933]
@@ -239,8 +243,9 @@ IsDynamicBody = true
 PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
 metadata/paradise_entity_guid = "6b2da013c8e45f709b31d4e5f6071822"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Ball2" unique_id=1108983375]
-mesh = SubResource("mesh_unit_sphere")
+[node name="Model" parent="Ball2" unique_id=1108983375 instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="Ball2/Model" index="0"]
 surface_material_override/0 = SubResource("mat_ball2")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ball2" unique_id=389796327]
@@ -254,8 +259,9 @@ IsDynamicBody = true
 PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
 metadata/paradise_entity_guid = "216920dcc6454fedba74860d1c64c3d0"
 
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Ball3" unique_id=293383467]
-mesh = SubResource("mesh_unit_sphere")
+[node name="Model" parent="Ball3" unique_id=293383467 instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="Ball3/Model" index="0"]
 surface_material_override/0 = SubResource("mat_ball3")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ball3" unique_id=349684216]
@@ -320,7 +326,7 @@ metadata/paradise_entity_guid = "cd895c1ae7e443f4abe1790d09306d64"
 [node name="Props" type="Node3D" parent="." unique_id=1090729409]
 
 [node name="WaterBottle" type="Node3D" parent="Props" unique_id=1437811356]
-transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 2, 0.9, -1)
+transform = Transform3D(20, 0, 0, 0, 20, 0, 0, 0, 20, 2.734051, 0.9, 3.8937478)
 script = ExtResource("1_entity")
 metadata/paradise_entity_guid = "9b68c5e6c58d454db3bc43f9b5a6cae2"
 
@@ -372,3 +378,7 @@ metadata/paradise_entity_guid = "8361afe8c9824d7b8fad4193b946e152"
 
 [node name="EcsSceneBridge" type="Node3D" parent="." unique_id=372775218]
 script = ExtResource("2_ecsbridge")
+
+[editable path="Ball1/Model"]
+[editable path="Ball2/Model"]
+[editable path="Ball3/Model"]
