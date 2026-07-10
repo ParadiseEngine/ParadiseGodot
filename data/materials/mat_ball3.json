@@ -7,7 +7,7 @@
     "b": 0.03137255,
     "a": 1
   },
-  "BaseColorTexture": null,
+  "BaseColorTexture": "data/primitives/sphere_ball_albedo.png",
   "MetallicFactor": 0,
   "RoughnessFactor": 0.4,
   "MetallicRoughnessTexture": null,
