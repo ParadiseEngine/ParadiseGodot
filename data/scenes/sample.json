@@ -1830,6 +1830,93 @@
       }
     },
     {
+      "Id": "WaterBottle",
+      "EntityGuid": "9b68c5e6-c58d-454d-b3bc-43f9b5a6cae2",
+      "StableId": "WaterBottle",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        2,
+        0.9,
+        -1
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        3,
+        3,
+        3
+      ],
+      "LocalMatrix": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        2,
+        0.9,
+        -1,
+        1
+      ],
+      "WorldMatrix": [
+        3,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        0,
+        0,
+        0,
+        3,
+        0,
+        2,
+        0.9,
+        -1,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_jc2ne.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/waterbottle.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
       "Id": "Plant1",
       "EntityGuid": "26ce2ba1-90fa-4ba3-bcb8-8e0414004406",
       "StableId": "Plant1",

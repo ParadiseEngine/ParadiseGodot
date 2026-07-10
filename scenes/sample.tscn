@@ -13,6 +13,7 @@
 [ext_resource type="PackedScene" uid="uid://cnxko332yvhcm" path="res://data/Models/plants/plant_015.glb" id="11_plant15"]
 [ext_resource type="PackedScene" uid="uid://cn8wkotsqmftj" path="res://data/Models/plants/plant_020.glb" id="12_plant20"]
 [ext_resource type="PackedScene" uid="uid://dnpqd3usqcbvm" path="res://data/Models/plants/plant.glb" id="13_plant"]
+[ext_resource type="PackedScene" uid="uid://nns2r2u4khv4" path="res://data/Models/waterbottle.glb" id="14_bottle"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -315,6 +316,15 @@ script = ExtResource("1_entity")
 metadata/paradise_entity_guid = "cd895c1ae7e443f4abe1790d09306d64"
 
 [node name="Model" parent="Characters/Dragon" unique_id=314244289 instance=ExtResource("7_dragon")]
+
+[node name="Props" type="Node3D" parent="." unique_id=1090729409]
+
+[node name="WaterBottle" type="Node3D" parent="Props" unique_id=1437811356]
+transform = Transform3D(3, 0, 0, 0, 3, 0, 0, 0, 3, 2, 0.9, -1)
+script = ExtResource("1_entity")
+metadata/paradise_entity_guid = "9b68c5e6c58d454db3bc43f9b5a6cae2"
+
+[node name="Model" parent="Props/WaterBottle" unique_id=2061877778 instance=ExtResource("14_bottle")]
 
 [node name="Plants" type="Node3D" parent="." unique_id=1263148729]
 
