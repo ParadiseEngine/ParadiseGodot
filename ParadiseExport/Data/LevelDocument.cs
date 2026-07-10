@@ -261,6 +261,20 @@ namespace ParadiseExport.Data
         public Color32 AmbientColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
         public Color32 AmbientEquatorColor { get; set; } = Color32.FromRgba(0.5f, 0.52f, 0.56f);
         public Color32 AmbientGroundColor { get; set; } = Color32.FromRgba(0.2f, 0.19f, 0.18f);
+        // L2 spherical-harmonic sky irradiance (E/π): 9 RGB coefficients (27 floats, Ramamoorthi
+        // order, band factors Â=(1, 2/3, 1/4) premultiplied) — the per-normal ambient Godot's
+        // sky-SH produces. Full-precision floats (SH coefficients can be negative, so the 8-bit
+        // Color32 encoding does not apply). Null when AmbientMode is not "Skybox".
+        public float[]? AmbientSh { get; set; }
+        // Ambient SPECULAR from the sky (Godot Environment.reflected_light_source ≠ Disabled).
+        public bool SkyReflections { get; set; }
+        // ProceduralSky sun disk/halo params (cosine thresholds + curve), matching Godot's
+        // sky_material.cpp uniforms. SizeCos = cos(light angular distance); disk never triggers at
+        // the default 2 (sentinel > 1) when no sun was found. The runtime pairs these with the
+        // first ENABLED directional light for direction/colour/energy.
+        public float SkySunSizeCos { get; set; } = 2f;
+        public float SkySunAngleMaxCos { get; set; } = 2f;
+        public float SkySunInvCurve { get; set; } = 24f;
         public float Exposure { get; set; } = 1f;
         // Ambient light energy (Godot Environment.ambient_light_energy). Scales the hemisphere ambient.
         public float AmbientEnergy { get; set; } = 1f;

@@ -193,6 +193,11 @@ public static class SceneAssembler
             // Ambient energy drives the hemisphere strength (Godot ambient_light_energy).
             Exposure = environment.AmbientEnergy,
             Flat = !string.Equals(environment.AmbientMode, "Skybox", StringComparison.OrdinalIgnoreCase),
+            // L2 sky-SH irradiance (27 floats → 9 RGB coefficients): the per-normal ambient
+            // Godot's sky-SH produces; the 3 zones above remain the fallback when absent.
+            Sh = environment.AmbientSh is { Length: 27 } shFlat
+                ? [.. Enumerable.Range(0, 9).Select(i => new Vector3(shFlat[i * 3], shFlat[i * 3 + 1], shFlat[i * 3 + 2]))]
+                : null,
         };
         // Background/clear tone from the environment (the sky) so the .NET background matches Godot —
         // but only when a real WorldEnvironment was exported. A default EnvironmentData must not stomp
@@ -207,6 +212,21 @@ public static class SceneAssembler
         // colours sRGB-ENCODED and untonemapped (exact in 8-bit Color32); PbrScene wants LINEAR —
         // the sky shader blends in linear and tonemaps per-pixel (Godot's order).
         scene.HasSkyBackground = environment.SkyGradient;
+        scene.SkyReflections = environment.SkyReflections;
+        // Sky sun disk/halo: pair the exported thresholds with the first ENABLED directional
+        // light, so disabling the light removes the sun from the sky exactly like hiding it does
+        // in Godot. The sky wants the LINEAR colour × energy (contract light colours are
+        // sRGB-encoded, matching Godot's light_color; Godot linearizes for the sky uniforms).
+        var sun = state.Lights.FirstOrDefault(l => l.Enabled && l.Type == "Directional");
+        if (sun is not null)
+        {
+            scene.SkySunEnabled = true;
+            scene.SkySunDirection = Vector3.Normalize(-sun.Direction);
+            scene.SkySunColorEnergy = SrgbToLinear(ToVector3(sun.Color)) * sun.Intensity;
+            scene.SkySunSizeCos = environment.SkySunSizeCos;
+            scene.SkySunAngleMaxCos = environment.SkySunAngleMaxCos;
+            scene.SkySunInvCurve = environment.SkySunInvCurve;
+        }
         scene.SkyTopColor = SrgbToLinear(ToVector3(environment.SkyTopColor));
         scene.SkyHorizonColor = SrgbToLinear(ToVector3(environment.SkyHorizonColor));
         scene.SkyGroundBottom = SrgbToLinear(ToVector3(environment.SkyGroundBottomColor));

@@ -44,6 +44,11 @@
             "b": 0.003921569,
             "a": 1
           },
+          "AmbientSh": null,
+          "SkyReflections": false,
+          "SkySunSizeCos": 2,
+          "SkySunAngleMaxCos": 2,
+          "SkySunInvCurve": 24,
           "Exposure": 1,
           "AmbientEnergy": 1,
           "HasBackground": false,
