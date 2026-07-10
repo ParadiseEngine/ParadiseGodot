@@ -1,0 +1,28 @@
+{
+  "Path": "materials/StandardMaterial3D_jc2ne.json",
+  "Name": "BottleMat",
+  "BaseColorFactor": {
+    "r": 1,
+    "g": 1,
+    "b": 1,
+    "a": 1
+  },
+  "BaseColorTexture": "data/Models/waterbottle_0.ktx2",
+  "MetallicFactor": 1,
+  "RoughnessFactor": 1,
+  "MetallicRoughnessTexture": "data/Models/waterbottle_1.ktx2",
+  "EmissiveFactor": {
+    "r": 1,
+    "g": 1,
+    "b": 1,
+    "a": 1
+  },
+  "EmissiveTexture": "data/Models/waterbottle_3.ktx2",
+  "NormalScale": 1,
+  "NormalTexture": "data/Models/waterbottle_2.ktx2",
+  "OcclusionStrength": 0,
+  "OcclusionTexture": "data/Models/waterbottle_1.ktx2",
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}
