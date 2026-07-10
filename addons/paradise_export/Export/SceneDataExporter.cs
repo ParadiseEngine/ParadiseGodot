@@ -239,11 +239,13 @@ namespace ParadiseGodot.Export
                 r += c.R * ndl; g += c.G * ndl; b += c.B * ndl; wSum += ndl;
             }
             if (wSum <= 0f) return new Color(0f, 0f, 0f);
-            // Σ(L·ndl)/Σ(ndl) is E/π (cosine-weighted average radiance). The runtime's diffuse drops the
-            // 1/π (Godot non-physical convention — light_energy absorbs π; see pbr.slang), so the ambient
-            // must be the full irradiance E to match, i.e. multiply the average by π. energyMul is Godot's
-            // final sky-COLOR scale (applied linearly, alpha preserved at 1).
-            float k = Mathf.Pi * energyMul;
+            // Σ(L·ndl)/Σ(ndl) is E/π (cosine-weighted average radiance) — and that IS the ambient
+            // value: measured against Godot (lights cull-masked to 0, reflections off), its
+            // sky-SH ambient is exactly albedo × E/π (ground G predicted 0.0326 vs 0.0314 read
+            // back). The punctual-light "drop the 1/π" convention does NOT extend to ambient —
+            // a previous ×π here made ambient π× too bright. energyMul is Godot's final
+            // sky-COLOR scale (applied linearly, alpha preserved at 1).
+            float k = energyMul;
             return new Color(r / wSum * k, g / wSum * k, b / wSum * k, 1f);
         }
 
