@@ -136,6 +136,13 @@ public sealed class RuntimeLoop : IDisposable
             }
         }
 
+        // CPU-skinned playback: advance each animated instance's clip and re-upload its
+        // private vertex buffers before the frame renders.
+        foreach (var instance in _instances)
+        {
+            instance.Skinned?.Advance(_pbr, (float)frameDelta);
+        }
+
         _scene.Camera = _camera.Build(_width / (float)_height);
         _pbr.RenderFrame(_scene);
     }

@@ -15,7 +15,8 @@ namespace ParadiseRuntime;
 /// Static scenery has no sim entity (null) — its transform never changes.</summary>
 public sealed record RuntimeInstance(
     Entity? SimEntity,
-    PbrInstance Render);
+    PbrInstance Render,
+    SkinnedMeshState? Skinned = null);
 
 /// <summary>Builds the runtime world from a loaded level: the static CollisionWorld (from data,
 /// not Godot nodes — the JSON-sourced analog of EcsSceneBridge.BuildCollisionWorld), the
@@ -131,10 +132,23 @@ public static class SceneAssembler
         {
             var model = ToModelMatrix(entity.WorldMatrix);
             PbrInstance? render = null;
+            SkinnedMeshState? skinned = null;
             if (entity.Components.Renderable?.Mesh is { } meshField)
             {
-                var mesh = geometry.InstantiateMesh(level.MeshAssets[meshField], entity.Materials, level);
-                render = new PbrInstance { Mesh = mesh, Model = model };
+                var asset = level.MeshAssets[meshField];
+                // Entities that author InitialAnimation get PRIVATE dynamic buffers for their
+                // skinned primitives and a per-frame CPU-skinning state; everything else shares
+                // the static per-asset uploads. A missing clip name falls back to static.
+                if (entity.InitialAnimation is { Length: > 0 } clipName && asset.Skins.Length > 0)
+                {
+                    (var mesh, skinned) = geometry.InstantiateSkinnedMesh(asset, entity.Materials, level, clipName);
+                    render = new PbrInstance { Mesh = mesh, Model = model };
+                }
+                else
+                {
+                    var mesh = geometry.InstantiateMesh(asset, entity.Materials, level);
+                    render = new PbrInstance { Mesh = mesh, Model = model };
+                }
             }
 
             Entity? simEntity = null;
@@ -161,7 +175,7 @@ public static class SceneAssembler
 
             if (render is not null)
             {
-                instances.Add(new RuntimeInstance(simEntity, render));
+                instances.Add(new RuntimeInstance(simEntity, render, skinned));
             }
         }
 
@@ -377,6 +391,60 @@ public static class SceneAssembler
                     : primitive with { MaterialId = ResolveLevelMaterial(overrideField, level, asset, glbMaterialIndex) };
             }
             return new PbrMesh(primitives);
+        }
+
+        /// <summary>Skinned variant of <see cref="InstantiateMesh"/>: primitives that carry a
+        /// joints/weights stream get PRIVATE dynamic uploads (per entity — the CPU skinner
+        /// rewrites them each frame); rigid primitives of the same model share the static
+        /// cache. Slot overrides index the same primitive order as the static path. Returns a
+        /// null state (pure static instantiation) when the named clip does not exist.</summary>
+        public (PbrMesh Mesh, SkinnedMeshState? State) InstantiateSkinnedMesh(
+            GltfAsset asset, IReadOnlyList<string?> slotOverrides, RuntimeLevel level, string clipName)
+        {
+            var rig = new GltfAnimationRig(asset);
+            var clip = rig.FindAnimation(clipName);
+            if (clip is null)
+            {
+                Console.Error.WriteLine(
+                    $"[SceneAssembler] InitialAnimation '{clipName}' not found in the model (clips: " +
+                    $"{string.Join(", ", asset.Animations.Select(a => a.Name))}) — rendering static.");
+                return (InstantiateMesh(asset, slotOverrides, level), null);
+            }
+
+            var shared = Upload(asset); // material ids + rigid primitives come from the cache
+            var primitives = new PbrPrimitive[shared.Length];
+            var skinnedPrimitives = new List<SkinnedMeshState.SkinnedPrimitive>();
+            var flat = 0;
+            foreach (var instance in asset.Instances)
+            {
+                foreach (var source in asset.Meshes[instance.MeshIndex].Primitives)
+                {
+                    var (sharedPrimitive, bake, glbMaterialId, glbMaterialIndex) = shared[flat];
+                    var overrideField = flat < slotOverrides.Count ? slotOverrides[flat] : null;
+                    var materialId = overrideField is null
+                        ? glbMaterialId
+                        : ResolveLevelMaterial(overrideField, level, asset, glbMaterialIndex);
+                    if (source.JointsWeights is not null && instance.SkinIndex >= 0)
+                    {
+                        // Private dynamic clone, initialized at bind pose with the node bake —
+                        // identical to the shared upload until the first Advance.
+                        var baked = BakeTransform(source.Vertices, bake);
+                        var gpu = pbr.UploadPrimitive(baked, source.Indices, materialId, dynamic: true);
+                        primitives[flat] = gpu;
+                        skinnedPrimitives.Add(new SkinnedMeshState.SkinnedPrimitive(
+                            source, gpu, bake, instance.SkinIndex, instance.NodeIndex));
+                    }
+                    else
+                    {
+                        primitives[flat] = sharedPrimitive with { MaterialId = materialId };
+                    }
+                    flat++;
+                }
+            }
+            var state = skinnedPrimitives.Count > 0
+                ? new SkinnedMeshState(asset, clip, skinnedPrimitives.ToArray())
+                : null;
+            return (new PbrMesh(primitives), state);
         }
 
         private (PbrPrimitive Primitive, Matrix4x4 Bake, int GlbMaterialId, int GlbMaterialIndex)[] Upload(GltfAsset asset)
