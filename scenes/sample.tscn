@@ -14,6 +14,7 @@
 [ext_resource type="PackedScene" uid="uid://cn8wkotsqmftj" path="res://data/Models/plants/plant_020.glb" id="12_plant20"]
 [ext_resource type="PackedScene" uid="uid://dnpqd3usqcbvm" path="res://data/Models/plants/plant.glb" id="13_plant"]
 [ext_resource type="PackedScene" uid="uid://nns2r2u4khv4" path="res://data/Models/waterbottle.glb" id="14_bottle"]
+[ext_resource type="PackedScene" uid="uid://cm4bg71ywugpv" path="res://data/Models/player.glb" id="15_heister"]
 [ext_resource type="PackedScene" uid="uid://c1cn25jlx2tnu" path="res://data/primitives/sphere_ball.glb" id="15_ball"]
 [ext_resource type="Texture2D" path="res://data/primitives/sphere_ball_albedo.png" id="16_balltex"]
 
@@ -288,6 +289,18 @@ metadata/paradise_entity_guid = "7d009fccdf47466a8f6e98efe2880f21"
 
 [node name="Model" parent="Characters/Elf" unique_id=1538026161 instance=ExtResource("4_elf")]
 
+[node name="Heister" type="Node3D" parent="Characters" unique_id=1912734055]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.5, 7)
+script = ExtResource("1_entity")
+Kind = "Character"
+InitialAnimation = "Idle"
+metadata/paradise_entity_guid = "fa2821f596bb4ba797504f02ac0a87f4"
+
+[node name="Model" parent="Characters/Heister" unique_id=1912734056 instance=ExtResource("15_heister")]
+
+[node name="AnimationPlayer" parent="Characters/Heister/Model"]
+autoplay = "Idle"
+
 [node name="Mage" type="Node3D" parent="Characters" unique_id=2115633995]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0.5, -2)
 script = ExtResource("1_entity")
@@ -547,6 +560,7 @@ metadata/paradise_entity_guid = "8361afe8c9824d7b8fad4193b946e152"
 [node name="EcsSceneBridge" type="Node3D" parent="." unique_id=372775218]
 script = ExtResource("2_ecsbridge")
 
+[editable path="Characters/Heister/Model"]
 [editable path="Ball1/Model"]
 [editable path="Ball2/Model"]
 [editable path="Ball3/Model"]

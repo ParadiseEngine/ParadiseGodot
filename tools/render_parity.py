@@ -45,6 +45,11 @@ except ImportError:  # pragma: no cover
 REPO = Path(__file__).resolve().parent.parent
 SIZE = (1280, 720)
 
+# Fixed clip time for skinned entities in BOTH captures: Godot seeks its AnimationPlayers
+# here while the .NET runtime pins SkinnedMeshState via --anim-time. Mid-clip, so the gate
+# compares CPU skinning (.NET) against GPU skinning (Godot) on a real posed rig.
+ANIM_TIME = 0.5
+
 # Region name -> (x0, x1, y0, y1) as frame fractions. Chosen to isolate the scene's
 # distinct parity surfaces (see ParadiseEngine#91 for the history behind each).
 REGIONS: dict[str, tuple[float, float, float, float]] = {
@@ -87,6 +92,12 @@ func _ready():
 \t# the sim write-back (nodes hold their authored transforms) while rendering continues.
 \tget_tree().paused = true
 \tawait get_tree().create_timer(2.0).timeout
+\t# Deterministic skinned pose: seek every autoplaying AnimationPlayer to the same fixed
+\t# time the .NET side pins via --anim-time (the tree is paused, so it stays there).
+\tfor player in get_tree().root.find_children("*", "AnimationPlayer", true, false):
+\t\tif player.autoplay != "":
+\t\t\tplayer.play(player.autoplay)
+\t\t\tplayer.seek({anim_time}, true)
 \tvar src_cam := get_viewport().get_camera_3d()
 \tvar sub := SubViewport.new()
 \tsub.size = Vector2i({width}, {height})
@@ -126,7 +137,7 @@ def render_dotnet(out_bmp: Path) -> None:
         print("parity: ParadiseRuntime.dll not found — build first", file=sys.stderr)
         sys.exit(2)
     proc = run(["dotnet", str(dlls[-1]), "--scene", "data/scenes/sample.json",
-                "--screenshot", str(out_bmp)])
+                "--screenshot", str(out_bmp), "--anim-time", str(ANIM_TIME)])
     if proc.returncode != 0 or not out_bmp.exists():
         print(f"parity: .NET render failed:\n{proc.stdout}\n{proc.stderr}", file=sys.stderr)
         sys.exit(2)
@@ -138,7 +149,7 @@ def capture_godot(godot: str, out_png: Path) -> None:
     capture = REPO / "_parity_capture.gd"
     backup = project.read_text()
     try:
-        capture.write_text(CAPTURE_GD.format(out_png=out_png, width=SIZE[0], height=SIZE[1]))
+        capture.write_text(CAPTURE_GD.format(out_png=out_png, width=SIZE[0], height=SIZE[1], anim_time=ANIM_TIME))
         if "[autoload]" not in backup:
             project.write_text(backup.rstrip() + "\n\n[autoload]\n\nParityCapture=\"*res://_parity_capture.gd\"\n")
         else:

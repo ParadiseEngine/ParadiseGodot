@@ -51,10 +51,14 @@ public sealed class SkinnedMeshState
         _duration = Math.Max(clip.Duration, 1e-3f);
     }
 
+    /// <summary>Pin the clip to a fixed time instead of advancing — deterministic captures
+    /// (the parity gate seeks Godot's AnimationPlayer to the same time).</summary>
+    public float? TimeOverride { get; set; }
+
     /// <summary>Advance the looped clip and re-upload every skinned primitive.</summary>
     public void Advance(PbrRenderer pbr, float deltaSeconds)
     {
-        _time = (_time + deltaSeconds) % _duration;
+        _time = TimeOverride ?? (_time + deltaSeconds) % _duration;
         _rig.EvaluatePose(_clip, _time);
         _paletteSkin = -1; // pose changed → palette cache invalid
 
