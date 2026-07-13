@@ -26,6 +26,7 @@ internal static class Program
         string? screenshotPath = null;
         var orthographic = false;
         var fovDegrees = 75f; // Godot Camera3D default (vertical)
+        float? animTime = null;
         for (var i = 0; i < args.Length; i++)
         {
             switch (args[i])
@@ -48,6 +49,11 @@ internal static class Program
                     fovDegrees = fov;
                     i++;
                     break;
+                case "--anim-time" when i + 1 < args.Length && float.TryParse(args[i + 1], out var anim):
+                    // Pin skinned clips to a fixed time — deterministic captures (parity gate).
+                    animTime = anim;
+                    i++;
+                    break;
             }
         }
 
@@ -58,8 +64,8 @@ internal static class Program
                 $"[ParadiseRuntime] {scenePath}: {level.Level.Entities.Count} entities, " +
                 $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
             return headlessFrames is { } n
-                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath)
-                : RunWindowed(level, orthographic, fovDegrees);
+                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime)
+                : RunWindowed(level, orthographic, fovDegrees, animTime);
         }
         catch (Exception ex)
         {
@@ -68,7 +74,7 @@ internal static class Program
         }
     }
 
-    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath)
+    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime)
     {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy"u8);
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
@@ -80,7 +86,7 @@ internal static class Program
         try
         {
             using var renderer = WebGpuRenderer.CreateHeadless(InitialWidth, InitialHeight);
-            using var loop = new RuntimeLoop(level, renderer, InitialWidth, InitialHeight, orthographic, fovDegrees);
+            using var loop = new RuntimeLoop(level, renderer, InitialWidth, InitialHeight, orthographic, fovDegrees, animTime);
             loop.Start();
             var clock = Stopwatch.StartNew();
             var last = clock.Elapsed.TotalSeconds;
@@ -139,7 +145,7 @@ internal static class Program
             w.Write(bgra, y * stride, stride);
     }
 
-    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees)
+    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees, float? animTime)
     {
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
         {
@@ -161,7 +167,7 @@ internal static class Program
 
             var surfaceDesc = SdlSurface.BuildDescriptor(window, out metalView);
             renderer = new WebGpuRenderer(in surfaceDesc);
-            using var loop = new RuntimeLoop(level, renderer, surfaceDesc.Width, surfaceDesc.Height, orthographic, fovDegrees);
+            using var loop = new RuntimeLoop(level, renderer, surfaceDesc.Width, surfaceDesc.Height, orthographic, fovDegrees, animTime);
             loop.Start();
             Console.WriteLine("[ParadiseRuntime] WASD moves the player (camera-relative); left-click to path-move.");
 

@@ -2773,6 +2773,93 @@
       }
     },
     {
+      "Id": "Heister",
+      "EntityGuid": "fa2821f5-96bb-4ba7-9750-4f02ac0a87f4",
+      "StableId": "Heister",
+      "DisplayName": null,
+      "Kind": "Character",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": null,
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": "Idle",
+      "Parent": null,
+      "LocalPosition": [
+        5,
+        0.5,
+        7
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        1,
+        1,
+        1
+      ],
+      "LocalMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        5,
+        0.5,
+        7,
+        1
+      ],
+      "WorldMatrix": [
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        1,
+        0,
+        5,
+        0.5,
+        7,
+        1
+      ],
+      "Materials": [
+        "materials/StandardMaterial3D_hbkt3.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "Models/player.glb",
+          "MeshNode": null
+        },
+        "Collider": null,
+        "Rigidbody": null,
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
       "Id": "Mage",
       "EntityGuid": "adc91a6b-037c-4c8e-9a38-4101c168f97c",
       "StableId": "Mage",

@@ -198,7 +198,14 @@ namespace ParadiseExport.Pipeline
                 byte[] ktx2Bytes;
                 if (IsKtx2Magic(sourceBytes))
                 {
-                    ktx2Bytes = sourceBytes; // already KTX2 — extract verbatim
+                    // Already KTX2 (pre-encoded upstream, e.g. Unity exports) — extract as-is but
+                    // enforce the project's container convention: transfer = LINEAR even for
+                    // sRGB-encoded texels, so Godot 4.x decodes exactly once (its basisu import
+                    // path double-decodes sRGB-tagged containers) and the .NET runtime keeps
+                    // choosing the GPU format by usage — the same convention --assign-tf linear
+                    // gives the transcode path below.
+                    ktx2Bytes = sourceBytes;
+                    ForceLinearTransfer(ktx2Bytes);
                 }
                 else
                 {
@@ -351,6 +358,34 @@ namespace ParadiseExport.Pipeline
         {
             ReadOnlySpan<byte> magic = [0xAB, 0x4B, 0x54, 0x58, 0x20, 0x32, 0x30, 0xBB, 0x0D, 0x0A, 0x1A, 0x0A];
             return bytes.Length >= magic.Length && bytes[..magic.Length].SequenceEqual(magic);
+        }
+
+        /// <summary>Rewrite a KTX2 container's DFD transfer function to KHR_DF_TRANSFER_LINEAR in
+        /// place (no-op when already linear). Texel data is untouched — this only changes how
+        /// consumers are told to decode, per the project convention (see ExternalizeTextures).</summary>
+        private static void ForceLinearTransfer(byte[] ktx2)
+        {
+            const int DfdByteOffsetField = 48; // KTX2 header: index section starts after 48-byte header
+            const int TransferSrgb = 2;
+            const int TransferLinear = 1;
+            if (ktx2.Length < DfdByteOffsetField + 4)
+            {
+                return;
+            }
+
+            int dfdOffset = BitConverter.ToInt32(ktx2, DfdByteOffsetField);
+            // Basic DFD block: 4B totalSize, then vendor/type (4B), version/blockSize (4B),
+            // colorModel (1B), colorPrimaries (1B), transferFunction (1B).
+            int transferOffset = dfdOffset + 4 + 8 + 2;
+            if (dfdOffset <= 0 || transferOffset >= ktx2.Length)
+            {
+                return;
+            }
+
+            if (ktx2[transferOffset] == TransferSrgb)
+            {
+                ktx2[transferOffset] = TransferLinear;
+            }
         }
 
         // ---- `ktx create` invocation --------------------------------------------------------------

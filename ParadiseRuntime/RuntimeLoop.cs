@@ -30,7 +30,8 @@ public sealed class RuntimeLoop : IDisposable
     private uint _height;
 
     public RuntimeLoop(
-        RuntimeLevel level, WebGpuRenderer renderer, uint width, uint height, bool orthographic, float fovDegrees)
+        RuntimeLevel level, WebGpuRenderer renderer, uint width, uint height, bool orthographic, float fovDegrees,
+        float? animTime = null)
     {
         _width = Math.Max(1, width);
         _height = Math.Max(1, height);
@@ -48,6 +49,7 @@ public sealed class RuntimeLoop : IDisposable
         foreach (var instance in _instances)
         {
             _scene.Instances.Add(instance.Render);
+            if (instance.Skinned is not null) instance.Skinned.TimeOverride = animTime;
         }
 
         _camera = new CameraRig(level.Level.Camera, orthographic, fovDegrees);

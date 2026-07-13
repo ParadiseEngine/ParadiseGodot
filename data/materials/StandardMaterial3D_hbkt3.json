@@ -1,0 +1,28 @@
+{
+  "Path": "materials/StandardMaterial3D_hbkt3.json",
+  "Name": "Ch36_Body",
+  "BaseColorFactor": {
+    "r": 0.8,
+    "g": 0.8,
+    "b": 0.8,
+    "a": 1
+  },
+  "BaseColorTexture": "data/Models/player_2.ktx2",
+  "MetallicFactor": 1,
+  "RoughnessFactor": 1,
+  "MetallicRoughnessTexture": "data/Models/player_1.ktx2",
+  "EmissiveFactor": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  },
+  "EmissiveTexture": null,
+  "NormalScale": 1,
+  "NormalTexture": "data/Models/player_0.ktx2",
+  "OcclusionStrength": 1,
+  "OcclusionTexture": null,
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}
