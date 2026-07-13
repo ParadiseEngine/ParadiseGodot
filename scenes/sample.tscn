@@ -278,16 +278,24 @@ surface_material_override/0 = SubResource("mat_agent")
 [node name="Knight" type="Node3D" parent="Characters" unique_id=943055341]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0.5, 2)
 script = ExtResource("1_entity")
+InitialAnimation = "Idle"
 metadata/paradise_entity_guid = "323184d8cb14485aad21c68ffdb1f68c"
 
 [node name="Model" parent="Characters/Knight" unique_id=679609866 instance=ExtResource("3_knight")]
 
+[node name="AnimationPlayer" parent="Characters/Knight/Model"]
+autoplay = "Idle"
+
 [node name="Elf" type="Node3D" parent="Characters" unique_id=1799224281]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.5, 5)
 script = ExtResource("1_entity")
+InitialAnimation = "Idle"
 metadata/paradise_entity_guid = "7d009fccdf47466a8f6e98efe2880f21"
 
 [node name="Model" parent="Characters/Elf" unique_id=1538026161 instance=ExtResource("4_elf")]
+
+[node name="AnimationPlayer" parent="Characters/Elf/Model"]
+autoplay = "Idle"
 
 [node name="Heister" type="Node3D" parent="Characters" unique_id=1912734055]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.5, 7)
@@ -304,16 +312,24 @@ autoplay = "Idle"
 [node name="Mage" type="Node3D" parent="Characters" unique_id=2115633995]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0.5, -2)
 script = ExtResource("1_entity")
+InitialAnimation = "Idle"
 metadata/paradise_entity_guid = "adc91a6b037c4c8e9a384101c168f97c"
 
 [node name="Model" parent="Characters/Mage" unique_id=1475946009 instance=ExtResource("5_mage")]
 
+[node name="AnimationPlayer" parent="Characters/Mage/Model"]
+autoplay = "Idle"
+
 [node name="Nain" type="Node3D" parent="Characters" unique_id=1235929606]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0.5, 1)
 script = ExtResource("1_entity")
+InitialAnimation = "Idle"
 metadata/paradise_entity_guid = "c66e0c81978146728567ac529e39c44d"
 
 [node name="Model" parent="Characters/Nain" unique_id=2120138105 instance=ExtResource("6_nain")]
+
+[node name="AnimationPlayer" parent="Characters/Nain/Model"]
+autoplay = "Idle"
 
 [node name="Dragon" type="Node3D" parent="Characters" unique_id=1874550291]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -8)
@@ -560,6 +576,10 @@ metadata/paradise_entity_guid = "8361afe8c9824d7b8fad4193b946e152"
 [node name="EcsSceneBridge" type="Node3D" parent="." unique_id=372775218]
 script = ExtResource("2_ecsbridge")
 
+[editable path="Characters/Elf/Model"]
+[editable path="Characters/Knight/Model"]
+[editable path="Characters/Mage/Model"]
+[editable path="Characters/Nain/Model"]
 [editable path="Characters/Heister/Model"]
 [editable path="Ball1/Model"]
 [editable path="Ball2/Model"]
