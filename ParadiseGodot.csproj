@@ -25,6 +25,7 @@
     <!-- ParadiseEngine is a local-only symlink for reference (see .gitignore);
          keep its sources out of this assembly's recursive **/*.cs glob. -->
     <Compile Remove="ParadiseEngine/**/*.cs" />
+    <Compile Remove="NoesisSpike/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>

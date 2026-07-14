@@ -22,6 +22,7 @@ internal static class Program
     private static int Main(string[] args)
     {
         string scenePath = "data/scenes/sample.json";
+        string? uiXamlPath = null;
         int? headlessFrames = null;
         string? screenshotPath = null;
         var orthographic = false;
@@ -49,6 +50,9 @@ internal static class Program
                     fovDegrees = fov;
                     i++;
                     break;
+                case "--ui" when i + 1 < args.Length:
+                    uiXamlPath = args[++i];
+                    break;
                 case "--anim-time" when i + 1 < args.Length && float.TryParse(args[i + 1], out var anim):
                     // Pin skinned clips to a fixed time — deterministic captures (parity gate).
                     animTime = anim;
@@ -64,8 +68,8 @@ internal static class Program
                 $"[ParadiseRuntime] {scenePath}: {level.Level.Entities.Count} entities, " +
                 $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
             return headlessFrames is { } n
-                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime)
-                : RunWindowed(level, orthographic, fovDegrees, animTime);
+                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime, uiXamlPath)
+                : RunWindowed(level, orthographic, fovDegrees, animTime, uiXamlPath);
         }
         catch (Exception ex)
         {
@@ -74,7 +78,7 @@ internal static class Program
         }
     }
 
-    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime)
+    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime, string? uiXamlPath)
     {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy"u8);
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
@@ -86,7 +90,9 @@ internal static class Program
         try
         {
             using var renderer = WebGpuRenderer.CreateHeadless(InitialWidth, InitialHeight);
-            using var loop = new RuntimeLoop(level, renderer, InitialWidth, InitialHeight, orthographic, fovDegrees, animTime);
+            var ui = uiXamlPath is null ? null : new NoesisUi(uiXamlPath, InitialWidth, InitialHeight);
+            using var loop = new RuntimeLoop(level, renderer, InitialWidth, InitialHeight, orthographic, fovDegrees, animTime, ui?.Input);
+            ui?.AttachToRenderer(renderer);
             loop.Start();
             var clock = Stopwatch.StartNew();
             var last = clock.Elapsed.TotalSeconds;
@@ -145,7 +151,7 @@ internal static class Program
             w.Write(bgra, y * stride, stride);
     }
 
-    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees, float? animTime)
+    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees, float? animTime, string? uiXamlPath)
     {
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
         {
@@ -167,7 +173,12 @@ internal static class Program
 
             var surfaceDesc = SdlSurface.BuildDescriptor(window, out metalView);
             renderer = new WebGpuRenderer(in surfaceDesc);
-            using var loop = new RuntimeLoop(level, renderer, surfaceDesc.Width, surfaceDesc.Height, orthographic, fovDegrees, animTime);
+            var ui = uiXamlPath is null ? null : new NoesisUi(uiXamlPath, surfaceDesc.Width, surfaceDesc.Height);
+            using var loop = new RuntimeLoop(level, renderer, surfaceDesc.Width, surfaceDesc.Height, orthographic, fovDegrees, animTime, ui?.Input);
+            ui?.AttachToRenderer(renderer);
+            int logicalW, logicalH;
+            SDL_GetWindowSize(window, &logicalW, &logicalH);
+            var uiScale = logicalW > 0 ? surfaceDesc.Width / (float)logicalW : 1f;
             loop.Start();
             Console.WriteLine("[ParadiseRuntime] WASD moves the player (camera-relative); left-click to path-move.");
 
@@ -192,12 +203,45 @@ internal static class Program
                         {
                             renderer.Resize((uint)w, (uint)h);
                             loop.Resize((uint)w, (uint)h);
+                            if (ui is not null)
+                            {
+                                // Both resize event kinds land here, and RESIZED carries
+                                // LOGICAL dims in its payload — query the authoritative pixel
+                                // and logical sizes instead so the view stays pixel-sized and
+                                // pointer coords keep mapping onto it.
+                                int pw, ph, lw, lh;
+                                SDL_GetWindowSizeInPixels(window, &pw, &ph);
+                                SDL_GetWindowSize(window, &lw, &lh);
+                                if (pw > 0 && ph > 0)
+                                {
+                                    uiScale = lw > 0 ? pw / (float)lw : 1f;
+                                    loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.Resize, new Vector2(pw, ph));
+                                }
+                            }
                         }
+                    }
+                    else if (ui is not null && type == SDL_EventType.SDL_EVENT_MOUSE_MOTION)
+                    {
+                        loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
+                    }
+                    else if (ui is not null && type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
+                             ev.button.button == SDL_BUTTON_LEFT)
+                    {
+                        loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN &&
                              ev.button.button == SDL_BUTTON_LEFT)
                     {
-                        loop.TryClickMove(new Vector2(ev.button.x, ev.button.y));
+                        // With UI active the click routes through the sim: the panel gets first
+                        // claim, and unconsumed clicks fall through to click-to-move there.
+                        if (ui is not null)
+                        {
+                            loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                        }
+                        else
+                        {
+                            loop.TryClickMove(new Vector2(ev.button.x, ev.button.y));
+                        }
                     }
                 }
 
