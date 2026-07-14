@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.Rendering.Pbr\Paradise.Rendering.Pbr.csproj" />
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.Assets.Gltf\Paradise.Assets.Gltf.csproj" />
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.Assets.Textures\Paradise.Assets.Textures.csproj" />
+    <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.Ui.ImGui\Paradise.Ui.ImGui.csproj" />
     <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.Ui.Noesis\Paradise.Ui.Noesis.csproj" />
   </ItemGroup>
 

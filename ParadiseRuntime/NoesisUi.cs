@@ -28,7 +28,7 @@ namespace ParadiseRuntime;
 // Lifetime: process-scoped by design — no Dispose/GUI.Shutdown. The runtime creates at most
 // one NoesisUi per process and native/GPU teardown happens at exit; add disposal if this ever
 // hosts multiple sessions (tests, editor).
-internal sealed class NoesisUi
+internal sealed class NoesisUi : IUiSystem
 {
     private readonly string _root;
     private readonly string _xamlFile;
@@ -50,15 +50,12 @@ internal sealed class NoesisUi
         Input = new UiInputHalf(this);
     }
 
-    /// <summary>Render-thread half: remember the engine renderer and hook the overlay seam.
+    /// <summary>Render-thread half: remember the engine renderer. The host composes
+    /// <see cref="WebGpuRenderer.OverlayPass"/> and calls <see cref="RecordOverlay"/> from it.
     /// The render device itself initializes on the first recorded frame after the sim thread
     /// has published the view (Noesis: Renderer.Init on the render thread, View on the UI
     /// thread).</summary>
-    public void AttachToRenderer(WebGpuRenderer renderer)
-    {
-        _renderer = renderer;
-        renderer.OverlayPass = RecordOverlayPass;
-    }
+    public void Attach(WebGpuRenderer renderer) => _renderer = renderer;
 
     /// <summary>Sim-thread (lazy) construction: the View's Dispatcher binds here, making the
     /// sim thread the UI thread for its whole lifetime.</summary>
@@ -93,7 +90,8 @@ internal sealed class NoesisUi
         return view;
     }
 
-    private void RecordOverlayPass(WebGpuSharp.CommandEncoder encoder, WebGpuSharp.TextureView backbuffer)
+    /// <summary>Record the UI passes into the frame (render thread).</summary>
+    public void RecordOverlay(WebGpuSharp.CommandEncoder encoder, WebGpuSharp.TextureView backbuffer)
     {
         var view = _view;
         if (view is null) return; // sim thread has not created the UI yet — skip this frame
