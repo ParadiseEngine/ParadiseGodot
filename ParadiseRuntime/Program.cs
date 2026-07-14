@@ -203,12 +203,20 @@ internal static class Program
                         {
                             renderer.Resize((uint)w, (uint)h);
                             loop.Resize((uint)w, (uint)h);
-                            if (ui is not null && type == SDL_EventType.SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED)
+                            if (ui is not null)
                             {
-                                int lw, lh;
+                                // Both resize event kinds land here, and RESIZED carries
+                                // LOGICAL dims in its payload — query the authoritative pixel
+                                // and logical sizes instead so the view stays pixel-sized and
+                                // pointer coords keep mapping onto it.
+                                int pw, ph, lw, lh;
+                                SDL_GetWindowSizeInPixels(window, &pw, &ph);
                                 SDL_GetWindowSize(window, &lw, &lh);
-                                uiScale = lw > 0 ? w / (float)lw : 1f;
-                                loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.Resize, new Vector2(w, h));
+                                if (pw > 0 && ph > 0)
+                                {
+                                    uiScale = lw > 0 ? pw / (float)lw : 1f;
+                                    loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.Resize, new Vector2(pw, ph));
+                                }
                             }
                         }
                     }

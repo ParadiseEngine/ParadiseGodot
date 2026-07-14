@@ -208,19 +208,19 @@ public sealed class SimulationRunner : IDisposable
 
         // UI first: a click a panel consumes must never fall through to world interaction on
         // the same tick, and a world click routed via UiUnhandledPointerDown enqueues its
-        // MoveCommand in time for the drain just below.
-        if (UiInput is { } ui)
+        // MoveCommand in time for the drain just below. The queue drains even with no UiInput
+        // attached (events are dropped) so a producer without a UI half can never grow it
+        // unbounded.
+        var ui = UiInput;
+        while (_uiEvents.TryDequeue(out var uiEvent))
         {
-            while (_uiEvents.TryDequeue(out var uiEvent))
+            var consumed = ui?.Handle(in uiEvent) ?? false;
+            if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
             {
-                var consumed = ui.Handle(in uiEvent);
-                if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
-                {
-                    UiUnhandledPointerDown?.Invoke(uiEvent);
-                }
+                UiUnhandledPointerDown?.Invoke(uiEvent);
             }
-            ui.Tick((_frame + 1) * FixedDeltaSeconds);
         }
+        ui?.Tick((_frame + 1) * FixedDeltaSeconds);
 
         while (_input.TryDequeue(out MoveCommand cmd))
         {

@@ -25,6 +25,9 @@ namespace ParadiseRuntime;
 /// <c>Theme/NoesisTheme.DarkBlue.xaml</c>, view creation) happens LAZILY on the sim thread at
 /// the first tick; the render half waits (skipping frames) until the view is published, then
 /// initializes the render device on the render thread on its first recorded frame.</summary>
+// Lifetime: process-scoped by design — no Dispose/GUI.Shutdown. The runtime creates at most
+// one NoesisUi per process and native/GPU teardown happens at exit; add disposal if this ever
+// hosts multiple sessions (tests, editor).
 internal sealed class NoesisUi
 {
     private readonly string _root;
@@ -97,6 +100,10 @@ internal sealed class NoesisUi
 
         if (_device is null)
         {
+            // Deliberately outside _sync: Noesis's threading contract runs Renderer.Init on
+            // the render thread while the View lives on the UI thread — Init touches only
+            // render-side state, so it may overlap a concurrent sim-thread View.Update. Only
+            // UpdateRenderTree (below) synchronizes the two trees and needs the lock.
             var renderer = _renderer!;
             var format = renderer.ColorFormat == Paradise.Rendering.TextureFormat.Bgra8Unorm
                 ? WebGpuSharp.TextureFormat.BGRA8Unorm
