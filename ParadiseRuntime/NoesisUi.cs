@@ -11,7 +11,7 @@ namespace ParadiseRuntime;
 /// - <see cref="Input"/> (<see cref="IUiInput"/>) runs on the SIM thread — the simulation
 ///   drains pointer events into the view and advances view time each fixed tick, so hover,
 ///   focus, animations and bindings step in lockstep with game state.
-/// - The renderer half runs on the RENDER thread — <see cref="AttachToRenderer"/> plugs the
+/// - The renderer half runs on the RENDER thread — <see cref="Attach"/> plugs the
 ///   managed WebGPU RenderDevice into the engine's <see cref="WebGpuRenderer.OverlayPass"/>
 ///   seam; each frame it syncs the render tree and composites the UI over the scene inside
 ///   the same command encoder (no readback, no extra latency).

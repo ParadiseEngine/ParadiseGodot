@@ -130,8 +130,6 @@ internal static class Program
         }
     }
 
-    /// <summary>Write tightly-packed top-down BGRA8 pixels as an uncompressed 32-bit BMP (bottom-up,
-    /// BI_RGB — BMP stores BGRA natively). Dependency-free; convert to PNG with `sips` if needed.</summary>
     /// <summary>UI systems in INPUT-PRIORITY order (first = claims pointer events first);
     /// ImGui debug panels outrank the game UI. Overlay drawing runs in the reverse order, so
     /// higher input priority also draws on top.</summary>
@@ -185,6 +183,8 @@ internal static class Program
         }
     }
 
+    /// <summary>Write tightly-packed top-down BGRA8 pixels as an uncompressed 32-bit BMP (bottom-up,
+    /// BI_RGB — BMP stores BGRA natively). Dependency-free; convert to PNG with `sips` if needed.</summary>
     private static void WriteBmp(string path, byte[] bgra, uint width, uint height)
     {
         const int headerSize = 54; // 14-byte file header + 40-byte info header

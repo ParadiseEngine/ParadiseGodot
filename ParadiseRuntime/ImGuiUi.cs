@@ -19,8 +19,10 @@ namespace ParadiseRuntime;
 /// The classic static font atlas is pinned deliberately (pixels copied at construction,
 /// uploaded once on the render thread) — ImGui 1.92's dynamic-texture protocol is the known
 /// cross-thread hazard and debug UI does not need runtime font changes. Context creation
-/// happens on the main thread before the sim starts; ImGui has no thread affinity, only a
-/// no-concurrent-access rule, and after startup only the sim thread calls into it.
+/// happens on the main thread before the sim starts; ImGui's current context lives in
+/// cimgui's process-global GImGui (ImGui.NET does not compile the thread-local variant), so
+/// there is no thread affinity — only a no-concurrent-access rule, and after startup only the
+/// sim thread calls into it.
 /// Process-scoped lifetime (one global ImGui context), like NoesisUi.</summary>
 internal sealed class ImGuiUi : IUiSystem
 {
@@ -36,6 +38,7 @@ internal sealed class ImGuiUi : IUiSystem
     private WebGpuRenderer? _renderer;
     private ImGuiWebGpuRenderer? _drawRenderer;
     private double _lastTickTime;
+    private bool _hasTicked;
 
     public IUiInput Input { get; }
 
@@ -124,8 +127,11 @@ internal sealed class ImGuiUi : IUiSystem
         public void Tick(double simTimeSeconds)
         {
             var io = ImGui.GetIO();
-            var delta = simTimeSeconds - owner._lastTickTime;
+            // Seed on the first tick: the sim clock is not guaranteed to start at zero, and an
+            // unclamped first DeltaTime would step animations by the whole absolute time.
+            var delta = owner._hasTicked ? simTimeSeconds - owner._lastTickTime : 0.0;
             owner._lastTickTime = simTimeSeconds;
+            owner._hasTicked = true;
             io.DeltaTime = delta > 0 ? (float)delta : 1f / 60f;
 
             ImGui.NewFrame();
