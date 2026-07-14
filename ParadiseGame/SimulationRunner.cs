@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Threading;
+using ParadiseGame.Audio;
 using ParadiseGame.Navigation;
 using ParadiseGame.Ui;
 
@@ -136,6 +137,12 @@ public sealed class SimulationRunner : IDisposable
     /// world interaction on the same tick.</summary>
     public void EnqueueUiEvent(in UiEvent uiEvent) => _uiEvents.Enqueue(uiEvent);
 
+    /// <summary>The optional sim-thread audio half (mirror of <see cref="UiInput"/>, data
+    /// flowing the other way): game logic posts events/parameters through it on the sim
+    /// thread and the runner advances its time each fixed tick. The system's pump half runs
+    /// on the render thread.</summary>
+    public IAudioSink? Audio { get; set; }
+
     /// <summary>Set an agent's current direct-move (WASD) direction; applied every tick until changed
     /// (zero = no input). Overrides click-to-move path following while non-zero.</summary>
     public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
@@ -221,6 +228,7 @@ public sealed class SimulationRunner : IDisposable
             }
         }
         ui?.Tick((_frame + 1) * FixedDeltaSeconds);
+        Audio?.Tick((_frame + 1) * FixedDeltaSeconds);
 
         while (_input.TryDequeue(out MoveCommand cmd))
         {
