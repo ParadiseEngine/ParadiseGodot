@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Threading;
 using ParadiseGame.Navigation;
+using ParadiseGame.Ui;
 
 namespace ParadiseGame;
 
@@ -44,6 +45,7 @@ public sealed class SimulationRunner : IDisposable
     private readonly INavigationMesh _navigationMesh;
     private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
     private readonly ConcurrentQueue<MoveCommand> _input = new();
+    private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
     private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
     private readonly object _lock = new();
     private readonly Stopwatch _clock = new();
@@ -119,6 +121,21 @@ public sealed class SimulationRunner : IDisposable
 
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
 
+    /// <summary>The optional sim-thread UI half. Set before <see cref="Start"/>; every tick the
+    /// runner drains queued UI events into it and advances its time — so hover/focus/animations
+    /// run in lockstep with game state. The renderer half of the same UI system runs on the
+    /// render thread and synchronizes internally with this one.</summary>
+    public IUiInput? UiInput { get; set; }
+
+    /// <summary>Invoked ON THE SIM THREAD for pointer-downs the UI did not consume and that
+    /// carry a world-space pick ray — the game-side "clicked the world" hook (click-to-move).</summary>
+    public Action<UiEvent>? UiUnhandledPointerDown { get; set; }
+
+    /// <summary>Queue a UI event from the platform/render thread; drained on the sim thread
+    /// each tick, before movement input, so a click consumed by a UI panel never leaks into
+    /// world interaction on the same tick.</summary>
+    public void EnqueueUiEvent(in UiEvent uiEvent) => _uiEvents.Enqueue(uiEvent);
+
     /// <summary>Set an agent's current direct-move (WASD) direction; applied every tick until changed
     /// (zero = no input). Overrides click-to-move path following while non-zero.</summary>
     public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
@@ -188,6 +205,22 @@ public sealed class SimulationRunner : IDisposable
         write.CopyFrom(current);
 
         SimulationTick.PrepareFrame(write, (float)FixedDeltaSeconds);
+
+        // UI first: a click a panel consumes must never fall through to world interaction on
+        // the same tick, and a world click routed via UiUnhandledPointerDown enqueues its
+        // MoveCommand in time for the drain just below.
+        if (UiInput is { } ui)
+        {
+            while (_uiEvents.TryDequeue(out var uiEvent))
+            {
+                var consumed = ui.Handle(in uiEvent);
+                if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
+                {
+                    UiUnhandledPointerDown?.Invoke(uiEvent);
+                }
+            }
+            ui.Tick((_frame + 1) * FixedDeltaSeconds);
+        }
 
         while (_input.TryDequeue(out MoveCommand cmd))
         {

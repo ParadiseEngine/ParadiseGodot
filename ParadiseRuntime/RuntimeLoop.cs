@@ -6,6 +6,7 @@ using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
 using ParadiseGame;
 using ParadiseGame.Physics;
+using ParadiseGame.Ui;
 
 namespace ParadiseRuntime;
 
@@ -31,13 +32,20 @@ public sealed class RuntimeLoop : IDisposable
 
     public RuntimeLoop(
         RuntimeLevel level, WebGpuRenderer renderer, uint width, uint height, bool orthographic, float fovDegrees,
-        float? animTime = null)
+        float? animTime = null, IUiInput? uiInput = null)
     {
         _width = Math.Max(1, width);
         _height = Math.Max(1, height);
 
         _collisionWorld = SceneAssembler.BuildCollisionWorld(level.Level);
         _runner = new SimulationRunner(level.NavigationMesh, _collisionWorld);
+        if (uiInput is not null)
+        {
+            _runner.UiInput = uiInput;
+            // Clicks the UI passes through land here ON THE SIM THREAD with the pick ray the
+            // render thread attached — same job as TryClickMove, minus the unprojection.
+            _runner.UiUnhandledPointerDown = OnUiUnhandledPointerDown;
+        }
         _pbr = new PbrRenderer(
             renderer, _width, _height,
             maxAnisotropy: (ushort)Math.Clamp(level.RenderSettings.AnisotropicLevel, 1, 16));
@@ -98,6 +106,51 @@ public sealed class RuntimeLoop : IDisposable
     }
 
     public (Vector3 Forward, Vector3 Right) PlanarBasis() => _camera.PlanarBasis();
+
+    /// <summary>Queue a UI pointer/resize event for the sim thread. Pointer-downs get a world
+    /// pick ray attached (computed here, on the render thread, where the camera lives) so the
+    /// sim can route unconsumed clicks to world interaction.</summary>
+    public void EnqueueUiEvent(UiEventKind kind, Vector2 pixel, UiPointerButton button = UiPointerButton.Left)
+    {
+        switch (kind)
+        {
+            case UiEventKind.PointerDown:
+            {
+                var camera = _camera.Build(_width / (float)_height);
+                var viewProjection = PbrMath.ViewProjection(camera.View, camera.Projection);
+                var hasRay = PbrMath.TryScreenPointToRay(
+                    pixel, new Vector2(_width, _height), viewProjection, out var origin, out var direction);
+                _runner.EnqueueUiEvent(hasRay
+                    ? UiEvent.PointerDown(pixel.X, pixel.Y, button, origin, direction)
+                    : new UiEvent(UiEventKind.PointerDown, pixel.X, pixel.Y, button, default, default, false));
+                break;
+            }
+            case UiEventKind.PointerUp:
+                _runner.EnqueueUiEvent(UiEvent.PointerUp(pixel.X, pixel.Y, button));
+                break;
+            case UiEventKind.Resize:
+                _runner.EnqueueUiEvent(UiEvent.Resize(pixel.X, pixel.Y));
+                break;
+            default:
+                _runner.EnqueueUiEvent(UiEvent.PointerMove(pixel.X, pixel.Y));
+                break;
+        }
+    }
+
+    private void OnUiUnhandledPointerDown(UiEvent uiEvent)
+    {
+        if (_player is not { } player || _collisionWorld is null || uiEvent.Button != UiPointerButton.Left) return;
+        var input = new RaycastInput
+        {
+            Start = uiEvent.WorldRayOrigin,
+            End = uiEvent.WorldRayOrigin + uiEvent.WorldRayDirection * 1000f,
+            Filter = PhysicsLayers.ClickRay,
+        };
+        if (_collisionWorld.CastRay(input, out var hit))
+        {
+            _runner.EnqueueMoveTo(player, hit.Position);
+        }
+    }
 
     public void Resize(uint width, uint height)
     {
