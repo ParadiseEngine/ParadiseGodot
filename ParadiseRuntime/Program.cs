@@ -23,6 +23,7 @@ internal static class Program
     {
         string scenePath = "data/scenes/sample.json";
         string? uiXamlPath = null;
+        var enableImGui = false;
         int? headlessFrames = null;
         string? screenshotPath = null;
         var orthographic = false;
@@ -53,6 +54,9 @@ internal static class Program
                 case "--ui" when i + 1 < args.Length:
                     uiXamlPath = args[++i];
                     break;
+                case "--imgui":
+                    enableImGui = true;
+                    break;
                 case "--anim-time" when i + 1 < args.Length && float.TryParse(args[i + 1], out var anim):
                     // Pin skinned clips to a fixed time — deterministic captures (parity gate).
                     animTime = anim;
@@ -68,8 +72,8 @@ internal static class Program
                 $"[ParadiseRuntime] {scenePath}: {level.Level.Entities.Count} entities, " +
                 $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
             return headlessFrames is { } n
-                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime, uiXamlPath)
-                : RunWindowed(level, orthographic, fovDegrees, animTime, uiXamlPath);
+                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime, uiXamlPath, enableImGui)
+                : RunWindowed(level, orthographic, fovDegrees, animTime, uiXamlPath, enableImGui);
         }
         catch (Exception ex)
         {
@@ -78,7 +82,7 @@ internal static class Program
         }
     }
 
-    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime, string? uiXamlPath)
+    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime, string? uiXamlPath, bool enableImGui)
     {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy"u8);
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
@@ -91,8 +95,12 @@ internal static class Program
         {
             using var renderer = WebGpuRenderer.CreateHeadless(InitialWidth, InitialHeight);
             var ui = uiXamlPath is null ? null : new NoesisUi(uiXamlPath, InitialWidth, InitialHeight);
-            using var loop = new RuntimeLoop(level, renderer, InitialWidth, InitialHeight, orthographic, fovDegrees, animTime, ui?.Input);
-            ui?.AttachToRenderer(renderer);
+            var imgui = enableImGui ? new ImGuiUi(InitialWidth, InitialHeight) : null;
+            var uiSystems = CollectUiSystems(imgui, ui);
+            using var loop = new RuntimeLoop(
+                level, renderer, InitialWidth, InitialHeight, orthographic, fovDegrees, animTime,
+                ComposeUiInput(uiSystems));
+            WireOverlays(renderer, uiSystems, imgui, loop);
             loop.Start();
             var clock = Stopwatch.StartNew();
             var last = clock.Elapsed.TotalSeconds;
@@ -119,6 +127,59 @@ internal static class Program
         finally
         {
             SDL_Quit();
+        }
+    }
+
+    /// <summary>UI systems in INPUT-PRIORITY order (first = claims pointer events first);
+    /// ImGui debug panels outrank the game UI. Overlay drawing runs in the reverse order, so
+    /// higher input priority also draws on top.</summary>
+    private static IUiSystem[] CollectUiSystems(ImGuiUi? imgui, NoesisUi? noesis)
+    {
+        var systems = new List<IUiSystem>(2);
+        if (imgui is not null) systems.Add(imgui);
+        if (noesis is not null) systems.Add(noesis);
+        return systems.ToArray();
+    }
+
+    private static ParadiseGame.Ui.IUiInput? ComposeUiInput(IUiSystem[] systems) => systems.Length switch
+    {
+        0 => null,
+        1 => systems[0].Input,
+        _ => new CompositeUiInput(Array.ConvertAll(systems, s => s.Input)),
+    };
+
+    /// <summary>Attach every UI system and chain the overlay seam (reverse input priority:
+    /// the UI that claims input first draws last, on top). Also registers the default ImGui
+    /// debug panel.</summary>
+    private static void WireOverlays(WebGpuRenderer renderer, IUiSystem[] systems, ImGuiUi? imgui, RuntimeLoop loop)
+    {
+        foreach (var system in systems)
+        {
+            system.Attach(renderer);
+        }
+        if (systems.Length > 0)
+        {
+            renderer.OverlayPass = (encoder, backbuffer) =>
+            {
+                for (var i = systems.Length - 1; i >= 0; i--)
+                {
+                    systems[i].RecordOverlay(encoder, backbuffer);
+                }
+            };
+        }
+        if (imgui is not null)
+        {
+            // Runs on the sim thread: reading loop/sim state directly is the point.
+            var showDemo = false;
+            imgui.AddDraw(() =>
+            {
+                ImGuiNET.ImGui.Begin("Paradise");
+                ImGuiNET.ImGui.Text($"instances: {loop.InstanceCount}");
+                ImGuiNET.ImGui.Text($"player: {(loop.HasPlayer ? "yes" : "no")}");
+                ImGuiNET.ImGui.Checkbox("ImGui demo window", ref showDemo);
+                ImGuiNET.ImGui.End();
+                if (showDemo) ImGuiNET.ImGui.ShowDemoWindow(ref showDemo);
+            });
         }
     }
 
@@ -151,7 +212,7 @@ internal static class Program
             w.Write(bgra, y * stride, stride);
     }
 
-    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees, float? animTime, string? uiXamlPath)
+    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees, float? animTime, string? uiXamlPath, bool enableImGui)
     {
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
         {
@@ -174,8 +235,12 @@ internal static class Program
             var surfaceDesc = SdlSurface.BuildDescriptor(window, out metalView);
             renderer = new WebGpuRenderer(in surfaceDesc);
             var ui = uiXamlPath is null ? null : new NoesisUi(uiXamlPath, surfaceDesc.Width, surfaceDesc.Height);
-            using var loop = new RuntimeLoop(level, renderer, surfaceDesc.Width, surfaceDesc.Height, orthographic, fovDegrees, animTime, ui?.Input);
-            ui?.AttachToRenderer(renderer);
+            var imgui = enableImGui ? new ImGuiUi(surfaceDesc.Width, surfaceDesc.Height) : null;
+            var uiSystems = CollectUiSystems(imgui, ui);
+            using var loop = new RuntimeLoop(
+                level, renderer, surfaceDesc.Width, surfaceDesc.Height, orthographic, fovDegrees, animTime,
+                ComposeUiInput(uiSystems));
+            WireOverlays(renderer, uiSystems, imgui, loop);
             int logicalW, logicalH;
             SDL_GetWindowSize(window, &logicalW, &logicalH);
             var uiScale = logicalW > 0 ? surfaceDesc.Width / (float)logicalW : 1f;
@@ -203,7 +268,7 @@ internal static class Program
                         {
                             renderer.Resize((uint)w, (uint)h);
                             loop.Resize((uint)w, (uint)h);
-                            if (ui is not null)
+                            if (ui is not null || imgui is not null)
                             {
                                 // Both resize event kinds land here, and RESIZED carries
                                 // LOGICAL dims in its payload — query the authoritative pixel
@@ -220,11 +285,11 @@ internal static class Program
                             }
                         }
                     }
-                    else if (ui is not null && type == SDL_EventType.SDL_EVENT_MOUSE_MOTION)
+                    else if ((ui is not null || imgui is not null) && type == SDL_EventType.SDL_EVENT_MOUSE_MOTION)
                     {
                         loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
                     }
-                    else if (ui is not null && type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
+                    else if ((ui is not null || imgui is not null) && type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
                              ev.button.button == SDL_BUTTON_LEFT)
                     {
                         loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
@@ -234,7 +299,7 @@ internal static class Program
                     {
                         // With UI active the click routes through the sim: the panel gets first
                         // claim, and unconsumed clicks fall through to click-to-move there.
-                        if (ui is not null)
+                        if (ui is not null || imgui is not null)
                         {
                             loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
                         }
