@@ -272,6 +272,47 @@ BH_WWISE_EXPORT int bh_wwise_set_switch(const char* switchGroup, const char* swi
     return BridgeResult(AK::SoundEngine::SetSwitch(switchGroup, switchState, gameObjectId));
 }
 
+// Paradise additions over the bank-heist source: 3D positions for spatial audio. Positions
+// are in Wwise's LEFT-handed convention (X right, Y up, Z forward); the managed caller
+// converts from the engine's right-handed frame. Orientation vectors must be orthonormal.
+
+BH_WWISE_EXPORT int bh_wwise_set_object_position(
+    AkGameObjectID gameObjectId,
+    AkReal32 posX, AkReal32 posY, AkReal32 posZ,
+    AkReal32 frontX, AkReal32 frontY, AkReal32 frontZ,
+    AkReal32 topX, AkReal32 topY, AkReal32 topZ)
+{
+    if (!g_initialized)
+    {
+        return -1;
+    }
+
+    int result = EnsureGameObjectRegistered(gameObjectId);
+    if (result != 0)
+    {
+        return result;
+    }
+
+    AkSoundPosition position;
+    position.Set({ posX, posY, posZ }, { frontX, frontY, frontZ }, { topX, topY, topZ });
+    return BridgeResult(AK::SoundEngine::SetPosition(gameObjectId, position));
+}
+
+BH_WWISE_EXPORT int bh_wwise_set_listener_position(
+    AkReal32 posX, AkReal32 posY, AkReal32 posZ,
+    AkReal32 frontX, AkReal32 frontY, AkReal32 frontZ,
+    AkReal32 topX, AkReal32 topY, AkReal32 topZ)
+{
+    if (!g_initialized)
+    {
+        return -1;
+    }
+
+    AkSoundPosition position;
+    position.Set({ posX, posY, posZ }, { frontX, frontY, frontZ }, { topX, topY, topZ });
+    return BridgeResult(AK::SoundEngine::SetPosition(DefaultListenerId, position));
+}
+
 BH_WWISE_EXPORT void bh_wwise_term()
 {
     if (!g_initialized)

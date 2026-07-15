@@ -17,9 +17,12 @@ namespace ParadiseRuntime;
 public sealed class RuntimeLoop : IDisposable
 {
     private const double RenderDelaySeconds = 2.0 / 60.0;
-    // Move-confirmation sound; the default exists in the Wwise SampleProject banks.
+    // Move-confirmation sound; the default exists in the Wwise SampleProject banks. The click
+    // plays from a dedicated positioned source at the clicked point, so 3D-authored events
+    // (e.g. Play_Footsteps with the Positioning banks) pan and attenuate spatially.
     private static readonly string ClickAudioEvent =
         Environment.GetEnvironmentVariable("PARADISE_WWISE_CLICK_EVENT") ?? "Play_Hello";
+    private const ulong ClickAudioSource = 101;
     private const double MaxRenderSampleLagSeconds = 4.0 / 60.0;
 
     private readonly SimulationRunner _runner;
@@ -111,7 +114,7 @@ public sealed class RuntimeLoop : IDisposable
         if (!_collisionWorld.CastRay(input, out var hit)) return false;
 
         _runner.EnqueueMoveTo(player, hit.Position);
-        _audio?.Sink.PostEvent(ClickAudioEvent);
+        PostClickSound(hit.Position);
         return true;
     }
 
@@ -147,6 +150,13 @@ public sealed class RuntimeLoop : IDisposable
         }
     }
 
+    private void PostClickSound(Vector3 worldPosition)
+    {
+        if (_audio is null) return;
+        _audio.Sink.SetSourcePosition(ClickAudioSource, worldPosition);
+        _audio.Sink.PostEvent(ClickAudioEvent, ClickAudioSource);
+    }
+
     private void OnUiUnhandledPointerDown(UiEvent uiEvent)
     {
         if (_player is not { } player || _collisionWorld is null || uiEvent.Button != UiPointerButton.Left) return;
@@ -159,7 +169,7 @@ public sealed class RuntimeLoop : IDisposable
         if (_collisionWorld.CastRay(input, out var hit))
         {
             _runner.EnqueueMoveTo(player, hit.Position);
-            _audio?.Sink.PostEvent(ClickAudioEvent);
+            PostClickSound(hit.Position);
         }
     }
 
@@ -210,6 +220,11 @@ public sealed class RuntimeLoop : IDisposable
         }
 
         _scene.Camera = _camera.Build(_width / (float)_height);
+        if (_audio is not null)
+        {
+            // The listener rides the camera; per-frame is plenty for a mostly-static rig.
+            _audio.Sink.SetListenerPose(_camera.Position, _camera.Forward, Vector3.UnitY);
+        }
         _pbr.RenderFrame(_scene);
         _audio?.Pump();
     }

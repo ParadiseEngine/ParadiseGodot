@@ -23,9 +23,14 @@ public class AudioSinkRoutingTests
         public readonly List<double> Ticks = new();
         public readonly List<(string Name, ulong Source)> Events = new();
 
+        public readonly List<(ulong Source, Vector3 Position)> Positions = new();
+
         public void PostEvent(string eventName, ulong sourceId = 0) => Events.Add((eventName, sourceId));
         public void SetParameter(string parameterName, float value, ulong sourceId = 0) { }
         public void SetSwitch(string switchGroup, string switchState, ulong sourceId = 0) { }
+        public void SetSourcePosition(ulong sourceId, Vector3 position, Vector3 forward = default, Vector3 up = default)
+            => Positions.Add((sourceId, position));
+        public void SetListenerPose(Vector3 position, Vector3 forward, Vector3 up) { }
         public void Tick(double simTimeSeconds) => Ticks.Add(simTimeSeconds);
     }
 

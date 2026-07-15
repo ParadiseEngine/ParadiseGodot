@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Runtime.InteropServices;
 using ParadiseGame.Audio;
 
@@ -28,6 +29,7 @@ internal sealed partial class WwiseAudio : IAudioSystem
     private readonly object _nativeLock = new();
     private bool _initialized;
     private bool _postedStartupEvent;
+    private bool _spatialUnavailableLogged;
 
     public IAudioSink Sink { get; }
 
@@ -113,6 +115,15 @@ internal sealed partial class WwiseAudio : IAudioSystem
         }
     }
 
+    private void LogSpatialUnavailable()
+    {
+        if (_spatialUnavailableLogged) return;
+        _spatialUnavailableLogged = true;
+        Console.WriteLine(
+            "[WwiseAudio] bridge lacks the spatial exports (pre-3D build) — positions ignored. " +
+            "Rebuild with scripts/build-wwise-bridge-macos.sh.");
+    }
+
     public void Dispose()
     {
         lock (_nativeLock)
@@ -173,6 +184,63 @@ internal sealed partial class WwiseAudio : IAudioSystem
             }
         }
 
+        public void SetSourcePosition(ulong sourceId, Vector3 position, Vector3 forward = default, Vector3 up = default)
+        {
+            var (p, f, t) = ToWwise(position, forward, up);
+            int result;
+            lock (owner._nativeLock)
+            {
+                if (!owner._initialized) return;
+                try
+                {
+                    result = Native.SetObjectPosition(
+                        sourceId == 0 ? DefaultSource : sourceId,
+                        p.X, p.Y, p.Z, f.X, f.Y, f.Z, t.X, t.Y, t.Z);
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    owner.LogSpatialUnavailable();
+                    return;
+                }
+            }
+            if (result != 0)
+            {
+                Console.WriteLine($"[WwiseAudio] source position failed ({result}).");
+            }
+        }
+
+        public void SetListenerPose(Vector3 position, Vector3 forward, Vector3 up)
+        {
+            var (p, f, t) = ToWwise(position, forward, up);
+            lock (owner._nativeLock)
+            {
+                if (!owner._initialized) return;
+                try
+                {
+                    _ = Native.SetListenerPosition(p.X, p.Y, p.Z, f.X, f.Y, f.Z, t.X, t.Y, t.Z);
+                }
+                catch (EntryPointNotFoundException)
+                {
+                    owner.LogSpatialUnavailable();
+                }
+            }
+        }
+
+        /// <summary>Engine frame (right-handed, +Y up, -Z forward) → Wwise frame (left-handed,
+        /// +Z forward): negate Z on every vector. Zero orientations fall back to facing -Z in
+        /// engine terms; vectors are normalized (Wwise requires orthonormal front/top).</summary>
+        private static (Vector3 Pos, Vector3 Front, Vector3 Top) ToWwise(Vector3 position, Vector3 forward, Vector3 up)
+        {
+            if (forward == default) forward = -Vector3.UnitZ;
+            if (up == default) up = Vector3.UnitY;
+            forward = Vector3.Normalize(forward);
+            // Re-orthogonalize top against front so slightly-off camera bases stay valid.
+            var top = up - forward * Vector3.Dot(up, forward);
+            top = top.LengthSquared() > 1e-8f ? Vector3.Normalize(top) : Vector3.UnitY;
+            static Vector3 Flip(Vector3 v) => new(v.X, v.Y, -v.Z);
+            return (Flip(position), Flip(forward), Flip(top));
+        }
+
         public void Tick(double simTimeSeconds)
         {
             // Wwise needs no sim-side time step; commands apply when the render half pumps.
@@ -201,7 +269,19 @@ internal sealed partial class WwiseAudio : IAudioSystem
         [LibraryImport(LibraryName, EntryPoint = "bh_wwise_set_switch", StringMarshalling = StringMarshalling.Utf8)]
         public static partial int SetSwitch(string switchGroup, string switchState, ulong gameObjectId);
 
+        [LibraryImport(LibraryName, EntryPoint = "bh_wwise_set_object_position")]
+        public static partial int SetObjectPosition(ulong gameObjectId,
+            float posX, float posY, float posZ,
+            float frontX, float frontY, float frontZ,
+            float topX, float topY, float topZ);
+
+        [LibraryImport(LibraryName, EntryPoint = "bh_wwise_set_listener_position")]
+        public static partial int SetListenerPosition(
+            float posX, float posY, float posZ,
+            float frontX, float frontY, float frontZ,
+            float topX, float topY, float topZ);
+
         [LibraryImport(LibraryName, EntryPoint = "bh_wwise_term")]
-        public static partial int Term();
+        public static partial void Term();
     }
 }
