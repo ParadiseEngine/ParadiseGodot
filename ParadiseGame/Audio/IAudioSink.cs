@@ -5,8 +5,9 @@ namespace ParadiseGame.Audio;
 /// sim, audio commands flow sim → device. Game logic calls these on the sim thread (event
 /// posts, parameters, switches) and the runner advances <see cref="Tick"/> once per fixed
 /// tick; the system's other half (the engine pump, e.g. Wwise's RenderAudio) runs on the
-/// render thread. Implementations are responsible for their own cross-thread handoff —
-/// Wwise's public API is internally thread-safe, so its sink calls straight through.</summary>
+/// render thread. The sim thread is the PRIMARY caller, but hosts may also post from the
+/// render thread (e.g. a move-confirmation on the no-UI click path) — implementations must
+/// therefore serialize internally or be free-threaded.</summary>
 public interface IAudioSink
 {
     /// <summary>Post a named audio event (fire-and-forget). <paramref name="sourceId"/>

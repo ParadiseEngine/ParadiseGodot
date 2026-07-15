@@ -15,6 +15,7 @@
 
 #include <AkDefaultIOHookDeferred.h>
 
+#include <mutex>
 #include <unordered_set>
 
 #if defined(AK_APPLE)
@@ -38,6 +39,10 @@ namespace
     bool g_soundEngineInitialized = false;
     bool g_initialized = false;
     std::unordered_set<AkGameObjectID> g_registeredGameObjects;
+    // Paradise addition over the bank-heist source: Wwise's own API is free-threaded, but this
+    // bookkeeping set is not — guard it so bridge entry points may be called from any thread
+    // (the runtime posts from both the sim thread and the render thread).
+    std::mutex g_registrationMutex;
 
     int StepFailure(int step, AKRESULT result)
     {
@@ -51,6 +56,7 @@ namespace
 
     int EnsureGameObjectRegistered(AkGameObjectID gameObjectId)
     {
+        std::lock_guard<std::mutex> lock(g_registrationMutex);
         if (g_registeredGameObjects.find(gameObjectId) != g_registeredGameObjects.end())
         {
             return 0;
@@ -67,6 +73,7 @@ namespace
 
     void Cleanup()
     {
+        std::lock_guard<std::mutex> lock(g_registrationMutex);
         if (g_soundEngineInitialized)
         {
             for (AkGameObjectID gameObjectId : g_registeredGameObjects)

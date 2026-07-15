@@ -9,16 +9,23 @@ namespace ParadiseRuntime;
 /// dylib is resolved from <c>PARADISE_WWISE_BRIDGE</c> (full path) or the OS loader's default
 /// search.
 ///
-/// Two halves, mirroring the UI systems: <see cref="Sink"/> runs on the SIM thread — Wwise's
-/// public API is internally thread-safe (calls enqueue into its message queue), so sink calls
-/// go straight through with no marshaling of our own — and <see cref="Pump"/> runs on the
-/// render thread, driving <c>RenderAudio()</c> once per frame to consume that queue.
+/// Two halves, mirroring the UI systems: <see cref="Sink"/> runs on the SIM thread and
+/// <see cref="Pump"/> on the render thread, driving <c>RenderAudio()</c> once per frame.
+/// Wwise's public API is internally thread-safe, but the BRIDGE keeps its own game-object
+/// registration bookkeeping which is not — and posts genuinely arrive from two threads (sim
+/// game logic, plus render-thread paths like the startup smoke event and the no-UI click
+/// path). Every native call is therefore serialized through <see cref="_nativeLock"/>: it
+/// protects any bridge build, including dylibs compiled before the bridge gained its own
+/// mutex, at a cost that is irrelevant at audio-command rates.
 ///
 /// Startup banks come from <c>PARADISE_WWISE_STARTUP_BANKS</c> (semicolon list, default
 /// <c>Init.bnk</c>); <c>PARADISE_WWISE_STARTUP_EVENT</c> optionally posts one event on the
 /// first pump as an audibility smoke check.</summary>
 internal sealed partial class WwiseAudio : IAudioSystem
 {
+    private static bool s_resolverRegistered;
+
+    private readonly object _nativeLock = new();
     private bool _initialized;
     private bool _postedStartupEvent;
 
@@ -36,7 +43,13 @@ internal sealed partial class WwiseAudio : IAudioSystem
             return null;
         }
 
-        NativeLibrary.SetDllImportResolver(typeof(WwiseAudio).Assembly, ResolveBridge);
+        // SetDllImportResolver throws on re-registration for the same assembly — guard so a
+        // second TryCreate degrades gracefully instead of crashing outside the catch below.
+        if (!s_resolverRegistered)
+        {
+            NativeLibrary.SetDllImportResolver(typeof(WwiseAudio).Assembly, ResolveBridge);
+            s_resolverRegistered = true;
+        }
         var audio = new WwiseAudio();
         try
         {
@@ -94,26 +107,38 @@ internal sealed partial class WwiseAudio : IAudioSystem
                 Sink.PostEvent(smoke);
             }
         }
-        _ = Native.RenderAudio();
+        lock (_nativeLock)
+        {
+            if (_initialized) _ = Native.RenderAudio();
+        }
     }
 
     public void Dispose()
     {
-        if (!_initialized) return;
-        _initialized = false;
-        Native.Term();
+        lock (_nativeLock)
+        {
+            if (!_initialized) return;
+            _initialized = false;
+            Native.Term();
+        }
     }
 
     private sealed class AudioSinkHalf(WwiseAudio owner) : IAudioSink
     {
-        // Wwise game object 0 is invalid; the bridge registers ids on demand — use 100 as the
-        // default 2D emitter (the bridge's listener owns low ids).
+        // Wwise game object 0 is invalid and the bridge's default listener sits at the very
+        // TOP of the id space (0xFFFF_FFFF_FFFF_0000); the bridge registers ids on demand, so
+        // 100 serves as the default 2D emitter. Callers passing explicit source ids own that
+        // id space and should avoid 100.
         private const ulong DefaultSource = 100;
 
         public void PostEvent(string eventName, ulong sourceId = 0)
         {
-            if (!owner._initialized) return;
-            var result = Native.PostEvent(eventName, sourceId == 0 ? DefaultSource : sourceId);
+            int result;
+            lock (owner._nativeLock)
+            {
+                if (!owner._initialized) return;
+                result = Native.PostEvent(eventName, sourceId == 0 ? DefaultSource : sourceId);
+            }
             if (result != 0)
             {
                 Console.WriteLine($"[WwiseAudio] event '{eventName}' failed ({result}).");
@@ -122,14 +147,30 @@ internal sealed partial class WwiseAudio : IAudioSystem
 
         public void SetParameter(string parameterName, float value, ulong sourceId = 0)
         {
-            if (!owner._initialized) return;
-            _ = Native.SetRtpcValue(parameterName, value, sourceId == 0 ? DefaultSource : sourceId);
+            int result;
+            lock (owner._nativeLock)
+            {
+                if (!owner._initialized) return;
+                result = Native.SetRtpcValue(parameterName, value, sourceId == 0 ? DefaultSource : sourceId);
+            }
+            if (result != 0)
+            {
+                Console.WriteLine($"[WwiseAudio] parameter '{parameterName}' failed ({result}).");
+            }
         }
 
         public void SetSwitch(string switchGroup, string switchState, ulong sourceId = 0)
         {
-            if (!owner._initialized) return;
-            _ = Native.SetSwitch(switchGroup, switchState, sourceId == 0 ? DefaultSource : sourceId);
+            int result;
+            lock (owner._nativeLock)
+            {
+                if (!owner._initialized) return;
+                result = Native.SetSwitch(switchGroup, switchState, sourceId == 0 ? DefaultSource : sourceId);
+            }
+            if (result != 0)
+            {
+                Console.WriteLine($"[WwiseAudio] switch '{switchGroup}={switchState}' failed ({result}).");
+            }
         }
 
         public void Tick(double simTimeSeconds)
