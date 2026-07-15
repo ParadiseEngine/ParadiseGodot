@@ -63,6 +63,21 @@ albedo_color = Color(0.85, 0.25, 0.25, 1)
 albedo_texture = ExtResource("16_balltex")
 roughness = 0.4
 
+[sub_resource type="StandardMaterial3D" id="mat_cue"]
+albedo_color = Color(0.96, 0.96, 0.94, 1)
+albedo_texture = ExtResource("16_balltex")
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="mat_ball4"]
+albedo_color = Color(0.9, 0.62, 0.18, 1)
+albedo_texture = ExtResource("16_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_ball5"]
+albedo_color = Color(0.45, 0.28, 0.7, 1)
+albedo_texture = ExtResource("16_balltex")
+roughness = 0.4
+
 [sub_resource type="SphereShape3D" id="shape_unit_sphere"]
 
 [sub_resource type="StandardMaterial3D" id="mat_ball2"]
@@ -205,6 +220,102 @@ shape = SubResource("shape_unit_box")
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Crate2/StaticBody3D" unique_id=1844385674]
 mesh = SubResource("mesh_unit_box")
 surface_material_override/0 = SubResource("mat_crate")
+
+[node name="CueBall" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.0, 0.85, 7.5)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "47bc0d24e235478181b9de295ec80868"
+
+[node name="Model" parent="CueBall" instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="CueBall/Model" index="0"]
+surface_material_override/0 = SubResource("mat_cue")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CueBall"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="PoolBall1" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.0, 0.85, 6.0)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "19ef0209bdfb41d7a04521ea864e469b"
+
+[node name="Model" parent="PoolBall1" instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="PoolBall1/Model" index="0"]
+surface_material_override/0 = SubResource("mat_ball1")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PoolBall1"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="PoolBall2" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.38, 0.85, 5.35)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "57c9a4cb6111485da4fbb91fa8437547"
+
+[node name="Model" parent="PoolBall2" instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="PoolBall2/Model" index="0"]
+surface_material_override/0 = SubResource("mat_ball2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PoolBall2"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="PoolBall3" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -2.62, 0.85, 5.35)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "82881a09c2ab415ab0826cc9d0757d24"
+
+[node name="Model" parent="PoolBall3" instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="PoolBall3/Model" index="0"]
+surface_material_override/0 = SubResource("mat_ball3")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PoolBall3"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="PoolBall4" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.76, 0.85, 4.7)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "20b40cedb99e418384a1cdb05fe72488"
+
+[node name="Model" parent="PoolBall4" instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="PoolBall4/Model" index="0"]
+surface_material_override/0 = SubResource("mat_ball4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PoolBall4"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="PoolBall5" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -2.24, 0.85, 4.7)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "8d4b56f566a24de08ae0ff58dbeb0207"
+
+[node name="Model" parent="PoolBall5" instance=ExtResource("15_ball")]
+
+[node name="Mesh" parent="PoolBall5/Model" index="0"]
+surface_material_override/0 = SubResource("mat_ball5")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PoolBall5"]
+shape = SubResource("shape_unit_sphere")
 
 [node name="Ball1" type="Node3D" parent="." unique_id=289205107 groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 1, 0.85, 2)

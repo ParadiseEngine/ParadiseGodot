@@ -46,6 +46,8 @@ public sealed class SimulationRunner : IDisposable
     private readonly INavigationMesh _navigationMesh;
     private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
     private readonly ConcurrentQueue<MoveCommand> _input = new();
+    private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta)> _impulses = new();
+    private readonly RewindBuffer _rewind = new();
     private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
     private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
     private readonly object _lock = new();
@@ -113,12 +115,18 @@ public sealed class SimulationRunner : IDisposable
             .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
 
     /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.</summary>
-    public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f) =>
-        Current.CreateEntity(EntityBuilder.Create()
+    public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f)
+    {
+        var ball = Current.CreateEntity(EntityBuilder.Create()
             .Add(new LocalTransform(position, rotation))
             .Add(new DynamicBody(radius, mass))
+            .Add(new BallGlow())
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
             .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
+        _ballEntities.Add(ball);
+        return ball;
+    }
+    private readonly List<Entity> _ballEntities = new();
 
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
 
@@ -146,6 +154,72 @@ public sealed class SimulationRunner : IDisposable
     /// <summary>Set an agent's current direct-move (WASD) direction; applied every tick until changed
     /// (zero = no input). Overrides click-to-move path following while non-zero.</summary>
     public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
+
+    /// <summary>Add a velocity delta to a dynamic ball on its next tick (the pool strike).</summary>
+    public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta) => _impulses.Enqueue((entity, velocityDelta));
+
+    /// <summary>Freeze the fixed-tick loop (rendering keeps interpolating the last published
+    /// snapshots). While paused the rewind buffer can be scrubbed and
+    /// <see cref="RestoreFromRewind"/> rewrites history.</summary>
+    public bool Paused
+    {
+        get => _paused;
+        set => _paused = value;
+    }
+    private volatile bool _paused;
+
+    /// <summary>Number of frames available to scrub backwards (0 = only the present).</summary>
+    public int RewindFrameCount => _rewind.Count;
+
+    /// <summary>Read the recorded ball states <paramref name="framesBack"/> frames ago into
+    /// <paramref name="states"/> (cleared first) for scrub-time display. Thread-safe; false
+    /// when the buffer does not reach that far.</summary>
+    public bool TryGetRewindFrame(int framesBack, List<RewoundBall> states) => _rewind.TryGet(framesBack, states);
+
+    /// <summary>Rewrite the present from the frame <paramref name="framesBack"/> frames ago:
+    /// published as a NEW snapshot (a restore-tick — immutability of published worlds holds),
+    /// with recorded frames after that point discarded. The next ticks then diverge from the
+    /// restored state (re-aim the cue, resume, watch a new future). Call while paused. False
+    /// when nothing was restored (bad frame, or every world genuinely pinned) — callers must
+    /// not treat the rewind as applied.</summary>
+    public bool RestoreFromRewind(int framesBack)
+    {
+        if (framesBack <= 0 || !_rewind.TryGet(framesBack, _restoreScratch)) return false;
+
+        World current;
+        World write;
+        lock (_lock)
+        {
+            if (_pool.Count == 0)
+            {
+                PruneUnlocked(); // same starvation hardening as TickOnce: publish-time pruning
+            }                    // is not enough when the renderer holds pins across frames
+            if (_pool.Count == 0)
+            {
+                return false;
+            }
+            current = _live[^1].World;
+            write = _pool.Pop();
+        }
+        write.CopyFrom(current);
+        foreach (var ball in _restoreScratch)
+        {
+            if (!write.IsAlive(ball.Entity)) continue;
+            ref var transform = ref write.GetComponent<LocalTransform>(ball.Entity);
+            transform.Position = ball.Position;
+            transform.Rotation = ball.Rotation;
+            write.GetComponent<DynamicBody>(ball.Entity).Velocity = ball.Velocity;
+            write.GetComponent<BallGlow>(ball.Entity).Intensity = ball.Glow;
+        }
+        _rewind.DropNewest(framesBack);
+        lock (_lock)
+        {
+            _live.Add(new Snapshot { World = write, Frame = ++_frame });
+            PruneUnlocked();
+        }
+        return true;
+    }
+    private readonly List<RewoundBall> _restoreScratch = new();
 
     // ---- Threading ----
 
@@ -177,7 +251,14 @@ public sealed class SimulationRunner : IDisposable
                 last = now;
                 while (accumulator >= FixedDeltaSeconds && _running)
                 {
-                    TickOnce();
+                    if (_paused)
+                    {
+                        PumpUi(); // pause freezes the WORLD, never the UI
+                    }
+                    else
+                    {
+                        TickOnce();
+                    }
                     accumulator -= FixedDeltaSeconds;
                 }
                 Thread.Sleep(1);
@@ -190,6 +271,31 @@ public sealed class SimulationRunner : IDisposable
         }
     }
 
+    /// <summary>Drain queued UI events and advance the UI + audio sinks one fixed step. Runs
+    /// on the sim thread, from every world tick AND at the same cadence while PAUSED — pause
+    /// freezes the world, not the UI (the pause panel must stay interactive) — so UI time is
+    /// a MONOTONIC tick count rather than world time. A click a panel consumes never falls
+    /// through to world interaction; unconsumed world clicks enqueue their MoveCommand in time
+    /// for the same tick's drain (no-op while paused: the command applies on resume). The
+    /// queue drains even with no UiInput attached (events dropped) so a producer without a UI
+    /// half can never grow it unbounded.</summary>
+    private void PumpUi()
+    {
+        var ui = UiInput;
+        while (_uiEvents.TryDequeue(out var uiEvent))
+        {
+            var consumed = ui?.Handle(in uiEvent) ?? false;
+            if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
+            {
+                UiUnhandledPointerDown?.Invoke(uiEvent);
+            }
+        }
+        var uiTime = ++_uiTicks * FixedDeltaSeconds;
+        ui?.Tick(uiTime);
+        Audio?.Tick(uiTime);
+    }
+    private long _uiTicks;
+
     // ---- One double-buffered frame (also drives the headless tests synchronously) ----
 
     public void TickOnce()
@@ -200,8 +306,15 @@ public sealed class SimulationRunner : IDisposable
         {
             if (_pool.Count == 0)
             {
-                // Every world is pinned — a stalled renderer is still reading them all. Skip this tick
-                // (backpressure); the sim resumes once the renderer releases a pin and prune refills the pool.
+                // Publish is normally what prunes, so an empty pool must prune HERE first —
+                // otherwise a renderer that released its pins while we were starved could never
+                // be noticed (no publish → no prune → no refill: a permanent stall).
+                PruneUnlocked();
+            }
+            if (_pool.Count == 0)
+            {
+                // Genuinely every world is pinned — a stalled renderer is still reading them
+                // all. Skip this tick (backpressure) and retry once pins release.
                 return;
             }
             current = _live[^1].World; // read the current snapshot ref under the lock
@@ -213,28 +326,21 @@ public sealed class SimulationRunner : IDisposable
 
         SimulationTick.PrepareFrame(write, (float)FixedDeltaSeconds);
 
-        // UI first: a click a panel consumes must never fall through to world interaction on
-        // the same tick, and a world click routed via UiUnhandledPointerDown enqueues its
-        // MoveCommand in time for the drain just below. The queue drains even with no UiInput
-        // attached (events are dropped) so a producer without a UI half can never grow it
-        // unbounded.
-        var ui = UiInput;
-        while (_uiEvents.TryDequeue(out var uiEvent))
-        {
-            var consumed = ui?.Handle(in uiEvent) ?? false;
-            if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
-            {
-                UiUnhandledPointerDown?.Invoke(uiEvent);
-            }
-        }
-        ui?.Tick((_frame + 1) * FixedDeltaSeconds);
-        Audio?.Tick((_frame + 1) * FixedDeltaSeconds);
+        PumpUi();
 
         while (_input.TryDequeue(out MoveCommand cmd))
         {
             if (write.IsAlive(cmd.Entity))
             {
                 NavigationPlanner.PlanMoveTo(write, cmd.Entity, cmd.Target, _navigationMesh);
+            }
+        }
+
+        while (_impulses.TryDequeue(out var impulse))
+        {
+            if (write.IsAlive(impulse.Entity) && write.HasComponent<DynamicBody>(impulse.Entity))
+            {
+                write.GetComponent<DynamicBody>(impulse.Entity).Velocity += impulse.VelocityDelta;
             }
         }
 
@@ -253,6 +359,8 @@ public sealed class SimulationRunner : IDisposable
         // immutable previous-tick snapshot) — snapshot-read mode.
         _runByWorld[write](current);
 
+        _rewind.Record(write, _ballEntities);
+
         lock (_lock)
         {
             _live.Add(new Snapshot { World = write, Frame = ++_frame });
@@ -262,12 +370,18 @@ public sealed class SimulationRunner : IDisposable
 
     // Recycle snapshots that are older than the interpolation window (keep the 2 newest) AND not pinned by
     // the renderer. Pinned snapshots are kept until released, so a world is never reused mid-read.
+    // Unpinned frames recycle from ANYWHERE in the window — a front-only sweep would halt at the
+    // first pinned frame and let one long-held pin starve the whole pool (the sim then stalls
+    // permanently, because publishing is what prunes). Order of the survivors is preserved.
     private void PruneUnlocked()
     {
-        while (_live.Count > 2 && _live[0].Pinned == 0)
+        for (int i = _live.Count - 3; i >= 0; i--)
         {
-            _pool.Push(_live[0].World);
-            _live.RemoveAt(0);
+            if (_live[i].Pinned == 0)
+            {
+                _pool.Push(_live[i].World);
+                _live.RemoveAt(i);
+            }
         }
     }
 

@@ -32,6 +32,13 @@ public ref partial struct MovementSystem : IWorldSystem
     /// tick never touches the GC heap either way (same idiom as the generated segment tables).</summary>
     private const int MaxStackBodies = 64;
 
+    // Glow tuning: a 2 kg·m/s impulse (cue-strike scale) reads as a full-intensity hit; the
+    // rolling decay holds a visible tail (~2 s to 30%), the still decay kills it in ~0.25 s.
+    private const float GlowFullImpulse = 2f;
+    private const float GlowStillSpeed = 0.05f;
+    private const float GlowRollingDecay = 0.99f;
+    private const float GlowStillDecay = 0.90f;
+
     private static readonly PlanarDynamicsSettings BallSettings = PlanarDynamicsSettings.Default with
     {
         StaticFilter = PhysicsLayers.DynamicBodyCast,
@@ -208,10 +215,23 @@ public ref partial struct MovementSystem : IWorldSystem
                 transform.Position = new Vector3(sphere.Position.X, old.Y, sphere.Position.Z);
                 Balls.DynamicBody[i].Velocity = sphere.Velocity;
 
+                // Collision glow: spike with the pairwise contact impulse (normalized by an
+                // impulse that reads as a "solid hit"), then decay — slowly while the ball still
+                // rolls, quickly once it has effectively stopped, so lights die with the motion.
+                ref BallGlow glow = ref Balls.BallGlow[i];
+                float ballSpeed = MathF.Sqrt(sphere.Velocity.X * sphere.Velocity.X + sphere.Velocity.Z * sphere.Velocity.Z);
+                float spike = MathF.Min(1f, sphere.ContactImpulse / GlowFullImpulse);
+                float decay = ballSpeed > GlowStillSpeed ? GlowRollingDecay : GlowStillDecay;
+                glow.Intensity = MathF.Max(glow.Intensity * decay, spike);
+                if (glow.Intensity < 1e-3f)
+                {
+                    glow.Intensity = 0f;
+                }
+
                 // Rolling visual: for rolling-without-slipping on a Y-up plane, ω = (Up × v) / r.
                 // Cosmetic and game-side (the engine library stays transcendental-free); rotation
                 // lives in LocalTransform so the renderer's existing Slerp interpolates it.
-                float speed = MathF.Sqrt(sphere.Velocity.X * sphere.Velocity.X + sphere.Velocity.Z * sphere.Velocity.Z);
+                float speed = ballSpeed;
                 if (speed > 1e-4f && sphere.Radius > 1e-4f)
                 {
                     Vector3 axis = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, sphere.Velocity));

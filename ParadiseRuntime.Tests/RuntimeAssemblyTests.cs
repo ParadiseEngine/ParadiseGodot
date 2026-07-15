@@ -28,7 +28,7 @@ public class RuntimeAssemblyTests
     public async Task loader_reads_the_committed_sample_scene()
     {
         var level = LoadSample();
-        await Assert.That(level.Level.Entities.Count).IsEqualTo(22);
+        await Assert.That(level.Level.Entities.Count).IsEqualTo(28);
         // Source-GLB references (no per-entity bake): cube (Ground+2 obstacles+2 crates),
         // sphere (3 balls), capsule (guard) + 11 unique character/plant GLBs = 14 distinct.
         await Assert.That(level.MeshAssets.Count).IsEqualTo(16);

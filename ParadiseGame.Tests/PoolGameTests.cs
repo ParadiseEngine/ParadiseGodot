@@ -1,0 +1,223 @@
+using System.Collections.Generic;
+using System.Numerics;
+using Paradise.ECS;
+using ParadiseGame;
+using ParadiseGame.Navigation.Detour;
+
+namespace ParadiseGame.Tests;
+
+/// <summary>The pool-game sim mechanics, driven synchronously through TickOnce: strike
+/// impulses move the cue ball, ball↔ball hits light the glow which decays and dies with the
+/// motion, and the rewind buffer can restore a past frame whose future then diverges under a
+/// different strike.</summary>
+public class PoolGameTests
+{
+    private static DetourNavigationMesh FlatGround()
+    {
+        var verts = new List<Vector3> { new(0, 0, 0), new(30, 0, 0), new(30, 0, 30), new(0, 0, 30) };
+        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
+        return new DetourNavigationMesh(verts, tris);
+    }
+
+    private static Vector3 PositionOf(SimulationRunner runner, Entity entity)
+    {
+        runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
+        return latest.GetComponent<LocalTransform>(entity).Position;
+    }
+
+    private static float GlowOf(SimulationRunner runner, Entity entity)
+    {
+        runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
+        return latest.GetComponent<BallGlow>(entity).Intensity;
+    }
+
+    [Test]
+    public async Task strike_impulse_moves_the_cue_ball()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+
+        runner.EnqueueBallImpulse(cue, new Vector3(3f, 0f, 0f));
+        for (var i = 0; i < 30; i++) runner.TickOnce();
+
+        await Assert.That(PositionOf(runner, cue).X).IsGreaterThan(5.5f);
+    }
+
+    [Test]
+    public async Task collision_lights_the_glow_and_it_dies_with_the_motion()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+        var target = runner.SpawnBall(new Vector3(7, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+
+        await Assert.That(GlowOf(runner, target)).IsEqualTo(0f);
+
+        runner.EnqueueBallImpulse(cue, new Vector3(6f, 0f, 0f));
+        var peak = 0f;
+        for (var i = 0; i < 90; i++)
+        {
+            runner.TickOnce();
+            peak = MathF.Max(peak, GlowOf(runner, target));
+        }
+        await Assert.That(peak).IsGreaterThan(0.3f); // the hit lit the light
+
+        // Let everything damp out; once still, the glow must be fully off.
+        for (var i = 0; i < 900; i++) runner.TickOnce();
+        await Assert.That(GlowOf(runner, target)).IsEqualTo(0f);
+    }
+
+    [Test]
+    public async Task rewind_restores_a_past_frame_and_a_new_strike_diverges_the_future()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+
+        // Original timeline: strike +X, run 120 ticks, remember where the cue ended up.
+        runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
+        for (var i = 0; i < 120; i++) runner.TickOnce();
+        var originalEnd = PositionOf(runner, cue);
+        await Assert.That(runner.RewindFrameCount).IsEqualTo(120);
+
+        // Scrub display: 100 frames back the cue was still near the start.
+        var states = new List<RewoundBall>();
+        await Assert.That(runner.TryGetRewindFrame(100, states)).IsTrue();
+        var rewound = states.Find(s => s.Entity == cue);
+        await Assert.That(rewound.Position.X).IsLessThan(originalEnd.X);
+
+        // Restore that frame (paused, like the UI does), re-strike toward +Z, resume.
+        runner.Paused = true;
+        runner.RestoreFromRewind(100);
+        await Assert.That(PositionOf(runner, cue).X - rewound.Position.X).IsLessThan(1e-4f);
+        // History after the restore point is gone.
+        await Assert.That(runner.RewindFrameCount).IsEqualTo(20);
+
+        runner.EnqueueBallImpulse(cue, new Vector3(0f, 0f, 4f));
+        runner.Paused = false;
+        for (var i = 0; i < 120; i++) runner.TickOnce();
+
+        var divergedEnd = PositionOf(runner, cue);
+        // The new future differs from the recorded one: the +Z strike bends the trajectory
+        // (the restored +X velocity keeps carrying, so X is NOT expected to shrink).
+        await Assert.That(divergedEnd.Z).IsGreaterThan(originalEnd.Z + 0.5f);
+        await Assert.That(Vector3.Distance(divergedEnd, originalEnd)).IsGreaterThan(0.5f);
+    }
+
+    [Test]
+    public async Task rewind_restore_reclaims_unpinned_snapshots_when_the_pool_is_starved()
+    {
+        // Regression (PR #64 review): TickOnce prunes unpinned snapshots when the pool runs
+        // dry, but RestoreFromRewind bailed without pruning — a paused resume could silently
+        // skip the rewind while the caller believed it applied. The restore must reclaim
+        // exactly like a tick, and report false only when every world is genuinely pinned.
+        using var runner = new SimulationRunner(FlatGround());
+        var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+        runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
+        for (var i = 0; i < 60; i++) runner.TickOnce();
+
+        // Renderer pins the newest snapshot, the sim publishes past it, then the renderer
+        // moves on: the old pair is now unpinned but stays in the live window until the next
+        // publish prunes — and no publish is coming while paused.
+        runner.TrySampleInterpolation(double.MaxValue, out _, out _, out _);
+        runner.TickOnce();
+        runner.TickOnce();
+        runner.TrySampleInterpolation(double.MaxValue, out _, out _, out _);
+
+        // Starve the pool, as a long render stall would (not reachable through the public
+        // API with a single reader, so reach in). The pooled World type is a
+        // source-generated alias private to the ParadiseGame assembly — drive the stack
+        // reflectively rather than naming it.
+        var poolField = typeof(SimulationRunner).GetField("_pool",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var pool = poolField.GetValue(runner)!;
+        var poolCount = pool.GetType().GetProperty("Count")!;
+        var poolPop = pool.GetType().GetMethod("Pop")!;
+        var poolPush = pool.GetType().GetMethod("Push")!;
+        var stash = new List<object?>();
+        void Starve() { while ((int)poolCount.GetValue(pool)! > 0) stash.Add(poolPop.Invoke(pool, null)); }
+        Starve();
+
+        runner.Paused = true;
+        var scrubbed = new List<RewoundBall>();
+        await Assert.That(runner.TryGetRewindFrame(30, scrubbed)).IsTrue();
+        var expected = scrubbed.Find(s => s.Entity == cue).Position;
+
+        // Starved but reclaimable: the restore must prune, apply, and report success.
+        await Assert.That(runner.RestoreFromRewind(30)).IsTrue();
+        await Assert.That(Vector3.Distance(PositionOf(runner, cue), expected)).IsLessThan(1e-4f);
+
+        // Starve again with nothing left to reclaim (only the pinned pair and the newest
+        // survive): the restore must refuse — callers keep their scrub instead of losing it.
+        Starve();
+        await Assert.That(runner.RestoreFromRewind(10)).IsFalse();
+
+        foreach (var world in stash) poolPush.Invoke(pool, new[] { world });
+    }
+
+    [Test]
+    public async Task pause_keeps_the_ui_pump_alive()
+    {
+        // Regression: pausing froze TickOnce AND the UI drain with it, so the pause panel
+        // could never be interacted with again. Pause must freeze the world, not the UI.
+        int handledWhilePaused, ticksBefore, ticksAfterWait;
+        using (var runner = new SimulationRunner(FlatGround()))
+        {
+            var ui = new RecordingUi();
+            runner.UiInput = ui;
+            runner.Start();
+            Thread.Sleep(150);
+            runner.Paused = true;
+            Thread.Sleep(80);
+            ticksBefore = ui.Ticks.Count;
+            var handledBefore = ui.Handled.Count;
+            runner.EnqueueUiEvent(ParadiseGame.Ui.UiEvent.PointerMove(10, 10));
+            runner.EnqueueUiEvent(ParadiseGame.Ui.UiEvent.PointerUp(10, 10, ParadiseGame.Ui.UiPointerButton.Left));
+            Thread.Sleep(200);
+            handledWhilePaused = ui.Handled.Count - handledBefore;
+            ticksAfterWait = ui.Ticks.Count;
+            runner.Stop();
+        }
+
+        await Assert.That(handledWhilePaused).IsEqualTo(2);   // events still reach the UI
+        await Assert.That(ticksAfterWait).IsGreaterThan(ticksBefore); // UI time keeps flowing
+    }
+
+    private sealed class RecordingUi : ParadiseGame.Ui.IUiInput
+    {
+        public readonly List<ParadiseGame.Ui.UiEvent> Handled = new();
+        public readonly List<double> Ticks = new();
+        public bool Handle(in ParadiseGame.Ui.UiEvent uiEvent) { Handled.Add(uiEvent); return false; }
+        public void Tick(double simTimeSeconds) => Ticks.Add(simTimeSeconds);
+    }
+
+    [Test]
+    public async Task pause_freezes_the_threaded_loop()
+    {
+        // Collected synchronously (Thread.Sleep, no awaits): SharedWorld.Dispose is
+        // thread-affine to the constructing thread, and awaits hop the continuation.
+        Vector3 frozen, afterPause;
+        int frozenFrames, afterPauseFrames, afterResumeFrames;
+        using (var runner = new SimulationRunner(FlatGround()))
+        {
+            var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+            runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
+
+            runner.Start();
+            Thread.Sleep(200);
+            runner.Paused = true;
+            Thread.Sleep(100); // let an in-flight tick drain
+            frozen = PositionOf(runner, cue);
+            frozenFrames = runner.RewindFrameCount;
+            Thread.Sleep(250);
+            afterPause = PositionOf(runner, cue);
+            afterPauseFrames = runner.RewindFrameCount;
+            runner.Paused = false;
+            Thread.Sleep(200);
+            afterResumeFrames = runner.RewindFrameCount;
+            runner.Stop();
+        }
+
+        await Assert.That(afterPause).IsEqualTo(frozen);
+        await Assert.That(afterPauseFrames).IsEqualTo(frozenFrames);
+        await Assert.That(afterResumeFrames).IsGreaterThan(frozenFrames);
+    }
+}

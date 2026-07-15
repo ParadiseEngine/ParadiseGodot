@@ -16,7 +16,8 @@ namespace ParadiseRuntime;
 public sealed record RuntimeInstance(
     Entity? SimEntity,
     PbrInstance Render,
-    SkinnedMeshState? Skinned = null);
+    SkinnedMeshState? Skinned = null,
+    float SimScale = 1f); // sim rebuilds Model from pos+rot; the authored uniform scale must survive
 
 /// <summary>Builds the runtime world from a loaded level: the static CollisionWorld (from data,
 /// not Godot nodes — the JSON-sourced analog of EcsSceneBridge.BuildCollisionWorld), the
@@ -118,7 +119,9 @@ public static class SceneAssembler
 
     public sealed record AssembledScene(
         List<RuntimeInstance> Instances,
-        Entity? Player);
+        Entity? Player,
+        Entity? CueBall,
+        List<(Entity Entity, int InstanceIndex)> PoolBalls);
 
     /// <summary>Spawn sim entities and build render instances. Must run on the runner's owner
     /// thread BEFORE <c>runner.Start()</c> (world-pool thread affinity).</summary>
@@ -127,6 +130,8 @@ public static class SceneAssembler
         var geometry = new GeometryCache(pbr);
         var instances = new List<RuntimeInstance>();
         Entity? player = null;
+        Entity? cueBall = null;
+        var poolBalls = new List<(Entity, int)>();
 
         foreach (var entity in level.Level.Entities)
         {
@@ -169,17 +174,29 @@ public static class SceneAssembler
             else if (components.Rigidbody?.BodyType == PhysicsBodyType.Dynamic)
             {
                 var sphere = FindShape(components, PhysicsShapeType.Sphere);
-                var radius = sphere?.Radius ?? 0.35f;
-                simEntity = runner.SpawnBall(position, rotation, radius, Math.Max(0.01f, components.Rigidbody.Mass));
+                // Godot scales collision shapes by node scale; the contract stores the UNSCALED
+                // shape radius, so apply the entity's (uniform) scale here or a 0.7-scaled ball
+                // simulates 43% too fat and racks placed at visual spacing explode apart.
+                var radius = (sphere?.Radius ?? 0.5f) * entity.LocalScale.X;
+                var ball = runner.SpawnBall(position, rotation, radius, Math.Max(0.01f, components.Rigidbody.Mass));
+                simEntity = ball;
+                if (render is not null)
+                {
+                    poolBalls.Add((ball, instances.Count)); // instance appended just below
+                }
+                if (string.Equals(entity.StableId, "CueBall", StringComparison.OrdinalIgnoreCase))
+                {
+                    cueBall = ball;
+                }
             }
 
             if (render is not null)
             {
-                instances.Add(new RuntimeInstance(simEntity, render, skinned));
+                instances.Add(new RuntimeInstance(simEntity, render, skinned, entity.LocalScale.X));
             }
         }
 
-        return new AssembledScene(instances, player);
+        return new AssembledScene(instances, player, cueBall, poolBalls);
     }
 
     private static ColliderShapeData? FindShape(EntityComponentsData components, PhysicsShapeType type)

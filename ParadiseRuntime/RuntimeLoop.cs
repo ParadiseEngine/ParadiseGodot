@@ -6,6 +6,7 @@ using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
 using ParadiseGame;
 using ParadiseGame.Physics;
+using ParadiseGame.Audio;
 using ParadiseGame.Ui;
 
 namespace ParadiseRuntime;
@@ -35,6 +36,27 @@ public sealed class RuntimeLoop : IDisposable
     private readonly Entity? _player;
     private readonly CollisionWorld? _collisionWorld;
     private readonly IAudioSystem? _audio;
+
+    // ---- pool mini-game (active when the scene authors a "CueBall" dynamic ball) ----
+    private readonly Entity? _cueBall;
+    private readonly List<(Entity Entity, int InstanceIndex, int LightIndex, ulong AudioSource)> _poolBalls = new();
+    private readonly List<RewoundBall> _scrubScratch = new();
+    private readonly float[] _lastBallGlow;
+    private readonly double[] _lastBallSoundAt;
+    private volatile int _rewindScrub; // frames back shown while paused (0 = present)
+    private Vector3? _stagedImpulse;   // strike captured while paused, applied on resume
+    private bool _aiming;
+    private Vector3 _aimGroundPoint;
+    private volatile bool _aimVisible;
+    private Vector2 _aimBallScreen;
+    private Vector2 _aimPointScreen;
+    private double _renderClock;
+    private static readonly string CollisionAudioEvent =
+        Environment.GetEnvironmentVariable("PARADISE_WWISE_COLLISION_EVENT") ?? "Play_Footsteps";
+    private const float StrikePowerScale = 2.2f;
+    private const float StrikeMaxSpeed = 9f;
+    private const float BallLightHeight = 0.55f;
+    private const float BallLightIntensity = 3.2f;
     private double _renderSampleTime;
     private uint _width;
     private uint _height;
@@ -68,6 +90,7 @@ public sealed class RuntimeLoop : IDisposable
         var assembled = SceneAssembler.Assemble(level, _runner, _pbr);
         _instances = assembled.Instances;
         _player = assembled.Player;
+        _cueBall = assembled.CueBall;
         foreach (var instance in _instances)
         {
             _scene.Instances.Add(instance.Render);
@@ -82,6 +105,205 @@ public sealed class RuntimeLoop : IDisposable
             _scene.ClearColor = new ColorRgba(clear.R, clear.G, clear.B, 1f);
         }
         SceneAssembler.PopulateLighting(level, _scene);
+
+        // One point light per pool ball, driven by its BallGlow every frame (energy 0 = off).
+        foreach (var (entity, instanceIndex) in assembled.PoolBalls)
+        {
+            _poolBalls.Add((entity, instanceIndex, _scene.Lights.Count, (ulong)(200 + _poolBalls.Count)));
+            _scene.Lights.Add(new PbrLight
+            {
+                Type = PbrLightType.Point,
+                Position = Vector3.Zero,
+                Direction = Vector3.UnitY,
+                Color = new Vector3(1f, 0.72f, 0.35f), // warm impact flash
+                Intensity = 0f,
+                Range = 3.5f,
+            });
+        }
+        _lastBallGlow = new float[_poolBalls.Count];
+        _lastBallSoundAt = new double[_poolBalls.Count];
+
+        // Headless/demo hook: strike the cue at startup, e.g. PARADISE_POOL_AUTOSTRIKE="0,-6"
+        // (velocity x,z in m/s) — lets screenshots and smoke runs exercise the break.
+        if (_cueBall is { } autoCue &&
+            Environment.GetEnvironmentVariable("PARADISE_POOL_AUTOSTRIKE") is { } auto)
+        {
+            var parts = auto.Split(',');
+            if (parts.Length == 2 &&
+                float.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out var vx) &&
+                float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var vz))
+            {
+                _runner.EnqueueBallImpulse(autoCue, new Vector3(vx, 0f, vz));
+            }
+        }
+    }
+
+    /// <summary>Pool pause state; resuming applies a pending rewind-restore and staged strike
+    /// (call from the sim thread — the ImGui panel does).</summary>
+    public bool PoolPaused
+    {
+        get => _runner.Paused;
+        set
+        {
+            if (!value && _runner.Paused)
+            {
+                if (_rewindScrub > 0)
+                {
+                    if (!_runner.RestoreFromRewind(_rewindScrub))
+                    {
+                        // Nothing was rewound (transient pin pressure) — keep the scrub and the
+                        // staged strike, stay paused, and let the player resume again.
+                        Console.WriteLine("[Pool] rewind restore did not apply — try resuming again.");
+                        return;
+                    }
+                    _rewindScrub = 0;
+                }
+                if (_stagedImpulse is { } staged && _cueBall is { } cue)
+                {
+                    _runner.EnqueueBallImpulse(cue, staged);
+                    _stagedImpulse = null;
+                }
+            }
+            _runner.Paused = value;
+        }
+    }
+
+    public bool HasPoolGame => _cueBall is not null && _poolBalls.Count > 0;
+    public int RewindFrameCount => _runner.RewindFrameCount;
+    public int RewindScrub { get => _rewindScrub; set => _rewindScrub = Math.Max(0, value); }
+    public Vector3? StagedImpulse => _stagedImpulse;
+    public void ClearStagedImpulse() => _stagedImpulse = null;
+
+    /// <summary>ImGui pool panel — runs on the SIM thread via ImGuiUi.AddDraw.</summary>
+    public void DrawPoolPanel()
+    {
+        ImGuiNET.ImGui.Begin("Pool");
+        var paused = PoolPaused;
+        if (ImGuiNET.ImGui.Checkbox("Paused", ref paused))
+        {
+            PoolPaused = paused;
+        }
+        if (paused)
+        {
+            var scrub = _rewindScrub;
+            var max = Math.Max(0, _runner.RewindFrameCount - 1);
+            if (ImGuiNET.ImGui.SliderInt("Rewind", ref scrub, 0, max, scrub == 0 ? "now" : $"-{scrub} frames"))
+            {
+                _rewindScrub = Math.Clamp(scrub, 0, max);
+            }
+            ImGuiNET.ImGui.TextWrapped(_stagedImpulse is { } s
+                ? $"staged strike: {s.Length():F1} m/s — resumes with it"
+                : "drag from the white ball to stage a strike");
+        }
+        else
+        {
+            ImGuiNET.ImGui.TextWrapped("drag from the white ball to strike; pause to rewind");
+        }
+        ImGuiNET.ImGui.End();
+
+        if (_aimVisible)
+        {
+            var draw = ImGuiNET.ImGui.GetForegroundDrawList();
+            draw.AddLine(_aimBallScreen, _aimPointScreen, 0xE0FFFFFF, 2.5f);
+            draw.AddCircleFilled(_aimPointScreen, 5f, 0xE04E82FF);
+        }
+    }
+
+    // ---- aiming (render/main thread, mouse routed by Program) ----
+
+    /// <summary>Begin a strike if the pointer ray hits the cue ball (its DISPLAYED position,
+    /// so aiming works mid-scrub too). True = consumed, skip UI/click-move routing.</summary>
+    public bool TryBeginAim(Vector2 screenPixel)
+    {
+        if (_cueBall is not { } cue) return false;
+        if (!TryScreenRay(screenPixel, out var origin, out var direction)) return false;
+        var ballPos = DisplayedCuePosition();
+        // Ray-sphere with a forgiving radius (pick comfort).
+        var toBall = ballPos - origin;
+        var along = Vector3.Dot(toBall, direction);
+        if (along <= 0) return false;
+        var closest = origin + direction * along;
+        if (Vector3.Distance(closest, ballPos) > 0.6f) return false;
+        _aiming = true;
+        UpdateAim(screenPixel);
+        return true;
+    }
+
+    public void UpdateAim(Vector2 screenPixel)
+    {
+        if (!_aiming) return;
+        var ballPos = DisplayedCuePosition();
+        if (TryScreenRay(screenPixel, out var origin, out var direction) &&
+            MathF.Abs(direction.Y) > 1e-5f)
+        {
+            var t = (ballPos.Y - origin.Y) / direction.Y;
+            if (t > 0)
+            {
+                _aimGroundPoint = origin + direction * t;
+            }
+        }
+        _aimBallScreen = WorldToScreen(ballPos);
+        _aimPointScreen = WorldToScreen(_aimGroundPoint);
+        _aimVisible = true;
+    }
+
+    /// <summary>Slingshot release: the cue fires OPPOSITE the drag, speed scaled by drag
+    /// length. Applied immediately while running, staged while paused.</summary>
+    public void ReleaseAim()
+    {
+        if (!_aiming) return;
+        _aiming = false;
+        _aimVisible = false;
+        if (_cueBall is not { } cue) return;
+        var ballPos = DisplayedCuePosition();
+        var pull = ballPos - _aimGroundPoint;
+        pull.Y = 0;
+        var speed = MathF.Min(pull.Length() * StrikePowerScale, StrikeMaxSpeed);
+        if (speed < 0.2f) return;
+        var impulse = Vector3.Normalize(pull) * speed;
+        if (_runner.Paused)
+        {
+            _stagedImpulse = impulse;
+        }
+        else
+        {
+            _runner.EnqueueBallImpulse(cue, impulse);
+            _audio?.Sink.PostEvent(ClickAudioEvent, ClickAudioSource);
+        }
+    }
+
+    private Vector3 DisplayedCuePosition()
+    {
+        if (_cueBall is not { } cue) return Vector3.Zero;
+        if (_runner.Paused && _rewindScrub > 0 && _runner.TryGetRewindFrame(_rewindScrub, _scrubScratch))
+        {
+            foreach (var ball in _scrubScratch)
+            {
+                if (ball.Entity == cue) return ball.Position;
+            }
+        }
+        if (_runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _) && latest.IsAlive(cue))
+        {
+            return latest.GetComponent<LocalTransform>(cue).Position;
+        }
+        return Vector3.Zero;
+    }
+
+    private bool TryScreenRay(Vector2 screenPixel, out Vector3 origin, out Vector3 direction)
+    {
+        var camera = _camera.Build(_width / (float)_height);
+        var viewProjection = PbrMath.ViewProjection(camera.View, camera.Projection);
+        return PbrMath.TryScreenPointToRay(screenPixel, new Vector2(_width, _height), viewProjection, out origin, out direction);
+    }
+
+    private Vector2 WorldToScreen(Vector3 world)
+    {
+        var camera = _camera.Build(_width / (float)_height);
+        var viewProjection = PbrMath.ViewProjection(camera.View, camera.Projection);
+        var clip = Vector4.Transform(new Vector4(world, 1f), viewProjection);
+        if (MathF.Abs(clip.W) < 1e-6f) return Vector2.Zero;
+        var ndc = new Vector2(clip.X, clip.Y) / clip.W;
+        return new Vector2((ndc.X * 0.5f + 0.5f) * _width, (1f - (ndc.Y * 0.5f + 0.5f)) * _height);
     }
 
     public CollisionWorld? CollisionWorld => _collisionWorld;
@@ -209,7 +431,76 @@ public sealed class RuntimeLoop : IDisposable
                     var position = Vector3.Lerp(a.Position, b.Position, alpha);
                     var rotation = Quaternion.Slerp(a.Rotation, b.Rotation, alpha);
                     instance.Render.Model =
-                        Matrix4x4.CreateFromQuaternion(rotation) * Matrix4x4.CreateTranslation(position);
+                        Matrix4x4.CreateScale(instance.SimScale)
+                        * Matrix4x4.CreateFromQuaternion(rotation)
+                        * Matrix4x4.CreateTranslation(position);
+                }
+            }
+        }
+
+        _renderClock += frameDelta;
+
+        // Pool: ball lights track their balls, glow drives light energy + collision audio;
+        // while paused-and-scrubbed the recorded frame REPLACES the interpolated display.
+        if (_poolBalls.Count > 0)
+        {
+            var scrub = _rewindScrub;
+            var scrubbed = _runner.Paused && scrub > 0 && _runner.TryGetRewindFrame(scrub, _scrubScratch);
+            _runner.TrySampleInterpolation(_renderSampleTime, out var glowWorldA, out var glowWorldB, out var glowAlpha);
+            for (var i = 0; i < _poolBalls.Count; i++)
+            {
+                var (entity, instanceIndex, lightIndex, audioSource) = _poolBalls[i];
+                Vector3 position;
+                float glow;
+                if (scrubbed)
+                {
+                    var found = false;
+                    position = default;
+                    glow = 0f;
+                    foreach (var ball in _scrubScratch)
+                    {
+                        if (ball.Entity != entity) continue;
+                        position = ball.Position;
+                        glow = ball.Glow;
+                        _instances[instanceIndex].Render.Model =
+                            Matrix4x4.CreateScale(_instances[instanceIndex].SimScale)
+                            * Matrix4x4.CreateFromQuaternion(ball.Rotation)
+                            * Matrix4x4.CreateTranslation(ball.Position);
+                        found = true;
+                        break;
+                    }
+                    if (!found) continue;
+                }
+                else
+                {
+                    if (glowWorldA is null || !glowWorldA.IsAlive(entity) || !glowWorldB.IsAlive(entity)) continue;
+                    var a = glowWorldA.GetComponent<LocalTransform>(entity).Position;
+                    var b = glowWorldB.GetComponent<LocalTransform>(entity).Position;
+                    position = Vector3.Lerp(a, b, glowAlpha);
+                    glow = float.Lerp(
+                        glowWorldA.GetComponent<BallGlow>(entity).Intensity,
+                        glowWorldB.GetComponent<BallGlow>(entity).Intensity,
+                        glowAlpha);
+                }
+
+                _scene.Lights[lightIndex] = _scene.Lights[lightIndex] with
+                {
+                    Position = position + new Vector3(0f, BallLightHeight, 0f),
+                    Intensity = glow * BallLightIntensity,
+                };
+
+                // Rising glow edge = a fresh hit: positioned impact sound, rate-limited per
+                // ball. Scrubbed history is display-only — replaying a recorded spike must not
+                // re-fire the sound or pollute the edge tracker.
+                if (!scrubbed)
+                {
+                    if (glow > _lastBallGlow[i] + 0.15f && _renderClock - _lastBallSoundAt[i] > 0.15 && _audio is not null)
+                    {
+                        _lastBallSoundAt[i] = _renderClock;
+                        _audio.Sink.SetSourcePosition(audioSource, position);
+                        _audio.Sink.PostEvent(CollisionAudioEvent, audioSource);
+                    }
+                    _lastBallGlow[i] = glow;
                 }
             }
         }
