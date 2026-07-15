@@ -8,9 +8,12 @@ using ParadiseExport.Serialization;
 namespace ParadiseExport.Tests;
 
 // GOLDEN TEST. The Godot ProjectSettings export uses a permissive collision matrix (Godot has no
-// global layer-vs-layer matrix) and default render settings; for a default project this is
-// byte-identical to the real Unity export. Fixture: a verbatim copy of
-// ~/proj/ParadiseUnityEditor/data/ProjectSettings.json.
+// global layer-vs-layer matrix) and default render settings; for a default project this matched
+// the real Unity export byte-for-byte. Fixture: originally a verbatim copy of
+// ~/proj/ParadiseUnityEditor/data/ProjectSettings.json, extended 2026-07-15 with the
+// Physics.Dynamics section (global solver tuning) — a Godot-era additive contract extension the
+// Unity tool never emitted; its default values reproduce the previously hardcoded solver
+// behavior, so a document without the section reads identically.
 public class ProjectSettingsGoldenTests
 {
     [Test]

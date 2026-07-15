@@ -141,8 +141,8 @@ public static class SceneAssembler
 
     /// <summary>The scene's cushion bounce: the liveliest (max) authored Restitution across
     /// static entities that own solid Obstacle-layer colliders — the surfaces balls actually
-    /// bounce off. Falls back to the historical 0.4 when the scene authors none.</summary>
-    public static float StaticSurfaceRestitution(LevelData level)
+    /// bounce off. Falls back to the project-settings default when the scene authors none.</summary>
+    public static float StaticSurfaceRestitution(LevelData level, float fallback = 0.4f)
     {
         float max = -1f;
         foreach (var entity in level.Entities)
@@ -155,7 +155,7 @@ public static class SceneAssembler
                 break;
             }
         }
-        return max >= 0f ? max : 0.4f;
+        return max >= 0f ? max : fallback;
     }
 
     // -------- simulation spawns + render instances --------
@@ -176,7 +176,9 @@ public static class SceneAssembler
         Entity? cueBall = null;
         var poolBalls = new List<(Entity, int)>();
         var pockets = ExtractPockets(level.Level);
-        var staticRestitution = StaticSurfaceRestitution(level.Level);
+        var dynamics = level.PhysicsDynamics;
+        var staticRestitution = StaticSurfaceRestitution(level.Level, dynamics.DefaultStaticRestitution);
+        var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength);
         var trayIndex = 0;
 
         foreach (var entity in level.Level.Entities)
@@ -230,7 +232,8 @@ public static class SceneAssembler
                     components.Rigidbody.LinearDamping,
                     components.Rigidbody.Restitution,
                     staticRestitution,
-                    BuildPoolBall(pockets, isCue, position, trayIndex++));
+                    BuildPoolBall(pockets, isCue, position, trayIndex++),
+                    tuning);
                 simEntity = ball;
                 if (render is not null)
                 {

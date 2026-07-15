@@ -103,6 +103,20 @@ public class PoolSceneTests
     }
 
     [Test]
+    public async Task project_physics_dynamics_load_from_the_committed_settings()
+    {
+        // data/ProjectSettings.json carries the global solver tuning (Paradise/Settings… →
+        // ProjectSettingsExporter); the loader must surface it normalized. The committed values
+        // are the contract defaults (nothing overridden in project.godot yet).
+        var level = LoadPool();
+        var dynamics = level.PhysicsDynamics;
+        await Assert.That(MathF.Abs(dynamics.MinSpeed - 0.005f)).IsLessThan(1e-6f);
+        await Assert.That(MathF.Abs(dynamics.Skin - 0.02f)).IsLessThan(1e-6f);
+        await Assert.That(MathF.Abs(dynamics.PushStrength - 1.2f)).IsLessThan(1e-6f);
+        await Assert.That(MathF.Abs(dynamics.DefaultStaticRestitution - 0.4f)).IsLessThan(1e-6f);
+    }
+
+    [Test]
     public async Task authored_physics_material_params_survive_the_export_round_trip()
     {
         var level = LoadPool();

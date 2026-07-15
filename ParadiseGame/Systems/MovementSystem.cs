@@ -39,6 +39,9 @@ public ref partial struct MovementSystem : IWorldSystem
     private const float GlowRollingDecay = 0.99f;
     private const float GlowStillDecay = 0.90f;
 
+    // Structural baseline only (filters, support policy). The tunable scalars — MinSpeed, Skin,
+    // PushStrength, StaticRestitution — are overridden every step from authored data
+    // (PhysicsTuning + DynamicBody components), never from these defaults.
     private static readonly PlanarDynamicsSettings BallSettings = PlanarDynamicsSettings.Default with
     {
         StaticFilter = PhysicsLayers.DynamicBodyCast,
@@ -229,10 +232,15 @@ public ref partial struct MovementSystem : IWorldSystem
             }
 
             CollisionWorldHandle statics = Balls.PhysicsWorldRef[map[0]].Handle;
-            // Static (cushion) bounce is a per-scene surface property, carried batch-wide by the
-            // first live ball — the same idiom as dt and the collision handle above.
+            // Scene-global solver tuning (authored project settings) and the static (cushion)
+            // bounce are carried batch-wide by the first live ball — the same idiom as dt and
+            // the collision handle above.
+            ref readonly PhysicsTuning tuning = ref Balls.PhysicsTuning[map[0]];
             PlanarDynamicsSettings settings = BallSettings with
             {
+                MinSpeed = tuning.MinSpeed,
+                Skin = tuning.Skin,
+                PushStrength = tuning.PushStrength,
                 StaticRestitution = Balls.DynamicBody[map[0]].StaticRestitution,
             };
             PlanarSphereDynamics.Step(spheres, pushers, statics, settings, dt);

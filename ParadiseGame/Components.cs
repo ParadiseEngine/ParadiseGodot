@@ -186,3 +186,32 @@ public struct PocketBuffer
 {
     private Vector4 _element0;
 }
+
+/// <summary>
+/// Global dynamics-solver tuning for ball physics, carried per ball like
+/// <see cref="SimulationContext"/> (Paradise.ECS has no singleton store) and applied batch-wide
+/// from the first simulated ball. Authored in editor project settings
+/// (data/ProjectSettings.json → Physics.Dynamics); <see cref="Default"/> mirrors the contract
+/// defaults so spawns without scene data behave identically.
+/// </summary>
+[Component]
+public partial struct PhysicsTuning
+{
+    /// <summary>Speeds below this snap to rest (m/s).</summary>
+    public float MinSpeed;
+
+    /// <summary>Clearance kept between balls and static surfaces (meters).</summary>
+    public float Skin;
+
+    /// <summary>Scale applied to a character pusher's velocity when injected into a ball.</summary>
+    public float PushStrength;
+
+    public PhysicsTuning(float minSpeed, float skin, float pushStrength)
+    {
+        MinSpeed = minSpeed;
+        Skin = skin;
+        PushStrength = pushStrength;
+    }
+
+    public static PhysicsTuning Default => new(0.005f, 0.02f, 1.2f);
+}

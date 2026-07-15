@@ -36,6 +36,12 @@
         -1,
         -1
       ]
+    },
+    "Dynamics": {
+      "MinSpeed": 0.005,
+      "Skin": 0.02,
+      "PushStrength": 1.2,
+      "DefaultStaticRestitution": 0.4
     }
   },
   "Rendering": {

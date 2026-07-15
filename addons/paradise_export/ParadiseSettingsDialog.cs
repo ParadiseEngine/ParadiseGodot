@@ -1,15 +1,18 @@
 #if TOOLS
 using System.IO;
 using Godot;
+using ParadiseExport.Data;
 using ParadiseExport.Pipeline;
 
 namespace ParadiseGodot
 {
     /// <summary>
-    /// "Paradise/Settings…" window: machine-level external-tool paths (ktx, Blender) stored in
-    /// EditorSettings (per-user, never committed) and applied as the <c>PARADISE_*_PATH</c>
-    /// environment variables the ParadiseExport pipeline already resolves first — no pipeline
-    /// changes, and spawned child processes inherit them.
+    /// "Paradise/Settings…" window, two storage scopes:
+    /// machine-level (EditorSettings, per-user, never committed) — external-tool paths (ktx,
+    /// Blender) applied as <c>PARADISE_*_PATH</c> environment variables, and the "Play .NET"
+    /// launch arguments; and project-level (ProjectSettings, committed in project.godot) — the
+    /// global physics dynamics tuning, re-exported to <c>data/ProjectSettings.json</c> on save
+    /// so the standalone runtime simulates with the same values.
     /// </summary>
     [Tool]
     public partial class ParadiseSettingsDialog : ConfirmationDialog
@@ -32,6 +35,10 @@ namespace ParadiseGodot
         private readonly LineEdit _blenderEdit;
         private readonly Label _blenderStatus;
         private readonly LineEdit _playArgsEdit;
+        private readonly LineEdit _minSpeedEdit;
+        private readonly LineEdit _skinEdit;
+        private readonly LineEdit _pushStrengthEdit;
+        private readonly LineEdit _staticRestitutionEdit;
         private EditorFileDialog? _fileDialog;
         private LineEdit? _browseTarget;
 
@@ -53,6 +60,19 @@ namespace ParadiseGodot
                 "Extra ParadiseRuntime CLI arguments appended by the toolbar \"Play .NET\" button " +
                 "(after --scene), e.g. --imgui --audio banks --fov 60. Double quotes group an " +
                 "argument with spaces.");
+
+            layout.AddChild(new Label
+            {
+                Text = "Project physics (saved to project.godot, exported to data/ProjectSettings.json)",
+            });
+            _minSpeedEdit = AddTextRow(layout, "Min speed",
+                "Dynamic-body speeds below this snap to rest (m/s).");
+            _skinEdit = AddTextRow(layout, "Skin",
+                "Clearance kept between dynamic bodies and static surfaces (meters) — the speculative-contact margin.");
+            _pushStrengthEdit = AddTextRow(layout, "Push strength",
+                "Scale applied to a character pusher's velocity when injected into a ball.");
+            _staticRestitutionEdit = AddTextRow(layout, "Static restitution",
+                "Body ↔ static bounce fallback when no obstacle-layer static in the scene authors a Restitution.");
 
             AboutToPopup += LoadFromSettings;
             Confirmed += SaveAndApply;
@@ -201,6 +221,13 @@ namespace ParadiseGodot
             _playArgsEdit.Text = settings.HasSetting(PlayDotnetArgsSetting)
                 ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
                 : DefaultPlayDotnetArgs;
+
+            var defaults = new PhysicsDynamicsSettingsData();
+            _minSpeedEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.MinSpeedSetting, defaults.MinSpeed);
+            _skinEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.SkinSetting, defaults.Skin);
+            _pushStrengthEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.PushStrengthSetting, defaults.PushStrength);
+            _staticRestitutionEdit.Text = ReadProjectFloat(
+                Export.ProjectSettingsExporter.DefaultStaticRestitutionSetting, defaults.DefaultStaticRestitution);
             RefreshStatus();
         }
 
@@ -211,6 +238,42 @@ namespace ParadiseGodot
             settings.SetSetting(BlenderSetting, _blenderEdit.Text.Trim());
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
             ApplySavedSettings();
+            SaveProjectPhysics();
+        }
+
+        // Project physics goes to ProjectSettings (committed) and is immediately re-exported so
+        // data/ProjectSettings.json never lags the dialog — the runtime reads the JSON, not
+        // project.godot. Unparseable text falls back to the contract default, mirroring what
+        // ValidateAndNormalize would keep at export time.
+        private void SaveProjectPhysics()
+        {
+            var defaults = new PhysicsDynamicsSettingsData();
+            WriteProjectFloat(Export.ProjectSettingsExporter.MinSpeedSetting, _minSpeedEdit.Text, defaults.MinSpeed);
+            WriteProjectFloat(Export.ProjectSettingsExporter.SkinSetting, _skinEdit.Text, defaults.Skin);
+            WriteProjectFloat(Export.ProjectSettingsExporter.PushStrengthSetting, _pushStrengthEdit.Text, defaults.PushStrength);
+            WriteProjectFloat(Export.ProjectSettingsExporter.DefaultStaticRestitutionSetting,
+                _staticRestitutionEdit.Text, defaults.DefaultStaticRestitution);
+            ProjectSettings.Save();
+            Export.ProjectSettingsExporter.Export(
+                new ParadiseExport.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data")));
+        }
+
+        private static string ReadProjectFloat(string name, float fallback)
+        {
+            float value = ProjectSettings.HasSetting(name)
+                ? (float)ProjectSettings.GetSetting(name).AsDouble()
+                : fallback;
+            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        private static void WriteProjectFloat(string name, string text, float fallback)
+        {
+            if (!float.TryParse(text.Trim(), System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out float value) || !float.IsFinite(value))
+            {
+                value = fallback;
+            }
+            ProjectSettings.SetSetting(name, value);
         }
 
         private void RefreshStatus()

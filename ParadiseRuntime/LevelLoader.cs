@@ -8,14 +8,15 @@ namespace ParadiseRuntime;
 
 /// <summary>Everything loaded from <c>data/</c> for one scene: the level document, resolved
 /// material overrides, decoded GLB assets (keyed by contract field), the navmesh, and the
-/// project render settings.</summary>
+/// project render + physics settings.</summary>
 public sealed record RuntimeLevel(
     string DataDir,
     LevelData Level,
     Dictionary<string, LevelMaterialData> Materials,
     Dictionary<string, GltfAsset> MeshAssets,
     INavigationMesh NavigationMesh,
-    RenderSettingsData RenderSettings);
+    RenderSettingsData RenderSettings,
+    PhysicsDynamicsSettingsData PhysicsDynamics);
 
 /// <summary>Reads the engine-neutral export (scene JSON + materials + meshes + navmesh) into
 /// memory. Pure I/O + parsing — no GPU, no simulation; fully unit-testable.</summary>
@@ -52,11 +53,14 @@ public static class LevelLoader
             File.ReadAllBytes(Path.Combine(dataDir, "scenes", navMeshFile)));
 
         var settingsPath = Path.Combine(dataDir, "ProjectSettings.json");
-        var renderSettings = File.Exists(settingsPath)
-            ? ExportJsonReader.ReadProjectSettings(File.ReadAllText(settingsPath)).Rendering
-            : new RenderSettingsData();
+        var projectSettings = File.Exists(settingsPath)
+            ? ExportJsonReader.ReadProjectSettings(File.ReadAllText(settingsPath))
+            : new ProjectSettingsData();
+        var physicsDynamics = projectSettings.Physics.Dynamics;
+        physicsDynamics.ValidateAndNormalize();
 
-        return new RuntimeLevel(dataDir, level, materials, meshAssets, navMesh, renderSettings);
+        return new RuntimeLevel(
+            dataDir, level, materials, meshAssets, navMesh, projectSettings.Rendering, physicsDynamics);
     }
 
     private static void LoadMaterial(string dataDir, string field, Dictionary<string, LevelMaterialData> materials)

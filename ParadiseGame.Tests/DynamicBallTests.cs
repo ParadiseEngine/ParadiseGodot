@@ -66,6 +66,28 @@ public class DynamicBallTests
     }
 
     [Test]
+    public async Task global_tuning_min_speed_snaps_slow_balls_to_rest()
+    {
+        // The solver's rest threshold is authored data (project settings → PhysicsTuning), not
+        // a code constant. Tuning is batch-wide, carried by the first simulated ball — so the
+        // same 0.4 m/s launch rolls under the default tuning (MinSpeed 0.005) and snaps to
+        // rest before ever moving under MinSpeed 0.5.
+        using var runner = new SimulationRunner(FlatGround());
+        Entity ball = runner.SpawnBall(new Vector3(4f, 0.85f, 4f), Quaternion.Identity, radius: 0.35f,
+            linearDamping: 0f);
+        runner.EnqueueBallImpulse(ball, new Vector3(0.4f, 0f, 0f));
+        Tick(runner, 60);
+        await Assert.That(LatestPosition(runner, ball).X).IsGreaterThan(4.3f);
+
+        using var sticky = new SimulationRunner(FlatGround());
+        Entity snapped = sticky.SpawnBall(new Vector3(4f, 0.85f, 4f), Quaternion.Identity, radius: 0.35f,
+            linearDamping: 0f, tuning: PhysicsTuning.Default with { MinSpeed = 0.5f });
+        sticky.EnqueueBallImpulse(snapped, new Vector3(0.4f, 0f, 0f));
+        for (int i = 0; i < 60; i++) sticky.TickOnce();
+        await Assert.That(LatestPosition(sticky, snapped).X).IsEqualTo(4f);
+    }
+
+    [Test]
     public async Task ball_never_penetrates_obstacle()
     {
         // Obstacle -X face at x = 8; ball radius 0.35 → center must stay ≤ 7.65 (+ tolerance).
@@ -163,6 +185,7 @@ public class DynamicBallTests
                 .Add(new DynamicBody(0.35f, 1f))
                 .Add(new BallGlow())
                 .Add(new PoolBall())
+                .Add(PhysicsTuning.Default)
                 .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
                 .Add(new PhysicsWorldRef { Handle = collision.Handle }));
             Entity ballB = sim.World.CreateEntity(EntityBuilder.Create()
@@ -170,6 +193,7 @@ public class DynamicBallTests
                 .Add(new DynamicBody(0.35f, 1f))
                 .Add(new BallGlow())
                 .Add(new PoolBall())
+                .Add(PhysicsTuning.Default)
                 .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
                 .Add(new PhysicsWorldRef { Handle = collision.Handle }));
 

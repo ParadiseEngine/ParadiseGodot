@@ -116,16 +116,18 @@ public sealed class SimulationRunner : IDisposable
 
     /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.
     /// <paramref name="poolBall"/> carries the optional pool-game config (pockets, tray slot,
-    /// cue respawn); the default is inert — the ball never sinks.</summary>
+    /// cue respawn); the default is inert — the ball never sinks. <paramref name="tuning"/>
+    /// carries the scene's global solver tuning (data/ProjectSettings.json); null = defaults.</summary>
     public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f,
         float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f,
-        in PoolBall poolBall = default)
+        in PoolBall poolBall = default, PhysicsTuning? tuning = null)
     {
         var ball = Current.CreateEntity(EntityBuilder.Create()
             .Add(new LocalTransform(position, rotation))
             .Add(new DynamicBody(radius, mass, linearDamping, restitution, staticRestitution))
             .Add(new BallGlow())
             .Add(poolBall)
+            .Add(tuning ?? PhysicsTuning.Default)
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
             .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
         _ballEntities.Add(ball);
