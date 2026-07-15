@@ -22,6 +22,8 @@ public sealed class RuntimeLoop : IDisposable
     // (e.g. Play_Footsteps with the Positioning banks) pan and attenuate spatially.
     private static readonly string ClickAudioEvent =
         Environment.GetEnvironmentVariable("PARADISE_WWISE_CLICK_EVENT") ?? "Play_Hello";
+    // One reused id is fine for a demo cue (a rapid re-click repositions the still-playing
+    // instance); real positional SFX should rotate through an id pool for overlapping voices.
     private const ulong ClickAudioSource = 101;
     private const double MaxRenderSampleLagSeconds = 4.0 / 60.0;
 

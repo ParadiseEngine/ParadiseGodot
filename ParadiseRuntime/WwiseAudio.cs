@@ -29,7 +29,7 @@ internal sealed partial class WwiseAudio : IAudioSystem
     private readonly object _nativeLock = new();
     private bool _initialized;
     private bool _postedStartupEvent;
-    private bool _spatialUnavailableLogged;
+    private bool? _spatialAvailable; // null = unprobed; false short-circuits (no per-frame throw)
 
     public IAudioSink Sink { get; }
 
@@ -115,10 +115,9 @@ internal sealed partial class WwiseAudio : IAudioSystem
         }
     }
 
-    private void LogSpatialUnavailable()
+    private void MarkSpatialUnavailable()
     {
-        if (_spatialUnavailableLogged) return;
-        _spatialUnavailableLogged = true;
+        _spatialAvailable = false;
         Console.WriteLine(
             "[WwiseAudio] bridge lacks the spatial exports (pre-3D build) — positions ignored. " +
             "Rebuild with scripts/build-wwise-bridge-macos.sh.");
@@ -190,16 +189,17 @@ internal sealed partial class WwiseAudio : IAudioSystem
             int result;
             lock (owner._nativeLock)
             {
-                if (!owner._initialized) return;
+                if (!owner._initialized || owner._spatialAvailable == false) return;
                 try
                 {
                     result = Native.SetObjectPosition(
                         sourceId == 0 ? DefaultSource : sourceId,
                         p.X, p.Y, p.Z, f.X, f.Y, f.Z, t.X, t.Y, t.Z);
+                    owner._spatialAvailable = true;
                 }
                 catch (EntryPointNotFoundException)
                 {
-                    owner.LogSpatialUnavailable();
+                    owner.MarkSpatialUnavailable();
                     return;
                 }
             }
@@ -212,17 +212,24 @@ internal sealed partial class WwiseAudio : IAudioSystem
         public void SetListenerPose(Vector3 position, Vector3 forward, Vector3 up)
         {
             var (p, f, t) = ToWwise(position, forward, up);
+            int result;
             lock (owner._nativeLock)
             {
-                if (!owner._initialized) return;
+                if (!owner._initialized || owner._spatialAvailable == false) return;
                 try
                 {
-                    _ = Native.SetListenerPosition(p.X, p.Y, p.Z, f.X, f.Y, f.Z, t.X, t.Y, t.Z);
+                    result = Native.SetListenerPosition(p.X, p.Y, p.Z, f.X, f.Y, f.Z, t.X, t.Y, t.Z);
+                    owner._spatialAvailable = true;
                 }
                 catch (EntryPointNotFoundException)
                 {
-                    owner.LogSpatialUnavailable();
+                    owner.MarkSpatialUnavailable();
+                    return;
                 }
+            }
+            if (result != 0)
+            {
+                Console.WriteLine($"[WwiseAudio] listener pose failed ({result}).");
             }
         }
 
@@ -234,9 +241,17 @@ internal sealed partial class WwiseAudio : IAudioSystem
             if (forward == default) forward = -Vector3.UnitZ;
             if (up == default) up = Vector3.UnitY;
             forward = Vector3.Normalize(forward);
-            // Re-orthogonalize top against front so slightly-off camera bases stay valid.
+            // Re-orthogonalize top against front so slightly-off camera bases stay valid; when
+            // up collapses into forward (camera looking straight up/down), fall back to a
+            // reference axis CHOSEN BY forward — UnitY would be parallel again and Wwise
+            // rejects non-orthonormal pairs.
             var top = up - forward * Vector3.Dot(up, forward);
-            top = top.LengthSquared() > 1e-8f ? Vector3.Normalize(top) : Vector3.UnitY;
+            if (top.LengthSquared() <= 1e-8f)
+            {
+                var reference = MathF.Abs(forward.Y) > 0.9f ? Vector3.UnitZ : Vector3.UnitY;
+                top = reference - forward * Vector3.Dot(reference, forward);
+            }
+            top = Vector3.Normalize(top);
             static Vector3 Flip(Vector3 v) => new(v.X, v.Y, -v.Z);
             return (Flip(position), Flip(forward), Flip(top));
         }
