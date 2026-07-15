@@ -117,11 +117,13 @@ namespace ParadiseGodot
                     ProjectSettings.GlobalizePath("res://"), "ParadiseRuntime");
                 string dotnet = ResolveDotnetPath();
                 string logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "paradise_play_dotnet.log");
+                // User-configured runtime arguments (Paradise/Settings…, default --imgui).
+                string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
 
                 long pid;
                 if (System.OperatingSystem.IsWindows())
                 {
-                    pid = OS.CreateProcess(dotnet, ["run", "--project", runtimeProject, "--", "--scene", sceneJson]);
+                    pid = OS.CreateProcess(dotnet, ["run", "--project", runtimeProject, "--", "--scene", sceneJson, .. extraArgs]);
                 }
                 else
                 {
@@ -130,9 +132,11 @@ namespace ParadiseGodot
                     // and the editor's PATH lacks the dotnet directory, which build targets
                     // invoking `dotnet` (child processes) need.
                     string dotnetDir = System.IO.Path.GetDirectoryName(dotnet) ?? "/usr/local/share/dotnet";
+                    string extra = string.Concat(
+                        System.Linq.Enumerable.Select(extraArgs, a => $" {ShellQuote(a)}"));
                     string command =
                         $"export PATH=\"{dotnetDir}:$PATH\"; " +
-                        $"exec \"{dotnet}\" run --project \"{runtimeProject}\" -- --scene \"{sceneJson}\" > \"{logPath}\" 2>&1";
+                        $"exec \"{dotnet}\" run --project \"{runtimeProject}\" -- --scene \"{sceneJson}\"{extra} > \"{logPath}\" 2>&1";
                     pid = OS.CreateProcess("/bin/sh", ["-c", command]);
                 }
 
@@ -149,6 +153,10 @@ namespace ParadiseGodot
                 GD.PushError($"[ParadiseExport] Play .NET failed: {ex.Message}");
             }
         }
+
+        // POSIX single-quote wrapping: every token becomes one word verbatim, whatever it
+        // contains ('...' with embedded quotes spliced as '\'' ).
+        private static string ShellQuote(string value) => $"'{value.Replace("'", "'\\''")}'";
 
         private static string ResolveDotnetPath()
         {

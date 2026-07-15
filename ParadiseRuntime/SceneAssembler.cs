@@ -47,6 +47,9 @@ public static class SceneAssembler
             var model = ToModelMatrix(entity.WorldMatrix);
             foreach (var shape in entity.Components.Collider?.Colliders ?? [])
             {
+                // Triggers are sensors (pool-pocket capture regions), never solid geometry —
+                // a pocket sphere in the collision world would block the pocket mouth.
+                if (shape.IsTrigger) continue;
                 AppendCollider(shape, model, colliders, transforms);
             }
         }
@@ -115,6 +118,46 @@ public static class SceneAssembler
         transforms.Add(new RigidTransform(position, rotation));
     }
 
+    /// <summary>Pocket capture regions: every trigger sphere on a static entity, in world
+    /// space (the same transform/scale folding as <see cref="AppendCollider"/>). Pure over the
+    /// level data — unit-testable without a renderer.</summary>
+    public static List<(Vector3 Center, float Radius)> ExtractPockets(LevelData level)
+    {
+        var pockets = new List<(Vector3, float)>();
+        foreach (var entity in level.Entities)
+        {
+            if (entity.Components.Rigidbody?.BodyType != PhysicsBodyType.Static) continue;
+            var model = ToModelMatrix(entity.WorldMatrix);
+            var ownerScale = OwnerScale(model);
+            foreach (var shape in entity.Components.Collider?.Colliders ?? [])
+            {
+                if (!shape.IsTrigger || shape.ShapeType != PhysicsShapeType.Sphere) continue;
+                var world = Matrix4x4.CreateTranslation(shape.LocalCenter) * model;
+                pockets.Add((world.Translation, ColliderScaleFold.SphereRadius(shape.Radius, ownerScale)));
+            }
+        }
+        return pockets;
+    }
+
+    /// <summary>The scene's cushion bounce: the liveliest (max) authored Restitution across
+    /// static entities that own solid Obstacle-layer colliders — the surfaces balls actually
+    /// bounce off. Falls back to the project-settings default when the scene authors none.</summary>
+    public static float StaticSurfaceRestitution(LevelData level, float fallback = 0.4f)
+    {
+        float max = -1f;
+        foreach (var entity in level.Entities)
+        {
+            if (entity.Components.Rigidbody is not { BodyType: PhysicsBodyType.Static } rigidbody) continue;
+            foreach (var shape in entity.Components.Collider?.Colliders ?? [])
+            {
+                if (shape.IsTrigger || (1u << shape.Layer) != PhysicsLayers.Obstacle) continue;
+                max = MathF.Max(max, rigidbody.Restitution);
+                break;
+            }
+        }
+        return max >= 0f ? max : fallback;
+    }
+
     // -------- simulation spawns + render instances --------
 
     public sealed record AssembledScene(
@@ -132,6 +175,11 @@ public static class SceneAssembler
         Entity? player = null;
         Entity? cueBall = null;
         var poolBalls = new List<(Entity, int)>();
+        var pockets = ExtractPockets(level.Level);
+        var dynamics = level.PhysicsDynamics;
+        var staticRestitution = StaticSurfaceRestitution(level.Level, dynamics.DefaultStaticRestitution);
+        var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength);
+        var trayIndex = 0;
 
         foreach (var entity in level.Level.Entities)
         {
@@ -178,13 +226,20 @@ public static class SceneAssembler
                 // shape radius, so apply the entity's (uniform) scale here or a 0.7-scaled ball
                 // simulates 43% too fat and racks placed at visual spacing explode apart.
                 var radius = (sphere?.Radius ?? 0.5f) * entity.LocalScale.X;
-                var ball = runner.SpawnBall(position, rotation, radius, Math.Max(0.01f, components.Rigidbody.Mass));
+                var isCue = string.Equals(entity.StableId, "CueBall", StringComparison.OrdinalIgnoreCase);
+                var ball = runner.SpawnBall(position, rotation, radius,
+                    Math.Max(0.01f, components.Rigidbody.Mass),
+                    components.Rigidbody.LinearDamping,
+                    components.Rigidbody.Restitution,
+                    staticRestitution,
+                    BuildPoolBall(pockets, isCue, position, trayIndex++),
+                    tuning);
                 simEntity = ball;
                 if (render is not null)
                 {
                     poolBalls.Add((ball, instances.Count)); // instance appended just below
                 }
-                if (string.Equals(entity.StableId, "CueBall", StringComparison.OrdinalIgnoreCase))
+                if (isCue)
                 {
                     cueBall = ball;
                 }
@@ -197,6 +252,36 @@ public static class SceneAssembler
         }
 
         return new AssembledScene(instances, player, cueBall, poolBalls);
+    }
+
+    /// <summary>Per-ball pool config: the pocket set plus this ball's tray slot (a deterministic
+    /// row along +Z of the pocket field, ordered by spawn index) and, for the cue, its authored
+    /// position as the scratch respawn spot. No pockets in the scene → inert default.</summary>
+    private static PoolBall BuildPoolBall(
+        List<(Vector3 Center, float Radius)> pockets, bool isCue, Vector3 authoredPosition, int trayIndex)
+    {
+        if (pockets.Count == 0) return default;
+
+        float maxZ = float.MinValue, minX = float.MaxValue;
+        foreach (var (center, _) in pockets)
+        {
+            maxZ = MathF.Max(maxZ, center.Z);
+            minX = MathF.Min(minX, center.X);
+        }
+
+        var pool = new PoolBall
+        {
+            PocketCount = Math.Min(pockets.Count, PoolBall.MaxPockets),
+            ParkPosition = new Vector3(minX + trayIndex * 0.45f, authoredPosition.Y, maxZ + 0.75f),
+            RespawnPosition = authoredPosition,
+            IsCue = isCue ? (byte)1 : (byte)0,
+        };
+        for (var i = 0; i < pool.PocketCount; i++)
+        {
+            var (center, radius) = pockets[i];
+            pool.Pockets[i] = new Vector4(center.X, center.Z, radius * radius, 0f);
+        }
+        return pool;
     }
 
     private static ColliderShapeData? FindShape(EntityComponentsData components, PhysicsShapeType type)

@@ -151,6 +151,37 @@ namespace ParadiseExport.Data
     public sealed record PhysicsSettingsData
     {
         public PhysicsCollisionMatrixData CollisionMatrix { get; set; } = new();
+        public PhysicsDynamicsSettingsData Dynamics { get; set; } = new();
+    }
+
+    // Global dynamics-solver tuning authored in editor project settings (Paradise/Settings…)
+    // and applied by the runtime simulation. Defaults are the values that were hardcoded in
+    // the solver before the section existed, so a missing section behaves identically.
+    public sealed record PhysicsDynamicsSettingsData
+    {
+        // Speeds below this snap to rest (m/s).
+        public float MinSpeed { get; set; } = 0.005f;
+
+        // Clearance kept between dynamic bodies and static surfaces (meters) — the
+        // speculative-contact margin (PhysX contactOffset analog).
+        public float Skin { get; set; } = 0.02f;
+
+        // Scale applied to a kinematic pusher's velocity when injected into a body.
+        public float PushStrength { get; set; } = 1.2f;
+
+        // Body ↔ static bounce used when no static entity in the scene authors a
+        // Restitution on an obstacle-layer collider (cushion-less scenes).
+        public float DefaultStaticRestitution { get; set; } = 0.4f;
+
+        public void ValidateAndNormalize()
+        {
+            MinSpeed = float.IsFinite(MinSpeed) && MinSpeed >= 0f ? MinSpeed : 0.005f;
+            Skin = float.IsFinite(Skin) ? Math.Clamp(Skin, 0.001f, 0.5f) : 0.02f;
+            PushStrength = float.IsFinite(PushStrength) && PushStrength >= 0f ? PushStrength : 1.2f;
+            DefaultStaticRestitution = float.IsFinite(DefaultStaticRestitution)
+                ? Math.Clamp(DefaultStaticRestitution, 0f, 1f)
+                : 0.4f;
+        }
     }
 
     public sealed record PhysicsCollisionMatrixData

@@ -132,10 +132,86 @@ public partial struct DynamicBody
     public float Radius;
     public float Mass;
 
-    public DynamicBody(float radius, float mass)
+    /// <summary>Per-second linear damping (felt roll); fed into the per-sphere dynamics.</summary>
+    public float LinearDamping;
+
+    /// <summary>Ball ↔ ball bounce factor; pairs bounce with the average of both balls' values.</summary>
+    public float Restitution;
+
+    /// <summary>Ball ↔ static bounce factor. Batch-wide like dt: the step uses the first
+    /// simulated ball's value (one cushion surface type per scene).</summary>
+    public float StaticRestitution;
+
+    public DynamicBody(float radius, float mass,
+        float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f)
     {
         Velocity = Vector3.Zero;
         Radius = radius;
         Mass = mass;
+        LinearDamping = linearDamping;
+        Restitution = restitution;
+        StaticRestitution = staticRestitution;
     }
+}
+
+/// <summary>
+/// Pool-game state of a dynamic ball: the pocket set it can fall into (inline, unmanaged — the
+/// whole config lives in the snapshot) and its sunk/park bookkeeping. Default value = inert
+/// (<see cref="PocketCount"/> 0): non-pool scenes and tests behave exactly as before.
+/// A sunk ball keeps its entity (rewind can resurrect it) but is parked at
+/// <see cref="ParkPosition"/> and excluded from dynamics, aiming, and glow.
+/// </summary>
+[Component]
+public partial struct PoolBall
+{
+    public const int MaxPockets = 8;
+
+    /// <summary>Pocket mouths as (centerX, centerZ, radiusSquared, unused) — planar capture.</summary>
+    public PocketBuffer Pockets;
+    public int PocketCount;
+
+    /// <summary>Where this ball rests once sunk (its tray slot); Y is ignored (planar contract).</summary>
+    public Vector3 ParkPosition;
+
+    /// <summary>Where the cue ball reappears after a scratch (the head spot).</summary>
+    public Vector3 RespawnPosition;
+
+    public byte IsCue;
+    public byte Sunk;
+}
+
+/// <summary>Fixed-capacity inline buffer of pocket definitions (unmanaged, blittable).</summary>
+[InlineArray(PoolBall.MaxPockets)]
+public struct PocketBuffer
+{
+    private Vector4 _element0;
+}
+
+/// <summary>
+/// Global dynamics-solver tuning for ball physics, carried per ball like
+/// <see cref="SimulationContext"/> (Paradise.ECS has no singleton store) and applied batch-wide
+/// from the first simulated ball. Authored in editor project settings
+/// (data/ProjectSettings.json → Physics.Dynamics); <see cref="Default"/> mirrors the contract
+/// defaults so spawns without scene data behave identically.
+/// </summary>
+[Component]
+public partial struct PhysicsTuning
+{
+    /// <summary>Speeds below this snap to rest (m/s).</summary>
+    public float MinSpeed;
+
+    /// <summary>Clearance kept between balls and static surfaces (meters).</summary>
+    public float Skin;
+
+    /// <summary>Scale applied to a character pusher's velocity when injected into a ball.</summary>
+    public float PushStrength;
+
+    public PhysicsTuning(float minSpeed, float skin, float pushStrength)
+    {
+        MinSpeed = minSpeed;
+        Skin = skin;
+        PushStrength = pushStrength;
+    }
+
+    public static PhysicsTuning Default => new(0.005f, 0.02f, 1.2f);
 }

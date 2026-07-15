@@ -1700,7 +1700,7 @@
           "BodyType": "Static",
           "Mass": 0,
           "LinearDamping": 0,
-          "Restitution": 0.2,
+          "Restitution": 0.4,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -1826,7 +1826,7 @@
           "BodyType": "Static",
           "Mass": 0,
           "LinearDamping": 0,
-          "Restitution": 0.2,
+          "Restitution": 0.4,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -1952,7 +1952,7 @@
           "BodyType": "Static",
           "Mass": 0,
           "LinearDamping": 0,
-          "Restitution": 0.2,
+          "Restitution": 0.4,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2078,7 +2078,7 @@
           "BodyType": "Static",
           "Mass": 0,
           "LinearDamping": 0,
-          "Restitution": 0.2,
+          "Restitution": 0.4,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2203,8 +2203,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2329,8 +2329,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2455,8 +2455,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2581,8 +2581,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2707,8 +2707,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2833,8 +2833,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -2959,8 +2959,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -3085,8 +3085,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""
@@ -3211,8 +3211,8 @@
         "Rigidbody": {
           "BodyType": "Dynamic",
           "Mass": 1,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
+          "LinearDamping": 1.5,
+          "Restitution": 0.6,
           "Friction": 0.5,
           "Layer": 0,
           "LayerName": ""

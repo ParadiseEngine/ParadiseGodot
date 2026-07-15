@@ -114,13 +114,20 @@ public sealed class SimulationRunner : IDisposable
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
             .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
 
-    /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.</summary>
-    public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f)
+    /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.
+    /// <paramref name="poolBall"/> carries the optional pool-game config (pockets, tray slot,
+    /// cue respawn); the default is inert — the ball never sinks. <paramref name="tuning"/>
+    /// carries the scene's global solver tuning (data/ProjectSettings.json); null = defaults.</summary>
+    public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f,
+        float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f,
+        in PoolBall poolBall = default, PhysicsTuning? tuning = null)
     {
         var ball = Current.CreateEntity(EntityBuilder.Create()
             .Add(new LocalTransform(position, rotation))
-            .Add(new DynamicBody(radius, mass))
+            .Add(new DynamicBody(radius, mass, linearDamping, restitution, staticRestitution))
             .Add(new BallGlow())
+            .Add(poolBall)
+            .Add(tuning ?? PhysicsTuning.Default)
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
             .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
         _ballEntities.Add(ball);
@@ -210,6 +217,9 @@ public sealed class SimulationRunner : IDisposable
             transform.Rotation = ball.Rotation;
             write.GetComponent<DynamicBody>(ball.Entity).Velocity = ball.Velocity;
             write.GetComponent<BallGlow>(ball.Entity).Intensity = ball.Glow;
+            // Restoring to a pre-sink frame resurrects the ball (positions are recorded every
+            // tick, so the transform write above already moved it back onto the table).
+            write.GetComponent<PoolBall>(ball.Entity).Sunk = ball.Sunk;
         }
         _rewind.DropNewest(framesBack);
         lock (_lock)

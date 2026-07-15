@@ -587,9 +587,9 @@ namespace ParadiseGodot.Export
                 ? PhysicsBodyType.Dynamic
                 : entity.IsAgent ? PhysicsBodyType.Kinematic : PhysicsBodyType.Static,
             Mass = entity.IsDynamicBody ? entity.BodyMass : 0f,
-            LinearDamping = 0f,
-            Restitution = 0.2f,
-            Friction = 0.5f,
+            LinearDamping = entity.BodyLinearDamping,
+            Restitution = entity.BodyRestitution,
+            Friction = entity.BodyFriction,
             Layer = 0,
             LayerName = "",
         };
@@ -640,12 +640,28 @@ namespace ParadiseGodot.Export
             Transform3D rootLocal = root.GlobalTransform.AffineInverse() * collider.GlobalTransform;
             data.Id = collider.Name.ToString();
             data.Path = RelativePath(root, collider);
-            data.IsTrigger = false;
+            data.IsTrigger = ResolveIsTrigger(collider);
             data.Layer = ResolveLayerIndex(collider);
             data.LayerName = "";
             data.LocalCenter = ToSN(rootLocal.Origin);
             data.LocalRotation = ToSN(rootLocal.Basis.GetRotationQuaternion());
             return true;
+        }
+
+        // A shape owned by an Area3D is a sensor, Godot's trigger idiom (Unity's isTrigger) —
+        // exported through the contract's IsTrigger so the runtime keeps it out of the solid
+        // collision world (e.g. pool-pocket capture regions).
+        private static bool ResolveIsTrigger(Node shape)
+        {
+            for (Node? node = shape; node is not null; node = node.GetParent())
+            {
+                if (node is CollisionObject3D body)
+                {
+                    return body is Area3D;
+                }
+            }
+
+            return false;
         }
 
         // Godot stores collision layers as a bitmask on the owning body; the engine-neutral

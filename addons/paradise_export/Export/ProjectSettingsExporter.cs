@@ -21,6 +21,13 @@ namespace ParadiseGodot.Export
     /// </summary>
     internal static class ProjectSettingsExporter
     {
+        // Godot ProjectSettings keys (committed in project.godot) behind the "Project physics"
+        // section of Paradise/Settings…. Absent keys fall back to the contract defaults.
+        public const string MinSpeedSetting = "paradise/physics/min_speed";
+        public const string SkinSetting = "paradise/physics/skin";
+        public const string PushStrengthSetting = "paradise/physics/push_strength";
+        public const string DefaultStaticRestitutionSetting = "paradise/physics/default_static_restitution";
+
         public static void Export(ExportPaths paths)
         {
             var settings = new ProjectSettingsData
@@ -28,6 +35,7 @@ namespace ParadiseGodot.Export
                 Physics = new PhysicsSettingsData
                 {
                     CollisionMatrix = new PhysicsCollisionMatrixData { LayerMasks = PermissiveCollisionMatrix() },
+                    Dynamics = ReadDynamicsSettings(),
                 },
                 Rendering = ReadRenderSettings(),
             };
@@ -40,6 +48,20 @@ namespace ParadiseGodot.Export
         // 32 layers, each colliding with every layer (-1 = all bits set).
         private static List<int> PermissiveCollisionMatrix() =>
             Enumerable.Repeat(-1, 32).ToList();
+
+        private static PhysicsDynamicsSettingsData ReadDynamicsSettings()
+        {
+            var defaults = new PhysicsDynamicsSettingsData();
+            var dynamics = new PhysicsDynamicsSettingsData
+            {
+                MinSpeed = (float)GetDouble(MinSpeedSetting, defaults.MinSpeed),
+                Skin = (float)GetDouble(SkinSetting, defaults.Skin),
+                PushStrength = (float)GetDouble(PushStrengthSetting, defaults.PushStrength),
+                DefaultStaticRestitution = (float)GetDouble(DefaultStaticRestitutionSetting, defaults.DefaultStaticRestitution),
+            };
+            dynamics.ValidateAndNormalize();
+            return dynamics;
+        }
 
         private static RenderSettingsData ReadRenderSettings()
         {

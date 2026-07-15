@@ -39,6 +39,9 @@ public ref partial struct MovementSystem : IWorldSystem
     private const float GlowRollingDecay = 0.99f;
     private const float GlowStillDecay = 0.90f;
 
+    // Structural baseline only (filters, support policy). The tunable scalars — MinSpeed, Skin,
+    // PushStrength, StaticRestitution — are overridden every step from authored data
+    // (PhysicsTuning + DynamicBody components), never from these defaults.
     private static readonly PlanarDynamicsSettings BallSettings = PlanarDynamicsSettings.Default with
     {
         StaticFilter = PhysicsLayers.DynamicBodyCast,
@@ -145,13 +148,14 @@ public ref partial struct MovementSystem : IWorldSystem
         transform.Position = new Vector3(position.X, start.Y, position.Z);
     }
 
-    /// <summary>Gather balls + character pushers into unmanaged scratch spans, run one stateless
-    /// <see cref="PlanarSphereDynamics"/> step, scatter back with rolling rotation. Global by
-    /// nature (pairwise collisions) — the reason this is a world system.</summary>
+    /// <summary>Gather live (non-sunk) balls + character pushers into unmanaged scratch spans,
+    /// run one stateless <see cref="PlanarSphereDynamics"/> step, scatter back with rolling
+    /// rotation, then the pocket-capture pass. Global by nature (pairwise collisions) — the
+    /// reason this is a world system. Sunk balls are parked and fully excluded.</summary>
     private unsafe void StepBalls()
     {
-        int sphereCount = Balls.Length;
-        if (sphereCount == 0)
+        int ballCount = Balls.Length;
+        if (ballCount == 0)
         {
             return;
         }
@@ -168,29 +172,52 @@ public ref partial struct MovementSystem : IWorldSystem
         int pusherCount = Agents.Length;
         DynamicSphere* sphereAlloc = null;
         KinematicCapsule* pusherAlloc = null;
+        int* mapAlloc = null;
         try
         {
-            Span<DynamicSphere> spheres = (sphereCount <= MaxStackBodies
+            Span<DynamicSphere> sphereScratch = (ballCount <= MaxStackBodies
                 ? stackalloc DynamicSphere[MaxStackBodies]
                 : new Span<DynamicSphere>(
-                    sphereAlloc = (DynamicSphere*)NativeMemory.Alloc((nuint)sphereCount, (nuint)sizeof(DynamicSphere)),
-                    sphereCount))[..sphereCount];
+                    sphereAlloc = (DynamicSphere*)NativeMemory.Alloc((nuint)ballCount, (nuint)sizeof(DynamicSphere)),
+                    ballCount))[..ballCount];
+            // map[k] = ball index of gathered sphere k (sunk balls are skipped at gather).
+            Span<int> mapScratch = (ballCount <= MaxStackBodies
+                ? stackalloc int[MaxStackBodies]
+                : new Span<int>(
+                    mapAlloc = (int*)NativeMemory.Alloc((nuint)ballCount, sizeof(int)),
+                    ballCount))[..ballCount];
             Span<KinematicCapsule> pushers = (pusherCount <= MaxStackBodies
                 ? stackalloc KinematicCapsule[MaxStackBodies]
                 : new Span<KinematicCapsule>(
                     pusherAlloc = (KinematicCapsule*)NativeMemory.Alloc((nuint)pusherCount, (nuint)sizeof(KinematicCapsule)),
                     pusherCount))[..pusherCount];
 
-            for (int i = 0; i < sphereCount; i++)
+            int liveCount = 0;
+            for (int i = 0; i < ballCount; i++)
             {
-                spheres[i] = new DynamicSphere
+                if (Balls.PoolBall[i].Sunk != 0)
+                {
+                    continue;
+                }
+                ref readonly DynamicBody body = ref Balls.DynamicBody[i];
+                sphereScratch[liveCount] = new DynamicSphere
                 {
                     Position = Balls.LocalTransform[i].Position,
-                    Velocity = Balls.DynamicBody[i].Velocity,
-                    Radius = Balls.DynamicBody[i].Radius,
-                    Mass = Balls.DynamicBody[i].Mass,
+                    Velocity = body.Velocity,
+                    Radius = body.Radius,
+                    Mass = body.Mass,
+                    LinearDamping = body.LinearDamping,
+                    Restitution = body.Restitution,
                 };
+                mapScratch[liveCount] = i;
+                liveCount++;
             }
+            if (liveCount == 0)
+            {
+                return;
+            }
+            Span<DynamicSphere> spheres = sphereScratch[..liveCount];
+            Span<int> map = mapScratch[..liveCount];
 
             // Pushers use this tick's post-slide positions and intents (agents ran above).
             for (int p = 0; p < pusherCount; p++)
@@ -204,12 +231,24 @@ public ref partial struct MovementSystem : IWorldSystem
                 };
             }
 
-            CollisionWorldHandle statics = Balls.PhysicsWorldRef[0].Handle;
-            PlanarSphereDynamics.Step(spheres, pushers, statics, BallSettings, dt);
-
-            for (int i = 0; i < sphereCount; i++)
+            CollisionWorldHandle statics = Balls.PhysicsWorldRef[map[0]].Handle;
+            // Scene-global solver tuning (authored project settings) and the static (cushion)
+            // bounce are carried batch-wide by the first live ball — the same idiom as dt and
+            // the collision handle above.
+            ref readonly PhysicsTuning tuning = ref Balls.PhysicsTuning[map[0]];
+            PlanarDynamicsSettings settings = BallSettings with
             {
-                ref readonly DynamicSphere sphere = ref spheres[i];
+                MinSpeed = tuning.MinSpeed,
+                Skin = tuning.Skin,
+                PushStrength = tuning.PushStrength,
+                StaticRestitution = Balls.DynamicBody[map[0]].StaticRestitution,
+            };
+            PlanarSphereDynamics.Step(spheres, pushers, statics, settings, dt);
+
+            for (int k = 0; k < liveCount; k++)
+            {
+                ref readonly DynamicSphere sphere = ref spheres[k];
+                int i = map[k];
                 ref LocalTransform transform = ref Balls.LocalTransform[i];
                 Vector3 old = transform.Position;
                 transform.Position = new Vector3(sphere.Position.X, old.Y, sphere.Position.Z);
@@ -239,12 +278,52 @@ public ref partial struct MovementSystem : IWorldSystem
                     transform.Rotation = Quaternion.Normalize(
                         Quaternion.Concatenate(transform.Rotation, delta));
                 }
+
+                CaptureInPocket(i);
             }
         }
         finally
         {
             if (sphereAlloc != null) NativeMemory.Free(sphereAlloc);
             if (pusherAlloc != null) NativeMemory.Free(pusherAlloc);
+            if (mapAlloc != null) NativeMemory.Free(mapAlloc);
+        }
+    }
+
+    /// <summary>Pocket capture for one live ball: when its center enters a pocket mouth (planar
+    /// XZ check), an object ball sinks — parked at its tray slot, velocity and glow killed,
+    /// excluded from future steps — while the cue ball scratches: instant respawn at the head
+    /// spot, never marked sunk. Y is untouched (planar contract). Rewind resurrects: Sunk is
+    /// recorded per tick and restored with the transform.</summary>
+    private void CaptureInPocket(int i)
+    {
+        ref PoolBall pool = ref Balls.PoolBall[i];
+        if (pool.PocketCount == 0)
+        {
+            return;
+        }
+
+        ref LocalTransform transform = ref Balls.LocalTransform[i];
+        Vector3 position = transform.Position;
+        for (int p = 0; p < pool.PocketCount; p++)
+        {
+            Vector4 pocket = pool.Pockets[p];
+            float dx = position.X - pocket.X;
+            float dz = position.Z - pocket.Y;
+            if (dx * dx + dz * dz >= pocket.Z)
+            {
+                continue;
+            }
+
+            Vector3 target = pool.IsCue != 0 ? pool.RespawnPosition : pool.ParkPosition;
+            transform.Position = new Vector3(target.X, position.Y, target.Z);
+            Balls.DynamicBody[i].Velocity = Vector3.Zero;
+            Balls.BallGlow[i].Intensity = 0f;
+            if (pool.IsCue == 0)
+            {
+                pool.Sunk = 1;
+            }
+            return;
         }
     }
 
