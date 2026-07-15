@@ -237,18 +237,18 @@ public sealed class SimulationRunner : IDisposable
             while (_running)
             {
                 double now = _clock.Elapsed.TotalSeconds;
-                if (_paused)
-                {
-                    accumulator = 0;
-                    last = now;
-                    Thread.Sleep(2);
-                    continue;
-                }
                 accumulator = Math.Min(accumulator + (now - last), MaxAccumulatedSeconds);
                 last = now;
                 while (accumulator >= FixedDeltaSeconds && _running)
                 {
-                    TickOnce();
+                    if (_paused)
+                    {
+                        PumpUi(); // pause freezes the WORLD, never the UI
+                    }
+                    else
+                    {
+                        TickOnce();
+                    }
                     accumulator -= FixedDeltaSeconds;
                 }
                 Thread.Sleep(1);
@@ -260,6 +260,31 @@ public sealed class SimulationRunner : IDisposable
             _running = false;
         }
     }
+
+    /// <summary>Drain queued UI events and advance the UI + audio sinks one fixed step. Runs
+    /// on the sim thread, from every world tick AND at the same cadence while PAUSED — pause
+    /// freezes the world, not the UI (the pause panel must stay interactive) — so UI time is
+    /// a MONOTONIC tick count rather than world time. A click a panel consumes never falls
+    /// through to world interaction; unconsumed world clicks enqueue their MoveCommand in time
+    /// for the same tick's drain (no-op while paused: the command applies on resume). The
+    /// queue drains even with no UiInput attached (events dropped) so a producer without a UI
+    /// half can never grow it unbounded.</summary>
+    private void PumpUi()
+    {
+        var ui = UiInput;
+        while (_uiEvents.TryDequeue(out var uiEvent))
+        {
+            var consumed = ui?.Handle(in uiEvent) ?? false;
+            if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
+            {
+                UiUnhandledPointerDown?.Invoke(uiEvent);
+            }
+        }
+        var uiTime = ++_uiTicks * FixedDeltaSeconds;
+        ui?.Tick(uiTime);
+        Audio?.Tick(uiTime);
+    }
+    private long _uiTicks;
 
     // ---- One double-buffered frame (also drives the headless tests synchronously) ----
 
@@ -291,22 +316,7 @@ public sealed class SimulationRunner : IDisposable
 
         SimulationTick.PrepareFrame(write, (float)FixedDeltaSeconds);
 
-        // UI first: a click a panel consumes must never fall through to world interaction on
-        // the same tick, and a world click routed via UiUnhandledPointerDown enqueues its
-        // MoveCommand in time for the drain just below. The queue drains even with no UiInput
-        // attached (events are dropped) so a producer without a UI half can never grow it
-        // unbounded.
-        var ui = UiInput;
-        while (_uiEvents.TryDequeue(out var uiEvent))
-        {
-            var consumed = ui?.Handle(in uiEvent) ?? false;
-            if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
-            {
-                UiUnhandledPointerDown?.Invoke(uiEvent);
-            }
-        }
-        ui?.Tick((_frame + 1) * FixedDeltaSeconds);
-        Audio?.Tick((_frame + 1) * FixedDeltaSeconds);
+        PumpUi();
 
         while (_input.TryDequeue(out MoveCommand cmd))
         {

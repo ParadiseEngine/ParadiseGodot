@@ -103,6 +103,42 @@ public class PoolGameTests
     }
 
     [Test]
+    public async Task pause_keeps_the_ui_pump_alive()
+    {
+        // Regression: pausing froze TickOnce AND the UI drain with it, so the pause panel
+        // could never be interacted with again. Pause must freeze the world, not the UI.
+        int handledWhilePaused, ticksBefore, ticksAfterWait;
+        using (var runner = new SimulationRunner(FlatGround()))
+        {
+            var ui = new RecordingUi();
+            runner.UiInput = ui;
+            runner.Start();
+            Thread.Sleep(150);
+            runner.Paused = true;
+            Thread.Sleep(80);
+            ticksBefore = ui.Ticks.Count;
+            var handledBefore = ui.Handled.Count;
+            runner.EnqueueUiEvent(ParadiseGame.Ui.UiEvent.PointerMove(10, 10));
+            runner.EnqueueUiEvent(ParadiseGame.Ui.UiEvent.PointerUp(10, 10, ParadiseGame.Ui.UiPointerButton.Left));
+            Thread.Sleep(200);
+            handledWhilePaused = ui.Handled.Count - handledBefore;
+            ticksAfterWait = ui.Ticks.Count;
+            runner.Stop();
+        }
+
+        await Assert.That(handledWhilePaused).IsEqualTo(2);   // events still reach the UI
+        await Assert.That(ticksAfterWait).IsGreaterThan(ticksBefore); // UI time keeps flowing
+    }
+
+    private sealed class RecordingUi : ParadiseGame.Ui.IUiInput
+    {
+        public readonly List<ParadiseGame.Ui.UiEvent> Handled = new();
+        public readonly List<double> Ticks = new();
+        public bool Handle(in ParadiseGame.Ui.UiEvent uiEvent) { Handled.Add(uiEvent); return false; }
+        public void Tick(double simTimeSeconds) => Ticks.Add(simTimeSeconds);
+    }
+
+    [Test]
     public async Task pause_freezes_the_threaded_loop()
     {
         // Collected synchronously (Thread.Sleep, no awaits): SharedWorld.Dispose is
