@@ -17,6 +17,9 @@ namespace ParadiseRuntime;
 public sealed class RuntimeLoop : IDisposable
 {
     private const double RenderDelaySeconds = 2.0 / 60.0;
+    // Move-confirmation sound; the default exists in the Wwise SampleProject banks.
+    private static readonly string ClickAudioEvent =
+        Environment.GetEnvironmentVariable("PARADISE_WWISE_CLICK_EVENT") ?? "Play_Hello";
     private const double MaxRenderSampleLagSeconds = 4.0 / 60.0;
 
     private readonly SimulationRunner _runner;
@@ -26,19 +29,25 @@ public sealed class RuntimeLoop : IDisposable
     private readonly List<RuntimeInstance> _instances;
     private readonly Entity? _player;
     private readonly CollisionWorld? _collisionWorld;
+    private readonly IAudioSystem? _audio;
     private double _renderSampleTime;
     private uint _width;
     private uint _height;
 
     public RuntimeLoop(
         RuntimeLevel level, WebGpuRenderer renderer, uint width, uint height, bool orthographic, float fovDegrees,
-        float? animTime = null, IUiInput? uiInput = null)
+        float? animTime = null, IUiInput? uiInput = null, IAudioSystem? audio = null)
     {
+        _audio = audio;
         _width = Math.Max(1, width);
         _height = Math.Max(1, height);
 
         _collisionWorld = SceneAssembler.BuildCollisionWorld(level.Level);
         _runner = new SimulationRunner(level.NavigationMesh, _collisionWorld);
+        if (audio is not null)
+        {
+            _runner.Audio = audio.Sink;
+        }
         if (uiInput is not null)
         {
             _runner.UiInput = uiInput;
@@ -102,6 +111,7 @@ public sealed class RuntimeLoop : IDisposable
         if (!_collisionWorld.CastRay(input, out var hit)) return false;
 
         _runner.EnqueueMoveTo(player, hit.Position);
+        _audio?.Sink.PostEvent(ClickAudioEvent);
         return true;
     }
 
@@ -149,6 +159,7 @@ public sealed class RuntimeLoop : IDisposable
         if (_collisionWorld.CastRay(input, out var hit))
         {
             _runner.EnqueueMoveTo(player, hit.Position);
+            _audio?.Sink.PostEvent(ClickAudioEvent);
         }
     }
 
@@ -200,6 +211,7 @@ public sealed class RuntimeLoop : IDisposable
 
         _scene.Camera = _camera.Build(_width / (float)_height);
         _pbr.RenderFrame(_scene);
+        _audio?.Pump();
     }
 
     public void Dispose()

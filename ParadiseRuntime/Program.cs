@@ -24,6 +24,7 @@ internal static class Program
         string scenePath = "data/scenes/sample.json";
         string? uiXamlPath = null;
         var enableImGui = false;
+        string? audioBanksPath = null;
         int? headlessFrames = null;
         string? screenshotPath = null;
         var orthographic = false;
@@ -57,6 +58,9 @@ internal static class Program
                 case "--imgui":
                     enableImGui = true;
                     break;
+                case "--audio" when i + 1 < args.Length:
+                    audioBanksPath = args[++i];
+                    break;
                 case "--anim-time" when i + 1 < args.Length && float.TryParse(args[i + 1], out var anim):
                     // Pin skinned clips to a fixed time — deterministic captures (parity gate).
                     animTime = anim;
@@ -72,8 +76,8 @@ internal static class Program
                 $"[ParadiseRuntime] {scenePath}: {level.Level.Entities.Count} entities, " +
                 $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
             return headlessFrames is { } n
-                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime, uiXamlPath, enableImGui)
-                : RunWindowed(level, orthographic, fovDegrees, animTime, uiXamlPath, enableImGui);
+                ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime, uiXamlPath, enableImGui, audioBanksPath)
+                : RunWindowed(level, orthographic, fovDegrees, animTime, uiXamlPath, enableImGui, audioBanksPath);
         }
         catch (Exception ex)
         {
@@ -82,7 +86,7 @@ internal static class Program
         }
     }
 
-    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime, string? uiXamlPath, bool enableImGui)
+    private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime, string? uiXamlPath, bool enableImGui, string? audioBanksPath)
     {
         SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "dummy"u8);
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
@@ -97,9 +101,10 @@ internal static class Program
             var ui = uiXamlPath is null ? null : new NoesisUi(uiXamlPath, InitialWidth, InitialHeight);
             var imgui = enableImGui ? new ImGuiUi(InitialWidth, InitialHeight) : null;
             var uiSystems = CollectUiSystems(imgui, ui);
+            using var audio = audioBanksPath is null ? null : WwiseAudio.TryCreate(audioBanksPath);
             using var loop = new RuntimeLoop(
                 level, renderer, InitialWidth, InitialHeight, orthographic, fovDegrees, animTime,
-                ComposeUiInput(uiSystems));
+                ComposeUiInput(uiSystems), audio);
             WireOverlays(renderer, uiSystems, imgui, loop);
             loop.Start();
             var clock = Stopwatch.StartNew();
@@ -212,7 +217,7 @@ internal static class Program
             w.Write(bgra, y * stride, stride);
     }
 
-    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees, float? animTime, string? uiXamlPath, bool enableImGui)
+    private static unsafe int RunWindowed(RuntimeLevel level, bool orthographic, float fovDegrees, float? animTime, string? uiXamlPath, bool enableImGui, string? audioBanksPath)
     {
         if (!SDL_Init(SDL_InitFlags.SDL_INIT_VIDEO))
         {
@@ -237,9 +242,10 @@ internal static class Program
             var ui = uiXamlPath is null ? null : new NoesisUi(uiXamlPath, surfaceDesc.Width, surfaceDesc.Height);
             var imgui = enableImGui ? new ImGuiUi(surfaceDesc.Width, surfaceDesc.Height) : null;
             var uiSystems = CollectUiSystems(imgui, ui);
+            using var audio = audioBanksPath is null ? null : WwiseAudio.TryCreate(audioBanksPath);
             using var loop = new RuntimeLoop(
                 level, renderer, surfaceDesc.Width, surfaceDesc.Height, orthographic, fovDegrees, animTime,
-                ComposeUiInput(uiSystems));
+                ComposeUiInput(uiSystems), audio);
             WireOverlays(renderer, uiSystems, imgui, loop);
             int logicalW, logicalH;
             SDL_GetWindowSize(window, &logicalW, &logicalH);
