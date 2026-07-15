@@ -33,6 +33,7 @@ public readonly ref partial struct Agents;
 [Queryable]
 [With<LocalTransform>]
 [With<DynamicBody>]
+[With<BallGlow>]
 [With<SimulationContext>(IsReadOnly = true)]
 [With<PhysicsWorldRef>(IsReadOnly = true)]
 public readonly ref partial struct Balls;

@@ -2088,6 +2088,762 @@
       }
     },
     {
+      "Id": "CueBall",
+      "EntityGuid": "47bc0d24-e235-4781-81b9-de295ec80868",
+      "StableId": "CueBall",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -3,
+        0.85,
+        7.5
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "LocalMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3,
+        0.85,
+        7.5,
+        1
+      ],
+      "WorldMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3,
+        0.85,
+        7.5,
+        1
+      ],
+      "Materials": [
+        "materials/mat_cue.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "primitives/sphere_ball.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Sphere",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                0,
+                0,
+                0
+              ],
+              "Radius": 0.5,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Dynamic",
+          "Mass": 1,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "PoolBall1",
+      "EntityGuid": "19ef0209-bdfb-41d7-a045-21ea864e469b",
+      "StableId": "PoolBall1",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -3,
+        0.85,
+        6
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "LocalMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3,
+        0.85,
+        6,
+        1
+      ],
+      "WorldMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3,
+        0.85,
+        6,
+        1
+      ],
+      "Materials": [
+        "materials/mat_ball1.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "primitives/sphere_ball.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Sphere",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                0,
+                0,
+                0
+              ],
+              "Radius": 0.5,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Dynamic",
+          "Mass": 1,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "PoolBall2",
+      "EntityGuid": "57c9a4cb-6111-485d-a4fb-b91fa8437547",
+      "StableId": "PoolBall2",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -3.38,
+        0.85,
+        5.35
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "LocalMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3.38,
+        0.85,
+        5.35,
+        1
+      ],
+      "WorldMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3.38,
+        0.85,
+        5.35,
+        1
+      ],
+      "Materials": [
+        "materials/mat_ball2.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "primitives/sphere_ball.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Sphere",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                0,
+                0,
+                0
+              ],
+              "Radius": 0.5,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Dynamic",
+          "Mass": 1,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "PoolBall3",
+      "EntityGuid": "82881a09-c2ab-415a-b082-6cc9d0757d24",
+      "StableId": "PoolBall3",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -2.62,
+        0.85,
+        5.35
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "LocalMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -2.62,
+        0.85,
+        5.35,
+        1
+      ],
+      "WorldMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -2.62,
+        0.85,
+        5.35,
+        1
+      ],
+      "Materials": [
+        "materials/mat_ball3.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "primitives/sphere_ball.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Sphere",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                0,
+                0,
+                0
+              ],
+              "Radius": 0.5,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Dynamic",
+          "Mass": 1,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "PoolBall4",
+      "EntityGuid": "20b40ced-b99e-4183-84a1-cdb05fe72488",
+      "StableId": "PoolBall4",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -3.76,
+        0.85,
+        4.7
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "LocalMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3.76,
+        0.85,
+        4.7,
+        1
+      ],
+      "WorldMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -3.76,
+        0.85,
+        4.7,
+        1
+      ],
+      "Materials": [
+        "materials/mat_ball4.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "primitives/sphere_ball.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Sphere",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                0,
+                0,
+                0
+              ],
+              "Radius": 0.5,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Dynamic",
+          "Mass": 1,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
+      "Id": "PoolBall5",
+      "EntityGuid": "8d4b56f5-66a2-4de0-8ae0-ff58dbeb0207",
+      "StableId": "PoolBall5",
+      "DisplayName": null,
+      "Kind": "Prop",
+      "SpawnPhase": "LevelStart",
+      "IsActive": true,
+      "Prefab": "res://data/primitives/sphere_ball.glb",
+      "PrefabAssetPath": "res://scenes/sample.tscn",
+      "NearestInstanceRoot": "Sample",
+      "PrefabGuid": "uid://cbf3nx0sn7cpw",
+      "PrefabAssetType": ".tscn",
+      "InitialAnimation": null,
+      "Parent": null,
+      "LocalPosition": [
+        -2.24,
+        0.85,
+        4.7
+      ],
+      "LocalRotation": [
+        0,
+        0,
+        0,
+        1
+      ],
+      "LocalScale": [
+        0.7,
+        0.7,
+        0.7
+      ],
+      "LocalMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -2.24,
+        0.85,
+        4.7,
+        1
+      ],
+      "WorldMatrix": [
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        0,
+        0,
+        0,
+        0.7,
+        0,
+        -2.24,
+        0.85,
+        4.7,
+        1
+      ],
+      "Materials": [
+        "materials/mat_ball5.json"
+      ],
+      "Overrides": {
+        "Transform": false,
+        "MaterialSlots": [],
+        "Colliders": [],
+        "Metadata": []
+      },
+      "Components": {
+        "Renderable": {
+          "Mesh": "primitives/sphere_ball.glb",
+          "MeshNode": null
+        },
+        "Collider": {
+          "Colliders": [
+            {
+              "Id": "CollisionShape3D",
+              "Path": "CollisionShape3D",
+              "IsStatic": false,
+              "Layer": 0,
+              "LayerName": "",
+              "IsTrigger": false,
+              "ShapeType": "Sphere",
+              "LocalCenter": [
+                0,
+                0,
+                0
+              ],
+              "LocalRotation": [
+                0,
+                0,
+                0,
+                1
+              ],
+              "Size": [
+                0,
+                0,
+                0
+              ],
+              "Radius": 0.5,
+              "Height": 0,
+              "NavObstacle": null
+            }
+          ]
+        },
+        "Rigidbody": {
+          "BodyType": "Dynamic",
+          "Mass": 1,
+          "LinearDamping": 0,
+          "Restitution": 0.2,
+          "Friction": 0.5,
+          "Layer": 0,
+          "LayerName": ""
+        },
+        "Interactable": null,
+        "Agent": null
+      }
+    },
+    {
       "Id": "Ball1",
       "EntityGuid": "5a1c9f02-b7d3-4e6f-8a20-c3d4e5f60711",
       "StableId": "Ball1",

@@ -116,6 +116,15 @@ public partial struct PhysicsWorldRef
 /// components each tick, so snapshots stay complete. Position is the sphere center
 /// (<see cref="LocalTransform"/>); Y is never modified (planar contract).
 /// </summary>
+/// <summary>Collision feedback for a dynamic ball: <see cref="Intensity"/> spikes to 1 on a
+/// ball↔ball hit (scaled by contact impulse) and decays each tick — fast once the ball is
+/// still, slow while it rolls. The renderer maps it onto the ball's point light.</summary>
+[Component]
+public partial struct BallGlow
+{
+    public float Intensity;
+}
+
 [Component]
 public partial struct DynamicBody
 {

@@ -172,6 +172,10 @@ internal static class Program
                 }
             };
         }
+        if (imgui is not null && loop.HasPoolGame)
+        {
+            imgui.AddDraw(loop.DrawPoolPanel);
+        }
         if (imgui is not null)
         {
             // Runs on the sim thread: reading loop/sim state directly is the point.
@@ -291,21 +295,32 @@ internal static class Program
                             }
                         }
                     }
-                    else if ((ui is not null || imgui is not null) && type == SDL_EventType.SDL_EVENT_MOUSE_MOTION)
+                    else if (type == SDL_EventType.SDL_EVENT_MOUSE_MOTION)
                     {
-                        loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
+                        loop.UpdateAim(new Vector2(ev.motion.x, ev.motion.y) * uiScale);
+                        if (ui is not null || imgui is not null)
+                        {
+                            loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
+                        }
                     }
-                    else if ((ui is not null || imgui is not null) && type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
+                    else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
                              ev.button.button == SDL_BUTTON_LEFT)
                     {
-                        loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                        loop.ReleaseAim();
+                        if (ui is not null || imgui is not null)
+                        {
+                            loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                        }
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN &&
                              ev.button.button == SDL_BUTTON_LEFT)
                     {
-                        // With UI active the click routes through the sim: the panel gets first
-                        // claim, and unconsumed clicks fall through to click-to-move there.
-                        if (ui is not null || imgui is not null)
+                        // The cue ball claims the click first (start aiming); then UI (panel
+                        // clicks route through the sim); unconsumed clicks fall to click-to-move.
+                        if (loop.TryBeginAim(new Vector2(ev.button.x, ev.button.y) * uiScale))
+                        {
+                        }
+                        else if (ui is not null || imgui is not null)
                         {
                             loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
                         }
