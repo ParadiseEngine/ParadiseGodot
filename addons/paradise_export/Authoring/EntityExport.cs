@@ -37,6 +37,13 @@ namespace ParadiseGodot.Authoring
         // spawns them as simulated dynamic spheres instead of static scenery.
         [Export] public bool IsDynamicBody { get; set; }
         [Export] public float BodyMass { get; set; } = 1f;
+        // Physics material params carried by the contract's Rigidbody fields. Defaults are the
+        // constants the exporter always wrote, so existing scenes re-export byte-identical.
+        // On a dynamic body: damping = roll decay, restitution = body-body bounce. On a static
+        // body: restitution = the bounce dynamic bodies get off this surface (cushions).
+        [Export] public float BodyLinearDamping { get; set; } = 0f;
+        [Export] public float BodyRestitution { get; set; } = 0.2f;
+        [Export] public float BodyFriction { get; set; } = 0.5f;
 
         [ExportGroup("Collider Export")]
         [Export] public Godot.Collections.Array<NodePath> PhysicsColliders { get; set; } = new();

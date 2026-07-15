@@ -16,6 +16,11 @@ namespace ParadiseGodot
     {
         private const string KtxSetting = "paradise/tools/ktx_path";
         private const string BlenderSetting = "paradise/tools/blender_path";
+        private const string PlayDotnetArgsSetting = "paradise/play/dotnet_args";
+
+        /// <summary>Extra ParadiseRuntime CLI arguments the "Play .NET" button appends after
+        /// <c>--scene</c>. Only the initial default — an intentionally emptied setting stays empty.</summary>
+        public const string DefaultPlayDotnetArgs = "--imgui";
 
         // Track what THIS session applied, so clearing a setting can unset the variable we set
         // without wiping one the user provided externally (shell/launchd).
@@ -26,6 +31,7 @@ namespace ParadiseGodot
         private readonly Label _ktxStatus;
         private readonly LineEdit _blenderEdit;
         private readonly Label _blenderStatus;
+        private readonly LineEdit _playArgsEdit;
         private EditorFileDialog? _fileDialog;
         private LineEdit? _browseTarget;
 
@@ -43,6 +49,10 @@ namespace ParadiseGodot
                 "KTX-Software v5 `ktx` CLI (`ktx create` KTX2 encoder). Used by scene export for GLB-embedded textures.");
             (_blenderEdit, _blenderStatus) = AddToolRow(layout, "Blender",
                 "FBX → GLB conversion (Paradise/Convert Models).");
+            _playArgsEdit = AddTextRow(layout, "Play .NET args",
+                "Extra ParadiseRuntime CLI arguments appended by the toolbar \"Play .NET\" button " +
+                "(after --scene), e.g. --imgui --audio banks --fov 60. Double quotes group an " +
+                "argument with spaces.");
 
             AboutToPopup += LoadFromSettings;
             Confirmed += SaveAndApply;
@@ -76,6 +86,48 @@ namespace ParadiseGodot
             return settings.HasSetting(name) ? settings.GetSetting(name).AsString().Trim() : "";
         }
 
+        /// <summary>The "Play .NET" extra arguments, tokenized for a process argv.
+        /// <see cref="DefaultPlayDotnetArgs"/> until the user first saves the setting.</summary>
+        public static string[] PlayDotnetArguments()
+        {
+            EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
+            string raw = settings.HasSetting(PlayDotnetArgsSetting)
+                ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
+                : DefaultPlayDotnetArgs;
+            return TokenizeArguments(raw);
+        }
+
+        /// <summary>Whitespace-split with double-quote grouping (<c>--ui "my file.xaml"</c> is
+        /// two tokens) — the minimal shell-like rule, applied identically on every platform so
+        /// the setting means the same thing under CreateProcess argv and the sh wrapper.</summary>
+        public static string[] TokenizeArguments(string commandLine)
+        {
+            var tokens = new System.Collections.Generic.List<string>();
+            var current = new System.Text.StringBuilder();
+            bool quoted = false, any = false;
+            foreach (char c in commandLine)
+            {
+                if (c == '"')
+                {
+                    quoted = !quoted;
+                    any = true;
+                }
+                else if (!quoted && char.IsWhiteSpace(c))
+                {
+                    if (any) tokens.Add(current.ToString());
+                    current.Clear();
+                    any = false;
+                }
+                else
+                {
+                    current.Append(c);
+                    any = true;
+                }
+            }
+            if (any) tokens.Add(current.ToString());
+            return tokens.ToArray();
+        }
+
         private (LineEdit Edit, Label Status) AddToolRow(VBoxContainer layout, string toolName, string hint)
         {
             var row = new HBoxContainer();
@@ -99,6 +151,21 @@ namespace ParadiseGodot
 
             edit.TextChanged += _ => RefreshStatus();
             return (edit, status);
+        }
+
+        private static LineEdit AddTextRow(VBoxContainer layout, string label, string hint)
+        {
+            var row = new HBoxContainer();
+            row.AddChild(new Label { Text = label, CustomMinimumSize = new Vector2(110, 0) });
+
+            var edit = new LineEdit
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                TooltipText = hint,
+            };
+            row.AddChild(edit);
+            layout.AddChild(row);
+            return edit;
         }
 
         private void OpenBrowse(LineEdit target, string toolName)
@@ -130,6 +197,10 @@ namespace ParadiseGodot
         {
             _ktxEdit.Text = ReadSetting(KtxSetting);
             _blenderEdit.Text = ReadSetting(BlenderSetting);
+            EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
+            _playArgsEdit.Text = settings.HasSetting(PlayDotnetArgsSetting)
+                ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
+                : DefaultPlayDotnetArgs;
             RefreshStatus();
         }
 
@@ -138,6 +209,7 @@ namespace ParadiseGodot
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             settings.SetSetting(KtxSetting, _ktxEdit.Text.Trim());
             settings.SetSetting(BlenderSetting, _blenderEdit.Text.Trim());
+            settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
             ApplySavedSettings();
         }
 

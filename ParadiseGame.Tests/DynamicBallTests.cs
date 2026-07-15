@@ -161,11 +161,15 @@ public class DynamicBallTests
             Entity ballA = sim.World.CreateEntity(EntityBuilder.Create()
                 .Add(new LocalTransform(new Vector3(4f, 0.85f, 5f), Quaternion.Identity))
                 .Add(new DynamicBody(0.35f, 1f))
+                .Add(new BallGlow())
+                .Add(new PoolBall())
                 .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
                 .Add(new PhysicsWorldRef { Handle = collision.Handle }));
             Entity ballB = sim.World.CreateEntity(EntityBuilder.Create()
                 .Add(new LocalTransform(new Vector3(5.2f, 0.85f, 5.3f), Quaternion.Identity))
                 .Add(new DynamicBody(0.35f, 1f))
+                .Add(new BallGlow())
+                .Add(new PoolBall())
                 .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
                 .Add(new PhysicsWorldRef { Handle = collision.Handle }));
 

@@ -90,6 +90,9 @@ namespace ParadiseGodot.Runtime
                 }
                 else if (node.IsInGroup(BallGroup))
                 {
+                    // Parity gap: default physics params + inert PoolBall (no pocket capture) —
+                    // the bridge reads the live Godot scene, not the exported Rigidbody/trigger
+                    // data the .NET host gets through SceneAssembler.
                     Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), BallMass);
                     _agents.Add((node, ball)); // dynamic: interpolated like the player
                 }

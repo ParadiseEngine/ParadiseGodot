@@ -1,0 +1,28 @@
+{
+  "Path": "materials/mat_wood.json",
+  "Name": "pool",
+  "BaseColorFactor": {
+    "r": 0.101960786,
+    "g": 0.039215688,
+    "b": 0.011764706,
+    "a": 1
+  },
+  "BaseColorTexture": null,
+  "MetallicFactor": 0,
+  "RoughnessFactor": 0.7,
+  "MetallicRoughnessTexture": null,
+  "EmissiveFactor": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  },
+  "EmissiveTexture": null,
+  "NormalScale": 1,
+  "NormalTexture": null,
+  "OcclusionStrength": 1,
+  "OcclusionTexture": null,
+  "AlphaMode": "Opaque",
+  "RenderQueue": -1,
+  "TransmissionFactor": 0
+}

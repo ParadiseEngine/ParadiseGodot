@@ -5,7 +5,7 @@ using System.Numerics;
 namespace ParadiseGame;
 
 /// <summary>One ball's recorded state at a past tick.</summary>
-public readonly record struct RewoundBall(Entity Entity, Vector3 Position, Quaternion Rotation, Vector3 Velocity, float Glow);
+public readonly record struct RewoundBall(Entity Entity, Vector3 Position, Quaternion Rotation, Vector3 Velocity, float Glow, byte Sunk);
 
 /// <summary>Fixed-capacity ring of per-tick dynamic-ball states for the pool game's rewind:
 /// the sim records every tick (sim thread), the UI scrubs while paused (any thread), and
@@ -45,7 +45,8 @@ internal sealed class RewindBuffer
                     transform.Position,
                     transform.Rotation,
                     world.GetComponent<DynamicBody>(entity).Velocity,
-                    world.GetComponent<BallGlow>(entity).Intensity));
+                    world.GetComponent<BallGlow>(entity).Intensity,
+                    world.GetComponent<PoolBall>(entity).Sunk));
             }
             _head = (_head + 1) % Capacity;
             if (_count < Capacity) _count++;

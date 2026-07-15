@@ -1,0 +1,182 @@
+using System.Collections.Generic;
+using System.Numerics;
+using Paradise.ECS;
+using ParadiseGame;
+using ParadiseGame.Navigation.Detour;
+
+namespace ParadiseGame.Tests;
+
+/// <summary>Pocket capture and the data-driven ball material params, driven synchronously
+/// through TickOnce: a ball rolling over a pocket mouth sinks (parked, dead, excluded from
+/// dynamics), the cue ball scratches (instant head-spot respawn), rewind resurrects a sunk
+/// ball, and per-ball damping/restitution actually shape the motion.</summary>
+public class PoolPocketTests
+{
+    private static DetourNavigationMesh FlatGround()
+    {
+        var verts = new List<Vector3> { new(0, 0, 0), new(30, 0, 0), new(30, 0, 30), new(0, 0, 30) };
+        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
+        return new DetourNavigationMesh(verts, tris);
+    }
+
+    private static Vector3 PositionOf(SimulationRunner runner, Entity entity)
+    {
+        runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
+        return latest.GetComponent<LocalTransform>(entity).Position;
+    }
+
+    private static PoolBall PoolStateOf(SimulationRunner runner, Entity entity)
+    {
+        runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
+        return latest.GetComponent<PoolBall>(entity);
+    }
+
+    /// <summary>One pocket at (x, z) with capture radius 0.3, park/respawn as given.</summary>
+    private static PoolBall OnePocket(float x, float z, Vector3 park, Vector3 respawn = default, bool isCue = false)
+    {
+        var pool = new PoolBall
+        {
+            PocketCount = 1,
+            ParkPosition = park,
+            RespawnPosition = respawn,
+            IsCue = isCue ? (byte)1 : (byte)0,
+        };
+        pool.Pockets[0] = new Vector4(x, z, 0.3f * 0.3f, 0f);
+        return pool;
+    }
+
+    [Test]
+    public async Task ball_rolling_over_a_pocket_sinks_and_parks()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var park = new Vector3(1f, 0.85f, 1f);
+        var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
+            poolBall: OnePocket(7f, 5f, park));
+
+        runner.EnqueueBallImpulse(ball, new Vector3(4f, 0f, 0f)); // rolls +X across the mouth
+        for (var i = 0; i < 180; i++) runner.TickOnce();
+
+        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+        Vector3 parked = PositionOf(runner, ball);
+        await Assert.That(MathF.Abs(parked.X - park.X)).IsLessThan(1e-4f);
+        await Assert.That(MathF.Abs(parked.Z - park.Z)).IsLessThan(1e-4f);
+        await Assert.That(parked.Y).IsEqualTo(0.85f); // planar contract: Y untouched
+
+        // Sunk = out of the simulation: it never moves again.
+        for (var i = 0; i < 120; i++) runner.TickOnce();
+        await Assert.That(PositionOf(runner, ball)).IsEqualTo(parked);
+    }
+
+    [Test]
+    public async Task cue_ball_scratch_respawns_at_the_head_spot()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var headSpot = new Vector3(3f, 0.85f, 3f);
+        var cue = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
+            poolBall: OnePocket(7f, 5f, park: default, respawn: headSpot, isCue: true));
+
+        runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
+        for (var i = 0; i < 180; i++) runner.TickOnce();
+
+        // Scratched, not sunk: back at the head spot, at rest, still playable.
+        await Assert.That(PoolStateOf(runner, cue).Sunk).IsEqualTo((byte)0);
+        Vector3 position = PositionOf(runner, cue);
+        await Assert.That(MathF.Abs(position.X - headSpot.X)).IsLessThan(1e-4f);
+        await Assert.That(MathF.Abs(position.Z - headSpot.Z)).IsLessThan(1e-4f);
+
+        runner.EnqueueBallImpulse(cue, new Vector3(0f, 0f, 2f)); // still strikeable
+        for (var i = 0; i < 60; i++) runner.TickOnce();
+        await Assert.That(PositionOf(runner, cue).Z).IsGreaterThan(headSpot.Z + 0.2f);
+    }
+
+    [Test]
+    public async Task rewind_resurrects_a_sunk_ball()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
+            poolBall: OnePocket(7f, 5f, park: new Vector3(1f, 0.85f, 1f)));
+
+        runner.EnqueueBallImpulse(ball, new Vector3(4f, 0f, 0f));
+        for (var i = 0; i < 120; i++) runner.TickOnce();
+        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+
+        // Restore to tick 20 — long before the ball reached the mouth (~tick 55).
+        runner.Paused = true;
+        await Assert.That(runner.RestoreFromRewind(100)).IsTrue();
+        runner.Paused = false;
+
+        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)0);
+        Vector3 restored = PositionOf(runner, ball);
+        await Assert.That(restored.X).IsGreaterThan(5f);   // it had started rolling…
+        await Assert.That(restored.X).IsLessThan(6.7f);    // …but was not at the pocket yet
+
+        // The resurrected timeline keeps playing — it rolls on and sinks again.
+        for (var i = 0; i < 120; i++) runner.TickOnce();
+        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+    }
+
+    [Test]
+    public async Task parked_ball_is_excluded_from_dynamics()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var park = new Vector3(10f, 0.85f, 10f);
+        var sunk = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
+            poolBall: OnePocket(7f, 5f, park));
+        var rolling = runner.SpawnBall(new Vector3(10f, 0.85f, 6f), Quaternion.Identity, radius: 0.35f);
+
+        runner.EnqueueBallImpulse(sunk, new Vector3(4f, 0f, 0f));
+        for (var i = 0; i < 180; i++) runner.TickOnce();
+        await Assert.That(PoolStateOf(runner, sunk).Sunk).IsEqualTo((byte)1);
+
+        // Drive the live ball straight through the tray slot: no bounce, no displacement.
+        runner.EnqueueBallImpulse(rolling, new Vector3(0f, 0f, 8f));
+        for (var i = 0; i < 300; i++) runner.TickOnce();
+
+        await Assert.That(PositionOf(runner, rolling).Z).IsGreaterThan(park.Z + 0.3f); // passed through
+        Vector3 parked = PositionOf(runner, sunk);
+        await Assert.That(MathF.Abs(parked.X - park.X)).IsLessThan(1e-4f);
+        await Assert.That(MathF.Abs(parked.Z - park.Z)).IsLessThan(1e-4f);
+    }
+
+    [Test]
+    public async Task per_ball_damping_shapes_the_roll()
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var felt = runner.SpawnBall(new Vector3(2f, 0.85f, 4f), Quaternion.Identity, radius: 0.35f,
+            linearDamping: 0.6f);
+        var carpet = runner.SpawnBall(new Vector3(2f, 0.85f, 12f), Quaternion.Identity, radius: 0.35f,
+            linearDamping: 3f);
+
+        runner.EnqueueBallImpulse(felt, new Vector3(3f, 0f, 0f));
+        runner.EnqueueBallImpulse(carpet, new Vector3(3f, 0f, 0f));
+        for (var i = 0; i < 1200; i++) runner.TickOnce();
+
+        // Analytic travel bound is v0/damping: 5 m vs 1 m from the same strike.
+        float feltTravel = PositionOf(runner, felt).X - 2f;
+        float carpetTravel = PositionOf(runner, carpet).X - 2f;
+        await Assert.That(carpetTravel).IsGreaterThan(0.2f);
+        await Assert.That(feltTravel).IsGreaterThan(2f * carpetTravel);
+    }
+
+    [Test]
+    public async Task per_ball_restitution_shapes_the_impact()
+    {
+        // Same head-on hit under two restitution pairings: the lively pair hands the target
+        // more exit speed, so it travels farther before damping stops it.
+        float TargetTravel(float restitution)
+        {
+            using var runner = new SimulationRunner(FlatGround());
+            var cue = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
+                restitution: restitution);
+            var target = runner.SpawnBall(new Vector3(7f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
+                restitution: restitution);
+            runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
+            for (var i = 0; i < 600; i++) runner.TickOnce();
+            return PositionOf(runner, target).X - 7f;
+        }
+
+        float lively = TargetTravel(0.95f);
+        float dead = TargetTravel(0.05f);
+        await Assert.That(lively).IsGreaterThan(dead * 1.3f);
+    }
+}

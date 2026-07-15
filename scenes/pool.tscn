@@ -1,0 +1,832 @@
+[gd_scene format=3 uid="uid://dq2b7pool5cne"]
+
+[ext_resource type="Script" uid="uid://cujxyk6bhcl3t" path="res://addons/paradise_export/Authoring/EntityExport.cs" id="1_entity"]
+[ext_resource type="PackedScene" uid="uid://c1cn25jlx2tnu" path="res://data/primitives/sphere_ball.glb" id="2_ball"]
+[ext_resource type="Texture2D" path="res://data/primitives/sphere_ball_albedo.png" id="3_balltex"]
+
+[sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+
+[sub_resource type="Sky" id="sky"]
+sky_material = SubResource("sky_mat")
+
+[sub_resource type="Environment" id="env"]
+background_mode = 2
+sky = SubResource("sky")
+ambient_light_source = 3
+tonemap_mode = 2
+
+[sub_resource type="BoxShape3D" id="shape_unit_box"]
+
+[sub_resource type="BoxMesh" id="mesh_unit_box"]
+
+[sub_resource type="SphereShape3D" id="shape_unit_sphere"]
+
+[sub_resource type="SphereShape3D" id="shape_pocket_corner"]
+radius = 0.25
+
+[sub_resource type="SphereShape3D" id="shape_pocket_side"]
+radius = 0.22
+
+[sub_resource type="StandardMaterial3D" id="mat_room_floor"]
+albedo_color = Color(0.25, 0.24, 0.23, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="mat_felt"]
+albedo_color = Color(0.05, 0.35, 0.15, 1)
+roughness = 0.95
+
+[sub_resource type="StandardMaterial3D" id="mat_cushion"]
+albedo_color = Color(0.04, 0.28, 0.12, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="mat_wood"]
+albedo_color = Color(0.35, 0.22, 0.12, 1)
+roughness = 0.7
+
+[sub_resource type="StandardMaterial3D" id="mat_pocket"]
+albedo_color = Color(0.02, 0.02, 0.02, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_cue"]
+albedo_color = Color(0.96, 0.96, 0.94, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.35
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_1"]
+albedo_color = Color(0.95, 0.75, 0.1, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_2"]
+albedo_color = Color(0.15, 0.3, 0.75, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_3"]
+albedo_color = Color(0.8, 0.12, 0.12, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_4"]
+albedo_color = Color(0.35, 0.15, 0.55, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_5"]
+albedo_color = Color(0.95, 0.45, 0.1, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_6"]
+albedo_color = Color(0.1, 0.45, 0.2, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_7"]
+albedo_color = Color(0.5, 0.15, 0.15, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_8"]
+albedo_color = Color(0.05, 0.05, 0.05, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_9"]
+albedo_color = Color(0.9725, 0.8625, 0.505, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_10"]
+albedo_color = Color(0.5325, 0.615, 0.8625, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_11"]
+albedo_color = Color(0.89, 0.516, 0.516, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_12"]
+albedo_color = Color(0.6425, 0.5325, 0.7525, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_13"]
+albedo_color = Color(0.9725, 0.6975, 0.505, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_14"]
+albedo_color = Color(0.505, 0.6975, 0.56, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[sub_resource type="StandardMaterial3D" id="mat_pool_15"]
+albedo_color = Color(0.725, 0.5325, 0.5325, 1)
+albedo_texture = ExtResource("3_balltex")
+roughness = 0.4
+
+[node name="Pool" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("env")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.6427876, 0.76604444, 0, -0.76604444, 0.6427876, 0, 7.2, 5.5)
+current = true
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.8660254, 0.38302222, -0.32139382, 0, 0.64278764, 0.76604444, 0.5, -0.66341394, 0.5566704, 0, 10, 0)
+light_color = Color(1, 0.95, 0.85, 1)
+light_energy = 1.5
+shadow_enabled = true
+
+[node name="TableLamp" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0)
+light_color = Color(1, 0.93, 0.82, 1)
+light_energy = 8.0
+shadow_enabled = true
+omni_range = 12.0
+
+[node name="RoomFloor" type="Node3D" parent="."]
+transform = Transform3D(20, 0, 0, 0, 1, 0, 0, 0, 20, 0, -0.5, 0)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "6f8b8db819cd4e689baba8057389c57b"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="RoomFloor" groups=["navigation_source"]]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="RoomFloor/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="RoomFloor/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_room_floor")
+
+[node name="TableBed" type="Node3D" parent="."]
+transform = Transform3D(7.4, 0, 0, 0, 0.15, 0, 0, 0, 4.4, 0, 0.675, 0)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "b52dc43e8d7247b4818e8623ff707ea4"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="TableBed"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="TableBed/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="TableBed/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_felt")
+
+[node name="CushionNW" type="Node3D" parent="."]
+transform = Transform3D(2.2, 0, 0, 0, 0.25, 0, 0, 0, 0.15, -1.4, 0.875, -1.575)
+script = ExtResource("1_entity")
+BodyRestitution = 0.75
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "0a8da1ba970445f58e82822e60813e2e"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="CushionNW"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CushionNW/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="CushionNW/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_cushion")
+
+[node name="CushionNE" type="Node3D" parent="."]
+transform = Transform3D(2.2, 0, 0, 0, 0.25, 0, 0, 0, 0.15, 1.4, 0.875, -1.575)
+script = ExtResource("1_entity")
+BodyRestitution = 0.75
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "1260b53603384a639ad978169f793c2c"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="CushionNE"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CushionNE/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="CushionNE/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_cushion")
+
+[node name="CushionSW" type="Node3D" parent="."]
+transform = Transform3D(2.2, 0, 0, 0, 0.25, 0, 0, 0, 0.15, -1.4, 0.875, 1.575)
+script = ExtResource("1_entity")
+BodyRestitution = 0.75
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "d6995e31db8c4e0ba8ee69cc6a708a6f"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="CushionSW"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CushionSW/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="CushionSW/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_cushion")
+
+[node name="CushionSE" type="Node3D" parent="."]
+transform = Transform3D(2.2, 0, 0, 0, 0.25, 0, 0, 0, 0.15, 1.4, 0.875, 1.575)
+script = ExtResource("1_entity")
+BodyRestitution = 0.75
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "f11a563970214a2f98c04feb77641f89"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="CushionSE"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CushionSE/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="CushionSE/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_cushion")
+
+[node name="CushionW" type="Node3D" parent="."]
+transform = Transform3D(0.15, 0, 0, 0, 0.25, 0, 0, 0, 2, -3.075, 0.875, 0)
+script = ExtResource("1_entity")
+BodyRestitution = 0.75
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "00d29e7b00b84b5c8a389e68813c153a"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="CushionW"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CushionW/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="CushionW/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_cushion")
+
+[node name="CushionE" type="Node3D" parent="."]
+transform = Transform3D(0.15, 0, 0, 0, 0.25, 0, 0, 0, 2, 3.075, 0.875, 0)
+script = ExtResource("1_entity")
+BodyRestitution = 0.75
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "d9ac7b0b8f0c4ac59db41bd6920e8f70"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="CushionE"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CushionE/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="CushionE/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_cushion")
+
+[node name="FrameN" type="Node3D" parent="."]
+transform = Transform3D(7.6, 0, 0, 0, 0.3, 0, 0, 0, 0.25, 0, 0.85, -1.925)
+script = ExtResource("1_entity")
+BodyRestitution = 0.5
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "d0d7355113b94701ae95d914ecf6c05d"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="FrameN"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FrameN/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FrameN/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="FrameS" type="Node3D" parent="."]
+transform = Transform3D(7.6, 0, 0, 0, 0.3, 0, 0, 0, 0.25, 0, 0.85, 1.925)
+script = ExtResource("1_entity")
+BodyRestitution = 0.5
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "d558f3b0f2eb481390321ac407cdf95e"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="FrameS"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FrameS/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FrameS/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="FrameW" type="Node3D" parent="."]
+transform = Transform3D(0.25, 0, 0, 0, 0.3, 0, 0, 0, 4.6, -3.375, 0.85, 0)
+script = ExtResource("1_entity")
+BodyRestitution = 0.5
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "22fd20ea906e442fa7b62d134a9f4165"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="FrameW"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FrameW/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FrameW/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="FrameE" type="Node3D" parent="."]
+transform = Transform3D(0.25, 0, 0, 0, 0.3, 0, 0, 0, 4.6, 3.375, 0.85, 0)
+script = ExtResource("1_entity")
+BodyRestitution = 0.5
+ModelPath = "res://data/primitives/cube.glb"
+PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "7547a746ece44513b86276b889031bcd"
+
+[node name="StaticBody3D" type="StaticBody3D" parent="FrameE"]
+collision_layer = 2
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FrameE/StaticBody3D"]
+shape = SubResource("shape_unit_box")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="FrameE/StaticBody3D"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="LegNW" type="Node3D" parent="."]
+transform = Transform3D(0.3, 0, 0, 0, 0.6, 0, 0, 0, 0.3, -3.2, 0.3, -1.7)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "5ce1aa5b530a474e9caffc7c713a3a45"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="LegNW"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="LegNE" type="Node3D" parent="."]
+transform = Transform3D(0.3, 0, 0, 0, 0.6, 0, 0, 0, 0.3, 3.2, 0.3, -1.7)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "1930e6f45cac4eaebb3589e61ff2aa12"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="LegNE"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="LegSW" type="Node3D" parent="."]
+transform = Transform3D(0.3, 0, 0, 0, 0.6, 0, 0, 0, 0.3, -3.2, 0.3, 1.7)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "fde4dac4eef74e85ac87d1fdd6cbf167"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="LegSW"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="LegSE" type="Node3D" parent="."]
+transform = Transform3D(0.3, 0, 0, 0, 0.6, 0, 0, 0, 0.3, 3.2, 0.3, 1.7)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "c01b8b8a9067405dad442e165ca31417"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="LegSE"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="TrayLedge" type="Node3D" parent="."]
+transform = Transform3D(7.6, 0, 0, 0, 0.12, 0, 0, 0, 0.5, 0.325, 0.69, 2.37)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "a20658618e0545abaf3934252e72f76f"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="TrayLedge"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_wood")
+
+[node name="PocketNW" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.05, 0.95, -1.55)
+script = ExtResource("1_entity")
+Kind = "Trigger"
+PhysicsColliders = Array[NodePath]([NodePath("Area3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "92932377bcce48ca840a1570c6d648d9"
+
+[node name="Area3D" type="Area3D" parent="PocketNW"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PocketNW/Area3D"]
+shape = SubResource("shape_pocket_corner")
+
+[node name="PocketNE" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.05, 0.95, -1.55)
+script = ExtResource("1_entity")
+Kind = "Trigger"
+PhysicsColliders = Array[NodePath]([NodePath("Area3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "a1c9720d81734c27a76489991c9a4a3b"
+
+[node name="Area3D" type="Area3D" parent="PocketNE"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PocketNE/Area3D"]
+shape = SubResource("shape_pocket_corner")
+
+[node name="PocketSW" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.05, 0.95, 1.55)
+script = ExtResource("1_entity")
+Kind = "Trigger"
+PhysicsColliders = Array[NodePath]([NodePath("Area3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "72132c9f2ab8416fbfa3d0580c1cbda5"
+
+[node name="Area3D" type="Area3D" parent="PocketSW"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PocketSW/Area3D"]
+shape = SubResource("shape_pocket_corner")
+
+[node name="PocketSE" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.05, 0.95, 1.55)
+script = ExtResource("1_entity")
+Kind = "Trigger"
+PhysicsColliders = Array[NodePath]([NodePath("Area3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "89796e098f754b57815e3981b95c34db"
+
+[node name="Area3D" type="Area3D" parent="PocketSE"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PocketSE/Area3D"]
+shape = SubResource("shape_pocket_corner")
+
+[node name="PocketN" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -1.62)
+script = ExtResource("1_entity")
+Kind = "Trigger"
+PhysicsColliders = Array[NodePath]([NodePath("Area3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "50b354ea1cf5487aad4d82a590e11e54"
+
+[node name="Area3D" type="Area3D" parent="PocketN"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PocketN/Area3D"]
+shape = SubResource("shape_pocket_side")
+
+[node name="PocketS" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, 1.62)
+script = ExtResource("1_entity")
+Kind = "Trigger"
+PhysicsColliders = Array[NodePath]([NodePath("Area3D/CollisionShape3D")])
+metadata/paradise_entity_guid = "1a8c186a488440adba96c95960d30861"
+
+[node name="Area3D" type="Area3D" parent="PocketS"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="PocketS/Area3D"]
+shape = SubResource("shape_pocket_side")
+
+[node name="PocketCapNW" type="Node3D" parent="."]
+transform = Transform3D(0.5, 0, 0, 0, 0.03, 0, 0, 0, 0.5, -3.05, 0.76, -1.55)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "edda525f8fcf48ff893bc4b4bbe535df"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PocketCapNW"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_pocket")
+
+[node name="PocketCapNE" type="Node3D" parent="."]
+transform = Transform3D(0.5, 0, 0, 0, 0.03, 0, 0, 0, 0.5, 3.05, 0.76, -1.55)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "888ebf9eeaf94b9a995c2a4fc9345357"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PocketCapNE"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_pocket")
+
+[node name="PocketCapSW" type="Node3D" parent="."]
+transform = Transform3D(0.5, 0, 0, 0, 0.03, 0, 0, 0, 0.5, -3.05, 0.76, 1.55)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "f0369d89bcb742c2822ce3384c58ca23"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PocketCapSW"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_pocket")
+
+[node name="PocketCapSE" type="Node3D" parent="."]
+transform = Transform3D(0.5, 0, 0, 0, 0.03, 0, 0, 0, 0.5, 3.05, 0.76, 1.55)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "b7ba7bc512894b4f8fad1b14082ece31"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PocketCapSE"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_pocket")
+
+[node name="PocketCapN" type="Node3D" parent="."]
+transform = Transform3D(0.44, 0, 0, 0, 0.03, 0, 0, 0, 0.44, 0, 0.76, -1.62)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "1081991ef17248439c7092bcfafb5851"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PocketCapN"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_pocket")
+
+[node name="PocketCapS" type="Node3D" parent="."]
+transform = Transform3D(0.44, 0, 0, 0, 0.03, 0, 0, 0, 0.44, 0, 0.76, 1.62)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/cube.glb"
+metadata/paradise_entity_guid = "6a4dbb8ad37140eb81ee0ae57b4f6972"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="PocketCapS"]
+mesh = SubResource("mesh_unit_box")
+surface_material_override/0 = SubResource("mat_pocket")
+
+[node name="CueBall" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, -1.5, 0.95, 0)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "0b7fb93820194718bc6aa867c171d0c4"
+
+[node name="Model" parent="CueBall" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="CueBall/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_cue")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="CueBall"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball1" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 1.3, 0.95, 0)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "9674fd2bfaf3411698c3e3e48e9851ba"
+
+[node name="Model" parent="Ball1" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball1/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_1")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball1"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball9" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 1.6482, 0.95, -0.201)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "09e8b383191e4a35a909b6c767e2ec60"
+
+[node name="Model" parent="Ball9" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball9/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_9")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball9"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball2" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 1.6482, 0.95, 0.201)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "8257d59db4b74950bcfa2e7c9cbeaf41"
+
+[node name="Model" parent="Ball2" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball2/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_2")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball2"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball3" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 1.9964, 0.95, -0.402)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "07a5cdbbd97f4fc3b7ff1c42bb02384a"
+
+[node name="Model" parent="Ball3" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball3/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_3")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball3"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball8" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 1.9964, 0.95, 0)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "5df3d32f66324cea943adab06e64287c"
+
+[node name="Model" parent="Ball8" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball8/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_8")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball8"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball10" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 1.9964, 0.95, 0.402)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "ecdc681cc9354782a08aeaf93ebb2bf9"
+
+[node name="Model" parent="Ball10" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball10/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_10")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball10"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball11" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.3446, 0.95, -0.603)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "bafed6290d8c46479f3213fe6ae2db4c"
+
+[node name="Model" parent="Ball11" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball11/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_11")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball11"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball4" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.3446, 0.95, -0.201)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "19a16db8a625487ba2fb238ab34bf686"
+
+[node name="Model" parent="Ball4" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball4/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_4")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball4"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball12" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.3446, 0.95, 0.201)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "301430ca39384cec981c1a4e1c5b141b"
+
+[node name="Model" parent="Ball12" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball12/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_12")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball12"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball5" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.3446, 0.95, 0.603)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "ff3e14dc399340999dbfdddaad297c79"
+
+[node name="Model" parent="Ball5" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball5/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_5")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball5"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball6" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.6928, 0.95, -0.804)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "b22a414225cc4c5a962fe61382450b6c"
+
+[node name="Model" parent="Ball6" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball6/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_6")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball6"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball13" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.6928, 0.95, -0.402)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "07e6c8527b0549d49da7b441fe28036d"
+
+[node name="Model" parent="Ball13" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball13/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_13")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball13"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball14" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.6928, 0.95, 0)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "2931838d9cc345f8ba53188e83499280"
+
+[node name="Model" parent="Ball14" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball14/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_14")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball14"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball7" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.6928, 0.95, 0.402)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "6924331910fa4d61bb7edcea155cf73e"
+
+[node name="Model" parent="Ball7" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball7/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_7")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball7"]
+shape = SubResource("shape_unit_sphere")
+
+[node name="Ball15" type="Node3D" parent="." groups=["paradise_ball"]]
+transform = Transform3D(0.4, 0, 0, 0, 0.4, 0, 0, 0, 0.4, 2.6928, 0.95, 0.804)
+script = ExtResource("1_entity")
+ModelPath = "res://data/primitives/sphere_ball.glb"
+IsDynamicBody = true
+BodyLinearDamping = 0.6
+BodyRestitution = 0.92
+PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+metadata/paradise_entity_guid = "d3315e04fe2143519a69f4e9162a7d9a"
+
+[node name="Model" parent="Ball15" instance=ExtResource("2_ball")]
+
+[node name="Mesh" parent="Ball15/Model" index="0"]
+surface_material_override/0 = SubResource("mat_pool_15")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ball15"]
+shape = SubResource("shape_unit_sphere")

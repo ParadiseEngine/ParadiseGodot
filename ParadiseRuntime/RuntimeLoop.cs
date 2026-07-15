@@ -44,6 +44,7 @@ public sealed class RuntimeLoop : IDisposable
     private readonly float[] _lastBallGlow;
     private readonly double[] _lastBallSoundAt;
     private volatile int _rewindScrub; // frames back shown while paused (0 = present)
+    private volatile int _sunkCount;   // pocketed balls, render thread → pool panel (sim thread)
     private Vector3? _stagedImpulse;   // strike captured while paused, applied on resume
     private bool _aiming;
     private Vector3 _aimGroundPoint;
@@ -198,6 +199,10 @@ public sealed class RuntimeLoop : IDisposable
         else
         {
             ImGuiNET.ImGui.TextWrapped("drag from the white ball to strike; pause to rewind");
+        }
+        if (_sunkCount > 0)
+        {
+            ImGuiNET.ImGui.Text($"pocketed: {_sunkCount}");
         }
         ImGuiNET.ImGui.End();
 
@@ -447,6 +452,7 @@ public sealed class RuntimeLoop : IDisposable
             var scrub = _rewindScrub;
             var scrubbed = _runner.Paused && scrub > 0 && _runner.TryGetRewindFrame(scrub, _scrubScratch);
             _runner.TrySampleInterpolation(_renderSampleTime, out var glowWorldA, out var glowWorldB, out var glowAlpha);
+            var sunk = 0;
             for (var i = 0; i < _poolBalls.Count; i++)
             {
                 var (entity, instanceIndex, lightIndex, audioSource) = _poolBalls[i];
@@ -481,6 +487,7 @@ public sealed class RuntimeLoop : IDisposable
                         glowWorldA.GetComponent<BallGlow>(entity).Intensity,
                         glowWorldB.GetComponent<BallGlow>(entity).Intensity,
                         glowAlpha);
+                    if (glowWorldB.GetComponent<PoolBall>(entity).Sunk != 0) sunk++;
                 }
 
                 _scene.Lights[lightIndex] = _scene.Lights[lightIndex] with
@@ -502,6 +509,10 @@ public sealed class RuntimeLoop : IDisposable
                     }
                     _lastBallGlow[i] = glow;
                 }
+            }
+            if (!scrubbed)
+            {
+                _sunkCount = sunk;
             }
         }
 

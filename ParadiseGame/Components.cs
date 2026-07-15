@@ -132,10 +132,57 @@ public partial struct DynamicBody
     public float Radius;
     public float Mass;
 
-    public DynamicBody(float radius, float mass)
+    /// <summary>Per-second linear damping (felt roll); fed into the per-sphere dynamics.</summary>
+    public float LinearDamping;
+
+    /// <summary>Ball ↔ ball bounce factor; pairs bounce with the average of both balls' values.</summary>
+    public float Restitution;
+
+    /// <summary>Ball ↔ static bounce factor. Batch-wide like dt: the step uses the first
+    /// simulated ball's value (one cushion surface type per scene).</summary>
+    public float StaticRestitution;
+
+    public DynamicBody(float radius, float mass,
+        float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f)
     {
         Velocity = Vector3.Zero;
         Radius = radius;
         Mass = mass;
+        LinearDamping = linearDamping;
+        Restitution = restitution;
+        StaticRestitution = staticRestitution;
     }
+}
+
+/// <summary>
+/// Pool-game state of a dynamic ball: the pocket set it can fall into (inline, unmanaged — the
+/// whole config lives in the snapshot) and its sunk/park bookkeeping. Default value = inert
+/// (<see cref="PocketCount"/> 0): non-pool scenes and tests behave exactly as before.
+/// A sunk ball keeps its entity (rewind can resurrect it) but is parked at
+/// <see cref="ParkPosition"/> and excluded from dynamics, aiming, and glow.
+/// </summary>
+[Component]
+public partial struct PoolBall
+{
+    public const int MaxPockets = 8;
+
+    /// <summary>Pocket mouths as (centerX, centerZ, radiusSquared, unused) — planar capture.</summary>
+    public PocketBuffer Pockets;
+    public int PocketCount;
+
+    /// <summary>Where this ball rests once sunk (its tray slot); Y is ignored (planar contract).</summary>
+    public Vector3 ParkPosition;
+
+    /// <summary>Where the cue ball reappears after a scratch (the head spot).</summary>
+    public Vector3 RespawnPosition;
+
+    public byte IsCue;
+    public byte Sunk;
+}
+
+/// <summary>Fixed-capacity inline buffer of pocket definitions (unmanaged, blittable).</summary>
+[InlineArray(PoolBall.MaxPockets)]
+public struct PocketBuffer
+{
+    private Vector4 _element0;
 }
