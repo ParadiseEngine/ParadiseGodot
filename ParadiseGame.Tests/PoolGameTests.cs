@@ -103,6 +103,57 @@ public class PoolGameTests
     }
 
     [Test]
+    public async Task rewind_restore_reclaims_unpinned_snapshots_when_the_pool_is_starved()
+    {
+        // Regression (PR #64 review): TickOnce prunes unpinned snapshots when the pool runs
+        // dry, but RestoreFromRewind bailed without pruning — a paused resume could silently
+        // skip the rewind while the caller believed it applied. The restore must reclaim
+        // exactly like a tick, and report false only when every world is genuinely pinned.
+        using var runner = new SimulationRunner(FlatGround());
+        var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+        runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
+        for (var i = 0; i < 60; i++) runner.TickOnce();
+
+        // Renderer pins the newest snapshot, the sim publishes past it, then the renderer
+        // moves on: the old pair is now unpinned but stays in the live window until the next
+        // publish prunes — and no publish is coming while paused.
+        runner.TrySampleInterpolation(double.MaxValue, out _, out _, out _);
+        runner.TickOnce();
+        runner.TickOnce();
+        runner.TrySampleInterpolation(double.MaxValue, out _, out _, out _);
+
+        // Starve the pool, as a long render stall would (not reachable through the public
+        // API with a single reader, so reach in). The pooled World type is a
+        // source-generated alias private to the ParadiseGame assembly — drive the stack
+        // reflectively rather than naming it.
+        var poolField = typeof(SimulationRunner).GetField("_pool",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!;
+        var pool = poolField.GetValue(runner)!;
+        var poolCount = pool.GetType().GetProperty("Count")!;
+        var poolPop = pool.GetType().GetMethod("Pop")!;
+        var poolPush = pool.GetType().GetMethod("Push")!;
+        var stash = new List<object?>();
+        void Starve() { while ((int)poolCount.GetValue(pool)! > 0) stash.Add(poolPop.Invoke(pool, null)); }
+        Starve();
+
+        runner.Paused = true;
+        var scrubbed = new List<RewoundBall>();
+        await Assert.That(runner.TryGetRewindFrame(30, scrubbed)).IsTrue();
+        var expected = scrubbed.Find(s => s.Entity == cue).Position;
+
+        // Starved but reclaimable: the restore must prune, apply, and report success.
+        await Assert.That(runner.RestoreFromRewind(30)).IsTrue();
+        await Assert.That(Vector3.Distance(PositionOf(runner, cue), expected)).IsLessThan(1e-4f);
+
+        // Starve again with nothing left to reclaim (only the pinned pair and the newest
+        // survive): the restore must refuse — callers keep their scrub instead of losing it.
+        Starve();
+        await Assert.That(runner.RestoreFromRewind(10)).IsFalse();
+
+        foreach (var world in stash) poolPush.Invoke(pool, new[] { world });
+    }
+
+    [Test]
     public async Task pause_keeps_the_ui_pump_alive()
     {
         // Regression: pausing froze TickOnce AND the UI drain with it, so the pause panel

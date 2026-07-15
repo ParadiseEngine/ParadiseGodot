@@ -179,16 +179,25 @@ public sealed class SimulationRunner : IDisposable
     /// <summary>Rewrite the present from the frame <paramref name="framesBack"/> frames ago:
     /// published as a NEW snapshot (a restore-tick — immutability of published worlds holds),
     /// with recorded frames after that point discarded. The next ticks then diverge from the
-    /// restored state (re-aim the cue, resume, watch a new future). Call while paused.</summary>
-    public void RestoreFromRewind(int framesBack)
+    /// restored state (re-aim the cue, resume, watch a new future). Call while paused. False
+    /// when nothing was restored (bad frame, or every world genuinely pinned) — callers must
+    /// not treat the rewind as applied.</summary>
+    public bool RestoreFromRewind(int framesBack)
     {
-        if (framesBack <= 0 || !_rewind.TryGet(framesBack, _restoreScratch)) return;
+        if (framesBack <= 0 || !_rewind.TryGet(framesBack, _restoreScratch)) return false;
 
         World current;
         World write;
         lock (_lock)
         {
-            if (_pool.Count == 0) return;
+            if (_pool.Count == 0)
+            {
+                PruneUnlocked(); // same starvation hardening as TickOnce: publish-time pruning
+            }                    // is not enough when the renderer holds pins across frames
+            if (_pool.Count == 0)
+            {
+                return false;
+            }
             current = _live[^1].World;
             write = _pool.Pop();
         }
@@ -208,6 +217,7 @@ public sealed class SimulationRunner : IDisposable
             _live.Add(new Snapshot { World = write, Frame = ++_frame });
             PruneUnlocked();
         }
+        return true;
     }
     private readonly List<RewoundBall> _restoreScratch = new();
 

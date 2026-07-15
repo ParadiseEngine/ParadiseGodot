@@ -130,7 +130,8 @@ public sealed class RuntimeLoop : IDisposable
         {
             var parts = auto.Split(',');
             if (parts.Length == 2 &&
-                float.TryParse(parts[0], out var vx) && float.TryParse(parts[1], out var vz))
+                float.TryParse(parts[0], System.Globalization.CultureInfo.InvariantCulture, out var vx) &&
+                float.TryParse(parts[1], System.Globalization.CultureInfo.InvariantCulture, out var vz))
             {
                 _runner.EnqueueBallImpulse(autoCue, new Vector3(vx, 0f, vz));
             }
@@ -148,7 +149,13 @@ public sealed class RuntimeLoop : IDisposable
             {
                 if (_rewindScrub > 0)
                 {
-                    _runner.RestoreFromRewind(_rewindScrub);
+                    if (!_runner.RestoreFromRewind(_rewindScrub))
+                    {
+                        // Nothing was rewound (transient pin pressure) — keep the scrub and the
+                        // staged strike, stay paused, and let the player resume again.
+                        Console.WriteLine("[Pool] rewind restore did not apply — try resuming again.");
+                        return;
+                    }
                     _rewindScrub = 0;
                 }
                 if (_stagedImpulse is { } staged && _cueBall is { } cue)
@@ -482,14 +489,19 @@ public sealed class RuntimeLoop : IDisposable
                     Intensity = glow * BallLightIntensity,
                 };
 
-                // Rising glow edge = a fresh hit: positioned impact sound, rate-limited per ball.
-                if (glow > _lastBallGlow[i] + 0.15f && _renderClock - _lastBallSoundAt[i] > 0.15 && _audio is not null)
+                // Rising glow edge = a fresh hit: positioned impact sound, rate-limited per
+                // ball. Scrubbed history is display-only — replaying a recorded spike must not
+                // re-fire the sound or pollute the edge tracker.
+                if (!scrubbed)
                 {
-                    _lastBallSoundAt[i] = _renderClock;
-                    _audio.Sink.SetSourcePosition(audioSource, position);
-                    _audio.Sink.PostEvent(CollisionAudioEvent, audioSource);
+                    if (glow > _lastBallGlow[i] + 0.15f && _renderClock - _lastBallSoundAt[i] > 0.15 && _audio is not null)
+                    {
+                        _lastBallSoundAt[i] = _renderClock;
+                        _audio.Sink.SetSourcePosition(audioSource, position);
+                        _audio.Sink.PostEvent(CollisionAudioEvent, audioSource);
+                    }
+                    _lastBallGlow[i] = glow;
                 }
-                _lastBallGlow[i] = glow;
             }
         }
 

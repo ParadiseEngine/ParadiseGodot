@@ -317,16 +317,16 @@ internal static class Program
                     {
                         // The cue ball claims the click first (start aiming); then UI (panel
                         // clicks route through the sim); unconsumed clicks fall to click-to-move.
-                        if (loop.TryBeginAim(new Vector2(ev.button.x, ev.button.y) * uiScale))
+                        if (!loop.TryBeginAim(new Vector2(ev.button.x, ev.button.y) * uiScale))
                         {
-                        }
-                        else if (ui is not null || imgui is not null)
-                        {
-                            loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
-                        }
-                        else
-                        {
-                            loop.TryClickMove(new Vector2(ev.button.x, ev.button.y));
+                            if (ui is not null || imgui is not null)
+                            {
+                                loop.EnqueueUiEvent(ParadiseGame.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                            }
+                            else
+                            {
+                                loop.TryClickMove(new Vector2(ev.button.x, ev.button.y));
+                            }
                         }
                     }
                 }
