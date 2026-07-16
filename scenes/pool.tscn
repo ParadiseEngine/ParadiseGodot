@@ -65,6 +65,7 @@ shader_parameter/color_b = Color(0.55, 0.6, 0.8, 1)
 shader_parameter/noise_scale = 6.0
 shader_parameter/flow_speed = 0.25
 shader_parameter/emissive_strength = 1.0
+shader_parameter/transmission = 0.0
 [sub_resource type="ShaderMaterial" id="proc_1"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 5
@@ -73,6 +74,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 6.0
 shader_parameter/flow_speed = 0.5
 shader_parameter/emissive_strength = 1.0
+shader_parameter/transmission = 0.0
 [sub_resource type="ShaderMaterial" id="proc_2"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 7
@@ -81,6 +83,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 8.0
 shader_parameter/flow_speed = 0.3
 shader_parameter/emissive_strength = 1.5
+shader_parameter/transmission = 0.35
 [sub_resource type="ShaderMaterial" id="proc_3"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 7
@@ -89,6 +92,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 8.0
 shader_parameter/flow_speed = 0.3
 shader_parameter/emissive_strength = 1.5
+shader_parameter/transmission = 0.3
 [sub_resource type="ShaderMaterial" id="proc_4"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 7
@@ -97,6 +101,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 8.0
 shader_parameter/flow_speed = 0.3
 shader_parameter/emissive_strength = 1.5
+shader_parameter/transmission = 0.4
 [sub_resource type="ShaderMaterial" id="proc_5"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 1
@@ -105,6 +110,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 7.0
 shader_parameter/flow_speed = 0.5
 shader_parameter/emissive_strength = 5.0
+shader_parameter/transmission = 0.0
 [sub_resource type="ShaderMaterial" id="proc_6"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 3
@@ -113,6 +119,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 7.0
 shader_parameter/flow_speed = 0.2
 shader_parameter/emissive_strength = 2.0
+shader_parameter/transmission = 0.65
 [sub_resource type="ShaderMaterial" id="proc_7"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 5
@@ -121,6 +128,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 6.0
 shader_parameter/flow_speed = 0.45
 shader_parameter/emissive_strength = 1.0
+shader_parameter/transmission = 0.0
 [sub_resource type="ShaderMaterial" id="proc_8"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 6
@@ -129,6 +137,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 6.0
 shader_parameter/flow_speed = 0.3
 shader_parameter/emissive_strength = 1.0
+shader_parameter/transmission = 0.0
 [sub_resource type="ShaderMaterial" id="proc_9"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 4
@@ -137,6 +146,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 9.0
 shader_parameter/flow_speed = 0.1
 shader_parameter/emissive_strength = 1.5
+shader_parameter/transmission = 0.6
 [sub_resource type="ShaderMaterial" id="proc_10"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 3
@@ -145,6 +155,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 8.0
 shader_parameter/flow_speed = 0.2
 shader_parameter/emissive_strength = 2.0
+shader_parameter/transmission = 0.42
 [sub_resource type="ShaderMaterial" id="proc_11"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 5
@@ -153,6 +164,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 6.0
 shader_parameter/flow_speed = 0.4
 shader_parameter/emissive_strength = 1.0
+shader_parameter/transmission = 0.92
 [sub_resource type="ShaderMaterial" id="proc_12"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 2
@@ -161,6 +173,7 @@ shader_parameter/color_b = Color(0.32, 0.3, 0.34, 1)
 shader_parameter/noise_scale = 4.0
 shader_parameter/flow_speed = 0.3
 shader_parameter/emissive_strength = 1.0
+shader_parameter/transmission = 0.0
 [sub_resource type="ShaderMaterial" id="proc_13"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 5
@@ -169,6 +182,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 6.0
 shader_parameter/flow_speed = 0.4
 shader_parameter/emissive_strength = 1.0
+shader_parameter/transmission = 0.0
 [sub_resource type="ShaderMaterial" id="proc_14"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 8
@@ -177,6 +191,7 @@ shader_parameter/color_b = Color(0, 0, 0, 1)
 shader_parameter/noise_scale = 7.0
 shader_parameter/flow_speed = 0.2
 shader_parameter/emissive_strength = 2.5
+shader_parameter/transmission = 0.3
 [sub_resource type="ShaderMaterial" id="proc_15"]
 shader = ExtResource("4_procshader")
 shader_parameter/kind = 9
@@ -185,6 +200,7 @@ shader_parameter/color_b = Color(0.6, 0.2, 0.4, 1)
 shader_parameter/noise_scale = 6.0
 shader_parameter/flow_speed = 0.3
 shader_parameter/emissive_strength = 1.5
+shader_parameter/transmission = 0.35
 
 ; Procedural animated ball materials — the .NET runtime shader generates each surface from a noise
 ; recipe (metadata/material_kind) animated by time. albedo_color is the Godot-editor fallback; the
@@ -252,9 +268,10 @@ metadata/emissive_strength = 5.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_6"]
 next_pass = SubResource("proc_6")
-albedo_color = Color(0.16, 0.55, 0.4, 1)
+transparency = 1
+albedo_color = Color(0.16, 0.55, 0.4, 0.45)
 roughness = 0.22
-metadata/transmission = 0.4
+metadata/transmission = 0.65
 metadata/material_kind = "jade"
 metadata/noise_scale = 7.0
 metadata/flow_speed = 0.2
@@ -297,15 +314,17 @@ metadata/noise_scale = 8.0
 metadata/flow_speed = 0.2
 metadata/emissive_strength = 2.0
 
+; Ball11 = clear glass — no procedural recipe (kind 0), just a high-transmission clear material.
+; Godot renders the transparent StandardMaterial3D directly (no next_pass); the .NET runtime's
+; glass path (applyGlassResponse) reads metadata/transmission.
 [sub_resource type="StandardMaterial3D" id="mat_pool_11"]
-next_pass = SubResource("proc_11")
-albedo_color = Color(0.92, 0.92, 0.94, 1)
-metallic = 1.0
-roughness = 0.1
-metadata/material_kind = "molten_metal"
-metadata/color_a = Color(0.92, 0.92, 0.95, 1)
-metadata/noise_scale = 6.0
-metadata/flow_speed = 0.4
+transparency = 1
+albedo_color = Color(0.72, 0.83, 0.95, 0.18)
+metallic = 0.0
+roughness = 0.02
+refraction_enabled = true
+refraction_scale = 0.09
+metadata/transmission = 0.92
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_12"]
 next_pass = SubResource("proc_12")

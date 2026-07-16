@@ -2,14 +2,14 @@
   "Path": "materials/mat_pool_11.json",
   "Name": "pool",
   "BaseColorFactor": {
-    "r": 0.827451,
-    "g": 0.827451,
-    "b": 0.87058824,
-    "a": 1
+    "r": 0.47843137,
+    "g": 0.654902,
+    "b": 0.8901961,
+    "a": 0.18039216
   },
   "BaseColorTexture": null,
-  "MetallicFactor": 1,
-  "RoughnessFactor": 0.1,
+  "MetallicFactor": 0,
+  "RoughnessFactor": 0.02,
   "MetallicRoughnessTexture": null,
   "EmissiveFactor": {
     "r": 0,
@@ -22,17 +22,17 @@
   "NormalTexture": null,
   "OcclusionStrength": 1,
   "OcclusionTexture": null,
-  "AlphaMode": "Opaque",
+  "AlphaMode": "Blend",
   "RenderQueue": -1,
-  "TransmissionFactor": 0,
-  "MaterialKind": "molten_metal",
+  "TransmissionFactor": 0.92,
+  "MaterialKind": "",
   "EmissiveStrength": 1,
-  "NoiseScale": 6,
-  "FlowSpeed": 0.4,
+  "NoiseScale": 1,
+  "FlowSpeed": 1,
   "ColorA": {
-    "r": 0.827451,
-    "g": 0.827451,
-    "b": 0.8901961,
+    "r": 1,
+    "g": 1,
+    "b": 1,
     "a": 1
   },
   "ColorB": {
