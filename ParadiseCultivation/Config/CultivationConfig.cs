@@ -16,8 +16,10 @@ public static class ConfigFiles
     public const string Dialogue = "dialogue.json";
     /// <summary>Every user-facing string (UI labels, message templates, intro, flavor).</summary>
     public const string Text = "text.json";
+    /// <summary>The optional online intelligence layer (model, budgets, prompt templates).</summary>
+    public const string Llm = "llm.json";
 
-    public static readonly string[] All = [Core, Names, Dialogue, Text];
+    public static readonly string[] All = [Core, Names, Dialogue, Text, Llm];
 }
 
 /// <summary>Root of the composed cultivation config — every gameplay tunable and every piece
@@ -46,8 +48,12 @@ public sealed record CultivationConfig
     public required PlayerConfig Player { get; init; }
     public required TradeConfig Trade { get; init; }
     public required SectConfig Sect { get; init; }
+    public required CompanionConfig Companion { get; init; }
     public required SecretRealmConfig SecretRealm { get; init; }
+    public required WorldEventsConfig WorldEvents { get; init; }
     public required CombatConfig Combat { get; init; }
+    /// <summary>The optional online intelligence layer (see <see cref="ILlmTextService"/>).</summary>
+    public required LlmConfig Llm { get; init; }
     public required DialogueConfig Dialogue { get; init; }
     public required NamesConfig Names { get; init; }
     public required UiConfig Ui { get; init; }
@@ -78,6 +84,7 @@ public sealed record CultivationConfig
         root["names"] = Parse(ConfigFiles.Names);
         root["dialogue"] = Parse(ConfigFiles.Dialogue);
         root["text"] = Parse(ConfigFiles.Text);
+        root["llm"] = Parse(ConfigFiles.Llm);
 
         return root.Deserialize(CultivationJsonContext.Default.CultivationConfig)
             ?? throw new InvalidDataException("cultivation config deserialized to null");
@@ -221,6 +228,42 @@ public sealed record SectConfig
     /// <summary>Ascending by <see cref="SectRankConfig.MinRealmIndex"/>; everyone joins at
     /// rank 0 and monthly settlement promotes through every rank the realm qualifies for.</summary>
     public required SectRankConfig[] Ranks { get; init; }
+    /// <summary>Mission archetypes; the month's board entry is hash-picked per (world seed,
+    /// sect site, month) — the secret-realm/event pattern, nothing saved.</summary>
+    public required SectMissionConfig[] Missions { get; init; }
+    /// <summary>Game days one mission takes.</summary>
+    public required int MissionDays { get; init; }
+    /// <summary>Contribution cost of one breakthrough pill at the sect exchange.</summary>
+    public required int ExchangePillContribution { get; init; }
+    /// <summary>Contribution cost of clearing ALL injury months at the sect exchange.</summary>
+    public required int ExchangeHealContribution { get; init; }
+}
+
+public sealed record SectMissionConfig
+{
+    public required string Name { get; init; }
+    /// <summary>Contribution points on success.</summary>
+    public required int ContributionReward { get; init; }
+    public required float SuccessChance { get; init; }
+    /// <summary>Injury months on failure (the attempt spends the month either way).</summary>
+    public required int FailureInjuryMonths { get; init; }
+}
+
+/// <summary>Dao companions: the top of the affection ladder made mechanical — a mutual bond
+/// gated on both-way affection and realm proximity, granting a dual-cultivation bonus while
+/// training at the companion's side. Reuses the affection machinery whole.</summary>
+public sealed record CompanionConfig
+{
+    /// <summary>BOTH affection directions must reach this to propose.</summary>
+    public required float MinAffectionBoth { get; init; }
+    /// <summary>Maximum |player realm − npc realm| to propose.</summary>
+    public required int MaxRealmGap { get; init; }
+    /// <summary>Game days the bonding ceremony takes.</summary>
+    public required int CeremonyDays { get; init; }
+    /// <summary>Cultivation-gain multiplier bonus while cultivating at the companion's site.</summary>
+    public required float DualCultivationBonus { get; init; }
+    /// <summary>Applied to BOTH affection directions on walking away (negative).</summary>
+    public required float LeaveAffectionPenalty { get; init; }
 }
 
 public sealed record SectRankConfig
@@ -260,6 +303,59 @@ public sealed record SecretRealmConfig
     public required int FailureInjuryMonths { get; init; }
     /// <summary>Chat text containing any of these reveals the open realm's whereabouts.</summary>
     public required string[] RumorKeywords { get; init; }
+}
+
+/// <summary>Random world events: a deterministic hash schedule (the secret-realm pattern —
+/// pure function of world seed + month, nothing saved) where each event month applies one
+/// config multiplier to a rules quantity and writes an authored chronicle line. The optional
+/// LLM layer may rewrite the narration; the mechanics never leave this config.</summary>
+public sealed record WorldEventsConfig
+{
+    /// <summary>Percent chance (0–100) that a given month hosts an event.</summary>
+    public required int MonthlyChancePercent { get; init; }
+    /// <summary>First eligible month index (keeps the opening month quiet).</summary>
+    public required int FirstEventMonth { get; init; }
+    public required WorldEventArchetypeConfig[] Archetypes { get; init; }
+}
+
+public sealed record WorldEventArchetypeConfig
+{
+    public required string Name { get; init; }
+    /// <summary>Which rules quantity the event bends (see <see cref="WorldEventEffect"/>).</summary>
+    public required WorldEventEffect Effect { get; init; }
+    /// <summary>Multiplier applied to the affected quantity for the event month.</summary>
+    public required float Magnitude { get; init; }
+    /// <summary>Relative weight in the archetype pick.</summary>
+    public required int Weight { get; init; }
+    /// <summary>The authored chronicle sentence for the event month (LLM may rewrite it).</summary>
+    public required string LogLine { get; init; }
+}
+
+/// <summary>The optional online intelligence layer: an LLM rewrites NPC replies and event
+/// narration (strings only — the rules layer still owns every number). Enabled requires a
+/// credential in the environment; without one the game runs fully offline as before.</summary>
+public sealed record LlmConfig
+{
+    public required bool Enabled { get; init; }
+    /// <summary>Model id on the configured OpenAI-compatible endpoint (e.g. gpt-5-mini).</summary>
+    public required string Model { get; init; }
+    public required int MaxTokens { get; init; }
+    public required int TimeoutSeconds { get; init; }
+    /// <summary>How many recent memory lines the dialogue prompt includes.</summary>
+    public required int RecentMemories { get; init; }
+    /// <summary>Joins the recent memory lines inside the prompt.</summary>
+    public required string MemorySeparator { get; init; }
+    /// <summary>Slots: {0} npc name, {1} personality, {2} npc realm, {3} player name,
+    /// {4} player realm, {5} affection tier, {6} max reply chars, {7} affection budget
+    /// (±<see cref="InteractionConfig.MaxProposedAffectionDelta"/>). Literal JSON braces in
+    /// the template must be doubled ({{ }}) — it goes through string.Format.</summary>
+    public required string DialogueSystem { get; init; }
+    /// <summary>Slots: {0} joined recent memories, {1} the player's line.</summary>
+    public required string DialogueUser { get; init; }
+    /// <summary>Slots: {0} max chars.</summary>
+    public required string EventSystem { get; init; }
+    /// <summary>Slots: {0} date, {1} event name, {2} the authored chronicle line.</summary>
+    public required string EventUser { get; init; }
 }
 
 /// <summary>Semi-auto wilderness combat (the doc's P2 encounter): exploring can provoke a

@@ -376,7 +376,27 @@
         "minRealmIndex": 4,
         "monthlyStipendStones": 40
       }
-    ]
+    ],
+    // The contribution economy: one hash-scheduled mission per month per sect, contribution
+    // exchanged for pills/healing at one's own mountain gate.
+    "missions": [
+      { "name": "巡山护法", "contributionReward": 20, "successChance": 0.9, "failureInjuryMonths": 1 },
+      { "name": "采集灵药", "contributionReward": 25, "successChance": 0.8, "failureInjuryMonths": 1 },
+      { "name": "护送商队", "contributionReward": 35, "successChance": 0.7, "failureInjuryMonths": 2 },
+      { "name": "降伏妖兽", "contributionReward": 50, "successChance": 0.55, "failureInjuryMonths": 3 }
+    ],
+    "missionDays": 8,
+    "exchangePillContribution": 60,
+    "exchangeHealContribution": 40
+  },
+  // Dao companions: propose at 倾心 (700) both ways; the bond itself is the 道侣 tier's
+  // mechanical meaning. Dual cultivation applies while training at the companion's site.
+  "companion": {
+    "minAffectionBoth": 700,
+    "maxRealmGap": 2,
+    "ceremonyDays": 10,
+    "dualCultivationBonus": 0.4,
+    "leaveAffectionPenalty": -300
   },
   "secretRealm": {
     "firstOpenMonth": 2,
@@ -397,6 +417,20 @@
       "秘境",
       "江湖",
       "消息"
+    ]
+  },
+  // Random world events: a hash-scheduled monthly anomaly (secret-realm pattern — pure
+  // function of world seed + month, nothing saved). Each archetype bends ONE rules quantity
+  // by a multiplier for its month and writes an authored chronicle line (the optional LLM
+  // layer may restyle the line; the numbers never leave this file).
+  "worldEvents": {
+    "monthlyChancePercent": 25,
+    "firstEventMonth": 1,
+    "archetypes": [
+      { "name": "灵气潮汐", "effect": "cultivationGain", "magnitude": 1.5, "weight": 3, "logLine": "天地灵气如潮水般涌动，修行者纷纷闭关，唯恐错过这千载良机。" },
+      { "name": "妖兽暴动", "effect": "encounterChance", "magnitude": 2.0, "weight": 2, "logLine": "群山震动，妖兽出没无常，行商旅人皆绕道而行。" },
+      { "name": "药市大集", "effect": "herbPrice", "magnitude": 1.6, "weight": 2, "logLine": "四方药商云集坊市，灵药价格水涨船高。" },
+      { "name": "丹会盛事", "effect": "pillPrice", "magnitude": 0.7, "weight": 2, "logLine": "各派丹师设炉演道，丹药之价一时大跌。" }
     ]
   },
   "combat": {

@@ -82,6 +82,15 @@ public partial struct PlayerData
     /// <summary>Months of halved cultivation gain remaining (failed-breakthrough injury).</summary>
     public int InjuryMonths;
     public double LifespanYears;
+    /// <summary>NpcId of the player's dao companion, or -1. Like <see cref="SectSiteIndex"/>,
+    /// every spawn/load must set it explicitly (zero default would mean "bonded to npc 0").</summary>
+    public int CompanionNpcId;
+    /// <summary>Sect contribution points — missions earn, the exchange spends; reset to 0
+    /// on leaving the sect.</summary>
+    public int SectContribution;
+    /// <summary>Absolute month index of the last sect-mission attempt, or -1 (one per month;
+    /// set explicitly at spawn/load — the zero default would block month 0).</summary>
+    public long LastMissionMonth;
 }
 
 /// <summary>The realm parameters <see cref="SettlementSystem"/> needs per NPC month.</summary>

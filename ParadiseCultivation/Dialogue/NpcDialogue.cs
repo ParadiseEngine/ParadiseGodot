@@ -60,6 +60,20 @@ public static class ProposalRules
         }
         return sb.ToString();
     }
+
+    /// <summary>Drop characters the host's font atlas never baked (ASCII always passes —
+    /// the atlas includes the default range). Only LLM output can carry unauthored glyphs;
+    /// authored template text is, by construction, part of the glyph source.</summary>
+    public static string FilterToGlyphs(string reply, IReadOnlySet<char>? glyphs)
+    {
+        if (glyphs is null) return reply;
+        var sb = new StringBuilder(reply.Length);
+        foreach (var c in reply)
+        {
+            if (c < 0x80 || glyphs.Contains(c)) sb.Append(c);
+        }
+        return sb.ToString();
+    }
 }
 
 /// <summary>Deterministic offline proposer: keyword intents first (trade / sect joining /

@@ -49,10 +49,10 @@ public class TimeAndCultivationTests
         // No ref locals in async methods — mutate through the ref return, compare on copies.
         world.GetComponent<PlayerData>(runner.Player).SpiritRootGrade = 0;
         var common = world.GetComponent<PlayerData>(runner.Player);
-        var baseline = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in common);
+        var baseline = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in common, runner.Day);
         world.GetComponent<PlayerData>(runner.Player).SpiritRootGrade = Fixture.Config.SpiritRoots.Grades.Length - 1;
         var heavenly = world.GetComponent<PlayerData>(runner.Player);
-        var best = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in heavenly);
+        var best = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in heavenly, runner.Day);
 
         var multiplier = Fixture.Config.SpiritRoots.Grades[^1].Multiplier;
         await Assert.That(Math.Abs(best - baseline * multiplier)).IsLessThan(0.001);

@@ -15,8 +15,9 @@ public sealed record SaveData
     /// 1…CurrentVersion. v2: trade state (player pills + per-town pill stock).
     /// v3: sect membership (site + rank). v4: secret-realm knowledge (rumor heard + trial
     /// spent — the schedule itself re-derives from the seed). v5: the pending beast
-    /// encounter, so saving mid-standoff is honest.</summary>
-    public const int CurrentVersion = 5;
+    /// encounter, so saving mid-standoff is honest. v6: dao companion + sect economy
+    /// (contribution, last mission month).</summary>
+    public const int CurrentVersion = 6;
 
     public required int Version { get; init; }
     public required int Seed { get; init; }
@@ -67,6 +68,14 @@ public sealed record SavedPlayer
     public int SectRank { get; init; }
     public required int InjuryMonths { get; init; }
     public required double LifespanYears { get; init; }
+    /// <summary>Dao companion's NpcId. Optional since v6 — null means unbonded (NULLABLE
+    /// like every migration field; 0 is a valid NpcId).</summary>
+    public int? CompanionNpcId { get; init; }
+    /// <summary>Sect contribution points. Optional since v6 — absent defaults to 0.</summary>
+    public int SectContribution { get; init; }
+    /// <summary>Month of the last sect-mission attempt. Optional since v6 — null means
+    /// never (month 0 is valid, so nullable, not a sentinel initializer).</summary>
+    public long? LastMissionMonth { get; init; }
 }
 
 public sealed record SavedNpc

@@ -56,10 +56,12 @@ public static class CultivationRules
     public static string Percent(CultivationConfig config, double fraction) =>
         F(config.Text.Ui.PercentFormat, (int)Math.Round(fraction * 100.0));
 
-    /// <summary>Player points per cultivated month: realm base × spirit root × vein bonus,
+    /// <summary>Player points per cultivated month: realm base × spirit root × vein bonus ×
+    /// the day's world-event multiplier × dual cultivation (when at the companion's side),
     /// halved while injured.</summary>
     public static double MonthlyCultivationGain(
-        CultivationConfig config, WorldMap map, in Cultivator cultivator, in PlayerData player)
+        CultivationConfig config, WorldMap map, in Cultivator cultivator, in PlayerData player, long day,
+        bool companionPresent = false)
     {
         var realm = config.Realms[cultivator.RealmIndex];
         var gain = realm.MonthlyBasePoints
@@ -70,6 +72,11 @@ public static class CultivationRules
         {
             gain *= 1f + config.Sect.MemberCultivationBonus; // training at one's own mountain
         }
+        if (companionPresent)
+        {
+            gain *= 1f + config.Companion.DualCultivationBonus; // dual cultivation
+        }
+        gain *= WorldEvents.Multiplier(config, map.GenerationSeed, day, WorldEventEffect.CultivationGain);
         return player.InjuryMonths > 0 ? gain * 0.5 : gain;
     }
 
@@ -102,13 +109,35 @@ public static class CultivationRules
         return 1f + (unit * 2f - 1f) * (config.Trade.PriceSpreadPercent / 100f);
     }
 
-    /// <summary>Stones this town pays per herb (base × town factor, floored at 1).</summary>
-    public static int HerbSellStones(CultivationConfig config, WorldMap map, int siteIndex) =>
-        Math.Max(1, (int)MathF.Round(config.Trade.HerbSellStones * TownPriceMultiplier(config, map, siteIndex)));
+    /// <summary>Stones this town pays per herb (base × town factor × the day's world-event
+    /// multiplier, floored at 1).</summary>
+    public static int HerbSellStones(CultivationConfig config, WorldMap map, int siteIndex, long day) =>
+        Math.Max(1, (int)MathF.Round(config.Trade.HerbSellStones * TownPriceMultiplier(config, map, siteIndex)
+            * WorldEvents.Multiplier(config, map.GenerationSeed, day, WorldEventEffect.HerbPrice)));
 
-    /// <summary>Stones one breakthrough pill costs at this town.</summary>
-    public static int PillCostStones(CultivationConfig config, WorldMap map, int siteIndex) =>
-        Math.Max(1, (int)MathF.Round(config.Trade.PillCostStones * TownPriceMultiplier(config, map, siteIndex)));
+    /// <summary>Stones one breakthrough pill costs at this town (event-month aware).</summary>
+    public static int PillCostStones(CultivationConfig config, WorldMap map, int siteIndex, long day) =>
+        Math.Max(1, (int)MathF.Round(config.Trade.PillCostStones * TownPriceMultiplier(config, map, siteIndex)
+            * WorldEvents.Multiplier(config, map.GenerationSeed, day, WorldEventEffect.PillPrice)));
+
+    /// <summary>The month's sect-mission archetype index for a sect site — hash-derived from
+    /// (world seed, site, month) like the secret-realm/event schedules: deterministic per
+    /// world, nothing saved, every load agrees. -1 when no missions are authored.</summary>
+    public static int SectMissionIndex(CultivationConfig config, int worldSeed, int siteIndex, long monthIndex)
+    {
+        var missions = config.Sect.Missions;
+        if (missions.Length == 0)
+        {
+            return -1;
+        }
+        var h = (uint)worldSeed * 2654435761u
+            ^ ((uint)siteIndex + 0x632BE5ABu) * 2246822519u
+            ^ ((uint)monthIndex + 0x9E3779B9u) * 3266489917u;
+        h ^= h >> 15;
+        h *= 2246822519u;
+        h ^= h >> 13;
+        return (int)(h % (uint)missions.Length);
+    }
 
     /// <summary>Plan a journey (terrain-cost A* on foot / straight-line flight); null when
     /// the destination is unreachable. Thin alias over <see cref="Pathfinding.Plan"/>.</summary>

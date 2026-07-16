@@ -77,7 +77,14 @@ namespace ParadiseGodot.Runtime
             {
                 // Godot play mode writes saves under user://, not the process cwd.
                 SaveRoot = ProjectSettings.GlobalizePath($"user://{config.Save.Directory}"),
+                GlyphSource = glyphSource, // LLM text is filtered to the baked glyph set
             };
+            // Saved panel settings win over the environment; either way no key = fully offline.
+            if (OpenAiLlmClient.TryCreate(config.Llm, LlmSettings.Resolve(_runner.SaveRoot)) is { } llmClient)
+            {
+                _runner.Llm = llmClient; // the runner owns and disposes the client
+                GD.Print($"[CultivationBridge] LLM layer online ({llmClient.Model} @ {llmClient.BaseUrl}).");
+            }
             _imgui.AddDraw(new CultivationUi(_runner).Draw);
             _runner.UiInput = _imgui.Input; // the sim thread owns the ImGui frame from here on
 

@@ -63,6 +63,8 @@ public sealed record UiTextConfig
     public required string StonesHerbsLine { get; init; }
     /// <summary>{0} months remaining.</summary>
     public required string InjuredLine { get; init; }
+    /// <summary>{0} current world-event name (status panel; shown only on event months).</summary>
+    public required string EventLine { get; init; }
     /// <summary>{0} bonus percent (already formatted, e.g. 20%).</summary>
     public required string OnVeinLine { get; init; }
     /// <summary>{0} days remaining.</summary>
@@ -123,6 +125,30 @@ public sealed record UiTextConfig
     /// <summary>{0} sect name, {1} rank name (status panel).</summary>
     public required string StatusSectLine { get; init; }
 
+    /// <summary>{0} contribution points (member sect section).</summary>
+    public required string ContributionLine { get; init; }
+    /// <summary>{0} mission name, {1} contribution reward, {2} success chance (formatted).</summary>
+    public required string MissionLine { get; init; }
+    public required string MissionDoneLine { get; init; }
+    public required string MissionButton { get; init; }
+    /// <summary>{0} contribution cost.</summary>
+    public required string ExchangePillButton { get; init; }
+    /// <summary>{0} contribution cost.</summary>
+    public required string ExchangeHealButton { get; init; }
+
+    /// <summary>Tag next to the companion's name in the NPC panel.</summary>
+    public required string CompanionTag { get; init; }
+    public required string ProposeCompanionButton { get; init; }
+    public required string LeaveCompanionButton { get; init; }
+    /// <summary>{0} their affection, {1} yours, {2} required both ways.</summary>
+    public required string CompanionReqAffectionLine { get; init; }
+    /// <summary>{0} max realm gap.</summary>
+    public required string CompanionReqRealmLine { get; init; }
+    /// <summary>{0} companion name (status panel).</summary>
+    public required string StatusCompanionLine { get; init; }
+    /// <summary>{0} bonus (formatted percent) — status panel while dual-cultivating.</summary>
+    public required string DualCultivationLine { get; init; }
+
     public required string MarketTitle { get; init; }
     /// <summary>{0} player herbs, {1} stones per herb at this town.</summary>
     public required string MarketHerbLine { get; init; }
@@ -149,6 +175,18 @@ public sealed record UiTextConfig
     /// <summary>{0} age years, {1} lifespan years.</summary>
     public required string NpcAgeLine { get; init; }
     public required string TheyRemember { get; init; }
+
+    public required string LlmTitle { get; init; }
+    /// <summary>{0} model id, {1} endpoint root.</summary>
+    public required string LlmOnlineLine { get; init; }
+    public required string LlmOfflineLine { get; init; }
+    public required string LlmUrlLabel { get; init; }
+    public required string LlmKeyLabel { get; init; }
+    public required string LlmModelLabel { get; init; }
+    /// <summary>Hint under the model field; {0} the authored default model.</summary>
+    public required string LlmModelHint { get; init; }
+    public required string LlmApplyButton { get; init; }
+    public required string LlmClearButton { get; init; }
 
     public required string ChronicleTitle { get; init; }
     public required string DeathTitle { get; init; }
@@ -236,6 +274,9 @@ public sealed record MessageTextConfig
     /// <summary>{0} beast, {1} injury months.</summary>
     public required string FleeFailMsg { get; init; }
 
+    /// <summary>{0} event name, {1} the archetype's authored chronicle line.</summary>
+    public required string WorldEventLog { get; init; }
+
     /// <summary>{0} realm name.</summary>
     public required string RealmOpenLog { get; init; }
     /// <summary>{0} realm name, {1} direction, {2} distance (li), {3} months remaining.</summary>
@@ -267,6 +308,41 @@ public sealed record MessageTextConfig
     public required string LeaveSectLog { get; init; }
     /// <summary>{0} player name, {1} sect name, {2} new rank name.</summary>
     public required string SectPromoteLog { get; init; }
+
+    public required string MissionNotHereMsg { get; init; }
+    public required string MissionDoneThisMonthMsg { get; init; }
+    /// <summary>{0} mission name, {1} contribution earned, {2} total contribution.</summary>
+    public required string MissionSuccessMsg { get; init; }
+    /// <summary>{0} mission name, {1} injury months.</summary>
+    public required string MissionFailMsg { get; init; }
+    /// <summary>{0} contribution cost.</summary>
+    public required string ExchangeNeedMsg { get; init; }
+    /// <summary>{0} contribution spent, {1} remaining.</summary>
+    public required string ExchangePillDoneMsg { get; init; }
+    /// <summary>{0} contribution spent, {1} remaining.</summary>
+    public required string ExchangeHealDoneMsg { get; init; }
+    public required string ExchangeNoInjuryMsg { get; init; }
+
+    /// <summary>{0} player name, {1} companion name.</summary>
+    public required string CompanionBondLog { get; init; }
+    /// <summary>{0} companion name.</summary>
+    public required string CompanionBondMsg { get; init; }
+    /// <summary>{0} player name.</summary>
+    public required string CompanionBondMemory { get; init; }
+    /// <summary>{0} required affection both ways.</summary>
+    public required string CompanionRefuseAffectionMsg { get; init; }
+    /// <summary>{0} max realm gap.</summary>
+    public required string CompanionRefuseRealmMsg { get; init; }
+    /// <summary>{0} current companion's name.</summary>
+    public required string CompanionAlreadyMsg { get; init; }
+    /// <summary>{0} player name, {1} companion name.</summary>
+    public required string CompanionLeaveLog { get; init; }
+    /// <summary>{0} former companion name.</summary>
+    public required string CompanionLeaveMsg { get; init; }
+    /// <summary>{0} player name.</summary>
+    public required string CompanionLeaveMemory { get; init; }
+    /// <summary>{0} companion name — chronicle grief line when the companion dies.</summary>
+    public required string CompanionDeathLog { get; init; }
 
     public required string TradeNoMarketMsg { get; init; }
     /// <summary>{0} herbs sold, {1} stones received.</summary>

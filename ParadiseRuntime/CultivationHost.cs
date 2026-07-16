@@ -32,6 +32,13 @@ internal static class CultivationHost
         // Glyph source: every authored character across ALL config files gets a glyph.
         s_glyphSource = string.Concat(ConfigFiles.All.Select(ReadPart));
         using var runner = new CultivationRunner(config, seed, sizeIndex);
+        runner.GlyphSource = s_glyphSource; // LLM text is filtered to the baked glyph set
+        // Saved panel settings win over the environment; either way no key = fully offline.
+        if (OpenAiLlmClient.TryCreate(config.Llm, LlmSettings.Resolve(runner.SaveRoot)) is { } llm)
+        {
+            runner.Llm = llm; // the runner owns and disposes the client
+            Console.WriteLine($"[Cultivation] LLM layer online ({llm.Model} @ {llm.BaseUrl}).");
+        }
         Console.WriteLine(
             $"[Cultivation] seed {seed}: {runner.Map.Width}x{runner.Map.Height} world, " +
             $"{runner.Map.Sites.Count} sites, {runner.Npcs.Count} cultivators.");

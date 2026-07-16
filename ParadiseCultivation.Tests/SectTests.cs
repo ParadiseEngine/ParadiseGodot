@@ -158,8 +158,8 @@ public class SectTests
         var member = world.GetComponent<PlayerData>(runner.Player);
         var outsider = member with { SectSiteIndex = -1 };
 
-        var memberGain = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in member);
-        var outsiderGain = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in outsider);
+        var memberGain = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in member, runner.Day);
+        var outsiderGain = CultivationRules.MonthlyCultivationGain(Fixture.Config, runner.Map, in cultivator, in outsider, runner.Day);
 
         // Ratio compare with a float-friendly tolerance — the gain pipeline rounds per step.
         var ratio = memberGain / outsiderGain;

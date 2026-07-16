@@ -48,7 +48,7 @@ public class TradeTests
         using var runner = Fixture.NewRunner(); // spawns at the home town
         SetHerbs(runner, 10);
         var siteIndex = PlayerSiteIndex(runner);
-        var price = CultivationRules.HerbSellStones(Fixture.Config, runner.Map, siteIndex);
+        var price = CultivationRules.HerbSellStones(Fixture.Config, runner.Map, siteIndex, runner.Day);
         var stonesBefore = Player(runner).SpiritStones;
 
         runner.RequestSellHerbs(10);
@@ -108,7 +108,7 @@ public class TradeTests
     {
         using var runner = Fixture.NewRunner();
         var siteIndex = PlayerSiteIndex(runner);
-        var price = CultivationRules.PillCostStones(Fixture.Config, runner.Map, siteIndex);
+        var price = CultivationRules.PillCostStones(Fixture.Config, runner.Map, siteIndex, runner.Day);
         var stock = Fixture.Config.Trade.PillStockPerTown;
 
         // Too poor: the need-stones refusal names the price.
@@ -162,7 +162,7 @@ public class TradeTests
         {
             using var runner = Fixture.NewRunner();
             var siteIndex = PlayerSiteIndex(runner);
-            var price = CultivationRules.PillCostStones(Fixture.Config, runner.Map, siteIndex);
+            var price = CultivationRules.PillCostStones(Fixture.Config, runner.Map, siteIndex, runner.Day);
             SetStones(runner, price);
             runner.RequestBuyPill();
             Fixture.RunUntilIdle(runner);
@@ -228,7 +228,7 @@ public class TradeTests
             var factor = CultivationRules.TownPriceMultiplier(Fixture.Config, map, i);
             await Assert.That(factor).IsEqualTo(CultivationRules.TownPriceMultiplier(Fixture.Config, map, i));
             await Assert.That(factor >= 1f - spread - 1e-4f && factor <= 1f + spread + 1e-4f).IsTrue();
-            await Assert.That(CultivationRules.HerbSellStones(Fixture.Config, map, i)).IsGreaterThanOrEqualTo(1);
+            await Assert.That(CultivationRules.HerbSellStones(Fixture.Config, map, i, 0)).IsGreaterThanOrEqualTo(1);
         }
     }
 }

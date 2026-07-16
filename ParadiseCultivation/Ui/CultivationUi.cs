@@ -26,6 +26,12 @@ public sealed class CultivationUi
     private string _chatInput = string.Empty;
     private string _mapHint = string.Empty;
 
+    // LLM settings panel state — loaded once from the saved file / environment.
+    private string _llmUrl = string.Empty;
+    private string _llmKey = string.Empty;
+    private string _llmModel = string.Empty;
+    private bool _llmLoaded;
+
     // Hover path preview cache — replan only when the hovered tile or the player moves.
     private (int X, int Y) _hoverTile = (-1, -1);
     private (int X, int Y) _hoverFrom = (-1, -1);
@@ -54,6 +60,7 @@ public sealed class CultivationUi
         {
             case GamePhase.NewGame:
                 DrawNewGame();
+                DrawLlmPanel();
                 break;
             case GamePhase.Playing:
                 DrawMap();
@@ -62,6 +69,7 @@ public sealed class CultivationUi
                 DrawLocation();
                 DrawChronicle();
                 DrawEncounter();
+                DrawLlmPanel();
                 break;
             case GamePhase.Dead:
                 DrawMap();
@@ -422,12 +430,18 @@ public sealed class CultivationUi
         ImGui.Text($"{CultivationRules.PlayerName(Config, in player)}: " +
             $"{CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage)}");
         ImGui.Text(_runner.Today);
+        if (WorldEvents.TryGetCurrent(Config, _runner.Map.GenerationSeed, _runner.Day) is { } worldEvent)
+        {
+            ImGui.TextColored(new Vector4(0.95f, 0.8f, 0.4f, 1f), F(T.EventLine, worldEvent.Name));
+        }
         var ageYears = cultivator.AgeDays / CultivationRules.DaysPerYear(Config);
         ImGui.Text(F(T.AgeLine, $"{ageYears:F1}", $"{player.LifespanYears:N0}"));
 
         var realm = Config.Realms[cultivator.RealmIndex];
         var progress = (float)Math.Clamp(cultivator.CultivationPoints / realm.PointsPerSubStage, 0.0, 1.0);
-        var monthly = CultivationRules.MonthlyCultivationGain(Config, _runner.Map, in cultivator, in player);
+        var companionPresent = _runner.CompanionPresent(world, in player);
+        var monthly = CultivationRules.MonthlyCultivationGain(
+            Config, _runner.Map, in cultivator, in player, _runner.Day, companionPresent);
         ImGui.ProgressBar(progress, new Vector2(-1, 0),
             F(T.ProgressLine, $"{cultivator.CultivationPoints:F0}", realm.PointsPerSubStage, $"{monthly:F0}"));
 
@@ -441,6 +455,16 @@ public sealed class CultivationUi
         {
             ImGui.Text(F(T.StatusSectLine, _runner.Map.Sites[player.SectSiteIndex].Name,
                 Config.Sect.Ranks[player.SectRank].Name));
+        }
+        if (player.CompanionNpcId >= 0 && _runner.FindNpcById(world, player.CompanionNpcId) is { } companion)
+        {
+            ref readonly var companionNpc = ref world.GetComponent<NpcState>(companion);
+            ImGui.Text(F(T.StatusCompanionLine, CultivationRules.NpcName(Config, in companionNpc)));
+            if (companionPresent)
+            {
+                ImGui.TextColored(new Vector4(1f, 0.65f, 0.75f, 1f),
+                    F(T.DualCultivationLine, CultivationRules.Percent(Config, Config.Companion.DualCultivationBonus)));
+            }
         }
         if (player.Pills > 0)
         {
@@ -678,6 +702,43 @@ public sealed class CultivationUi
             {
                 ImGui.TextDisabled(T.TopRankLine);
             }
+
+            // The contribution economy: this month's mission board + the exchange.
+            ImGui.Text(F(T.ContributionLine, player.SectContribution));
+            var month = _runner.Day / Config.Time.DaysPerMonth;
+            var missionIndex = CultivationRules.SectMissionIndex(
+                Config, _runner.Map.GenerationSeed, siteIndex, month);
+            if (missionIndex >= 0)
+            {
+                if (player.LastMissionMonth == month)
+                {
+                    ImGui.TextDisabled(T.MissionDoneLine);
+                }
+                else
+                {
+                    var mission = Config.Sect.Missions[missionIndex];
+                    ImGui.TextWrapped(F(T.MissionLine, mission.Name, mission.ContributionReward,
+                        CultivationRules.Percent(Config, mission.SuccessChance)));
+                    ImGui.BeginDisabled(_runner.Busy);
+                    if (ImGui.Button(T.MissionButton)) _runner.RequestSectMission();
+                    ImGui.EndDisabled();
+                }
+            }
+            ImGui.BeginDisabled(_runner.Busy || player.SectContribution < Config.Sect.ExchangePillContribution);
+            if (ImGui.Button(F(T.ExchangePillButton, Config.Sect.ExchangePillContribution)))
+            {
+                _runner.RequestExchangePill();
+            }
+            ImGui.EndDisabled();
+            ImGui.SameLine();
+            ImGui.BeginDisabled(_runner.Busy || player.InjuryMonths <= 0 ||
+                player.SectContribution < Config.Sect.ExchangeHealContribution);
+            if (ImGui.Button(F(T.ExchangeHealButton, Config.Sect.ExchangeHealContribution)))
+            {
+                _runner.RequestExchangeHeal();
+            }
+            ImGui.EndDisabled();
+
             ImGui.BeginDisabled(_runner.Busy);
             if (ImGui.Button(T.LeaveSectButton)) _runner.RequestLeaveSect();
             ImGui.EndDisabled();
@@ -715,8 +776,8 @@ public sealed class CultivationUi
     {
         ImGui.SeparatorText(T.MarketTitle);
 
-        var herbPrice = CultivationRules.HerbSellStones(Config, _runner.Map, siteIndex);
-        var pillPrice = CultivationRules.PillCostStones(Config, _runner.Map, siteIndex);
+        var herbPrice = CultivationRules.HerbSellStones(Config, _runner.Map, siteIndex, _runner.Day);
+        var pillPrice = CultivationRules.PillCostStones(Config, _runner.Map, siteIndex, _runner.Day);
         var stock = _runner.TownPillStock[siteIndex];
 
         ImGui.BeginDisabled(_runner.Busy);
@@ -768,6 +829,39 @@ public sealed class CultivationUi
         ImGui.Text(F(T.TheirRegardLine, $"{npc.AffectionToPlayer:F0}", CultivationRules.AffectionTierName(Config, npc.AffectionToPlayer)));
         ImGui.Text(F(T.YourRegardLine, $"{npc.PlayerAffection:F0}", CultivationRules.AffectionTierName(Config, npc.PlayerAffection)));
 
+        // Dao companion: the tag + severance for the bonded one; the proposal (requirement
+        // lines + a button that lights up when both hearts and realms qualify) otherwise —
+        // the sect-join pattern. Runner-side refusals stay as command-layer defense.
+        ref readonly var playerData = ref world.GetComponent<PlayerData>(_runner.Player);
+        if (playerData.CompanionNpcId == npc.NpcId)
+        {
+            ImGui.TextColored(new Vector4(1f, 0.65f, 0.75f, 1f), T.CompanionTag);
+            ImGui.SameLine();
+            ImGui.BeginDisabled(_runner.Busy);
+            if (ImGui.Button(T.LeaveCompanionButton)) _runner.RequestLeaveCompanion();
+            ImGui.EndDisabled();
+        }
+        else if (playerData.CompanionNpcId < 0)
+        {
+            var cfg = Config.Companion;
+            ref readonly var playerCultivator = ref world.GetComponent<Cultivator>(_runner.Player);
+            var heartsOk = npc.AffectionToPlayer >= cfg.MinAffectionBoth &&
+                           npc.PlayerAffection >= cfg.MinAffectionBoth;
+            var realmOk = Math.Abs(npcCultivator.RealmIndex - playerCultivator.RealmIndex) <= cfg.MaxRealmGap;
+            if (!heartsOk)
+            {
+                ImGui.TextDisabled(F(T.CompanionReqAffectionLine, $"{npc.AffectionToPlayer:F0}",
+                    $"{npc.PlayerAffection:F0}", $"{cfg.MinAffectionBoth:F0}"));
+            }
+            if (!realmOk)
+            {
+                ImGui.TextDisabled(F(T.CompanionReqRealmLine, cfg.MaxRealmGap));
+            }
+            ImGui.BeginDisabled(_runner.Busy || !heartsOk || !realmOk);
+            if (ImGui.Button(T.ProposeCompanionButton)) _runner.RequestProposeCompanion(entity);
+            ImGui.EndDisabled();
+        }
+
         ImGui.BeginDisabled(_runner.Busy);
         if (ImGui.Button(F(T.GiftButton, Config.Interaction.GiftSpiritStones))) _runner.RequestGift(entity);
         ImGui.SameLine();
@@ -802,6 +896,65 @@ public sealed class CultivationUi
     }
 
     // ---- chronicle & death ----------------------------------------------------------------------
+
+    /// <summary>The LLM connection panel: endpoint / key / model, persisted next to the
+    /// saves (<see cref="LlmSettings"/>) and hot-swapped into the runner on Apply. Runs on
+    /// the sim thread like every panel, so <see cref="CultivationRunner.ReplaceLlm"/> is
+    /// safe to call directly. Collapsed by default — flavor settings, not gameplay.</summary>
+    private void DrawLlmPanel()
+    {
+        if (!Config.Llm.Enabled)
+        {
+            return; // the feature is authored off — no dead panel
+        }
+        if (!_llmLoaded)
+        {
+            var saved = LlmSettings.Resolve(_runner.SaveRoot);
+            _llmUrl = saved.BaseUrl;
+            _llmKey = saved.ApiKey;
+            _llmModel = saved.Model;
+            _llmLoaded = true;
+        }
+
+        ImGui.SetNextWindowPos(new Vector2(1140, 620), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new Vector2(420, 190), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowCollapsed(true, ImGuiCond.FirstUseEver);
+        ImGui.Begin(T.LlmTitle);
+
+        if (_runner.Llm is OpenAiLlmClient online)
+        {
+            ImGui.TextColored(new Vector4(0.5f, 0.9f, 0.5f, 1f), F(T.LlmOnlineLine, online.Model, online.BaseUrl));
+        }
+        else
+        {
+            ImGui.TextWrapped(T.LlmOfflineLine);
+        }
+
+        ImGui.InputTextWithHint(T.LlmUrlLabel, OpenAiLlmClient.DefaultBaseUrl, ref _llmUrl, 256);
+        ImGui.InputText(T.LlmKeyLabel, ref _llmKey, 256, ImGuiInputTextFlags.Password);
+        ImGui.InputTextWithHint(T.LlmModelLabel, F(T.LlmModelHint, Config.Llm.Model), ref _llmModel, 128);
+
+        if (ImGui.Button(T.LlmApplyButton))
+        {
+            var settings = new LlmSettings
+            {
+                BaseUrl = _llmUrl.Trim(),
+                ApiKey = _llmKey.Trim(),
+                Model = _llmModel.Trim(),
+            };
+            settings.Save(_runner.SaveRoot);
+            _runner.ReplaceLlm(OpenAiLlmClient.TryCreate(Config.Llm, settings));
+        }
+        ImGui.SameLine();
+        if (ImGui.Button(T.LlmClearButton))
+        {
+            _llmKey = string.Empty;
+            new LlmSettings { BaseUrl = _llmUrl.Trim(), ApiKey = string.Empty, Model = _llmModel.Trim() }
+                .Save(_runner.SaveRoot);
+            _runner.ReplaceLlm(null);
+        }
+        ImGui.End();
+    }
 
     private void DrawChronicle()
     {
