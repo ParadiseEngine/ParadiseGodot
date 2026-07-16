@@ -252,9 +252,12 @@ public sealed record NamesConfig
 }
 
 /// <summary>Presentation tunables (map tile colors as 0xAABBGGRR ImGui-packed values, marker
-/// colors, zoom bounds) — kept in config with everything else.</summary>
+/// colors, zoom bounds, font) — kept in config with everything else.</summary>
 public sealed record UiConfig
 {
+    /// <summary>TTF/TTC to load for CJK-capable text; empty = probe known system fonts.</summary>
+    public required string FontPath { get; init; }
+    public required float FontSizePixels { get; init; }
     public required uint[] TerrainColors { get; init; }
     public required uint[] VeinQualityColors { get; init; }
     public required uint TownColor { get; init; }

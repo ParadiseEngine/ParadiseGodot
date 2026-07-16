@@ -16,7 +16,8 @@ internal sealed class ImGuiUi : IUiSystem
 
     public IUiInput Input => _core.Input;
 
-    public ImGuiUi(uint pixelWidth, uint pixelHeight) => _core = new ImGuiUiCore(pixelWidth, pixelHeight);
+    public ImGuiUi(uint pixelWidth, uint pixelHeight, UiFontConfig? cjkFont = null) =>
+        _core = new ImGuiUiCore(pixelWidth, pixelHeight, cjkFont);
 
     /// <summary>Register a per-tick draw delegate — runs ON THE SIM THREAD between NewFrame
     /// and Render, so it may read and mutate sim-owned state freely. Register before the sim

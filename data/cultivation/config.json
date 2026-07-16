@@ -165,6 +165,8 @@
     "sectSuffixes": [" Sect", " Pavilion", " Valley", " Palace"]
   },
   "ui": {
+    "fontPath": "",
+    "fontSizePixels": 18,
     "terrainColors": [ 4283937857, 4281231436, 4288950569, 4284900966, 4285102955 ],
     "veinQualityColors": [ 4285102955, 4287087950, 4289449819, 4291542618, 4294621543 ],
     "townColor": 4281787903,

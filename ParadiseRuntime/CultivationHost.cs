@@ -204,7 +204,11 @@ internal static class CultivationHost
     private static (ImGuiUi ImGui, PbrRenderer Pbr, PbrScene Scene) Compose(
         CultivationRunner runner, WebGpuRenderer renderer, uint width = Width, uint height = Height)
     {
-        var imgui = new ImGuiUi(width, height);
+        // CJK-capable font (chat accepts free text): config path, or probe system fonts.
+        var fontConfig = new ParadiseUi.UiFontConfig(
+            string.IsNullOrWhiteSpace(runner.Config.Ui.FontPath) ? null : runner.Config.Ui.FontPath,
+            runner.Config.Ui.FontSizePixels);
+        var imgui = new ImGuiUi(width, height, fontConfig);
         var ui = new CultivationUi(runner);
         imgui.AddDraw(ui.Draw);
         imgui.Attach(renderer);

@@ -48,13 +48,19 @@ public sealed class ImGuiUiCore
     public uint FontWidth { get; }
     public uint FontHeight { get; }
 
-    public unsafe ImGuiUiCore(uint pixelWidth, uint pixelHeight)
+    /// <param name="cjkFont">Optional CJK-capable font (see <see cref="UiFonts"/>). Null =
+    /// the classic ASCII default font, unchanged behavior for existing hosts. When the
+    /// requested font cannot be resolved/loaded the core degrades to the default font.</param>
+    public unsafe ImGuiUiCore(uint pixelWidth, uint pixelHeight, UiFontConfig? cjkFont = null)
     {
         ImGui.CreateContext();
         var io = ImGui.GetIO();
         io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
         io.DisplaySize = new Vector2(pixelWidth, pixelHeight);
-        io.Fonts.AddFontDefault();
+        if (cjkFont is null || !UiFonts.TryAddCjkFont(io, cjkFont))
+        {
+            io.Fonts.AddFontDefault();
+        }
         io.Fonts.Build();
         io.Fonts.GetTexDataAsRGBA32(out byte* pixels, out var width, out var height, out _);
         _fontPixels = new ReadOnlySpan<byte>(pixels, width * height * 4).ToArray();

@@ -47,7 +47,13 @@ namespace ParadiseGodot.Runtime
             var size = (Vector2I)GetViewport().GetVisibleRect().Size;
             try
             {
-                _imgui = new ImGuiUiCore((uint)size.X, (uint)size.Y);
+                // CJK-capable font (chat accepts free text): config path, or probe system fonts.
+                var fontConfig = new UiFontConfig(
+                    string.IsNullOrWhiteSpace(config.Ui.FontPath)
+                        ? null
+                        : ProjectSettings.GlobalizePath(config.Ui.FontPath),
+                    config.Ui.FontSizePixels);
+                _imgui = new ImGuiUiCore((uint)size.X, (uint)size.Y, fontConfig);
             }
             catch (Exception e) when (e is DllNotFoundException or TypeInitializationException)
             {
