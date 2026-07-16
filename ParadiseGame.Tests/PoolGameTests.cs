@@ -220,4 +220,47 @@ public class PoolGameTests
         await Assert.That(afterPauseFrames).IsEqualTo(frozenFrames);
         await Assert.That(afterResumeFrames).IsGreaterThan(frozenFrames);
     }
+
+    // The pool rack authors ball centres ~0.402 apart (pool.tscn). The sim ball radius MUST come
+    // from the collider (0.5 shape * 0.4 node scale = 0.2 → diameter 0.4, just under the spacing),
+    // which is what the .NET host spawns. The Godot bridge used to hit a 0.35 SphereMesh-fallback
+    // (the balls are an imported glb) → diameter 0.7, so every ball deeply overlapped its neighbours
+    // and the sim depenetrated them explosively at t=0 (the rack visibly "split"). These pin that
+    // the collider radius is stable at the authored spacing and the oversized fallback is not.
+    private static readonly Vector3[] RackTriad =
+    {
+        new(1.3f, 0.85f, 0f),
+        new(1.648f, 0.85f, 0.201f),
+        new(1.648f, 0.85f, -0.201f),
+    };
+
+    private static float MaxHorizontalDrift(float radius)
+    {
+        using var runner = new SimulationRunner(FlatGround());
+        var balls = new List<Entity>();
+        foreach (var p in RackTriad) balls.Add(runner.SpawnBall(p, Quaternion.Identity, radius));
+        for (var i = 0; i < 60; i++) runner.TickOnce();
+
+        var drift = 0f;
+        for (var i = 0; i < balls.Count; i++)
+        {
+            var pos = PositionOf(runner, balls[i]);
+            var dx = pos.X - RackTriad[i].X;
+            var dz = pos.Z - RackTriad[i].Z;
+            drift = System.MathF.Max(drift, System.MathF.Sqrt(dx * dx + dz * dz));
+        }
+        return drift;
+    }
+
+    [Test]
+    public async Task rack_at_authored_spacing_is_stable_with_collider_radius()
+    {
+        await Assert.That(MaxHorizontalDrift(0.2f)).IsLessThan(0.05f);
+    }
+
+    [Test]
+    public async Task oversized_ball_radius_scatters_the_rack()
+    {
+        await Assert.That(MaxHorizontalDrift(0.35f)).IsGreaterThan(0.15f);
+    }
 }

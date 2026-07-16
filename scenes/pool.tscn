@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cujxyk6bhcl3t" path="res://addons/paradise_export/Authoring/EntityExport.cs" id="1_entity"]
 [ext_resource type="PackedScene" uid="uid://c1cn25jlx2tnu" path="res://data/primitives/sphere_ball.glb" id="2_ball"]
+[ext_resource type="Script" uid="uid://ce28xongxoxp5" path="res://runtime/EcsSceneBridge.cs" id="3_ecsbridge"]
 [ext_resource type="Shader" path="res://data/ui/ball_procedural.gdshader" id="4_procshader"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
@@ -1070,3 +1071,6 @@ surface_material_override/0 = SubResource("mat_pool_15")
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="Ball15"]
 shape = SubResource("shape_unit_sphere")
+
+[node name="EcsSceneBridge" type="Node3D" parent="."]
+script = ExtResource("3_ecsbridge")
