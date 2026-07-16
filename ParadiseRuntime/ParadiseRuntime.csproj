@@ -9,10 +9,15 @@
     <LangVersion>latest</LangVersion>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- NativeAOT on publish only (dotnet publish -c Release -r <rid>); regular build/run are
+         unaffected. Set here, NOT as a CLI global property — that leaks into the netstandard2.0
+         source-generator projects, which cannot AOT (NETSDK1207). -->
+    <PublishAot>true</PublishAot>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\ParadiseGame\ParadiseGame.csproj" />
+    <ProjectReference Include="..\ParadiseUi\ParadiseUi.csproj" />
     <ProjectReference Include="..\ParadiseGame.Navigation.Detour\ParadiseGame.Navigation.Detour.csproj" />
     <ProjectReference Include="..\ParadiseExport\ParadiseExport.csproj" />
     <!-- Real sibling paths (NOT the in-tree ParadiseEngine symlink, which breaks restore). -->

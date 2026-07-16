@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Numerics;
 using Paradise.Rendering;
 using Paradise.Rendering.WebGPU;
+using ParadiseGame.Ui;
 using static SDL.SDL3;
 using SDL;
 

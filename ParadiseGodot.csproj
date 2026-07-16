@@ -26,12 +26,19 @@
          keep its sources out of this assembly's recursive **/*.cs glob. -->
     <Compile Remove="ParadiseEngine/**/*.cs" />
     <Compile Remove="NoesisSpike/**/*.cs" />
+    <Compile Remove="ParadiseUi/**/*.cs" />
+    <Compile Remove="ParadiseUi.Tests/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="ParadiseExport/ParadiseExport.csproj" />
     <ProjectReference Include="ParadiseGame/ParadiseGame.csproj" />
     <ProjectReference Include="ParadiseGame.Navigation.Detour/ParadiseGame.Navigation.Detour.csproj" />
+    <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
+         render device (headless Dawn + readback in the Godot host). Real sibling path for the
+         engine project (NOT the in-tree symlink, which breaks restore). -->
+    <ProjectReference Include="ParadiseUi/ParadiseUi.csproj" />
+    <ProjectReference Include="..\ParadiseEngine\src\Paradise.Ui.Noesis\Paradise.Ui.Noesis.csproj" />
   </ItemGroup>
 
 </Project>
