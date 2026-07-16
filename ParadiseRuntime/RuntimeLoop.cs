@@ -8,6 +8,7 @@ using ParadiseGame;
 using ParadiseGame.Physics;
 using ParadiseGame.Audio;
 using ParadiseGame.Ui;
+using ParadiseUi;
 
 namespace ParadiseRuntime;
 
@@ -38,24 +39,19 @@ public sealed class RuntimeLoop : IDisposable
     private readonly IAudioSystem? _audio;
 
     // ---- pool mini-game (active when the scene authors a "CueBall" dynamic ball) ----
+    // Aim/strike/pause/rewind + the ImGui pool panel live in the shared PoolGameController
+    // (ParadiseUi) so the .NET and Godot hosts render the identical UI. This class keeps only
+    // the render-side pool bits: the per-ball glow lights, collision audio, and pocket count.
     private readonly Entity? _cueBall;
+    private readonly PoolGameController? _pool;
     private readonly List<(Entity Entity, int InstanceIndex, int LightIndex, ulong AudioSource)> _poolBalls = new();
-    private readonly List<RewoundBall> _scrubScratch = new();
+    private readonly List<RewoundBall> _scrubScratch = new(); // render-loop rewind scrub (glow); the controller keeps its own
     private readonly float[] _lastBallGlow;
     private readonly double[] _lastBallSoundAt;
-    private volatile int _rewindScrub; // frames back shown while paused (0 = present)
-    private volatile int _sunkCount;   // pocketed balls, render thread → pool panel (sim thread)
-    private Vector3? _stagedImpulse;   // strike captured while paused, applied on resume
-    private bool _aiming;
-    private Vector3 _aimGroundPoint;
-    private volatile bool _aimVisible;
-    private Vector2 _aimBallScreen;
-    private Vector2 _aimPointScreen;
     private double _renderClock;
+    private readonly float? _animTime;
     private static readonly string CollisionAudioEvent =
         Environment.GetEnvironmentVariable("PARADISE_WWISE_COLLISION_EVENT") ?? "Play_Footsteps";
-    private const float StrikePowerScale = 2.2f;
-    private const float StrikeMaxSpeed = 9f;
     private const float BallLightHeight = 0.55f;
     private const float BallLightIntensity = 3.2f;
     private double _renderSampleTime;
@@ -67,6 +63,7 @@ public sealed class RuntimeLoop : IDisposable
         float? animTime = null, IUiInput? uiInput = null, IAudioSystem? audio = null)
     {
         _audio = audio;
+        _animTime = animTime;
         _width = Math.Max(1, width);
         _height = Math.Max(1, height);
 
@@ -105,7 +102,20 @@ public sealed class RuntimeLoop : IDisposable
         {
             _scene.ClearColor = new ColorRgba(clear.R, clear.G, clear.B, 1f);
         }
-        SceneAssembler.PopulateLighting(level, _scene);
+        SceneAssembler.PopulateLighting(level, _scene); // sets _scene.Bloom from the exported glow
+
+        // Pool controller: shared cue-aim/strike/rewind + ImGui panel. Only when a cue exists.
+        // Strikes play the click SFX from this host's audio (kept out of the engine-agnostic controller).
+        _pool = _cueBall is { } cue
+            ? new PoolGameController(_runner, cue, new CameraProjection(this),
+                onStrike: () => _audio?.Sink.PostEvent(ClickAudioEvent, ClickAudioSource))
+            : null;
+
+        // Optional dev override of the exported bloom: PARADISE_BLOOM="threshold,knee,intensity".
+        if (ParseBloomOverride(Environment.GetEnvironmentVariable("PARADISE_BLOOM"), _scene.Bloom) is { } bloomOverride)
+        {
+            _scene.Bloom = bloomOverride;
+        }
 
         // One point light per pool ball, driven by its BallGlow every frame (energy 0 = off).
         foreach (var (entity, instanceIndex) in assembled.PoolBalls)
@@ -139,159 +149,42 @@ public sealed class RuntimeLoop : IDisposable
         }
     }
 
-    /// <summary>Pool pause state; resuming applies a pending rewind-restore and staged strike
-    /// (call from the sim thread — the ImGui panel does).</summary>
-    public bool PoolPaused
+    /// <summary>Parse the PARADISE_BLOOM dev override — "threshold,knee,intensity" (comma/space
+    /// separated); "0" or empty = no override. Missing tokens keep <paramref name="fallback"/>.
+    /// Returns null when no override is requested.</summary>
+    public static PbrBloom? ParseBloomOverride(string? env, PbrBloom fallback)
     {
-        get => _runner.Paused;
-        set
+        if (env is not { Length: > 0 } || env == "0") return null;
+        var p = env.Split(',', ' ');
+        static float F(string[] a, int i, float d) =>
+            i < a.Length && float.TryParse(a[i], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : d;
+        return new PbrBloom
         {
-            if (!value && _runner.Paused)
-            {
-                if (_rewindScrub > 0)
-                {
-                    if (!_runner.RestoreFromRewind(_rewindScrub))
-                    {
-                        // Nothing was rewound (transient pin pressure) — keep the scrub and the
-                        // staged strike, stay paused, and let the player resume again.
-                        Console.WriteLine("[Pool] rewind restore did not apply — try resuming again.");
-                        return;
-                    }
-                    _rewindScrub = 0;
-                }
-                if (_stagedImpulse is { } staged && _cueBall is { } cue)
-                {
-                    _runner.EnqueueBallImpulse(cue, staged);
-                    _stagedImpulse = null;
-                }
-            }
-            _runner.Paused = value;
-        }
+            Enabled = true,
+            Threshold = F(p, 0, fallback.Threshold),
+            Knee = F(p, 1, fallback.Knee),
+            Intensity = F(p, 2, fallback.Intensity),
+        };
     }
 
-    public bool HasPoolGame => _cueBall is not null && _poolBalls.Count > 0;
-    public int RewindFrameCount => _runner.RewindFrameCount;
-    public int RewindScrub { get => _rewindScrub; set => _rewindScrub = Math.Max(0, value); }
-    public Vector3? StagedImpulse => _stagedImpulse;
-    public void ClearStagedImpulse() => _stagedImpulse = null;
+    public bool HasPoolGame => _pool is not null && _poolBalls.Count > 0;
 
-    /// <summary>ImGui pool panel — runs on the SIM thread via ImGuiUi.AddDraw.</summary>
-    public void DrawPoolPanel()
+    // ---- pool controller pass-throughs (shared PoolGameController; Program routes mouse here) ----
+    // The aim methods run on this render thread (camera access); DrawPoolPanel is registered with
+    // the sim-thread ImGui core. No-ops when the scene has no cue ball.
+    public bool TryBeginAim(Vector2 screenPixel) => _pool?.TryBeginAim(screenPixel) ?? false;
+    public void UpdateAim(Vector2 screenPixel) => _pool?.UpdateAim(screenPixel);
+    public void ReleaseAim() => _pool?.ReleaseAim();
+    public void DrawPoolPanel() => _pool?.DrawPanel();
+
+    /// <summary>Adapts this loop's CameraRig unprojection to the shared controller's per-host seam.
+    /// Reads the loop's live _width/_height/_camera, so it tracks window resizes.</summary>
+    private sealed class CameraProjection(RuntimeLoop owner) : IPoolCameraProjection
     {
-        ImGuiNET.ImGui.Begin("Pool");
-        var paused = PoolPaused;
-        if (ImGuiNET.ImGui.Checkbox("Paused", ref paused))
-        {
-            PoolPaused = paused;
-        }
-        if (paused)
-        {
-            var scrub = _rewindScrub;
-            var max = Math.Max(0, _runner.RewindFrameCount - 1);
-            if (ImGuiNET.ImGui.SliderInt("Rewind", ref scrub, 0, max, scrub == 0 ? "now" : $"-{scrub} frames"))
-            {
-                _rewindScrub = Math.Clamp(scrub, 0, max);
-            }
-            ImGuiNET.ImGui.TextWrapped(_stagedImpulse is { } s
-                ? $"staged strike: {s.Length():F1} m/s — resumes with it"
-                : "drag from the white ball to stage a strike");
-        }
-        else
-        {
-            ImGuiNET.ImGui.TextWrapped("drag from the white ball to strike; pause to rewind");
-        }
-        if (_sunkCount > 0)
-        {
-            ImGuiNET.ImGui.Text($"pocketed: {_sunkCount}");
-        }
-        ImGuiNET.ImGui.End();
-
-        if (_aimVisible)
-        {
-            var draw = ImGuiNET.ImGui.GetForegroundDrawList();
-            draw.AddLine(_aimBallScreen, _aimPointScreen, 0xE0FFFFFF, 2.5f);
-            draw.AddCircleFilled(_aimPointScreen, 5f, 0xE04E82FF);
-        }
-    }
-
-    // ---- aiming (render/main thread, mouse routed by Program) ----
-
-    /// <summary>Begin a strike if the pointer ray hits the cue ball (its DISPLAYED position,
-    /// so aiming works mid-scrub too). True = consumed, skip UI/click-move routing.</summary>
-    public bool TryBeginAim(Vector2 screenPixel)
-    {
-        if (_cueBall is not { } cue) return false;
-        if (!TryScreenRay(screenPixel, out var origin, out var direction)) return false;
-        var ballPos = DisplayedCuePosition();
-        // Ray-sphere with a forgiving radius (pick comfort).
-        var toBall = ballPos - origin;
-        var along = Vector3.Dot(toBall, direction);
-        if (along <= 0) return false;
-        var closest = origin + direction * along;
-        if (Vector3.Distance(closest, ballPos) > 0.6f) return false;
-        _aiming = true;
-        UpdateAim(screenPixel);
-        return true;
-    }
-
-    public void UpdateAim(Vector2 screenPixel)
-    {
-        if (!_aiming) return;
-        var ballPos = DisplayedCuePosition();
-        if (TryScreenRay(screenPixel, out var origin, out var direction) &&
-            MathF.Abs(direction.Y) > 1e-5f)
-        {
-            var t = (ballPos.Y - origin.Y) / direction.Y;
-            if (t > 0)
-            {
-                _aimGroundPoint = origin + direction * t;
-            }
-        }
-        _aimBallScreen = WorldToScreen(ballPos);
-        _aimPointScreen = WorldToScreen(_aimGroundPoint);
-        _aimVisible = true;
-    }
-
-    /// <summary>Slingshot release: the cue fires OPPOSITE the drag, speed scaled by drag
-    /// length. Applied immediately while running, staged while paused.</summary>
-    public void ReleaseAim()
-    {
-        if (!_aiming) return;
-        _aiming = false;
-        _aimVisible = false;
-        if (_cueBall is not { } cue) return;
-        var ballPos = DisplayedCuePosition();
-        var pull = ballPos - _aimGroundPoint;
-        pull.Y = 0;
-        var speed = MathF.Min(pull.Length() * StrikePowerScale, StrikeMaxSpeed);
-        if (speed < 0.2f) return;
-        var impulse = Vector3.Normalize(pull) * speed;
-        if (_runner.Paused)
-        {
-            _stagedImpulse = impulse;
-        }
-        else
-        {
-            _runner.EnqueueBallImpulse(cue, impulse);
-            _audio?.Sink.PostEvent(ClickAudioEvent, ClickAudioSource);
-        }
-    }
-
-    private Vector3 DisplayedCuePosition()
-    {
-        if (_cueBall is not { } cue) return Vector3.Zero;
-        if (_runner.Paused && _rewindScrub > 0 && _runner.TryGetRewindFrame(_rewindScrub, _scrubScratch))
-        {
-            foreach (var ball in _scrubScratch)
-            {
-                if (ball.Entity == cue) return ball.Position;
-            }
-        }
-        if (_runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _) && latest.IsAlive(cue))
-        {
-            return latest.GetComponent<LocalTransform>(cue).Position;
-        }
-        return Vector3.Zero;
+        public bool TryScreenPointToRay(Vector2 screenPixel, out Vector3 origin, out Vector3 direction)
+            => owner.TryScreenRay(screenPixel, out origin, out direction);
+        public Vector2 WorldToScreen(Vector3 world) => owner.WorldToScreen(world);
     }
 
     private bool TryScreenRay(Vector2 screenPixel, out Vector3 origin, out Vector3 direction)
@@ -449,7 +342,7 @@ public sealed class RuntimeLoop : IDisposable
         // while paused-and-scrubbed the recorded frame REPLACES the interpolated display.
         if (_poolBalls.Count > 0)
         {
-            var scrub = _rewindScrub;
+            var scrub = _pool?.RewindScrub ?? 0;
             var scrubbed = _runner.Paused && scrub > 0 && _runner.TryGetRewindFrame(scrub, _scrubScratch);
             _runner.TrySampleInterpolation(_renderSampleTime, out var glowWorldA, out var glowWorldB, out var glowAlpha);
             var sunk = 0;
@@ -510,9 +403,9 @@ public sealed class RuntimeLoop : IDisposable
                     _lastBallGlow[i] = glow;
                 }
             }
-            if (!scrubbed)
+            if (!scrubbed && _pool is not null)
             {
-                _sunkCount = sunk;
+                _pool.SunkCount = sunk;
             }
         }
 
@@ -524,6 +417,8 @@ public sealed class RuntimeLoop : IDisposable
         }
 
         _scene.Camera = _camera.Build(_width / (float)_height);
+        // Drive time-animated procedural materials; pinned by --anim-time for deterministic captures.
+        _scene.ElapsedSeconds = _animTime ?? (float)_renderClock;
         if (_audio is not null)
         {
             // The listener rides the camera; per-frame is plenty for a mostly-static rig.

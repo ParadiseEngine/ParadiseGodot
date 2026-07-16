@@ -251,6 +251,16 @@ namespace ParadiseExport.Data
         public string AlphaMode { get; set; } = "Opaque";
         public int RenderQueue { get; set; } = -1;
         public float TransmissionFactor { get; set; }
+        // Procedural animated material (noise recipe in the runtime shader). MaterialKind names the
+        // recipe ("lava", "marble", "jade", "ice", "gem", "molten_metal", "obsidian", "amber",
+        // "nebula"); "" = a normal PBR material. EmissiveStrength is an UNCLAMPED HDR multiplier on
+        // EmissiveFactor (so lava can bloom past white). ColorA/B tint the tintable recipes.
+        public string MaterialKind { get; set; } = "";
+        public float EmissiveStrength { get; set; } = 1f;
+        public float NoiseScale { get; set; } = 1f;
+        public float FlowSpeed { get; set; } = 1f;
+        public Color32 ColorA { get; set; } = Color32.FromRgba(1f, 1f, 1f);
+        public Color32 ColorB { get; set; } = Color32.FromRgba(0f, 0f, 0f);
     }
 
     public sealed record LightingData
@@ -343,6 +353,12 @@ namespace ParadiseExport.Data
         public string TonemapMode { get; set; } = "Linear";
         public float TonemapExposure { get; set; } = 1f;
         public float TonemapWhite { get; set; } = 1f;
+
+        // Bloom / glow (Godot Environment.glow_*). The runtime's HDR composite runs a threshold +
+        // dual-filter bloom and adds it back scaled by intensity — the .NET analog of Godot's glow.
+        public bool GlowEnabled { get; set; }
+        public float GlowIntensity { get; set; } = 0.6f;
+        public float GlowThreshold { get; set; } = 1f;
     }
 
     public sealed record SceneLightData

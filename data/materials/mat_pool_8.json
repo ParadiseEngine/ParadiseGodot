@@ -7,9 +7,9 @@
     "b": 0.003921569,
     "a": 1
   },
-  "BaseColorTexture": "data/primitives/sphere_ball_albedo.png",
+  "BaseColorTexture": null,
   "MetallicFactor": 0,
-  "RoughnessFactor": 0.4,
+  "RoughnessFactor": 0.05,
   "MetallicRoughnessTexture": null,
   "EmissiveFactor": {
     "r": 0,
@@ -24,5 +24,21 @@
   "OcclusionTexture": null,
   "AlphaMode": "Opaque",
   "RenderQueue": -1,
-  "TransmissionFactor": 0
+  "TransmissionFactor": 0,
+  "MaterialKind": "obsidian",
+  "EmissiveStrength": 1,
+  "NoiseScale": 6,
+  "FlowSpeed": 1,
+  "ColorA": {
+    "r": 1,
+    "g": 1,
+    "b": 1,
+    "a": 1
+  },
+  "ColorB": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  }
 }

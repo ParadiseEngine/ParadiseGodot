@@ -179,4 +179,29 @@ public class PoolPocketTests
         float dead = TargetTravel(0.05f);
         await Assert.That(lively).IsGreaterThan(dead * 1.3f);
     }
+
+    [Test]
+    public async Task poolrack_built_ball_sinks_and_parks_at_the_computed_slot()
+    {
+        // The shared factory BOTH hosts feed into SpawnBall (.NET SceneAssembler + the Godot
+        // bridge's ExtractPockets). Proves the pocket set + tray layout produce a working capture.
+        using var runner = new SimulationRunner(FlatGround());
+        var pockets = new List<(Vector3 Center, float Radius)> { (new Vector3(7f, 0f, 5f), 0.3f) };
+        var authored = new Vector3(5f, 0.85f, 5f);
+        var poolBall = PoolRack.BuildBall(pockets, isCue: false, authoredPosition: authored, trayIndex: 2);
+
+        // Tray slot = (minX + trayIndex*0.45, authoredY, maxZ + 0.75) = (7 + 0.9, 0.85, 5.75).
+        await Assert.That(poolBall.PocketCount).IsEqualTo(1);
+        await Assert.That(MathF.Abs(poolBall.ParkPosition.X - 7.9f)).IsLessThan(1e-4f);
+        await Assert.That(MathF.Abs(poolBall.ParkPosition.Z - 5.75f)).IsLessThan(1e-4f);
+
+        var ball = runner.SpawnBall(authored, Quaternion.Identity, radius: 0.2f, poolBall: poolBall);
+        runner.EnqueueBallImpulse(ball, new Vector3(4f, 0f, 0f)); // roll +X across the pocket mouth
+        for (var i = 0; i < 180; i++) runner.TickOnce();
+
+        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+        Vector3 parked = PositionOf(runner, ball);
+        await Assert.That(MathF.Abs(parked.X - 7.9f)).IsLessThan(1e-4f);
+        await Assert.That(MathF.Abs(parked.Z - 5.75f)).IsLessThan(1e-4f);
+    }
 }

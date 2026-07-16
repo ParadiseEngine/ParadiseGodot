@@ -2,14 +2,14 @@
   "Path": "materials/mat_pool_9.json",
   "Name": "pool",
   "BaseColorFactor": {
-    "r": 0.9372549,
-    "g": 0.7137255,
-    "b": 0.21960784,
+    "r": 0.47843137,
+    "g": 0.70980394,
+    "b": 0.9098039,
     "a": 1
   },
-  "BaseColorTexture": "data/primitives/sphere_ball_albedo.png",
+  "BaseColorTexture": null,
   "MetallicFactor": 0,
-  "RoughnessFactor": 0.4,
+  "RoughnessFactor": 0.06,
   "MetallicRoughnessTexture": null,
   "EmissiveFactor": {
     "r": 0,
@@ -24,5 +24,21 @@
   "OcclusionTexture": null,
   "AlphaMode": "Opaque",
   "RenderQueue": -1,
-  "TransmissionFactor": 0
+  "TransmissionFactor": 0.6,
+  "MaterialKind": "ice",
+  "EmissiveStrength": 1.5,
+  "NoiseScale": 9,
+  "FlowSpeed": 0.1,
+  "ColorA": {
+    "r": 1,
+    "g": 1,
+    "b": 1,
+    "a": 1
+  },
+  "ColorB": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  }
 }

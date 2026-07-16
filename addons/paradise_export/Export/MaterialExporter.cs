@@ -103,7 +103,24 @@ namespace ParadiseGodot.Export
                 OcclusionTexture = m.AOEnabled ? TexturePath(m.AOTexture) : null,
                 AlphaMode = AlphaModeName(m),
                 RenderQueue = -1,
-                TransmissionFactor = 0f,
+                // Godot's StandardMaterial3D has no glTF-transmission property, so translucency
+                // is authored as a `transmission` resource-metadata float (0..1) — an explicit
+                // signal with zero effect on Godot's own rendering. Absent → 0, so materials that
+                // don't set it re-export byte-identical. The runtime shader's stylized glass path
+                // (applyGlassResponse) consumes it.
+                TransmissionFactor = m.HasMeta("transmission")
+                    ? Mathf.Clamp((float)m.GetMeta("transmission").AsSingle(), 0f, 1f)
+                    : 0f,
+                // Procedural animated material params (metadata; invisible to Godot's own render).
+                // `material_kind` names the recipe; `emissive_strength` is the HDR emissive multiplier;
+                // `color_a`/`color_b` tint tintable recipes; `noise_scale`/`flow_speed` shape it.
+                MaterialKind = m.HasMeta("material_kind") ? m.GetMeta("material_kind").AsString() : "",
+                EmissiveStrength = m.HasMeta("emissive_strength")
+                    ? Mathf.Max(0f, (float)m.GetMeta("emissive_strength").AsSingle()) : 1f,
+                NoiseScale = m.HasMeta("noise_scale") ? (float)m.GetMeta("noise_scale").AsSingle() : 1f,
+                FlowSpeed = m.HasMeta("flow_speed") ? (float)m.GetMeta("flow_speed").AsSingle() : 1f,
+                ColorA = m.HasMeta("color_a") ? ToColor32(m.GetMeta("color_a").AsColor()) : Color32.FromRgba(1f, 1f, 1f),
+                ColorB = m.HasMeta("color_b") ? ToColor32(m.GetMeta("color_b").AsColor()) : Color32.FromRgba(0f, 0f, 0f),
             };
         }
 
@@ -132,6 +149,13 @@ namespace ParadiseGodot.Export
             !string.IsNullOrEmpty(m.ResourceName) ? m.ResourceName
             : !string.IsNullOrEmpty(m.ResourcePath) ? System.IO.Path.GetFileNameWithoutExtension(m.ResourcePath)
             : "Material";
+
+        // Procedural recipe color: linearize like the base color (authored sRGB → linear factor).
+        private static Color32 ToColor32(Color c)
+        {
+            Color lin = c.SrgbToLinear();
+            return Color32.FromRgba(lin.R, lin.G, lin.B, 1f);
+        }
 
         private static string? TexturePath(Texture2D? texture)
         {
