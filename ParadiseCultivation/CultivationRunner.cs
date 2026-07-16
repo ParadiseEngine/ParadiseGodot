@@ -24,6 +24,7 @@ public enum CommandKind
     BuyPill,
     JoinSect,
     LeaveSect,
+    EnterRealm,
     Save,
     Load,
 }
@@ -119,6 +120,8 @@ public sealed class CultivationRunner : IDisposable
     private double _pendingGained;
     private World? _uiWorld;
     private int[] _townPillStock = Array.Empty<int>();
+    private long _knownRealmIndex = -1;
+    private long _lastRealmTrialIndex = -1;
 
     public CultivationConfig Config { get; }
 
@@ -154,6 +157,11 @@ public sealed class CultivationRunner : IDisposable
     /// <summary>Breakthrough-pill stock per site index (towns only; restocked monthly).
     /// SIM THREAD ONLY.</summary>
     public IReadOnlyList<int> TownPillStock => _townPillStock;
+    /// <summary>The opening index the player has HEARD about (map marker gate), or -1.
+    /// SIM THREAD ONLY.</summary>
+    public long KnownRealmIndex => _knownRealmIndex;
+    /// <summary>The opening index whose trial is already spent, or -1. SIM THREAD ONLY.</summary>
+    public long LastRealmTrialIndex => _lastRealmTrialIndex;
     /// <summary>An action is animating game time; new time-consuming actions are refused.</summary>
     public bool Busy => _pendingDays > 0;
     /// <summary>Remaining/total days of the animating action (progress display).</summary>
@@ -255,6 +263,10 @@ public sealed class CultivationRunner : IDisposable
     /// <summary>Leave one's sect — must be said in person, at the mountain gate.</summary>
     public void RequestLeaveSect() =>
         Enqueue(new CultivationCommand(CommandKind.LeaveSect, 0, 0, default, null));
+
+    /// <summary>Brave the trial of the secret realm the player is standing in.</summary>
+    public void RequestEnterRealm() =>
+        Enqueue(new CultivationCommand(CommandKind.EnterRealm, 0, 0, default, null));
 
     public void RequestSave(string path) =>
         Enqueue(new CultivationCommand(CommandKind.Save, 0, 0, default, path));
@@ -467,6 +479,15 @@ public sealed class CultivationRunner : IDisposable
         if (monthsCrossed > 0)
         {
             RestockMarkets();
+            // Announce fresh openings (name only — the WHERE is what rumors are for).
+            for (var mm = firstMonthIndex + 1; mm <= firstMonthIndex + monthsCrossed; mm++)
+            {
+                if (SecretRealms.OpensAtMonth(Config, mm))
+                {
+                    var index = (mm - Config.SecretRealm.FirstOpenMonth) / Config.SecretRealm.PeriodMonths;
+                    Log(F(Msg.RealmOpenLog, SecretRealms.NameOf(Config, index)));
+                }
+            }
         }
 
         var cultivating = _pendingKind is CommandKind.Cultivate or CommandKind.Seclude;
@@ -627,6 +648,9 @@ public sealed class CultivationRunner : IDisposable
                 case CommandKind.LeaveSect:
                     ApplyLeaveSect(write, ref player);
                     break;
+                case CommandKind.EnterRealm:
+                    ApplyEnterRealm(ref cultivator, ref player);
+                    break;
             }
         }
     }
@@ -782,6 +806,21 @@ public sealed class CultivationRunner : IDisposable
         var summary = ProposalRules.SanitizeReply(
             Config, proposal.MemorySummary, F(Msg.ChatMemory, context.PlayerName, Truncate(text, 60)));
         memories.Add(new MemoryEntry(_day, summary));
+
+        // The rumor mechanic: asking around WHILE a secret realm is open gets its actual
+        // whereabouts (and lights the map marker) — rules-side, so it works with any
+        // proposer and stays deterministic.
+        if (SecretRealms.TryGetCurrent(Config, _map, _day) is { } realm &&
+            Config.SecretRealm.RumorKeywords.Any(k => text.Contains(k, StringComparison.Ordinal)))
+        {
+            _knownRealmIndex = realm.Index;
+            var dx = realm.X - player.X;
+            var dy = realm.Y - player.Y;
+            var monthsLeft = (realm.CloseDay - _day + Config.Time.DaysPerMonth - 1) / Config.Time.DaysPerMonth;
+            LastReply = F(Msg.RumorRealmMsg, realm.Name,
+                SecretRealms.DirectionName(Config, dx, dy),
+                Math.Max(Math.Abs(dx), Math.Abs(dy)) * 10, monthsLeft);
+        }
         BeginAdvance(CommandKind.Chat, Config.Time.ActionDays.Chat);
     }
 
@@ -835,6 +874,51 @@ public sealed class CultivationRunner : IDisposable
             ? F(Msg.SparWinReply, CultivationRules.NpcName(Config, in npc), cfg.SparInsightPoints)
             : F(Msg.SparLoseReply, CultivationRules.NpcName(Config, in npc));
         BeginAdvance(CommandKind.Spar, Config.Time.ActionDays.Spar);
+    }
+
+    // ---- secret realm (rumor-revealed, once-per-opening fortune trial) ----
+
+    private void ApplyEnterRealm(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (SecretRealms.TryGetCurrent(Config, _map, _day) is not { } realm ||
+            player.X != realm.X || player.Y != realm.Y)
+        {
+            LastActionResult = Msg.RealmNotHereMsg;
+            return;
+        }
+        if (_lastRealmTrialIndex == realm.Index)
+        {
+            LastActionResult = Msg.RealmSpentMsg;
+            return;
+        }
+
+        // Standing inside is knowing: the marker stays for the rest of this opening.
+        _knownRealmIndex = realm.Index;
+        _lastRealmTrialIndex = realm.Index; // the ATTEMPT spends the opening, win or lose
+
+        var cfg = Config.SecretRealm;
+        var chance = Math.Clamp(
+            cfg.BaseSuccessChance + player.Fortune * cfg.FortuneChancePerPoint, 0.05f, 0.95f);
+        if (_rng.NextDouble() < chance)
+        {
+            var multiplier = CultivationRules.FortuneMultiplier(Config, player.Fortune);
+            var stones = (int)Math.Round(_rng.Next(cfg.RewardStonesMin, cfg.RewardStonesMax + 1) * multiplier);
+            var herbs = _rng.Next(cfg.RewardHerbsMin, cfg.RewardHerbsMax + 1);
+            var insight = cfg.RewardInsightPoints * Config.SpiritRoots.Grades[player.SpiritRootGrade].Multiplier;
+            player.SpiritStones += stones;
+            player.Herbs += herbs;
+            player.Fortune = Math.Min(player.Fortune + cfg.FortuneGain, Config.Fortune.Max);
+            cultivator.CultivationPoints += insight;
+            CultivationRules.AdvanceSubStages(Config, ref cultivator);
+            Log(F(Msg.RealmSuccessLog, CultivationRules.PlayerName(Config, in player), realm.Name));
+            LastActionResult = F(Msg.RealmSuccessMsg, realm.Name, stones, herbs, $"{insight:F0}");
+        }
+        else
+        {
+            player.InjuryMonths += cfg.FailureInjuryMonths;
+            LastActionResult = F(Msg.RealmFailMsg, realm.Name, cfg.FailureInjuryMonths);
+        }
+        BeginAdvance(CommandKind.EnterRealm, cfg.TrialDays);
     }
 
     // ---- sect membership (apprenticeship, ranks, stipend) ----
@@ -1098,6 +1182,8 @@ public sealed class CultivationRunner : IDisposable
             Npcs = npcs,
             Chronicle = Chronicle.Select(m => new SavedMemory { Day = m.Day, Summary = m.Summary }).ToArray(),
             TownPillStock = (int[])_townPillStock.Clone(),
+            KnownRealmIndex = _knownRealmIndex,
+            LastRealmTrialIndex = _lastRealmTrialIndex,
         };
 
         static SavedCultivator ToSaved(in Cultivator c) => new()
@@ -1149,6 +1235,8 @@ public sealed class CultivationRunner : IDisposable
             RestockMarkets();
         }
         _rng = new Pcg32(data.RngState, data.RngStream);
+        _knownRealmIndex = data.KnownRealmIndex ?? -1;
+        _lastRealmTrialIndex = data.LastRealmTrialIndex ?? -1;
         _nextNpcId = data.NextNpcId;
         _npcs.Clear();
         _memories.Clear();
@@ -1285,6 +1373,8 @@ public sealed class CultivationRunner : IDisposable
         _map = generated.Map;
         _townPillStock = new int[_map.Sites.Count];
         RestockMarkets();
+        _knownRealmIndex = -1;
+        _lastRealmTrialIndex = -1;
         _rng = new Pcg32(seed * 31 + 17);
         _nextNpcId = generated.Npcs.Count + 1;
         _npcs.Clear();

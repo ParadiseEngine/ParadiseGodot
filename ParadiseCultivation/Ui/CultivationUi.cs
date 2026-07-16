@@ -288,6 +288,20 @@ public sealed class CultivationUi
             }
         }
 
+        // A known, currently open secret realm — rumor knowledge trumps observable range.
+        if (SecretRealms.TryGetCurrent(Config, map, _runner.Day) is { } knownRealm &&
+            _runner.KnownRealmIndex == knownRealm.Index)
+        {
+            var c = Center(knownRealm.X, knownRealm.Y);
+            var radius = MathF.Max(3f, halfH * 0.9f);
+            drawList.AddCircleFilled(c, radius, ui.RealmColor);
+            drawList.AddCircle(c, radius + 1.5f, 0xFF000000);
+            if (_zoom >= ui.LabelZoomThreshold)
+            {
+                drawList.AddText(c + new Vector2(radius + 2f, -radius), ui.RealmColor, knownRealm.Name);
+            }
+        }
+
         // Remaining travel path.
         if (travelPlan is not null)
         {
@@ -535,6 +549,11 @@ public sealed class CultivationUi
             ImGui.TextWrapped(tile.VeinQuality > 0
                 ? F(T.WildernessVeinLine, tile.VeinQuality, T.TerrainNames[(int)tile.Terrain])
                 : F(T.WildernessLine, T.TerrainNames[(int)tile.Terrain]));
+            if (SecretRealms.TryGetCurrent(Config, map, _runner.Day) is { } realm &&
+                realm.X == player.X && realm.Y == player.Y)
+            {
+                DrawRealmSection(in realm, in player);
+            }
             ImGui.End();
             return;
         }
@@ -579,6 +598,29 @@ public sealed class CultivationUi
         ImGui.Separator();
         DrawNpcPanel(_selectedNpc);
         ImGui.End();
+    }
+
+    /// <summary>Standing at the mouth of an open secret realm: flavor, the fortune-weighted
+    /// odds, and the enter button — or the spent line once this opening's trial is used.</summary>
+    private void DrawRealmSection(in SecretRealmInfo realm, in PlayerData player)
+    {
+        ImGui.SeparatorText(T.RealmSectionTitle);
+        ImGui.TextWrapped(F(T.RealmHereLine, realm.Name));
+        if (_runner.LastRealmTrialIndex == realm.Index)
+        {
+            ImGui.TextDisabled(T.RealmSpentLine);
+        }
+        else
+        {
+            var cfg = Config.SecretRealm;
+            var chance = Math.Clamp(
+                cfg.BaseSuccessChance + player.Fortune * cfg.FortuneChancePerPoint, 0.05f, 0.95f);
+            ImGui.Text(F(T.RealmChanceLine, $"{chance:P0}"));
+            ImGui.BeginDisabled(_runner.Busy);
+            if (ImGui.Button(T.EnterRealmButton)) _runner.RequestEnterRealm();
+            ImGui.EndDisabled();
+        }
+        ImGui.Separator();
     }
 
     /// <summary>The sect panel: apprenticeship for outsiders (requirement lines + a join

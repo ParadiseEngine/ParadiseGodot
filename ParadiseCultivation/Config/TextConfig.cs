@@ -87,6 +87,16 @@ public sealed record UiTextConfig
     /// <summary>{0} vein quality, {1} terrain name.</summary>
     public required string WildernessVeinLine { get; init; }
     public required string SelectSomeone { get; init; }
+    public required string RealmSectionTitle { get; init; }
+    /// <summary>{0} realm name.</summary>
+    public required string RealmHereLine { get; init; }
+    /// <summary>{0} success chance (formatted percent).</summary>
+    public required string RealmChanceLine { get; init; }
+    public required string EnterRealmButton { get; init; }
+    public required string RealmSpentLine { get; init; }
+    /// <summary>Octant names, x-east y-south order: 东 东南 南 西南 西 西北 北 东北.</summary>
+    public required string[] DirectionNames { get; init; }
+
     public required string SectSectionTitle { get; init; }
     public required string JoinSectButton { get; init; }
     /// <summary>{0} current leader affection, {1} required.</summary>
@@ -201,6 +211,19 @@ public sealed record MessageTextConfig
     public required string ExploreInsightLog { get; init; }
     /// <summary>Atmosphere lines when nothing is found (picked by the saved RNG stream).</summary>
     public required string[] ExploreNothing { get; init; }
+
+    /// <summary>{0} realm name.</summary>
+    public required string RealmOpenLog { get; init; }
+    /// <summary>{0} realm name, {1} direction, {2} distance (li), {3} months remaining.</summary>
+    public required string RumorRealmMsg { get; init; }
+    public required string RealmNotHereMsg { get; init; }
+    public required string RealmSpentMsg { get; init; }
+    /// <summary>{0} player name, {1} realm name.</summary>
+    public required string RealmSuccessLog { get; init; }
+    /// <summary>{0} realm name, {1} stones, {2} herbs, {3} insight points.</summary>
+    public required string RealmSuccessMsg { get; init; }
+    /// <summary>{0} realm name, {1} injury months.</summary>
+    public required string RealmFailMsg { get; init; }
 
     public required string JoinNoSectMsg { get; init; }
     /// <summary>{0} the sect the player already belongs to.</summary>

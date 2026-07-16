@@ -46,6 +46,7 @@ public sealed record CultivationConfig
     public required PlayerConfig Player { get; init; }
     public required TradeConfig Trade { get; init; }
     public required SectConfig Sect { get; init; }
+    public required SecretRealmConfig SecretRealm { get; init; }
     public required DialogueConfig Dialogue { get; init; }
     public required NamesConfig Names { get; init; }
     public required UiConfig Ui { get; init; }
@@ -230,6 +231,36 @@ public sealed record SectRankConfig
     public required int MonthlyStipendStones { get; init; }
 }
 
+/// <summary>The secret realm (P2 slice): a deterministic seed-derived schedule of openings —
+/// rumor keywords in chat reveal the location, and one fortune-weighted trial per opening
+/// pays out or injures. See <see cref="SecretRealms"/> for the schedule math.</summary>
+public sealed record SecretRealmConfig
+{
+    /// <summary>Absolute month index of the first opening.</summary>
+    public required int FirstOpenMonth { get; init; }
+    /// <summary>Months between opening STARTS (must exceed <see cref="OpenMonths"/>).</summary>
+    public required int PeriodMonths { get; init; }
+    /// <summary>Months each opening stays enterable.</summary>
+    public required int OpenMonths { get; init; }
+    /// <summary>Game days one trial takes.</summary>
+    public required int TrialDays { get; init; }
+    public required float BaseSuccessChance { get; init; }
+    /// <summary>Per-fortune-point addition to the trial success chance.</summary>
+    public required float FortuneChancePerPoint { get; init; }
+    public required int RewardStonesMin { get; init; }
+    public required int RewardStonesMax { get; init; }
+    public required int RewardHerbsMin { get; init; }
+    public required int RewardHerbsMax { get; init; }
+    /// <summary>Cultivation insight on success (scaled by the spirit-root multiplier).</summary>
+    public required int RewardInsightPoints { get; init; }
+    /// <summary>Fortune gained by surviving the trial.</summary>
+    public required float FortuneGain { get; init; }
+    /// <summary>Injury months on a failed trial.</summary>
+    public required int FailureInjuryMonths { get; init; }
+    /// <summary>Chat text containing any of these reveals the open realm's whereabouts.</summary>
+    public required string[] RumorKeywords { get; init; }
+}
+
 public sealed record RealmConfig
 {
     public required string Name { get; init; }
@@ -391,6 +422,8 @@ public sealed record NamesConfig
     public required string[] TownSuffixes { get; init; }
     public required string[] SectPrefixes { get; init; }
     public required string[] SectSuffixes { get; init; }
+    /// <summary>Secret-realm names, drawn per opening by <see cref="SecretRealms.NameOf"/>.</summary>
+    public required string[] RealmNames { get; init; }
 }
 
 /// <summary>Presentation tunables (map tile colors as 0xAABBGGRR ImGui-packed values, marker
@@ -406,6 +439,8 @@ public sealed record UiConfig
     public required uint[] VeinQualityColors { get; init; }
     public required uint TownColor { get; init; }
     public required uint SectColor { get; init; }
+    /// <summary>Marker for a known, currently open secret realm.</summary>
+    public required uint RealmColor { get; init; }
     public required uint PlayerColor { get; init; }
     public required uint GridLineColor { get; init; }
     public required uint PathColor { get; init; }

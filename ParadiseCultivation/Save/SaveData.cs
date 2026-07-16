@@ -13,8 +13,9 @@ public sealed record SaveData
     /// <summary>Version history — every addition is OPTIONAL fields, so older saves still
     /// load with defaults (the doc's "migration established early"); loaders accept
     /// 1…CurrentVersion. v2: trade state (player pills + per-town pill stock).
-    /// v3: sect membership (site + rank).</summary>
-    public const int CurrentVersion = 3;
+    /// v3: sect membership (site + rank). v4: secret-realm knowledge (rumor heard + trial
+    /// spent — the schedule itself re-derives from the seed).</summary>
+    public const int CurrentVersion = 4;
 
     public required int Version { get; init; }
     public required int Seed { get; init; }
@@ -31,6 +32,11 @@ public sealed record SaveData
     /// <summary>Pill stock per site index (towns only carry stock). Optional since v2 —
     /// absent (v1) means every shelf restocks full on load.</summary>
     public int[]? TownPillStock { get; init; }
+    /// <summary>Secret-realm opening the player heard a rumor about. Optional since v4;
+    /// NULLABLE (not a -1 initializer) — see <see cref="SavedPlayer.SectSiteIndex"/>.</summary>
+    public long? KnownRealmIndex { get; init; }
+    /// <summary>Secret-realm opening whose trial is spent. Optional since v4.</summary>
+    public long? LastRealmTrialIndex { get; init; }
 }
 
 public sealed record SavedPlayer

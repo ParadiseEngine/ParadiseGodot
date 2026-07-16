@@ -378,6 +378,27 @@
       }
     ]
   },
+  "secretRealm": {
+    "firstOpenMonth": 2,
+    "periodMonths": 6,
+    "openMonths": 2,
+    "trialDays": 10,
+    "baseSuccessChance": 0.5,
+    "fortuneChancePerPoint": 0.002,
+    "rewardStonesMin": 60,
+    "rewardStonesMax": 160,
+    "rewardHerbsMin": 3,
+    "rewardHerbsMax": 8,
+    "rewardInsightPoints": 60,
+    "fortuneGain": 6,
+    "failureInjuryMonths": 2,
+    "rumorKeywords": [
+      "传闻",
+      "秘境",
+      "江湖",
+      "消息"
+    ]
+  },
   "player": {
     "startSpiritStones": 50,
     "explore": {
@@ -413,6 +434,7 @@
     ],
     "townColor": 4281482924,
     "sectColor": 4287512688,
+    "realmColor": 4283085055,
     "playerColor": 4280557088,
     "gridLineColor": 708260402,
     "pathColor": 4282143944,
