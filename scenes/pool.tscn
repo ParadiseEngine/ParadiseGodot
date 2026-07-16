@@ -5,6 +5,11 @@
 [ext_resource type="Shader" path="res://data/ui/ball_procedural.gdshader" id="4_procshader"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
+sky_top_color = Color(0.008, 0.01, 0.018, 1)
+sky_horizon_color = Color(0.015, 0.015, 0.022, 1)
+ground_bottom_color = Color(0.006, 0.006, 0.01, 1)
+ground_horizon_color = Color(0.012, 0.012, 0.016, 1)
+sky_energy_multiplier = 0.2
 
 [sub_resource type="Sky" id="sky"]
 sky_material = SubResource("sky_mat")
@@ -13,11 +18,12 @@ sky_material = SubResource("sky_mat")
 background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 3
+ambient_light_energy = 0.04
 tonemap_mode = 2
 glow_enabled = true
-glow_intensity = 0.55
+glow_intensity = 0.65
 glow_bloom = 0.2
-glow_hdr_threshold = 1.5
+glow_hdr_threshold = 1.1
 
 [sub_resource type="BoxShape3D" id="shape_unit_box"]
 
@@ -354,15 +360,15 @@ current = true
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(0.8660254, 0.38302222, -0.32139382, 0, 0.64278764, 0.76604444, 0.5, -0.66341394, 0.5566704, 0, 10, 0)
 light_color = Color(1, 0.95, 0.85, 1)
-light_energy = 1.5
+light_energy = 0.03
 shadow_enabled = true
 
 [node name="TableLamp" type="OmniLight3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 4.5, 0)
-light_color = Color(1, 0.93, 0.82, 1)
-light_energy = 8.0
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3.5, 0)
+light_color = Color(1, 0.9, 0.78, 1)
+light_energy = 1.8
 shadow_enabled = true
-omni_range = 12.0
+omni_range = 6.5
 
 [node name="RoomFloor" type="Node3D" parent="."]
 transform = Transform3D(20, 0, 0, 0, 1, 0, 0, 0, 20, 0, -0.5, 0)
