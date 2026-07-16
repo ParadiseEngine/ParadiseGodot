@@ -73,7 +73,11 @@ namespace ParadiseGodot.Runtime
 
             // The runner ctor pre-creates its world pool on THIS (owner) thread —
             // SharedWorld.CreateWorld is thread-affinity-guarded (see .claude/lessons.md).
-            _runner = new CultivationRunner(config, Seed, WorldSizeIndex >= 0 ? WorldSizeIndex : null);
+            _runner = new CultivationRunner(config, Seed, WorldSizeIndex >= 0 ? WorldSizeIndex : null)
+            {
+                // Godot play mode writes saves under user://, not the process cwd.
+                SaveRoot = ProjectSettings.GlobalizePath($"user://{config.Save.Directory}"),
+            };
             _imgui.AddDraw(new CultivationUi(_runner).Draw);
             _runner.UiInput = _imgui.Input; // the sim thread owns the ImGui frame from here on
 

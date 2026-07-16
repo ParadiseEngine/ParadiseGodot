@@ -165,6 +165,10 @@ public sealed class CultivationRunner : IDisposable
 
     public string Today => CultivationRules.FormatDate(Config, _day);
 
+    /// <summary>Absolute base directory for save slots. Hosts override it (the Godot bridge
+    /// maps it under user://); defaults to the config directory name relative to the cwd.</summary>
+    public string SaveRoot { get; set; }
+
     private MessageTextConfig Msg => Config.Text.Messages;
     private static string F(string template, params object[] args) => CultivationRules.F(template, args);
 
@@ -178,6 +182,7 @@ public sealed class CultivationRunner : IDisposable
     public CultivationRunner(CultivationConfig config, int seed, int? presetIndex = null)
     {
         Config = config;
+        SaveRoot = config.Save.Directory;
         (_ladder, _tuning) = CultivationRules.BakeSettlementData(config);
         _shared = SharedWorldFactory.Create();
         for (var i = 0; i < PoolSize; i++)
@@ -376,8 +381,18 @@ public sealed class CultivationRunner : IDisposable
         {
             _travelPlan = null;
         }
+        // Pace by wall-clock duration: journeys are stretched to stay visible (the moving
+        // character is the point), WASD steps stay snappy and terrain-independent, and
+        // everything is capped so century seclusions finish within MaxActionSeconds.
         var flow = Config.Time.Flow;
-        _pendingRate = Math.Max(flow.DaysPerSecond, totalDays / Math.Max(0.1f, flow.MaxActionSeconds));
+        var duration = kind switch
+        {
+            CommandKind.TravelStep => flow.StepSeconds,
+            CommandKind.Travel => Math.Clamp(
+                totalDays / flow.DaysPerSecond, flow.TravelMinSeconds, flow.MaxActionSeconds),
+            _ => Math.Min(totalDays / flow.DaysPerSecond, flow.MaxActionSeconds),
+        };
+        _pendingRate = totalDays / Math.Max(0.05, duration);
     }
 
     private void AdvanceTime(World write, out int monthsCrossed, out long firstMonthIndex)
@@ -444,9 +459,11 @@ public sealed class CultivationRunner : IDisposable
             _pendingDays = 0;
             _pendingKind = CommandKind.None;
             _travelPlan = null;
-            Log(F(Msg.DeathLog, CultivationRules.PlayerName(Config, in player),
+            var epitaph = F(Msg.DeathLog, CultivationRules.PlayerName(Config, in player),
                 $"{cultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0}",
-                Config.Realms[cultivator.RealmIndex].Name));
+                Config.Realms[cultivator.RealmIndex].Name);
+            Log(epitaph);
+            LastActionResult = epitaph; // not the stale "in seclusion..." line
             return;
         }
 

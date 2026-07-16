@@ -166,6 +166,11 @@ public sealed record TimeFlowConfig
 {
     public required float DaysPerSecond { get; init; }
     public required float MaxActionSeconds { get; init; }
+    /// <summary>Click-travel journeys stretch to at least this long, so the marker is SEEN
+    /// walking its path (an 11-day walk at the raw rate finishes in a tenth of a second).</summary>
+    public required float TravelMinSeconds { get; init; }
+    /// <summary>Fixed duration of one WASD step — snappy, independent of terrain cost.</summary>
+    public required float StepSeconds { get; init; }
 }
 
 public sealed record ActionDaysConfig

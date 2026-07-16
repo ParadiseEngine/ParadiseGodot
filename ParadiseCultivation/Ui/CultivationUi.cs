@@ -70,7 +70,7 @@ public sealed class CultivationUi
         }
     }
 
-    private string SaveSlotPath => Path.Combine(Config.Save.Directory, "slot1.json");
+    private string SaveSlotPath => Path.Combine(_runner.SaveRoot, "slot1.json");
 
     // ---- new game ---------------------------------------------------------------------------
 
