@@ -423,4 +423,6 @@ public sealed record MessageTextConfig
     public required string NpcBreakthroughLog { get; init; }
     /// <summary>{0} npc name, {1} site name.</summary>
     public required string NpcDeathLog { get; init; }
+    /// <summary>{0} successor name, {1} sect name — the strongest disciple inherits.</summary>
+    public required string SectSuccessionLog { get; init; }
 }

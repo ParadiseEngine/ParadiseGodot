@@ -442,6 +442,19 @@
       { "name": "丹会盛事", "effect": "pillPrice", "magnitude": 0.7, "weight": 2, "logLine": "各派丹师设炉演道，丹药之价一时大跌。" }
     ]
   },
+  // World-life chronicle beats: small hash-scheduled stories between two cultivators of one
+  // site — pure flavor, no mechanics; slots {0} {1} the pair, {2} their site.
+  "worldLife": {
+    "monthlyChancePercent": 40,
+    "beats": [
+      "{0}与{1}于{2}论道三日，各有所悟。",
+      "{0}与{1}在{2}切磋斗法，胜负难分，传为佳话。",
+      "{0}与{1}于{2}煮茶夜话，相谈甚欢。",
+      "{0}与{1}因一株灵药在{2}起了口角，不欢而散。",
+      "{0}邀{1}结伴出游，遍访{2}左近山水。",
+      "{0}向{1}求教功法疑难，于{2}闭门数日。"
+    ]
+  },
   "combat": {
     "encounterChance": 0.22,
     "resolveDays": 1,

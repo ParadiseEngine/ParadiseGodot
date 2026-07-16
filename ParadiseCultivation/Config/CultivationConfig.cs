@@ -52,6 +52,7 @@ public sealed record CultivationConfig
     public required AscensionConfig Ascension { get; init; }
     public required SecretRealmConfig SecretRealm { get; init; }
     public required WorldEventsConfig WorldEvents { get; init; }
+    public required WorldLifeConfig WorldLife { get; init; }
     public required CombatConfig Combat { get; init; }
     /// <summary>The optional online intelligence layer (see <see cref="ILlmTextService"/>).</summary>
     public required LlmConfig Llm { get; init; }
@@ -333,6 +334,17 @@ public sealed record WorldEventsConfig
     /// <summary>First eligible month index (keeps the opening month quiet).</summary>
     public required int FirstEventMonth { get; init; }
     public required WorldEventArchetypeConfig[] Archetypes { get; init; }
+}
+
+/// <summary>World-life chronicle beats: small hash-scheduled stories between two NPCs of one
+/// site (论道、切磋、口角 …) that make the living world legible in the chronicle. Pure
+/// flavor — no mechanical effect — drawn from the current NPC roster deterministically.</summary>
+public sealed record WorldLifeConfig
+{
+    /// <summary>Percent chance (0–100) each crossed month writes one beat.</summary>
+    public required int MonthlyChancePercent { get; init; }
+    /// <summary>Templates; slots: {0} first cultivator, {1} second, {2} their site.</summary>
+    public required string[] Beats { get; init; }
 }
 
 public sealed record WorldEventArchetypeConfig

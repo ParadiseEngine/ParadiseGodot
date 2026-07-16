@@ -310,6 +310,7 @@
     "loadMalformedMsg": "读档失败：存档已损坏。",
     "loadBusyMsg": "光阴流转之际，无法读档。",
     "npcBreakthroughLog": "江湖传闻：{1}的{0}突破至{2}。",
+    "sectSuccessionLog": "{1}老掌门坐化，门中推举{0}继掌山门。",
     "npcDeathLog": "{1}的{0}寿元耗尽，坐化了。"
   }
 }

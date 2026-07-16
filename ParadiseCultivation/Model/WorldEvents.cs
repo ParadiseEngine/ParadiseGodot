@@ -72,8 +72,9 @@ public static class WorldEvents
             : 1f;
 
     /// <summary>splitmix-style avalanche over (seed, month, stream) — like
-    /// <see cref="CultivationRules.TownPriceMultiplier"/>, deterministic and stateless.</summary>
-    private static uint Hash(int seed, long month, uint stream)
+    /// <see cref="CultivationRules.TownPriceMultiplier"/>, deterministic and stateless.
+    /// Internal so other hash-scheduled world features (life beats) reuse the same mix.</summary>
+    internal static uint Hash(int seed, long month, uint stream)
     {
         var h = (uint)seed * 2654435761u ^ (uint)month * 2246822519u ^ ((uint)(month >> 32) + stream) * 3266489917u;
         h ^= h >> 15;

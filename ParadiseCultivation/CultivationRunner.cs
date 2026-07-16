@@ -586,6 +586,7 @@ public sealed class CultivationRunner : IDisposable
                     Log(F(Msg.WorldEventLog, worldEvent.Name, worldEvent.LogLine));
                     RequestLlmEventText(in worldEvent, chronicleIndex);
                 }
+                LogWorldLifeBeat(write, mm);
             }
         }
 
@@ -1986,8 +1987,12 @@ public sealed class CultivationRunner : IDisposable
                     player.CompanionFollowing = 0;
                     Log(F(Msg.CompanionDeathLog, CultivationRules.NpcName(Config, in npc)));
                 }
+                // A fallen leader's mountain passes to the strongest surviving disciple;
+                // only an EMPTIED sect gets a fresh outside leader (world continuity).
+                var replaceAsLeader = npc.IsLeader != 0 &&
+                    !TryPromoteSuccessor(write, entity, npc.SiteIndex);
                 _replacementScratch.Add(WorldGenerator.CreateNpcSpec(
-                    Config, _rng, _nextNpcId++, _map, npc.SiteIndex, npc.IsLeader != 0,
+                    Config, _rng, _nextNpcId++, _map, npc.SiteIndex, replaceAsLeader,
                     Config.Npc.ReplacementAgeYears));
             }
         }
@@ -1998,6 +2003,89 @@ public sealed class CultivationRunner : IDisposable
         }
     }
     private readonly List<NpcSpec> _replacementScratch = new();
+
+    /// <summary>Succession: the strongest living non-leader of the fallen leader's site
+    /// inherits — realm, then sub-stage, then points, then seniority (lower NpcId). False
+    /// when nobody survives to inherit.</summary>
+    private bool TryPromoteSuccessor(World write, Entity fallen, int siteIndex)
+    {
+        var best = default(Entity);
+        var found = false;
+        var bestRealm = -1;
+        var bestStage = -1;
+        var bestPoints = double.MinValue;
+        var bestId = int.MaxValue;
+        foreach (var candidate in _npcs)
+        {
+            if (candidate == fallen) continue;
+            ref readonly var state = ref write.GetComponent<NpcState>(candidate);
+            if (state.Alive == 0 || state.IsLeader != 0 || state.SiteIndex != siteIndex) continue;
+            ref readonly var cultivator = ref write.GetComponent<Cultivator>(candidate);
+            var better = cultivator.RealmIndex != bestRealm ? cultivator.RealmIndex > bestRealm
+                : cultivator.SubStage != bestStage ? cultivator.SubStage > bestStage
+                : cultivator.CultivationPoints != bestPoints ? cultivator.CultivationPoints > bestPoints
+                : state.NpcId < bestId;
+            if (!better) continue;
+            best = candidate;
+            found = true;
+            bestRealm = cultivator.RealmIndex;
+            bestStage = cultivator.SubStage;
+            bestPoints = cultivator.CultivationPoints;
+            bestId = state.NpcId;
+        }
+        if (!found)
+        {
+            return false;
+        }
+
+        ref var successor = ref write.GetComponent<NpcState>(best);
+        successor.IsLeader = 1;
+        Log(F(Msg.SectSuccessionLog,
+            CultivationRules.NpcName(Config, in successor), _map.Sites[siteIndex].Name));
+        return true;
+    }
+
+    /// <summary>A hash-scheduled world-life beat: two living cultivators of one site share a
+    /// small story in the chronicle — authored flavor, no mechanics, drawn from the CURRENT
+    /// roster deterministically (same commands → same chronicle).</summary>
+    private void LogWorldLifeBeat(World write, long month)
+    {
+        var cfg = Config.WorldLife;
+        if (cfg.Beats.Length == 0 || _map.Sites.Count == 0)
+        {
+            return;
+        }
+        var seed = _map.GenerationSeed;
+        if (WorldEvents.Hash(seed, month, 0x11FEu) % 100u >= (uint)cfg.MonthlyChancePercent)
+        {
+            return;
+        }
+
+        var siteIndex = (int)(WorldEvents.Hash(seed, month, 0x517Eu) % (uint)_map.Sites.Count);
+        _beatScratch.Clear();
+        foreach (var entity in _npcs)
+        {
+            ref readonly var npc = ref write.GetComponent<NpcState>(entity);
+            if (npc.Alive != 0 && npc.SiteIndex == siteIndex)
+            {
+                _beatScratch.Add(entity);
+            }
+        }
+        if (_beatScratch.Count < 2)
+        {
+            return; // a quiet month at a lonely site
+        }
+
+        var first = (int)(WorldEvents.Hash(seed, month, 0xA11Cu) % (uint)_beatScratch.Count);
+        var second = (first + 1 +
+            (int)(WorldEvents.Hash(seed, month, 0x0B0Bu) % (uint)(_beatScratch.Count - 1))) % _beatScratch.Count;
+        var template = cfg.Beats[(int)(WorldEvents.Hash(seed, month, 0xF00Du) % (uint)cfg.Beats.Length)];
+        Log(F(template,
+            CultivationRules.NpcName(Config, write.GetComponent<NpcState>(_beatScratch[first])),
+            CultivationRules.NpcName(Config, write.GetComponent<NpcState>(_beatScratch[second])),
+            _map.Sites[siteIndex].Name));
+    }
+    private readonly List<Entity> _beatScratch = new();
 
     // ---- world (re)construction ----
 
