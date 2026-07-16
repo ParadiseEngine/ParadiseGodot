@@ -1,11 +1,15 @@
 using System.Buffers.Binary;
+using System.Runtime.InteropServices;
 using ImGuiNET;
 
 namespace ParadiseUi;
 
 /// <summary>Font selection for <see cref="ImGuiUiCore"/>. <paramref name="Path"/> empty/null
-/// means "probe the platform's known CJK-capable system fonts".</summary>
-public sealed record UiFontConfig(string? Path, float SizePixels);
+/// means "probe the platform's known CJK-capable system fonts".
+/// <paramref name="GlyphSourceText"/> (e.g. the game's whole config JSON) guarantees every
+/// authored character gets a glyph even outside the common-Chinese ranges — the static atlas
+/// bakes exactly what the content needs.</summary>
+public sealed record UiFontConfig(string? Path, float SizePixels, string? GlyphSourceText = null);
 
 /// <summary>
 /// CJK font resolution for the shared ImGui core. ImGui's default font is ASCII-only, so any
@@ -98,9 +102,42 @@ public static class UiFonts
             return false;
         }
 
-        io.Fonts.AddFontFromFileTTF(
-            path, font.SizePixels, default, io.Fonts.GetGlyphRangesChineseSimplifiedCommon());
+        var ranges = io.Fonts.GetGlyphRangesChineseSimplifiedCommon();
+        if (!string.IsNullOrEmpty(font.GlyphSourceText))
+        {
+            ranges = BuildRangesWithSourceText(io, font.GlyphSourceText);
+        }
+        io.Fonts.AddFontFromFileTTF(path, font.SizePixels, default, ranges);
         Console.WriteLine($"[ImGuiUi] CJK font: {path} @ {font.SizePixels}px.");
         return true;
+    }
+
+    // Pinned for the process lifetime — the atlas reads the ranges during Build(), and the
+    // font context is process-scoped anyway (one ImGui context per process).
+    private static readonly List<GCHandle> PinnedRanges = new();
+
+    /// <summary>Common-Chinese ranges UNION every character of the authored content, via
+    /// ImGui's glyph-ranges builder — rare hanzi in names/flavor text stay renderable.</summary>
+    private static unsafe nint BuildRangesWithSourceText(ImGuiIOPtr io, string sourceText)
+    {
+        var builder = new ImFontGlyphRangesBuilderPtr(ImGuiNative.ImFontGlyphRangesBuilder_ImFontGlyphRangesBuilder());
+        try
+        {
+            builder.AddRanges(io.Fonts.GetGlyphRangesChineseSimplifiedCommon());
+            builder.AddText(sourceText);
+            builder.BuildRanges(out var vector);
+            var copy = new ushort[vector.Size + 1]; // keep the 0 terminator
+            for (var i = 0; i < vector.Size; i++)
+            {
+                copy[i] = ((ushort*)vector.Data)[i];
+            }
+            var handle = GCHandle.Alloc(copy, GCHandleType.Pinned);
+            PinnedRanges.Add(handle);
+            return handle.AddrOfPinnedObject();
+        }
+        finally
+        {
+            builder.Destroy();
+        }
     }
 }

@@ -15,11 +15,15 @@ public static class CultivationRules
         var year = config.Time.StartYear + day / daysPerYear;
         var month = day % daysPerYear / config.Time.DaysPerMonth + 1;
         var dayOfMonth = day % config.Time.DaysPerMonth + 1;
-        return $"Year {year}, Month {month}, Day {dayOfMonth}";
+        return F(config.Text.Ui.DateFormat, year, month, dayOfMonth);
     }
 
+    /// <summary>Invariant positional formatting for every authored text template.</summary>
+    public static string F(string template, params object[] args) =>
+        string.Format(System.Globalization.CultureInfo.InvariantCulture, template, args);
+
     public static string RealmTitle(CultivationConfig config, int realmIndex, int subStage) =>
-        $"{config.Realms[realmIndex].Name} ({config.SubStages[subStage]})";
+        F(config.Text.Ui.RealmTitleFormat, config.Realms[realmIndex].Name, config.SubStages[subStage]);
 
     public static string NpcName(CultivationConfig config, in NpcState npc) =>
         $"{config.Names.Surnames[npc.SurnameIndex]} {config.Names.GivenNames[npc.GivenNameIndex]}";
@@ -37,13 +41,8 @@ public static class CultivationRules
         return name;
     }
 
-    public static float VeinBonusAt(CultivationConfig config, WorldMap map, int x, int y)
-    {
-        ref readonly var tile = ref map.TileAt(x, y);
-        return tile.Terrain == Terrain.SpiritVein
-            ? config.VeinCultivationBonus[tile.VeinQuality]
-            : config.VeinCultivationBonus[0];
-    }
+    public static float VeinBonusAt(CultivationConfig config, WorldMap map, int x, int y) =>
+        config.VeinCultivationBonus[map.TileAt(x, y).VeinQuality]; // L3 layer, any terrain
 
     /// <summary>Player points per cultivated month: realm base × spirit root × vein bonus,
     /// halved while injured.</summary>
@@ -74,17 +73,11 @@ public static class CultivationRules
         return Math.Clamp(chance, 0.05f, 0.98f);
     }
 
-    public static (int Days, string Mode) PlanTravel(
-        CultivationConfig config, WorldMap map, int fromX, int fromY, int realmIndex, int toX, int toY)
-    {
-        var distance = Math.Max(Math.Abs(toX - fromX), Math.Abs(toY - fromY));
-        var flight = realmIndex >= config.Time.SwordFlightRealmIndex;
-        var days = flight
-            ? distance / config.Time.SwordFlightTilesPerDay
-            : distance * config.Time.WalkDaysPerTile;
-        if (map.TileAt(toX, toY).Terrain == Terrain.Mountain) days *= config.Time.MountainTravelMultiplier;
-        return (Math.Max(1, (int)MathF.Ceiling(days)), flight ? "sword flight" : "on foot");
-    }
+    /// <summary>Plan a journey (terrain-cost A* on foot / straight-line flight); null when
+    /// the destination is unreachable. Thin alias over <see cref="Pathfinding.Plan"/>.</summary>
+    public static TravelPlan? PlanTravel(
+        CultivationConfig config, WorldMap map, int fromX, int fromY, int realmIndex, int toX, int toY) =>
+        Pathfinding.Plan(config, map, fromX, fromY, realmIndex, toX, toY);
 
     /// <summary>Advance sub-stages while the base is full; at Perfected, points cap at
     /// breakthrough readiness (the major breakthrough is a deliberate action).</summary>

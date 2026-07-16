@@ -7,6 +7,9 @@ namespace ParadiseCultivation;
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     ReadCommentHandling = System.Text.Json.JsonCommentHandling.Skip,
-    AllowTrailingCommas = true)]
+    AllowTrailingCommas = true,
+    UseStringEnumConverter = true,
+    WriteIndented = true)]
 [JsonSerializable(typeof(CultivationConfig))]
+[JsonSerializable(typeof(SaveData))]
 public sealed partial class CultivationJsonContext : JsonSerializerContext;

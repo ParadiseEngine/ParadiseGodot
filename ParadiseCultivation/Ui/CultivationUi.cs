@@ -8,28 +8,44 @@ namespace ParadiseCultivation;
 /// pumps every fixed tick. Panels therefore run ON THE SIM THREAD: they read the runner's
 /// <see cref="CultivationRunner.UiWorld"/> and side stores directly (BankHeist-style direct
 /// ECS access) and mutate ONLY by enqueueing commands. The identical UI runs in the
-/// standalone .NET runtime and the Godot play-mode host.</summary>
+/// standalone .NET runtime and the Godot play-mode host.
+///
+/// The world map follows the locked presentation direction: square logical grid drawn as a
+/// 2:1 isometric diamond field (ink-wash placeholder palette, light grid lines), continuous
+/// wheel zoom, drag to pan, the player as a small MOVING marker walking its travel path as
+/// game days tick, observable-range fog, hover path preview, and WASD single-tile steps.</summary>
 public sealed class CultivationUi
 {
     private readonly CultivationRunner _runner;
 
     private int _seedInput;
-    private int _sizeIndex;
-    private int _tileSize;
-    private int _cultivateMonths = 3;
-    private int _secludeYears = 5;
+    private int _presetIndex;
+    private float _zoom;
     private Entity _selectedNpc;
     private bool _hasSelection;
     private string _chatInput = string.Empty;
+    private string _mapHint = string.Empty;
+
+    // Hover path preview cache — replan only when the hovered tile or the player moves.
+    private (int X, int Y) _hoverTile = (-1, -1);
+    private (int X, int Y) _hoverFrom = (-1, -1);
+    private int _hoverRealm = -1;
+    private TravelPlan? _hoverPlan;
+
+    private Vector2 _dragOrigin;
+    private bool _dragging;
+    private WorldMap? _centeredMap; // scroll-to-player once per generated world
 
     private CultivationConfig Config => _runner.Config;
+    private UiTextConfig T => Config.Text.Ui;
+    private static string F(string template, params object[] args) => CultivationRules.F(template, args);
 
     public CultivationUi(CultivationRunner runner)
     {
         _runner = runner;
         _seedInput = runner.Map.Seed;
-        _sizeIndex = runner.Map.SizeIndex;
-        _tileSize = runner.Config.Ui.TileSizeDefault;
+        _presetIndex = runner.Map.PresetIndex;
+        _zoom = runner.Config.Ui.ZoomDefault;
     }
 
     public void Draw()
@@ -54,62 +70,72 @@ public sealed class CultivationUi
         }
     }
 
+    private string SaveSlotPath => Path.Combine(Config.Save.Directory, "slot1.json");
+
     // ---- new game ---------------------------------------------------------------------------
 
     private void DrawNewGame()
     {
         ImGui.SetNextWindowPos(new Vector2(40, 40), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new Vector2(420, 0), ImGuiCond.FirstUseEver);
-        ImGui.Begin("A New Cultivator");
+        ImGui.SetNextWindowSize(new Vector2(430, 0), ImGuiCond.FirstUseEver);
+        // Auto-resize: the "Load Saved Journey" button appears only when a save exists and
+        // must not be clipped by a height measured before it was there.
+        ImGui.Begin(T.NewGameTitle, ImGuiWindowFlags.AlwaysAutoResize);
 
-        ImGui.TextWrapped("A living world of sects, spirit veins and finite lifespans. Reroll until the heavens deal you a world worth a legend.");
+        ImGui.TextWrapped(T.NewGamePitch);
         ImGui.Separator();
 
-        ImGui.InputInt("World seed", ref _seedInput);
-        var sizes = Config.World.Sizes;
-        if (ImGui.BeginCombo("World size", sizes[_sizeIndex].Name))
+        ImGui.InputInt(T.SeedLabel, ref _seedInput);
+        var presets = Config.World.Presets;
+        if (ImGui.BeginCombo(T.WorldLabel, presets[_presetIndex].Name))
         {
-            for (var i = 0; i < sizes.Length; i++)
+            for (var i = 0; i < presets.Length; i++)
             {
-                if (ImGui.Selectable(sizes[i].Name, i == _sizeIndex)) _sizeIndex = i;
+                if (ImGui.Selectable(presets[i].Name, i == _presetIndex)) _presetIndex = i;
             }
             ImGui.EndCombo();
         }
 
-        if (ImGui.Button("Reroll World"))
+        if (ImGui.Button(T.RerollWorld))
         {
-            _runner.RequestStartNew(_seedInput, _sizeIndex);
+            _runner.RequestStartNew(_seedInput, _presetIndex);
             _hasSelection = false;
         }
         ImGui.SameLine();
-        if (ImGui.Button("Reroll Fate"))
+        if (ImGui.Button(T.RerollFate))
         {
             _seedInput = unchecked(_seedInput * 7919 + 13);
-            _runner.RequestStartNew(_seedInput, _sizeIndex);
+            _runner.RequestStartNew(_seedInput, _presetIndex);
             _hasSelection = false;
         }
 
         ImGui.Separator();
         var world = _runner.UiWorld;
         ref readonly var player = ref world.GetComponent<PlayerData>(_runner.Player);
-        ImGui.Text($"Name: {CultivationRules.PlayerName(Config, in player)}");
-        ImGui.Text($"Spirit Root: {Config.SpiritRoots.Elements[player.SpiritRootElement]}: " +
-            $"{Config.SpiritRoots.Grades[player.SpiritRootGrade].Name} (x{Config.SpiritRoots.Grades[player.SpiritRootGrade].Multiplier:F1})");
-        ImGui.Text($"Charm: {Config.CharmTiers[player.CharmTier].Name}");
-        ImGui.Text($"World: {_runner.Map.Sites.Count(s => s.Kind == SiteKind.Town)} towns, " +
-            $"{_runner.Map.Sites.Count(s => s.Kind == SiteKind.Sect)} sects");
+        ImGui.Text(F(T.NameLine, CultivationRules.PlayerName(Config, in player)));
+        ImGui.Text(F(T.SpiritRootLine, Config.SpiritRoots.Elements[player.SpiritRootElement],
+            Config.SpiritRoots.Grades[player.SpiritRootGrade].Name,
+            $"{Config.SpiritRoots.Grades[player.SpiritRootGrade].Multiplier:F1}"));
+        ImGui.Text(F(T.CharmLine, Config.CharmTiers[player.CharmTier].Name));
+        ImGui.Text(F(T.WorldSummaryLine, _runner.Map.Sites.Count(s => s.Kind == SiteKind.Town),
+            _runner.Map.Sites.Count(s => s.Kind == SiteKind.Sect)));
 
         ImGui.Separator();
-        if (ImGui.Button("Begin the Journey", new Vector2(-1, 0)))
+        if (ImGui.Button(T.BeginJourney, new Vector2(-1, 0)))
         {
             _runner.RequestBeginJourney();
+        }
+        if (File.Exists(SaveSlotPath) && ImGui.Button(T.LoadSavedJourney, new Vector2(-1, 0)))
+        {
+            _runner.RequestLoad(SaveSlotPath);
+            _hasSelection = false;
         }
         ImGui.End();
 
         DrawMap();
     }
 
-    // ---- map ----------------------------------------------------------------------------------
+    // ---- isometric world map ----------------------------------------------------------------
 
     private void DrawMap()
     {
@@ -117,87 +143,252 @@ public sealed class CultivationUi
         var ui = Config.Ui;
         var world = _runner.UiWorld;
         ref readonly var player = ref world.GetComponent<PlayerData>(_runner.Player);
+        var realmIndex = world.GetComponent<Cultivator>(_runner.Player).RealmIndex;
+        var playing = _runner.Phase == GamePhase.Playing;
 
         ImGui.SetNextWindowPos(new Vector2(480, 40), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(640, 560), ImGuiCond.FirstUseEver);
-        ImGui.Begin("World Map");
-        ImGui.SliderInt("Tile size", ref _tileSize, ui.TileSizeMin, ui.TileSizeMax);
-        ImGui.BeginChild("map_scroll", new Vector2(0, 0), ImGuiChildFlags.None, ImGuiWindowFlags.HorizontalScrollbar);
+        ImGui.Begin(T.MapTitle);
+        ImGui.TextDisabled(F(T.MapHelp, map.Width, map.Height));
+        ImGui.BeginChild("map_scroll", new Vector2(0, _mapHint.Length > 0 ? -ImGui.GetTextLineHeightWithSpacing() : 0),
+            ImGuiChildFlags.None, ImGuiWindowFlags.HorizontalScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+
+        var halfW = _zoom * 0.5f;
+        var halfH = _zoom * 0.25f;
+        var canvas = new Vector2((map.Width + map.Height) * halfW, (map.Width + map.Height) * halfH + halfH * 2f);
+
+        // Center the view on the player when a new world appears, and keep following while
+        // a journey animates (the marker stays in sight as the days tick by).
+        var follow = !ReferenceEquals(_centeredMap, map) || _runner.ActiveTravel.Plan is not null;
+        if (follow)
+        {
+            _centeredMap = map;
+            var local = new Vector2(
+                (player.X - player.Y + map.Height) * halfW,
+                (player.X + player.Y + 1f) * halfH);
+            var view = ImGui.GetWindowSize();
+            ImGui.SetScrollX(local.X - view.X * 0.5f);
+            ImGui.SetScrollY(local.Y - view.Y * 0.5f);
+        }
+
+        var origin = ImGui.GetCursorScreenPos();
+
+        ImGui.InvisibleButton("map", canvas);
+        var hovered = ImGui.IsItemHovered();
+        var io = ImGui.GetIO();
+
+        // Continuous zoom on the wheel, anchored at the cursor (scroll adjusts to match).
+        if (hovered && io.MouseWheel != 0f)
+        {
+            var mouseLocal = ImGui.GetMousePos() - origin;
+            var oldZoom = _zoom;
+            _zoom = Math.Clamp(_zoom * (1f + io.MouseWheel * 0.12f), ui.ZoomMin, ui.ZoomMax);
+            var scale = _zoom / oldZoom;
+            ImGui.SetScrollX(ImGui.GetScrollX() + mouseLocal.X * (scale - 1f));
+            ImGui.SetScrollY(ImGui.GetScrollY() + mouseLocal.Y * (scale - 1f));
+        }
+
+        // Left-drag pans; a short press-release without drag is a travel click.
+        var clicked = false;
+        if (ImGui.IsItemActive() && ImGui.IsMouseDragging(ImGuiMouseButton.Left, 6f))
+        {
+            if (!_dragging)
+            {
+                _dragging = true;
+                _dragOrigin = ImGui.GetMousePos();
+            }
+            var delta = ImGui.GetMousePos() - _dragOrigin;
+            _dragOrigin = ImGui.GetMousePos();
+            ImGui.SetScrollX(ImGui.GetScrollX() - delta.X);
+            ImGui.SetScrollY(ImGui.GetScrollY() - delta.Y);
+        }
+        else if (ImGui.IsMouseReleased(ImGuiMouseButton.Left))
+        {
+            clicked = hovered && !_dragging;
+            _dragging = false;
+        }
 
         var drawList = ImGui.GetWindowDrawList();
-        var origin = ImGui.GetCursorScreenPos();
-        var size = new Vector2(map.Width * _tileSize, map.Height * _tileSize);
+        var clipMin = ImGui.GetWindowPos();
+        var clipMax = clipMin + ImGui.GetWindowSize();
+        var margin = _zoom;
 
-        // One invisible button claims interaction for the whole grid.
-        ImGui.InvisibleButton("map", size);
-        var hovered = ImGui.IsItemHovered();
-        var clicked = ImGui.IsItemClicked(ImGuiMouseButton.Left);
+        Vector2 Center(float x, float y) =>
+            origin + new Vector2((x - y + map.Height) * halfW, (x + y + 1f) * halfH);
 
+        // Interpolated player position: the marker WALKS its path as game days tick.
+        var playerPos = new Vector2(player.X, player.Y);
+        var (travelPlan, daysDone) = _runner.ActiveTravel;
+        var remainingFrom = 0;
+        if (travelPlan is not null)
+        {
+            var idx = 0;
+            while (idx < travelPlan.Steps.Count && travelPlan.CumulativeDays[idx] <= daysDone) idx++;
+            remainingFrom = idx;
+            if (idx < travelPlan.Steps.Count)
+            {
+                var prevCum = idx == 0 ? 0.0 : travelPlan.CumulativeDays[idx - 1];
+                var span = travelPlan.CumulativeDays[idx] - prevCum;
+                var t = span <= 0 ? 0f : (float)Math.Clamp((daysDone - prevCum) / span, 0.0, 1.0);
+                var next = travelPlan.Steps[idx];
+                playerPos = Vector2.Lerp(new Vector2(player.X, player.Y), new Vector2(next.X, next.Y), t);
+            }
+        }
+
+        var range = ui.ObservableRange;
+        var showGrid = _zoom >= 10f;
         for (var y = 0; y < map.Height; y++)
         {
             for (var x = 0; x < map.Width; x++)
             {
+                var c = Center(x, y);
+                if (c.X < clipMin.X - margin || c.X > clipMax.X + margin ||
+                    c.Y < clipMin.Y - margin || c.Y > clipMax.Y + margin)
+                {
+                    continue;
+                }
+
                 ref readonly var tile = ref map.TileAt(x, y);
-                var color = tile.Terrain == Terrain.SpiritVein
-                    ? ui.VeinQualityColors[tile.VeinQuality]
-                    : ui.TerrainColors[(int)tile.Terrain];
-                var min = origin + new Vector2(x * _tileSize, y * _tileSize);
-                drawList.AddRectFilled(min, min + new Vector2(_tileSize, _tileSize), color);
+                var top = c with { Y = c.Y - halfH };
+                var right = c with { X = c.X + halfW };
+                var bottom = c with { Y = c.Y + halfH };
+                var left = c with { X = c.X - halfW };
+                drawList.AddQuadFilled(top, right, bottom, left, ui.TerrainColors[(int)tile.Terrain]);
+                if (showGrid)
+                {
+                    drawList.AddQuad(top, right, bottom, left, ui.GridLineColor);
+                }
+
+                var inRange = Math.Max(Math.Abs(x - player.X), Math.Abs(y - player.Y)) <= range;
+                if (tile.VeinQuality > 0 && inRange)
+                {
+                    drawList.AddCircleFilled(c, MathF.Max(1.5f, halfH * 0.4f), ui.VeinQualityColors[tile.VeinQuality]);
+                }
+                if (playing && !inRange)
+                {
+                    drawList.AddQuadFilled(top, right, bottom, left, ui.FogColor);
+                }
             }
         }
 
         foreach (var site in map.Sites)
         {
-            var center = origin + new Vector2((site.X + 0.5f) * _tileSize, (site.Y + 0.5f) * _tileSize);
-            var radius = MathF.Max(3f, _tileSize * 0.6f);
-            drawList.AddCircleFilled(center, radius, site.Kind == SiteKind.Town ? ui.TownColor : ui.SectColor);
-            drawList.AddCircle(center, radius, 0xFF000000);
+            var c = Center(site.X, site.Y);
+            if (c.X < clipMin.X - margin || c.X > clipMax.X + margin ||
+                c.Y < clipMin.Y - margin || c.Y > clipMax.Y + margin)
+            {
+                continue;
+            }
+            var radius = MathF.Max(3f, halfH * 0.9f);
+            drawList.AddCircleFilled(c, radius, site.Kind == SiteKind.Town ? ui.TownColor : ui.SectColor);
+            drawList.AddCircle(c, radius, 0xFF000000);
+            if (_zoom >= ui.LabelZoomThreshold)
+            {
+                drawList.AddText(c + new Vector2(radius + 2f, -radius), 0xFFEFEFEF, site.Name);
+            }
         }
 
-        var marker = origin + new Vector2((player.X + 0.5f) * _tileSize, (player.Y + 0.5f) * _tileSize);
-        drawList.AddTriangleFilled(
-            marker + new Vector2(0, -_tileSize * 0.8f),
-            marker + new Vector2(_tileSize * 0.6f, _tileSize * 0.5f),
-            marker + new Vector2(-_tileSize * 0.6f, _tileSize * 0.5f),
-            ui.PlayerColor);
-
-        if (hovered)
+        // Remaining travel path.
+        if (travelPlan is not null)
         {
-            var mouse = ImGui.GetMousePos() - origin;
-            var tx = (int)(mouse.X / _tileSize);
-            var ty = (int)(mouse.Y / _tileSize);
+            var prev = Center(playerPos.X, playerPos.Y);
+            for (var i = remainingFrom; i < travelPlan.Steps.Count; i++)
+            {
+                var next = Center(travelPlan.Steps[i].X, travelPlan.Steps[i].Y);
+                drawList.AddLine(prev, next, ui.PathColor, 2f);
+                prev = next;
+            }
+        }
+
+        // The player: a small traveling figure (head + robe) at the interpolated position.
+        var pc = Center(playerPos.X, playerPos.Y);
+        var s = MathF.Max(3f, halfH);
+        drawList.AddTriangleFilled(
+            pc + new Vector2(0, -s * 0.6f), pc + new Vector2(s * 0.7f, s * 0.9f), pc + new Vector2(-s * 0.7f, s * 0.9f),
+            ui.PlayerColor);
+        drawList.AddCircleFilled(pc + new Vector2(0, -s * 0.9f), s * 0.45f, ui.PlayerColor);
+
+        // Hover: tooltip + cached path preview; click travels (within observable range only).
+        if (hovered && !_dragging)
+        {
+            var m = ImGui.GetMousePos() - origin;
+            var a = m.X / halfW - map.Height; // x - y
+            var b = m.Y / halfH - 1f;         // x + y
+            var tx = (int)MathF.Round((a + b) * 0.5f);
+            var ty = (int)MathF.Round((b - a) * 0.5f);
             if (map.InBounds(tx, ty))
             {
                 ref readonly var tile = ref map.TileAt(tx, ty);
+                var inRange = Math.Max(Math.Abs(tx - player.X), Math.Abs(ty - player.Y)) <= range;
+
                 ImGui.BeginTooltip();
-                ImGui.Text(tile.Terrain == Terrain.SpiritVein
-                    ? $"Spirit Vein (quality {tile.VeinQuality})"
-                    : tile.Terrain.ToString());
-                if (tile.SiteIndex >= 0)
+                ImGui.Text(T.TerrainNames[(int)tile.Terrain]);
+                if (tile.VeinQuality > 0 && inRange) ImGui.Text(F(T.VeinTooltip, tile.VeinQuality));
+                if (tile.SiteIndex >= 0 && inRange)
                 {
                     var site = map.Sites[tile.SiteIndex];
-                    ImGui.Text($"{(site.Kind == SiteKind.Town ? "Town" : "Sect")}: {site.Name}");
+                    ImGui.Text($"{(site.Kind == SiteKind.Town ? T.TownWord : T.SectWord)}: {site.Name}");
                 }
-                var canTravel = _runner.Phase == GamePhase.Playing && !_runner.Busy &&
-                                (tx != player.X || ty != player.Y);
-                if (canTravel)
+
+                if (!inRange)
                 {
-                    var realmIndex = world.GetComponent<Cultivator>(_runner.Player).RealmIndex;
-                    var (days, mode) = CultivationRules.PlanTravel(Config, map, player.X, player.Y, realmIndex, tx, ty);
-                    ImGui.Text($"Travel: {days} day(s) {mode}: click to go");
+                    ImGui.TextDisabled(T.BeyondSight);
+                }
+                else if (playing && !_runner.Busy && (tx != player.X || ty != player.Y))
+                {
+                    if (_hoverTile != (tx, ty) || _hoverFrom != (player.X, player.Y) || _hoverRealm != realmIndex)
+                    {
+                        _hoverTile = (tx, ty);
+                        _hoverFrom = (player.X, player.Y);
+                        _hoverRealm = realmIndex;
+                        _hoverPlan = CultivationRules.PlanTravel(Config, map, player.X, player.Y, realmIndex, tx, ty);
+                    }
+                    if (_hoverPlan is { } preview)
+                    {
+                        ImGui.Text(F(T.TravelTooltip, preview.TotalDays, preview.Mode));
+                        var prev = Center(player.X, player.Y);
+                        foreach (var (sx, sy) in preview.Steps)
+                        {
+                            var next = Center(sx, sy);
+                            drawList.AddLine(prev, next, ui.PathColor, 1.5f);
+                            prev = next;
+                        }
+                        if (clicked)
+                        {
+                            _runner.RequestTravel(tx, ty);
+                            _hasSelection = false;
+                            _mapHint = string.Empty;
+                        }
+                    }
+                    else
+                    {
+                        ImGui.TextDisabled(T.NoFootPath);
+                    }
                 }
                 ImGui.EndTooltip();
 
-                if (canTravel && clicked)
+                if (clicked && !inRange)
                 {
-                    _runner.RequestTravel(tx, ty);
-                    _hasSelection = false;
+                    _mapHint = T.TooFarHint;
                 }
             }
         }
 
         ImGui.EndChild();
+        if (_mapHint.Length > 0)
+        {
+            ImGui.TextDisabled(_mapHint);
+        }
         ImGui.End();
+
+        // WASD single-tile steps (four-direction adjacency) — outside text inputs only.
+        if (playing && !_runner.Busy && !io.WantTextInput)
+        {
+            if (ImGui.IsKeyPressed(ImGuiKey.W, true)) _runner.RequestTravelStep(0, -1);
+            else if (ImGui.IsKeyPressed(ImGuiKey.S, true)) _runner.RequestTravelStep(0, 1);
+            else if (ImGui.IsKeyPressed(ImGuiKey.A, true)) _runner.RequestTravelStep(-1, 0);
+            else if (ImGui.IsKeyPressed(ImGuiKey.D, true)) _runner.RequestTravelStep(1, 0);
+        }
     }
 
     // ---- status -------------------------------------------------------------------------------
@@ -210,51 +401,55 @@ public sealed class CultivationUi
 
         ImGui.SetNextWindowPos(new Vector2(40, 40), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(420, 320), ImGuiCond.FirstUseEver);
-        ImGui.Begin("Cultivator");
+        ImGui.Begin(T.StatusTitle);
 
         ImGui.Text($"{CultivationRules.PlayerName(Config, in player)}: " +
             $"{CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage)}");
         ImGui.Text(_runner.Today);
         var ageYears = cultivator.AgeDays / CultivationRules.DaysPerYear(Config);
-        ImGui.Text($"Age {ageYears:F1} / lifespan {player.LifespanYears:N0} years");
+        ImGui.Text(F(T.AgeLine, $"{ageYears:F1}", $"{player.LifespanYears:N0}"));
 
         var realm = Config.Realms[cultivator.RealmIndex];
         var progress = (float)Math.Clamp(cultivator.CultivationPoints / realm.PointsPerSubStage, 0.0, 1.0);
         var monthly = CultivationRules.MonthlyCultivationGain(Config, _runner.Map, in cultivator, in player);
         ImGui.ProgressBar(progress, new Vector2(-1, 0),
-            $"{cultivator.CultivationPoints:F0} / {realm.PointsPerSubStage} ({monthly:F0}/month here)");
+            F(T.ProgressLine, $"{cultivator.CultivationPoints:F0}", realm.PointsPerSubStage, $"{monthly:F0}"));
 
-        ImGui.Text($"Spirit Root: {Config.SpiritRoots.Elements[player.SpiritRootElement]}: " +
-            $"{Config.SpiritRoots.Grades[player.SpiritRootGrade].Name}");
-        ImGui.Text($"Charm: {Config.CharmTiers[player.CharmTier].Name}   Fortune: {player.Fortune:F0} " +
-            $"(x{CultivationRules.FortuneMultiplier(Config, player.Fortune):F2} rewards)");
-        ImGui.Text($"Spirit Stones: {player.SpiritStones}   Herbs: {player.Herbs}");
+        ImGui.Text(F(T.SpiritRootLine, Config.SpiritRoots.Elements[player.SpiritRootElement],
+            Config.SpiritRoots.Grades[player.SpiritRootGrade].Name,
+            $"{Config.SpiritRoots.Grades[player.SpiritRootGrade].Multiplier:F1}"));
+        ImGui.Text(F(T.CharmFortuneLine, Config.CharmTiers[player.CharmTier].Name, $"{player.Fortune:F0}",
+            $"{CultivationRules.FortuneMultiplier(Config, player.Fortune):F2}"));
+        ImGui.Text(F(T.StonesHerbsLine, player.SpiritStones, player.Herbs));
         if (player.InjuryMonths > 0)
         {
-            ImGui.TextColored(new Vector4(1f, 0.45f, 0.35f, 1f), $"Injured: {player.InjuryMonths} month(s) of halved cultivation");
+            ImGui.TextColored(new Vector4(1f, 0.45f, 0.35f, 1f), F(T.InjuredLine, player.InjuryMonths));
         }
         var veinBonus = CultivationRules.VeinBonusAt(Config, _runner.Map, player.X, player.Y);
         if (veinBonus > 0)
         {
-            ImGui.TextColored(new Vector4(0.5f, 0.9f, 1f, 1f), $"Standing on a spirit vein: +{veinBonus:P0} cultivation");
+            ImGui.TextColored(new Vector4(0.5f, 0.9f, 1f, 1f), F(T.OnVeinLine, $"{veinBonus:P0}"));
         }
 
         if (_runner.Busy)
         {
             var (remaining, total) = _runner.PendingProgress;
             var fraction = total <= 0 ? 0f : (float)(1.0 - remaining / total);
-            ImGui.ProgressBar(fraction, new Vector2(-1, 0), $"time flows... {remaining:F0} day(s) remain");
+            ImGui.ProgressBar(fraction, new Vector2(-1, 0), F(T.TimeFlowsLine, $"{remaining:F0}"));
         }
         ImGui.End();
     }
 
     // ---- actions ------------------------------------------------------------------------------
 
+    private int _cultivateMonths = 3;
+    private int _secludeYears = 5;
+
     private void DrawActions()
     {
         ImGui.SetNextWindowPos(new Vector2(40, 380), ImGuiCond.FirstUseEver);
-        ImGui.SetNextWindowSize(new Vector2(420, 260), ImGuiCond.FirstUseEver);
-        ImGui.Begin("Actions");
+        ImGui.SetNextWindowSize(new Vector2(420, 300), ImGuiCond.FirstUseEver);
+        ImGui.Begin(T.ActionsTitle);
 
         var world = _runner.UiWorld;
         ref readonly var cultivator = ref world.GetComponent<Cultivator>(_runner.Player);
@@ -262,30 +457,41 @@ public sealed class CultivationUi
 
         ImGui.BeginDisabled(_runner.Busy);
 
-        ImGui.SliderInt("months##cultivate", ref _cultivateMonths, 1, 12);
+        ImGui.SliderInt($"{T.MonthsLabel}##cultivate", ref _cultivateMonths, 1, 12);
         ImGui.SameLine();
-        if (ImGui.Button("Cultivate")) _runner.RequestCultivate(_cultivateMonths);
+        if (ImGui.Button(T.CultivateButton)) _runner.RequestCultivate(_cultivateMonths);
 
-        ImGui.SliderInt("years##seclude", ref _secludeYears, 1, 100);
+        ImGui.SliderInt($"{T.YearsLabel}##seclude", ref _secludeYears, 1, 100);
         ImGui.SameLine();
-        if (ImGui.Button("Seclude")) _runner.RequestSeclude(_secludeYears);
+        if (ImGui.Button(T.SecludeButton)) _runner.RequestSeclude(_secludeYears);
 
-        if (ImGui.Button("Explore the area")) _runner.RequestExplore();
+        if (ImGui.Button(T.ExploreButton)) _runner.RequestExplore();
 
         ImGui.Separator();
         if (CultivationRules.BreakthroughReady(Config, in cultivator))
         {
             var chance = CultivationRules.BreakthroughSuccessChance(Config, _runner.Map, in cultivator, in player);
-            ImGui.TextColored(new Vector4(1f, 0.9f, 0.4f, 1f), $"Breakthrough ready: success chance {chance:P0}");
-            if (ImGui.Button("Attempt Breakthrough", new Vector2(-1, 0)))
+            ImGui.TextColored(new Vector4(1f, 0.9f, 0.4f, 1f), F(T.BreakthroughReadyLine, $"{chance:P0}"));
+            if (ImGui.Button(T.BreakthroughButton, new Vector2(-1, 0)))
             {
                 _runner.RequestBreakthrough();
             }
         }
         else
         {
-            ImGui.TextDisabled("Breakthrough: reach Perfected stage with a full cultivation base.");
+            ImGui.TextDisabled(T.BreakthroughLockedLine);
         }
+
+        ImGui.Separator();
+        if (ImGui.Button(T.SaveButton)) _runner.RequestSave(SaveSlotPath);
+        ImGui.SameLine();
+        ImGui.BeginDisabled(!File.Exists(SaveSlotPath));
+        if (ImGui.Button(T.LoadButton))
+        {
+            _runner.RequestLoad(SaveSlotPath);
+            _hasSelection = false;
+        }
+        ImGui.EndDisabled();
 
         ImGui.EndDisabled();
 
@@ -308,19 +514,19 @@ public sealed class CultivationUi
 
         ImGui.SetNextWindowPos(new Vector2(1140, 40), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(420, 560), ImGuiCond.FirstUseEver);
-        ImGui.Begin("Location");
+        ImGui.Begin(T.LocationTitle);
 
         if (tile.SiteIndex < 0)
         {
-            ImGui.TextWrapped(tile.Terrain == Terrain.SpiritVein
-                ? $"You stand on a quality-{tile.VeinQuality} spirit vein in the wilds. A fine place to cultivate."
-                : $"Wilderness ({tile.Terrain}). Nothing but sky and silence.");
+            ImGui.TextWrapped(tile.VeinQuality > 0
+                ? F(T.WildernessVeinLine, tile.VeinQuality, T.TerrainNames[(int)tile.Terrain])
+                : F(T.WildernessLine, T.TerrainNames[(int)tile.Terrain]));
             ImGui.End();
             return;
         }
 
         var site = map.Sites[tile.SiteIndex];
-        ImGui.Text($"{(site.Kind == SiteKind.Town ? "Town" : "Sect")}: {site.Name}");
+        ImGui.Text($"{(site.Kind == SiteKind.Town ? T.TownWord : T.SectWord)}: {site.Name}");
         ImGui.Separator();
 
         var found = false;
@@ -330,7 +536,7 @@ public sealed class CultivationUi
             if (npc.Alive == 0 || npc.SiteIndex != tile.SiteIndex) continue;
             var realmIndex = world.GetComponent<Cultivator>(entity).RealmIndex;
             var label = $"{CultivationRules.NpcName(Config, in npc)}" +
-                $"{(npc.IsLeader != 0 ? " (Sect Leader)" : string.Empty)}: {Config.Realms[realmIndex].Name}";
+                $"{(npc.IsLeader != 0 ? T.SectLeaderTag : string.Empty)}: {Config.Realms[realmIndex].Name}";
             var selected = _hasSelection && entity == _selectedNpc;
             if (ImGui.Selectable(label, selected))
             {
@@ -342,7 +548,7 @@ public sealed class CultivationUi
 
         if (!found)
         {
-            ImGui.TextDisabled("Select someone to interact with.");
+            ImGui.TextDisabled(T.SelectSomeone);
             ImGui.End();
             return;
         }
@@ -373,23 +579,23 @@ public sealed class CultivationUi
         ImGui.BeginGroup();
         ImGui.Text($"{CultivationRules.NpcName(Config, in npc)} ({personality})");
         ImGui.Text(CultivationRules.RealmTitle(Config, npcCultivator.RealmIndex, npcCultivator.SubStage));
-        ImGui.Text($"Age {npcCultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0} / " +
-            $"{Config.Realms[npcCultivator.RealmIndex].LifespanYears:N0}");
-        ImGui.Text($"Charm: {Config.CharmTiers[npc.CharmTier].Name}");
+        ImGui.Text(F(T.NpcAgeLine, $"{npcCultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0}",
+            $"{Config.Realms[npcCultivator.RealmIndex].LifespanYears:N0}"));
+        ImGui.Text(F(T.CharmLine, Config.CharmTiers[npc.CharmTier].Name));
         ImGui.EndGroup();
 
-        ImGui.Text($"Their regard for you: {npc.AffectionToPlayer:F0} ({CultivationRules.AffectionTierName(Config, npc.AffectionToPlayer)})");
-        ImGui.Text($"Your regard for them: {npc.PlayerAffection:F0} ({CultivationRules.AffectionTierName(Config, npc.PlayerAffection)})");
+        ImGui.Text(F(T.TheirRegardLine, $"{npc.AffectionToPlayer:F0}", CultivationRules.AffectionTierName(Config, npc.AffectionToPlayer)));
+        ImGui.Text(F(T.YourRegardLine, $"{npc.PlayerAffection:F0}", CultivationRules.AffectionTierName(Config, npc.PlayerAffection)));
 
         ImGui.BeginDisabled(_runner.Busy);
-        if (ImGui.Button($"Gift {Config.Interaction.GiftSpiritStones} stones")) _runner.RequestGift(entity);
+        if (ImGui.Button(F(T.GiftButton, Config.Interaction.GiftSpiritStones))) _runner.RequestGift(entity);
         ImGui.SameLine();
-        if (ImGui.Button("Spar")) _runner.RequestSpar(entity);
+        if (ImGui.Button(T.SparButton)) _runner.RequestSpar(entity);
 
         ImGui.SetNextItemWidth(-70);
         var send = ImGui.InputText("##chat", ref _chatInput, 256, ImGuiInputTextFlags.EnterReturnsTrue);
         ImGui.SameLine();
-        send |= ImGui.Button("Say");
+        send |= ImGui.Button(T.SayButton);
         if (send && _chatInput.Length > 0)
         {
             _runner.RequestChat(entity, _chatInput);
@@ -405,7 +611,7 @@ public sealed class CultivationUi
         var memories = _runner.MemoriesOf(entity);
         if (memories.Count > 0)
         {
-            ImGui.SeparatorText("They remember");
+            ImGui.SeparatorText(T.TheyRemember);
             var start = Math.Max(0, memories.Count - Config.Interaction.MemoryWindow);
             for (var i = memories.Count - 1; i >= start; i--)
             {
@@ -420,7 +626,7 @@ public sealed class CultivationUi
     {
         ImGui.SetNextWindowPos(new Vector2(480, 620), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(640, 160), ImGuiCond.FirstUseEver);
-        ImGui.Begin("Chronicle");
+        ImGui.Begin(T.ChronicleTitle);
         ImGui.BeginChild("chronicle_scroll");
         foreach (var entry in _runner.Chronicle)
         {
@@ -439,18 +645,18 @@ public sealed class CultivationUi
 
         ImGui.SetNextWindowPos(new Vector2(40, 40), ImGuiCond.FirstUseEver);
         ImGui.SetNextWindowSize(new Vector2(420, 220), ImGuiCond.FirstUseEver);
-        ImGui.Begin("The Dao Ends");
+        ImGui.Begin(T.DeathTitle);
         var ageYears = cultivator.AgeDays / CultivationRules.DaysPerYear(Config);
-        ImGui.TextWrapped($"{CultivationRules.PlayerName(Config, in player)} reached " +
-            $"{CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage)} and lived " +
-            $"{ageYears:F0} years. The chronicle remains.");
+        ImGui.TextWrapped(F(T.DeathLine, CultivationRules.PlayerName(Config, in player),
+            CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage), $"{ageYears:F0}"));
         ImGui.Separator();
-        if (ImGui.Button("Reincarnate (new fate)", new Vector2(-1, 0)))
+        if (ImGui.Button(T.ReincarnateButton, new Vector2(-1, 0)))
         {
             _seedInput = unchecked(_seedInput * 48271 + 7);
-            _runner.RequestStartNew(_seedInput, _sizeIndex);
+            _runner.RequestStartNew(_seedInput, _presetIndex);
             _hasSelection = false;
             _chatInput = string.Empty;
+            _mapHint = string.Empty;
         }
         ImGui.End();
     }

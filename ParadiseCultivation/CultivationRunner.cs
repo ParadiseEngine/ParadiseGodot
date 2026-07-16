@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Text.Json;
 using ParadiseGame.Ui;
 
 namespace ParadiseCultivation;
@@ -11,6 +12,7 @@ public enum CommandKind
     StartNew,
     BeginJourney,
     Travel,
+    TravelStep,
     Cultivate,
     Seclude,
     Breakthrough,
@@ -18,6 +20,8 @@ public enum CommandKind
     Chat,
     Gift,
     Spar,
+    Save,
+    Load,
 }
 
 public readonly record struct CultivationCommand(CommandKind Kind, int A, int B, Entity Target, string? Text);
@@ -32,13 +36,20 @@ public readonly record struct CultivationCommand(CommandKind Kind, int A, int B,
 ///
 /// Game flow: player actions arrive as <see cref="CultivationCommand"/>s and are applied on
 /// the sim thread; time-consuming actions start an ANIMATED time advance (game days flow at
-/// the config rate), month boundaries settle the player in managed code and the NPC
-/// population through <see cref="SettlementSystem"/> (snapshot-read parallel schedule), and
-/// the managed post-pass turns the system's flags into chronicle entries and replacement
-/// spawns. The ImGui UI runs on the sim thread via <see cref="UiInput"/> (drained + ticked
-/// every fixed step, paused or not), reading <see cref="UiWorld"/> directly and enqueueing
-/// commands — the BankHeist direct-world-access pattern, no facade.
+/// the config rate). Travel walks a terrain-cost A* path tile by tile as the days tick.
+/// Month boundaries settle the player in managed code and the NPC population through
+/// <see cref="SettlementSystem"/> (snapshot-read parallel schedule); the managed post-pass
+/// turns the system's flags into chronicle entries and replacement spawns. The ImGui UI runs
+/// on the sim thread via <see cref="UiInput"/>, reading <see cref="UiWorld"/> directly and
+/// enqueueing commands — the BankHeist direct-world-access pattern, no facade.
 ///
+/// Free-text interaction goes through the intelligence-layer seam
+/// (<see cref="Proposer"/> → <see cref="ProposalRules"/> validation): proposers only
+/// suggest; this runner's rules code is the sole writer of authoritative state, and the
+/// deterministic <see cref="TemplateProposer"/> keeps everything working offline.
+///
+/// Randomness is a serializable <see cref="Pcg32"/> stream, so the versioned JSON save
+/// (<see cref="SaveData"/>) captures it exactly and a loaded game continues deterministically.
 /// String state lives OUTSIDE the ECS: <see cref="Chronicle"/> and the per-NPC memory logs
 /// are sim-thread side stores; names/personalities are config-pool indices on components.
 /// The terrain/site <see cref="Map"/> is immutable and thread-agnostic.
@@ -85,7 +96,7 @@ public sealed class CultivationRunner : IDisposable
     private readonly RealmLadder _ladder;
     private readonly SettlementTuning _tuning;
     private WorldMap _map = null!;
-    private Random _rng = null!;
+    private Pcg32 _rng = null!;
     private int _nextNpcId;
     private readonly List<Entity> _npcs = new();
     private readonly Dictionary<Entity, List<MemoryEntry>> _memories = new();
@@ -99,14 +110,17 @@ public sealed class CultivationRunner : IDisposable
     private double _pendingRate;         // game days per real second for this action
     private CommandKind _pendingKind;
     private int _pendingAmount;          // months cultivated / years secluded / travel days
-    private int _pendingDestX;
-    private int _pendingDestY;
-    private string _pendingMode = string.Empty;
+    private TravelPlan? _travelPlan;
+    private int _travelStepsDone;
     private double _pendingGained;
     private World? _uiWorld;
 
     public CultivationConfig Config { get; }
-    public INpcDialogue Dialogue { get; set; } = new TemplateDialogue();
+
+    /// <summary>The intelligence-layer proposer for free-text interaction. Swap in an
+    /// LLM-backed implementation later; every proposal is validated by
+    /// <see cref="ProposalRules"/> and the default keeps the game fully offline.</summary>
+    public INpcInteractionProposer Proposer { get; set; } = new TemplateProposer();
 
     /// <summary>The immutable generated map — safe from any thread.</summary>
     public WorldMap Map => _map;
@@ -139,10 +153,20 @@ public sealed class CultivationRunner : IDisposable
         (_pendingDays, _pendingKind == CommandKind.None ? 0 : _pendingTotalDays);
     private double _pendingTotalDays;
 
+    /// <summary>The path being traveled (null when not traveling) plus days completed —
+    /// the UI interpolates the moving player marker from these. SIM THREAD ONLY.</summary>
+    public (TravelPlan? Plan, double DaysDone) ActiveTravel =>
+        _pendingKind is CommandKind.Travel or CommandKind.TravelStep && _travelPlan is not null
+            ? (_travelPlan, _pendingTotalDays - _pendingDays)
+            : (null, 0);
+
     public string LastActionResult { get; private set; } = string.Empty;
     public string LastReply { get; private set; } = string.Empty;
 
     public string Today => CultivationRules.FormatDate(Config, _day);
+
+    private MessageTextConfig Msg => Config.Text.Messages;
+    private static string F(string template, params object[] args) => CultivationRules.F(template, args);
 
     public IReadOnlyList<MemoryEntry> MemoriesOf(Entity npc) =>
         _memories.TryGetValue(npc, out var list) ? list : Array.Empty<MemoryEntry>();
@@ -151,7 +175,7 @@ public sealed class CultivationRunner : IDisposable
     /// once the sim thread runs, published worlds are immutable and must not be poked.</summary>
     public World Current => _live[^1].World;
 
-    public CultivationRunner(CultivationConfig config, int seed, int? sizeIndex = null)
+    public CultivationRunner(CultivationConfig config, int seed, int? presetIndex = null)
     {
         Config = config;
         (_ladder, _tuning) = CultivationRules.BakeSettlementData(config);
@@ -162,21 +186,25 @@ public sealed class CultivationRunner : IDisposable
         }
         _live.Add(new Snapshot { World = RentWorldUnlocked(), Frame = 0 });
 
-        StartNewWorld(Current, seed, sizeIndex ?? config.World.DefaultSizeIndex);
+        StartNewWorld(Current, seed, presetIndex ?? config.World.DefaultPresetIndex);
     }
 
     // ---- commands (any thread) ----
 
     public void Enqueue(in CultivationCommand command) => _commands.Enqueue(command);
 
-    public void RequestStartNew(int seed, int sizeIndex) =>
-        Enqueue(new CultivationCommand(CommandKind.StartNew, seed, sizeIndex, default, null));
+    public void RequestStartNew(int seed, int presetIndex) =>
+        Enqueue(new CultivationCommand(CommandKind.StartNew, seed, presetIndex, default, null));
 
     public void RequestBeginJourney() =>
         Enqueue(new CultivationCommand(CommandKind.BeginJourney, 0, 0, default, null));
 
     public void RequestTravel(int x, int y) =>
         Enqueue(new CultivationCommand(CommandKind.Travel, x, y, default, null));
+
+    /// <summary>WASD: step one tile in a cardinal direction (four-direction adjacency).</summary>
+    public void RequestTravelStep(int dx, int dy) =>
+        Enqueue(new CultivationCommand(CommandKind.TravelStep, dx, dy, default, null));
 
     public void RequestCultivate(int months) =>
         Enqueue(new CultivationCommand(CommandKind.Cultivate, months, 0, default, null));
@@ -198,6 +226,12 @@ public sealed class CultivationRunner : IDisposable
 
     public void RequestSpar(Entity npc) =>
         Enqueue(new CultivationCommand(CommandKind.Spar, 0, 0, npc, null));
+
+    public void RequestSave(string path) =>
+        Enqueue(new CultivationCommand(CommandKind.Save, 0, 0, default, path));
+
+    public void RequestLoad(string path) =>
+        Enqueue(new CultivationCommand(CommandKind.Load, 0, 0, default, path));
 
     // ---- UI pump (the SimulationRunner contract) ----
 
@@ -324,7 +358,7 @@ public sealed class CultivationRunner : IDisposable
             data.SimulationContext.Day = _day;
             data.SimulationContext.MonthsCrossed = monthsCrossed;
             data.SimulationContext.FirstMonthIndex = firstMonthIndex;
-            data.SimulationContext.WorldSeed = _map.Seed;
+            data.SimulationContext.WorldSeed = _map.GenerationSeed;
         }
     }
 
@@ -338,6 +372,10 @@ public sealed class CultivationRunner : IDisposable
         _pendingTargetCursor = Math.Floor(_dayCursor) + totalDays; // integer-valued → exact end
         _pendingAmount = amount;
         _pendingGained = 0;
+        if (kind is not (CommandKind.Travel or CommandKind.TravelStep))
+        {
+            _travelPlan = null;
+        }
         var flow = Config.Time.Flow;
         _pendingRate = Math.Max(flow.DaysPerSecond, totalDays / Math.Max(0.1f, flow.MaxActionSeconds));
     }
@@ -372,6 +410,21 @@ public sealed class CultivationRunner : IDisposable
         ref var player = ref write.GetComponent<PlayerData>(_player);
         cultivator.AgeDays += (dayAfter - dayBefore);
 
+        // Travel: the marker walks the path as days accumulate — the design's "player is
+        // always a small moving character on the map", not teleport-on-arrival.
+        if (_travelPlan is { } plan && _pendingKind is CommandKind.Travel or CommandKind.TravelStep)
+        {
+            var daysDone = _pendingTotalDays - _pendingDays;
+            while (_travelStepsDone < plan.Steps.Count &&
+                   (done || plan.CumulativeDays[_travelStepsDone] <= daysDone))
+            {
+                var (sx, sy) = plan.Steps[_travelStepsDone];
+                player.X = sx;
+                player.Y = sy;
+                _travelStepsDone++;
+            }
+        }
+
         var cultivating = _pendingKind is CommandKind.Cultivate or CommandKind.Seclude;
         for (var m = 0; m < monthsCrossed; m++)
         {
@@ -390,44 +443,42 @@ public sealed class CultivationRunner : IDisposable
             _phaseRaw = (int)GamePhase.Dead;
             _pendingDays = 0;
             _pendingKind = CommandKind.None;
-            Log($"{CultivationRules.PlayerName(Config, in player)}'s lifespan is exhausted at age " +
-                $"{cultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0}, a " +
-                $"{Config.Realms[cultivator.RealmIndex].Name} cultivator to the end.");
+            _travelPlan = null;
+            Log(F(Msg.DeathLog, CultivationRules.PlayerName(Config, in player),
+                $"{cultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0}",
+                Config.Realms[cultivator.RealmIndex].Name));
             return;
         }
 
         if (done)
         {
-            CompleteAdvance(write, in cultivator, in player);
+            CompleteAdvance(in cultivator, in player);
         }
     }
 
-    private void CompleteAdvance(World write, in Cultivator cultivator, in PlayerData player)
+    private void CompleteAdvance(in Cultivator cultivator, in PlayerData player)
     {
         switch (_pendingKind)
         {
             case CommandKind.Travel:
+            case CommandKind.TravelStep:
             {
-                // Position lands on arrival, so the map marker moves when the journey ends.
-                ref var p = ref write.GetComponent<PlayerData>(_player);
-                p.X = _pendingDestX;
-                p.Y = _pendingDestY;
-                var site = _map.TileAt(_pendingDestX, _pendingDestY).SiteIndex;
+                var site = _map.TileAt(player.X, player.Y).SiteIndex;
+                var mode = _travelPlan?.Mode ?? Msg.WalkMode;
                 LastActionResult = site >= 0
-                    ? $"Arrived at {_map.Sites[site].Name} after {_pendingAmount} day(s) {_pendingMode}."
-                    : $"Traveled {_pendingAmount} day(s) {_pendingMode}.";
+                    ? F(Msg.ArrivedAtMsg, _map.Sites[site].Name, _pendingAmount, mode)
+                    : F(Msg.TraveledMsg, _pendingAmount, mode);
+                _travelPlan = null;
                 break;
             }
             case CommandKind.Cultivate:
-                LastActionResult =
-                    $"Cultivated {_pendingAmount} month(s), gaining {_pendingGained:F0} points. " +
-                    $"Now at {CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage)}.";
+                LastActionResult = F(Msg.CultivateDoneMsg, _pendingAmount, $"{_pendingGained:F0}",
+                    CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage));
                 break;
             case CommandKind.Seclude:
-                Log($"{CultivationRules.PlayerName(Config, in player)} leaves seclusion after {_pendingAmount} year(s).");
-                LastActionResult =
-                    $"Seclusion of {_pendingAmount} year(s) complete, gaining {_pendingGained:F0} points. " +
-                    $"Now at {CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage)}.";
+                Log(F(Msg.SecludeLeaveLog, CultivationRules.PlayerName(Config, in player), _pendingAmount));
+                LastActionResult = F(Msg.SecludeDoneMsg, _pendingAmount, $"{_pendingGained:F0}",
+                    CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage));
                 break;
         }
         _pendingKind = CommandKind.None;
@@ -442,10 +493,14 @@ public sealed class CultivationRunner : IDisposable
             switch (command.Kind)
             {
                 case CommandKind.StartNew:
-                    StartNewWorld(write, command.A, Math.Clamp(command.B, 0, Config.World.Sizes.Length - 1));
+                    StartNewWorld(write, command.A, Math.Clamp(command.B, 0, Config.World.Presets.Length - 1));
                     continue;
                 case CommandKind.BeginJourney:
                     if (Phase == GamePhase.NewGame) _phaseRaw = (int)GamePhase.Playing;
+                    continue;
+                case CommandKind.Load:
+                    if (!Busy) LoadGame(write, command.Text ?? string.Empty);
+                    else LastActionResult = Msg.LoadBusyMsg;
                     continue;
             }
 
@@ -453,9 +508,17 @@ public sealed class CultivationRunner : IDisposable
             {
                 continue;
             }
+
+            if (command.Kind == CommandKind.Save)
+            {
+                if (!Busy) SaveGame(write, command.Text ?? string.Empty);
+                else LastActionResult = Msg.SaveBusyMsg;
+                continue;
+            }
+
             if (Busy)
             {
-                LastActionResult = "You are already occupied.";
+                LastActionResult = Msg.Occupied;
                 continue;
             }
 
@@ -465,33 +528,28 @@ public sealed class CultivationRunner : IDisposable
             switch (command.Kind)
             {
                 case CommandKind.Travel:
+                    BeginTravel(in cultivator, in player, command.A, command.B);
+                    break;
+                case CommandKind.TravelStep:
                 {
-                    if (!_map.InBounds(command.A, command.B) ||
-                        (command.A == player.X && command.B == player.Y))
-                    {
-                        break;
-                    }
-                    var (days, mode) = CultivationRules.PlanTravel(
-                        Config, _map, player.X, player.Y, cultivator.RealmIndex, command.A, command.B);
-                    _pendingDestX = command.A;
-                    _pendingDestY = command.B;
-                    _pendingMode = mode;
-                    LastActionResult = $"Traveling {mode}, {days} day(s)...";
-                    BeginAdvance(CommandKind.Travel, days, days);
+                    var dx = Math.Clamp(command.A, -1, 1);
+                    var dy = Math.Clamp(command.B, -1, 1);
+                    if (dx != 0 && dy != 0) break; // four-direction adjacency only
+                    BeginTravel(in cultivator, in player, player.X + dx, player.Y + dy, step: true);
                     break;
                 }
                 case CommandKind.Cultivate:
                 {
                     var months = Math.Max(1, command.A);
-                    LastActionResult = $"Cultivating for {months} month(s)...";
+                    LastActionResult = F(Msg.CultivateStartMsg, months);
                     BeginAdvance(CommandKind.Cultivate, months * Config.Time.DaysPerMonth, months);
                     break;
                 }
                 case CommandKind.Seclude:
                 {
                     var years = Math.Max(1, command.A);
-                    Log($"{CultivationRules.PlayerName(Config, in player)} enters seclusion, planned for {years} year(s).");
-                    LastActionResult = $"In seclusion for {years} year(s)...";
+                    Log(F(Msg.SecludeEnterLog, CultivationRules.PlayerName(Config, in player), years));
+                    LastActionResult = F(Msg.SecludeStartMsg, years);
                     BeginAdvance(CommandKind.Seclude, (int)(years * CultivationRules.DaysPerYear(Config)), years);
                     break;
                 }
@@ -514,11 +572,34 @@ public sealed class CultivationRunner : IDisposable
         }
     }
 
+    private void BeginTravel(in Cultivator cultivator, in PlayerData player, int toX, int toY, bool step = false)
+    {
+        if (!_map.InBounds(toX, toY) || (toX == player.X && toY == player.Y))
+        {
+            return;
+        }
+
+        var plan = Pathfinding.Plan(Config, _map, player.X, player.Y, cultivator.RealmIndex, toX, toY);
+        if (plan is null)
+        {
+            LastActionResult = step ? Msg.TravelStepBlocked : Msg.TravelNoPath;
+            return;
+        }
+
+        _travelPlan = plan;
+        _travelStepsDone = 0;
+        if (!step)
+        {
+            LastActionResult = F(Msg.TravelStartMsg, plan.Mode, plan.TotalDays);
+        }
+        BeginAdvance(step ? CommandKind.TravelStep : CommandKind.Travel, plan.TotalDays, plan.TotalDays);
+    }
+
     private void ApplyBreakthrough(ref Cultivator cultivator, ref PlayerData player)
     {
         if (!CultivationRules.BreakthroughReady(Config, in cultivator))
         {
-            LastActionResult = "Not ready - reach the Perfected stage with a full cultivation base first.";
+            LastActionResult = Msg.BreakthroughNotReady;
             return;
         }
 
@@ -529,22 +610,22 @@ public sealed class CultivationRunner : IDisposable
             cultivator.SubStage = 0;
             cultivator.CultivationPoints = 0;
             player.LifespanYears = Config.Realms[cultivator.RealmIndex].LifespanYears;
-            var tribulation = realm.HasTribulation
-                ? " Heavenly lightning fell in nine waves - and was endured."
-                : string.Empty;
-            Log($"{CultivationRules.PlayerName(Config, in player)} breaks through to {Config.Realms[cultivator.RealmIndex].Name}!{tribulation}");
-            LastActionResult =
-                $"Breakthrough! You are now {CultivationRules.RealmTitle(Config, cultivator.RealmIndex, 0)}.{tribulation} " +
-                $"Lifespan extends to {player.LifespanYears:N0} years.";
+            var tribulation = realm.HasTribulation ? Msg.TribulationFlavor : string.Empty;
+            Log(F(Msg.BreakthroughLog, CultivationRules.PlayerName(Config, in player),
+                Config.Realms[cultivator.RealmIndex].Name, tribulation));
+            LastActionResult = F(Msg.BreakthroughMsg,
+                CultivationRules.RealmTitle(Config, cultivator.RealmIndex, 0), tribulation,
+                $"{player.LifespanYears:N0}");
         }
         else
         {
             cultivator.CultivationPoints *= 1.0 - realm.FailureCultivationLoss;
             player.InjuryMonths += realm.FailureInjuryMonths;
-            Log($"{CultivationRules.PlayerName(Config, in player)}'s breakthrough to {Config.Realms[cultivator.RealmIndex + 1].Name} fails.");
+            Log(F(Msg.BreakthroughFailLog, CultivationRules.PlayerName(Config, in player),
+                Config.Realms[cultivator.RealmIndex + 1].Name));
             LastActionResult = realm.FailureInjuryMonths > 0
-                ? $"The breakthrough fails - cultivation slips and injuries will linger for {realm.FailureInjuryMonths} month(s)."
-                : "The breakthrough fails - some cultivation is lost.";
+                ? F(Msg.BreakthroughFailInjuryMsg, realm.FailureInjuryMonths)
+                : Msg.BreakthroughFailMsg;
         }
         BeginAdvance(CommandKind.Breakthrough, Config.Time.ActionDays.Breakthrough);
     }
@@ -559,13 +640,13 @@ public sealed class CultivationRunner : IDisposable
         {
             var herbs = (int)Math.Round(_rng.Next(explore.HerbMin, explore.HerbMax + 1) * multiplier);
             player.Herbs += herbs;
-            found.Add($"{herbs} spirit herb(s)");
+            found.Add(F(Msg.ExploreHerbs, herbs));
         }
         if (_rng.NextDouble() < explore.StonesChance)
         {
             var stones = (int)Math.Round(_rng.Next(explore.StonesMin, explore.StonesMax + 1) * multiplier);
             player.SpiritStones += stones;
-            found.Add($"{stones} spirit stone(s)");
+            found.Add(F(Msg.ExploreStones, stones));
         }
         if (_rng.NextDouble() < explore.InsightChance)
         {
@@ -573,13 +654,13 @@ public sealed class CultivationRunner : IDisposable
             cultivator.CultivationPoints += points;
             CultivationRules.AdvanceSubStages(Config, ref cultivator);
             player.Fortune = Math.Min(player.Fortune + Config.Fortune.InsightGain, Config.Fortune.Max);
-            found.Add($"a moment of dao insight (+{points:F0} cultivation)");
-            Log($"{CultivationRules.PlayerName(Config, in player)} touches a trace of ancient dao while wandering.");
+            found.Add(F(Msg.ExploreInsight, $"{points:F0}"));
+            Log(F(Msg.ExploreInsightLog, CultivationRules.PlayerName(Config, in player)));
         }
 
         LastActionResult = found.Count == 0
-            ? "You wander for days and find nothing but wind and grass."
-            : $"Exploring, you find {string.Join(", ", found)}.";
+            ? Msg.ExploreNothing[_rng.Next(Msg.ExploreNothing.Length)]
+            : F(Msg.ExploreFoundMsg, string.Join(Msg.ExploreListSeparator, found));
         BeginAdvance(CommandKind.Explore, Config.Time.ActionDays.Explore);
     }
 
@@ -607,9 +688,6 @@ public sealed class CultivationRunner : IDisposable
         if (string.IsNullOrWhiteSpace(text) || !TryGetLivingNpc(write, target, out var entity)) return;
 
         ref var npc = ref write.GetComponent<NpcState>(entity);
-        GainAffection(ref npc, in player, Config.Interaction.ChatAffection / (1f + npc.ChatsThisMonth));
-        npc.ChatsThisMonth++;
-
         var memories = _memories[entity];
         var context = new DialogueContext(
             CultivationRules.NpcName(Config, in npc),
@@ -620,8 +698,19 @@ public sealed class CultivationRunner : IDisposable
             npc.NpcId,
             CultivationRules.PlayerName(Config, in player),
             cultivator.RealmIndex);
-        LastReply = Dialogue.Reply(Config, in context, text);
-        memories.Add(new MemoryEntry(_day, $"{context.PlayerName} said: \"{Truncate(text, 60)}\""));
+
+        // Intelligence layer proposes; the rules layer validates and applies. The proposer's
+        // affection suggestion is clamped to the budget, then subjected to the same rules as
+        // ever: diminishing monthly returns and charm scaling on the positive side.
+        var proposal = Proposer.Propose(Config, in context, text);
+        var suggested = ProposalRules.ClampAffectionDelta(Config, proposal.AffectionDeltaSuggestion);
+        GainAffection(ref npc, in player, suggested / (1f + npc.ChatsThisMonth));
+        npc.ChatsThisMonth++;
+
+        LastReply = ProposalRules.SanitizeReply(Config, proposal.ReplyText, Msg.ChatFallbackReply);
+        var summary = ProposalRules.SanitizeReply(
+            Config, proposal.MemorySummary, F(Msg.ChatMemory, context.PlayerName, Truncate(text, 60)));
+        memories.Add(new MemoryEntry(_day, summary));
         BeginAdvance(CommandKind.Chat, Config.Time.ActionDays.Chat);
     }
 
@@ -632,7 +721,7 @@ public sealed class CultivationRunner : IDisposable
         var stones = Config.Interaction.GiftSpiritStones;
         if (player.SpiritStones < stones)
         {
-            LastReply = $"You need {stones} spirit stones for a proper gift.";
+            LastReply = F(Msg.GiftNeedMsg, stones);
             return;
         }
 
@@ -640,10 +729,9 @@ public sealed class CultivationRunner : IDisposable
         ref var npc = ref write.GetComponent<NpcState>(entity);
         GainAffection(ref npc, in player, stones * Config.Interaction.GiftAffectionPerStone);
         _memories[entity].Add(new MemoryEntry(
-            _day, $"{CultivationRules.PlayerName(Config, in player)} gifted {stones} spirit stones."));
-        LastReply =
-            $"{CultivationRules.NpcName(Config, in npc)} accepts the gift of {stones} spirit stones. " +
-            $"({CultivationRules.AffectionTierName(Config, npc.AffectionToPlayer)})";
+            _day, F(Msg.GiftMemory, CultivationRules.PlayerName(Config, in player), stones)));
+        LastReply = F(Msg.GiftReply, CultivationRules.NpcName(Config, in npc), stones,
+            CultivationRules.AffectionTierName(Config, npc.AffectionToPlayer));
         BeginAdvance(CommandKind.Gift, Config.Time.ActionDays.Gift);
     }
 
@@ -670,12 +758,204 @@ public sealed class CultivationRunner : IDisposable
         }
         var playerName = CultivationRules.PlayerName(Config, in player);
         _memories[entity].Add(new MemoryEntry(_day, won
-            ? $"Sparred with {playerName} and lost with grace."
-            : $"Sparred with {playerName} and prevailed."));
+            ? F(Msg.SparWinMemory, playerName)
+            : F(Msg.SparLoseMemory, playerName)));
         LastReply = won
-            ? $"You best {CultivationRules.NpcName(Config, in npc)} in a friendly spar and glean {cfg.SparInsightPoints} points of insight."
-            : $"{CultivationRules.NpcName(Config, in npc)} wins the spar, but nods at your technique.";
+            ? F(Msg.SparWinReply, CultivationRules.NpcName(Config, in npc), cfg.SparInsightPoints)
+            : F(Msg.SparLoseReply, CultivationRules.NpcName(Config, in npc));
         BeginAdvance(CommandKind.Spar, Config.Time.ActionDays.Spar);
+    }
+
+    // ---- save / load (versioned JSON; corrupt loads must fail safely) ----
+
+    private void SaveGame(World write, string path)
+    {
+        try
+        {
+            var data = BuildSaveData(write);
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            File.WriteAllText(path, JsonSerializer.Serialize(data, CultivationJsonContext.Default.SaveData));
+            LastActionResult = F(Msg.SaveDoneMsg, path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            LastActionResult = F(Msg.SaveFailMsg, e.Message);
+        }
+    }
+
+    private SaveData BuildSaveData(World write)
+    {
+        var npcs = new SavedNpc[_npcs.Count];
+        for (var i = 0; i < _npcs.Count; i++)
+        {
+            var entity = _npcs[i];
+            var npc = write.GetComponent<NpcState>(entity);
+            var cultivator = write.GetComponent<Cultivator>(entity);
+            npcs[i] = new SavedNpc
+            {
+                Cultivator = ToSaved(in cultivator),
+                NpcId = npc.NpcId,
+                SiteIndex = npc.SiteIndex,
+                SurnameIndex = npc.SurnameIndex,
+                GivenNameIndex = npc.GivenNameIndex,
+                PersonalityIndex = npc.PersonalityIndex,
+                CharmTier = npc.CharmTier,
+                AffectionToPlayer = npc.AffectionToPlayer,
+                PlayerAffection = npc.PlayerAffection,
+                ChatsThisMonth = npc.ChatsThisMonth,
+                Alive = npc.Alive != 0,
+                IsLeader = npc.IsLeader != 0,
+                Memories = _memories[entity].Select(m => new SavedMemory { Day = m.Day, Summary = m.Summary }).ToArray(),
+            };
+        }
+
+        var player = write.GetComponent<PlayerData>(_player);
+        var playerCultivator = write.GetComponent<Cultivator>(_player);
+        return new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            Seed = _map.Seed,
+            PresetIndex = _map.PresetIndex,
+            Day = _day,
+            DayCursor = _dayCursor,
+            Phase = Phase,
+            RngState = _rng.State,
+            RngStream = _rng.Stream,
+            NextNpcId = _nextNpcId,
+            Player = new SavedPlayer
+            {
+                Cultivator = ToSaved(in playerCultivator),
+                SurnameIndex = player.SurnameIndex,
+                GivenNameIndex = player.GivenNameIndex,
+                SpiritRootElement = player.SpiritRootElement,
+                SpiritRootGrade = player.SpiritRootGrade,
+                CharmTier = player.CharmTier,
+                X = player.X,
+                Y = player.Y,
+                Fortune = player.Fortune,
+                SpiritStones = player.SpiritStones,
+                Herbs = player.Herbs,
+                InjuryMonths = player.InjuryMonths,
+                LifespanYears = player.LifespanYears,
+            },
+            Npcs = npcs,
+            Chronicle = Chronicle.Select(m => new SavedMemory { Day = m.Day, Summary = m.Summary }).ToArray(),
+        };
+
+        static SavedCultivator ToSaved(in Cultivator c) => new()
+        {
+            RealmIndex = c.RealmIndex,
+            SubStage = c.SubStage,
+            CultivationPoints = c.CultivationPoints,
+            AgeDays = c.AgeDays,
+        };
+    }
+
+    private void LoadGame(World write, string path)
+    {
+        SaveData data;
+        try
+        {
+            data = JsonSerializer.Deserialize(File.ReadAllText(path), CultivationJsonContext.Default.SaveData)
+                ?? throw new JsonException("save deserialized to null");
+            if (data.Version != SaveData.CurrentVersion)
+            {
+                LastActionResult = F(Msg.LoadVersionMsg, data.Version, SaveData.CurrentVersion);
+                return;
+            }
+            if (data.PresetIndex < 0 || data.PresetIndex >= Config.World.Presets.Length ||
+                data.Npcs is null || data.Player is null || data.Chronicle is null)
+            {
+                LastActionResult = Msg.LoadMalformedMsg;
+                return;
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            // Fail safely: the running world is untouched.
+            LastActionResult = F(Msg.LoadFailMsg, e.Message);
+            return;
+        }
+
+        // The map re-derives from the seed (same-seed reproducibility); dynamic state loads.
+        var generated = WorldGenerator.Generate(Config, data.Seed, data.PresetIndex);
+        _map = generated.Map;
+        _rng = new Pcg32(data.RngState, data.RngStream);
+        _nextNpcId = data.NextNpcId;
+        _npcs.Clear();
+        _memories.Clear();
+        Chronicle.Clear();
+        foreach (var entry in data.Chronicle)
+        {
+            Chronicle.Add(new MemoryEntry(entry.Day, entry.Summary));
+        }
+        _dayCursor = data.DayCursor;
+        Volatile.Write(ref _day, data.Day);
+        _pendingDays = 0;
+        _pendingKind = CommandKind.None;
+        _travelPlan = null;
+        LastReply = string.Empty;
+
+        write.Clear();
+        foreach (var saved in data.Npcs)
+        {
+            var entity = write.CreateEntity(EntityBuilder.Create()
+                .Add(new Cultivator
+                {
+                    RealmIndex = saved.Cultivator.RealmIndex,
+                    SubStage = saved.Cultivator.SubStage,
+                    CultivationPoints = saved.Cultivator.CultivationPoints,
+                    AgeDays = saved.Cultivator.AgeDays,
+                })
+                .Add(new NpcState
+                {
+                    NpcId = saved.NpcId,
+                    SiteIndex = saved.SiteIndex,
+                    SurnameIndex = saved.SurnameIndex,
+                    GivenNameIndex = saved.GivenNameIndex,
+                    PersonalityIndex = saved.PersonalityIndex,
+                    CharmTier = saved.CharmTier,
+                    AffectionToPlayer = saved.AffectionToPlayer,
+                    PlayerAffection = saved.PlayerAffection,
+                    ChatsThisMonth = saved.ChatsThisMonth,
+                    Alive = (byte)(saved.Alive ? 1 : 0),
+                    IsLeader = (byte)(saved.IsLeader ? 1 : 0),
+                })
+                .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed })
+                .Add(_ladder)
+                .Add(_tuning));
+            _npcs.Add(entity);
+            _memories[entity] = saved.Memories.Select(m => new MemoryEntry(m.Day, m.Summary)).ToList();
+        }
+
+        _player = write.CreateEntity(EntityBuilder.Create()
+            .Add(new Cultivator
+            {
+                RealmIndex = data.Player.Cultivator.RealmIndex,
+                SubStage = data.Player.Cultivator.SubStage,
+                CultivationPoints = data.Player.Cultivator.CultivationPoints,
+                AgeDays = data.Player.Cultivator.AgeDays,
+            })
+            .Add(new PlayerData
+            {
+                SurnameIndex = data.Player.SurnameIndex,
+                GivenNameIndex = data.Player.GivenNameIndex,
+                SpiritRootElement = data.Player.SpiritRootElement,
+                SpiritRootGrade = data.Player.SpiritRootGrade,
+                CharmTier = data.Player.CharmTier,
+                X = Math.Clamp(data.Player.X, 0, _map.Width - 1),
+                Y = Math.Clamp(data.Player.Y, 0, _map.Height - 1),
+                Fortune = data.Player.Fortune,
+                SpiritStones = data.Player.SpiritStones,
+                Herbs = data.Player.Herbs,
+                InjuryMonths = data.Player.InjuryMonths,
+                LifespanYears = data.Player.LifespanYears,
+            })
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed }));
+
+        _phaseRaw = (int)data.Phase;
+        LastActionResult = F(Msg.LoadDoneMsg, path);
     }
 
     // ---- post-pass: turn system flags into chronicle entries + replacement spawns ----
@@ -695,8 +975,8 @@ public sealed class CultivationRunner : IDisposable
                 var realmIndex = write.GetComponent<Cultivator>(entity).RealmIndex;
                 if (realmIndex >= Config.Npc.NotableRealmIndex)
                 {
-                    Log($"Word spreads: {CultivationRules.NpcName(Config, in npc)} of " +
-                        $"{_map.Sites[npc.SiteIndex].Name} has broken through to {Config.Realms[realmIndex].Name}.");
+                    Log(F(Msg.NpcBreakthroughLog, CultivationRules.NpcName(Config, in npc),
+                        _map.Sites[npc.SiteIndex].Name, Config.Realms[realmIndex].Name));
                 }
             }
 
@@ -706,8 +986,8 @@ public sealed class CultivationRunner : IDisposable
                 var realmIndex = write.GetComponent<Cultivator>(entity).RealmIndex;
                 if (realmIndex >= Config.Npc.NotableRealmIndex || npc.IsLeader != 0)
                 {
-                    Log($"{CultivationRules.NpcName(Config, in npc)} of {_map.Sites[npc.SiteIndex].Name} " +
-                        "has passed away, lifespan exhausted.");
+                    Log(F(Msg.NpcDeathLog, CultivationRules.NpcName(Config, in npc),
+                        _map.Sites[npc.SiteIndex].Name));
                 }
                 _replacementScratch.Add(WorldGenerator.CreateNpcSpec(
                     Config, _rng, _nextNpcId++, _map, npc.SiteIndex, npc.IsLeader != 0,
@@ -725,12 +1005,12 @@ public sealed class CultivationRunner : IDisposable
     // ---- world (re)construction ----
 
     /// <summary>(Re)generate the world and a fresh character into <paramref name="world"/> —
-    /// the design doc's "reroll until satisfied". Deterministic per (seed, sizeIndex).</summary>
-    private void StartNewWorld(World world, int seed, int sizeIndex)
+    /// the design doc's "reroll until satisfied". Deterministic per (seed, presetIndex).</summary>
+    private void StartNewWorld(World world, int seed, int presetIndex)
     {
-        var generated = WorldGenerator.Generate(Config, seed, sizeIndex);
+        var generated = WorldGenerator.Generate(Config, seed, presetIndex);
         _map = generated.Map;
-        _rng = new Random(seed * 31 + 17);
+        _rng = new Pcg32(seed * 31 + 17);
         _nextNpcId = generated.Npcs.Count + 1;
         _npcs.Clear();
         _memories.Clear();
@@ -741,6 +1021,7 @@ public sealed class CultivationRunner : IDisposable
         Volatile.Write(ref _day, 0);
         _pendingDays = 0;
         _pendingKind = CommandKind.None;
+        _travelPlan = null;
 
         world.Clear();
         foreach (var spec in generated.Npcs)
@@ -751,8 +1032,14 @@ public sealed class CultivationRunner : IDisposable
         _phaseRaw = (int)GamePhase.NewGame;
 
         var home = _map.Sites.FirstOrDefault(s => s.Kind == SiteKind.Town);
-        Log($"{CultivationRules.PlayerName(Config, world.GetComponent<PlayerData>(_player))} arrives in " +
-            $"{home?.Name ?? "the wilds"} to begin the path of cultivation.");
+        var playerName = CultivationRules.PlayerName(Config, world.GetComponent<PlayerData>(_player));
+        var homeName = home?.Name ?? Msg.WildsName;
+        Log(F(Msg.ArrivalLog, playerName, homeName));
+        // The onboarding guidance beat: a short main-storyline opening in the chronicle.
+        foreach (var line in Config.Text.Intro)
+        {
+            Log(F(line, playerName, homeName));
+        }
     }
 
     private Entity SpawnNpc(World world, in NpcSpec spec)
@@ -777,7 +1064,7 @@ public sealed class CultivationRunner : IDisposable
             })
             // Seeded like SimulationRunner.SpawnAgent: under snapshot reads, read-only fields
             // see the CURRENT world's values, so the spawn tick must not read zeros.
-            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.Seed })
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed })
             .Add(_ladder)
             .Add(_tuning));
         _npcs.Add(entity);
@@ -787,7 +1074,7 @@ public sealed class CultivationRunner : IDisposable
 
     private Entity SpawnPlayer(World world, int seed)
     {
-        var rng = new Random(seed ^ 0x0C171A7E);
+        var rng = new SystemRng(seed ^ 0x0C171A7E);
         var home = _map.Sites.FirstOrDefault(s => s.Kind == SiteKind.Town);
         return world.CreateEntity(EntityBuilder.Create()
             .Add(new Cultivator
@@ -809,7 +1096,7 @@ public sealed class CultivationRunner : IDisposable
                 SpiritStones = Config.Player.StartSpiritStones,
                 LifespanYears = Config.Realms[0].LifespanYears,
             })
-            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.Seed }));
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed }));
     }
 
     private void Log(string text) => Chronicle.Add(new MemoryEntry(_day, text));

@@ -8,21 +8,31 @@ public enum GamePhase
     Dead,
 }
 
+/// <summary>The eight locked base terrains (high-concept v2.0 §8.1). Rivers, roads, and sea
+/// were removed from the design; water is inland lakes only, impassable on foot.</summary>
 public enum Terrain : byte
 {
     Plains,
     Forest,
-    River,
-    Mountain,
-    SpiritVein,
+    Hills,
+    Mountains,
+    Water,
+    Desert,
+    Snowfield,
+    Swamp,
 }
 
+/// <summary>One logical tile, carrying the map data layers the slice models so far:
+/// L0/L1 landform+ecology collapsed into <see cref="Terrain"/> (8 base types), L3 spiritual
+/// energy as <see cref="VeinQuality"/> (a LAYER now, not a terrain type — any dry tile can
+/// carry a vein), L4 locations as <see cref="SiteIndex"/>. L2 linear features were removed
+/// by the design (no roads/rivers); L5 dynamic overlays are runtime-only.</summary>
 public struct Tile
 {
     public Terrain Terrain;
-    /// <summary>1…4 when <see cref="Terrain"/> is SpiritVein, else 0.</summary>
+    /// <summary>L3 spiritual energy: 0 = none, 1…4 = vein quality.</summary>
     public byte VeinQuality;
-    /// <summary>Index into <see cref="WorldMap.Sites"/>, or -1.</summary>
+    /// <summary>L4 locations: index into <see cref="WorldMap.Sites"/>, or -1.</summary>
     public short SiteIndex;
 }
 
@@ -49,7 +59,10 @@ public sealed class Site
 public sealed class WorldMap
 {
     public required int Seed { get; init; }
-    public required int SizeIndex { get; init; }
+    /// <summary>The seed that actually produced this world — differs from <see cref="Seed"/>
+    /// when validation rerolled (derived deterministically, so reproducibility holds).</summary>
+    public required int GenerationSeed { get; init; }
+    public required int PresetIndex { get; init; }
     public required int Width { get; init; }
     public required int Height { get; init; }
     public required Tile[] Tiles { get; init; }

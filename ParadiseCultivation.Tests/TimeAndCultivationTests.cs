@@ -21,7 +21,7 @@ public class TimeAndCultivationTests
         var cultivator = runner.Current.GetComponent<Cultivator>(runner.Player);
         await Assert.That(cultivator.AgeDays - ageBefore - 3.0 * Fixture.Config.Time.DaysPerMonth).IsLessThan(1e-6);
         await Assert.That(cultivator.CultivationPoints + cultivator.SubStage * 1000).IsGreaterThan(0.0);
-        await Assert.That(runner.LastActionResult).Contains("Cultivated 3 month(s)");
+        await Assert.That(runner.LastActionResult).Contains(Fixture.Skeleton(Fixture.Config.Text.Messages.CultivateDoneMsg));
     }
 
     [Test]
@@ -34,7 +34,7 @@ public class TimeAndCultivationTests
 
         runner.RequestExplore();
         runner.TickOnce();
-        await Assert.That(runner.LastActionResult).Contains("occupied");
+        await Assert.That(runner.LastActionResult).IsEqualTo(Fixture.Config.Text.Messages.Occupied);
         Fixture.RunUntilIdle(runner);
     }
 
@@ -102,7 +102,7 @@ public class TimeAndCultivationTests
         await Assert.That(cultivator.RealmIndex).IsEqualTo(1);
         await Assert.That(cultivator.SubStage).IsEqualTo(0);
         await Assert.That(player.LifespanYears).IsEqualTo((double)Fixture.Config.Realms[1].LifespanYears);
-        await Assert.That(runner.Chronicle.Any(entry => entry.Summary.Contains("breaks through"))).IsTrue();
+        await Assert.That(runner.Chronicle.Any(entry => entry.Summary.Contains(Fixture.Skeleton(Fixture.Config.Text.Messages.BreakthroughLog)))).IsTrue();
     }
 
     [Test]
@@ -113,7 +113,7 @@ public class TimeAndCultivationTests
         runner.RequestBreakthrough();
         runner.TickOnce();
 
-        await Assert.That(runner.LastActionResult).Contains("Not ready");
+        await Assert.That(runner.LastActionResult).IsEqualTo(Fixture.Config.Text.Messages.BreakthroughNotReady);
         await Assert.That(runner.Current.GetComponent<Cultivator>(runner.Player).RealmIndex).IsEqualTo(0);
         await Assert.That(runner.Busy).IsFalse(); // a refused attempt costs no time
     }
@@ -131,7 +131,7 @@ public class TimeAndCultivationTests
         for (var i = 0; i < 20_000 && runner.Phase == GamePhase.Playing; i++) runner.TickOnce();
 
         await Assert.That(runner.Phase).IsEqualTo(GamePhase.Dead);
-        await Assert.That(runner.Chronicle.Any(entry => entry.Summary.Contains("lifespan is exhausted"))).IsTrue();
+        await Assert.That(runner.Chronicle.Any(entry => entry.Summary.Contains(Fixture.Skeleton(Fixture.Config.Text.Messages.DeathLog)))).IsTrue();
     }
 
     [Test]
@@ -191,46 +191,5 @@ public class TimeAndCultivationTests
         await Assert.That(Population()).IsEqualTo(populationBefore);
     }
 
-    [Test]
-    public async Task travel_costs_days_and_sword_flight_is_faster()
-    {
-        using var runner = Fixture.NewRunner();
-        var world = runner.Current;
-        var player = world.GetComponent<PlayerData>(runner.Player);
-        var target = FindDistantPlain(runner, player.X, player.Y);
-
-        var (walkDays, walkMode) = CultivationRules.PlanTravel(
-            Fixture.Config, runner.Map, player.X, player.Y, 0, target.X, target.Y);
-        await Assert.That(walkMode).IsEqualTo("on foot");
-
-        world.GetComponent<Cultivator>(runner.Player).RealmIndex = Fixture.Config.Time.SwordFlightRealmIndex;
-        var (flightDays, flightMode) = CultivationRules.PlanTravel(
-            Fixture.Config, runner.Map, player.X, player.Y, Fixture.Config.Time.SwordFlightRealmIndex, target.X, target.Y);
-        await Assert.That(flightMode).IsEqualTo("sword flight");
-        await Assert.That(flightDays).IsLessThan(walkDays);
-
-        var dayBefore = runner.Day;
-        runner.RequestTravel(target.X, target.Y);
-        Fixture.RunUntilIdle(runner);
-
-        await Assert.That(runner.Day).IsEqualTo(dayBefore + flightDays);
-        var arrived = runner.Current.GetComponent<PlayerData>(runner.Player);
-        await Assert.That((arrived.X, arrived.Y)).IsEqualTo((target.X, target.Y));
-    }
-
-    private static (int X, int Y) FindDistantPlain(CultivationRunner runner, int fromX, int fromY)
-    {
-        for (var y = 0; y < runner.Map.Height; y++)
-        {
-            for (var x = 0; x < runner.Map.Width; x++)
-            {
-                if (runner.Map.TileAt(x, y).Terrain == Terrain.Plains &&
-                    Math.Max(Math.Abs(x - fromX), Math.Abs(y - fromY)) > 15)
-                {
-                    return (x, y);
-                }
-            }
-        }
-        throw new InvalidOperationException("no distant plains tile in the test world");
-    }
+    // Travel mechanics moved to PathfindingTests (terrain-cost A*, flight, WASD steps).
 }

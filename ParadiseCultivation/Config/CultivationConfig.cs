@@ -9,6 +9,7 @@ namespace ParadiseCultivation;
 public sealed record CultivationConfig
 {
     public required WorldConfig World { get; init; }
+    public required SaveConfig Save { get; init; }
     public required TimeConfig Time { get; init; }
     /// <summary>The 10 major realms, Qi Refining → True Immortal, in ascending order.</summary>
     public required RealmConfig[] Realms { get; init; }
@@ -28,6 +29,8 @@ public sealed record CultivationConfig
     public required DialogueConfig Dialogue { get; init; }
     public required NamesConfig Names { get; init; }
     public required UiConfig Ui { get; init; }
+    /// <summary>Every user-facing string (the shipped config authors them in Chinese).</summary>
+    public required TextConfig Text { get; init; }
 
     public static CultivationConfig FromJson(string json) =>
         JsonSerializer.Deserialize(json, CultivationJsonContext.Default.CultivationConfig)
@@ -36,38 +39,59 @@ public sealed record CultivationConfig
 
 public sealed record WorldConfig
 {
-    public required WorldSizeConfig[] Sizes { get; init; }
-    public required int DefaultSizeIndex { get; init; }
+    /// <summary>The locked world presets — the 32x32 Demo and the 256x256 formal world
+    /// (high-concept v2.0: no small/medium/large size selection).</summary>
+    public required WorldPresetConfig[] Presets { get; init; }
+    public required int DefaultPresetIndex { get; init; }
     public required TerrainConfig Terrain { get; init; }
-    public required int MinTownSeparation { get; init; }
-    public required int MinSectSeparation { get; init; }
-    public required int NpcsPerTown { get; init; }
-    public required int NpcsPerSect { get; init; }
+    /// <summary>Validation-failure rerolls with a derived seed up to this many attempts.</summary>
+    public required int MaxGenerationAttempts { get; init; }
 }
 
-public sealed record WorldSizeConfig
+public sealed record WorldPresetConfig
 {
     public required string Name { get; init; }
     public required int Width { get; init; }
     public required int Height { get; init; }
     public required int TownCount { get; init; }
     public required int SectCount { get; init; }
+    public required int NpcsPerTown { get; init; }
+    public required int NpcsPerSect { get; init; }
+    public required int MinTownSeparation { get; init; }
+    public required int MinSectSeparation { get; init; }
 }
 
+/// <summary>Noise channels and thresholds mapping to the 8 locked base terrains, plus the
+/// L3 spirit-vein layer and per-terrain foot-travel costs.</summary>
 public sealed record TerrainConfig
 {
     public required int ElevationOctaves { get; init; }
     public required float ElevationScale { get; init; }
-    /// <summary>Elevation above this is Mountain.</summary>
-    public required float MountainThreshold { get; init; }
-    /// <summary>Elevation below this is River (lowland water).</summary>
-    public required float WaterThreshold { get; init; }
     public required float MoistureScale { get; init; }
-    /// <summary>Moisture above this (on otherwise-plain tiles) is Forest.</summary>
-    public required float ForestThreshold { get; init; }
+    public required float TemperatureScale { get; init; }
     public required float SpiritScale { get; init; }
-    /// <summary>Ascending spirit-noise thresholds for vein quality 1…4.</summary>
+    /// <summary>Elevation above this is Mountains.</summary>
+    public required float MountainThreshold { get; init; }
+    /// <summary>Elevation above this (below mountains) is Hills.</summary>
+    public required float HillThreshold { get; init; }
+    /// <summary>Elevation below this is Water (inland lakes — no rivers/sea by design).</summary>
+    public required float WaterThreshold { get; init; }
+    /// <summary>Temperature below this becomes Snowfield.</summary>
+    public required float SnowTemperature { get; init; }
+    /// <summary>Hot + dry (moisture below DesertMoisture, temperature above this) is Desert.</summary>
+    public required float DesertTemperature { get; init; }
+    public required float DesertMoisture { get; init; }
+    /// <summary>Wet lowland (moisture above this, low elevation) is Swamp.</summary>
+    public required float SwampMoisture { get; init; }
+    /// <summary>Low elevation bound for swamp (must be below WaterThreshold + this margin).</summary>
+    public required float SwampElevationMargin { get; init; }
+    /// <summary>Moisture above this (on remaining land) is Forest; else Plains.</summary>
+    public required float ForestMoisture { get; init; }
+    /// <summary>Ascending spirit-noise thresholds for vein quality 1…4 (the L3 layer).</summary>
     public required float[] VeinQualityThresholds { get; init; }
+    /// <summary>Foot-travel days per tile, indexed by <see cref="Terrain"/>; a value ≤ 0
+    /// means impassable on foot (Water). Sword flight ignores terrain.</summary>
+    public required float[] MoveCostDays { get; init; }
 }
 
 public sealed record TimeConfig
@@ -80,12 +104,16 @@ public sealed record TimeConfig
     /// <summary>Player starting age in years.</summary>
     public required int StartAgeYears { get; init; }
     public required ActionDaysConfig ActionDays { get; init; }
-    public required float WalkDaysPerTile { get; init; }
     public required float SwordFlightTilesPerDay { get; init; }
     /// <summary>Realm index (0-based) that unlocks sword flight.</summary>
     public required int SwordFlightRealmIndex { get; init; }
-    /// <summary>Travel-day multiplier when the destination tile is a Mountain.</summary>
-    public required float MountainTravelMultiplier { get; init; }
+}
+
+/// <summary>Versioned-save settings (the design doc's "establish saves early").</summary>
+public sealed record SaveConfig
+{
+    /// <summary>Directory for save files, relative to the working directory.</summary>
+    public required string Directory { get; init; }
 }
 
 /// <summary>Actions animate: game days tick by at <see cref="DaysPerSecond"/> real-time (the
@@ -184,6 +212,11 @@ public sealed record InteractionConfig
     public required float SparRollSpread { get; init; }
     /// <summary>Memory entries shown in the NPC panel.</summary>
     public required int MemoryWindow { get; init; }
+    /// <summary>Proposal budget: an interaction proposer's affection-delta suggestion is
+    /// clamped to ±this before the rules layer applies it (LLMs propose, rules decide).</summary>
+    public required float MaxProposedAffectionDelta { get; init; }
+    /// <summary>Proposal replies are truncated to this length (safety validation).</summary>
+    public required int MaxReplyLength { get; init; }
 }
 
 public sealed record NpcConfig
@@ -227,6 +260,17 @@ public sealed record DialogueConfig
     /// last bucket whose MinAffection is ≤ the NPC's affection toward the player.</summary>
     public required DialogueBucketConfig[] Buckets { get; init; }
     public required KeywordReplyConfig[] KeywordReplies { get; init; }
+    /// <summary>Personality-exclusive reply pools, mixed in deterministically by
+    /// <see cref="TemplateProposer"/> — different temperaments answer differently.</summary>
+    public required PersonalityRepliesConfig[] PersonalityReplies { get; init; }
+    /// <summary>Percentage (0-100) of non-keyword replies drawn from the personality pool.</summary>
+    public required int PersonalityReplyPercent { get; init; }
+}
+
+public sealed record PersonalityRepliesConfig
+{
+    public required string Personality { get; init; }
+    public required string[] Replies { get; init; }
 }
 
 public sealed record DialogueBucketConfig
@@ -258,12 +302,23 @@ public sealed record UiConfig
     /// <summary>TTF/TTC to load for CJK-capable text; empty = probe known system fonts.</summary>
     public required string FontPath { get; init; }
     public required float FontSizePixels { get; init; }
+    /// <summary>Ink-wash placeholder palette, indexed by <see cref="Terrain"/> (8 entries).</summary>
     public required uint[] TerrainColors { get; init; }
+    /// <summary>Vein overlay marker colors by quality (index 0 unused).</summary>
     public required uint[] VeinQualityColors { get; init; }
     public required uint TownColor { get; init; }
     public required uint SectColor { get; init; }
     public required uint PlayerColor { get; init; }
-    public required int TileSizeMin { get; init; }
-    public required int TileSizeMax { get; init; }
-    public required int TileSizeDefault { get; init; }
+    public required uint GridLineColor { get; init; }
+    public required uint PathColor { get; init; }
+    /// <summary>Overlay drawn on tiles beyond the observable range.</summary>
+    public required uint FogColor { get; init; }
+    /// <summary>Iso tile WIDTH in pixels (height is half); continuous wheel zoom.</summary>
+    public required float ZoomMin { get; init; }
+    public required float ZoomMax { get; init; }
+    public required float ZoomDefault { get; init; }
+    /// <summary>Chebyshev radius (tiles) the player can see and click destinations within.</summary>
+    public required int ObservableRange { get; init; }
+    /// <summary>Zoom (tile width px) at or above which site name labels draw.</summary>
+    public required float LabelZoomThreshold { get; init; }
 }

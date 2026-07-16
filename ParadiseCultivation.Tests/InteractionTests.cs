@@ -85,7 +85,7 @@ public class InteractionTests
         runner.Current.GetComponent<PlayerData>(runner.Player).SpiritStones = 0;
         runner.RequestGift(entity);
         Fixture.RunUntilIdle(runner);
-        await Assert.That(runner.LastReply).Contains("need");
+        await Assert.That(runner.LastReply).IsEqualTo(CultivationRules.F(Fixture.Config.Text.Messages.GiftNeedMsg, Fixture.Config.Interaction.GiftSpiritStones));
     }
 
     [Test]
@@ -106,26 +106,14 @@ public class InteractionTests
     [Test]
     public async Task affection_tier_table_matches_the_design_doc()
     {
-        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, -450f)).IsEqualTo("Mortal Enemy");
-        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 0f)).IsEqualTo("Stranger");
-        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 150f)).IsEqualTo("Acquaintance");
-        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 350f)).IsEqualTo("Friend");
-        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 650f)).IsEqualTo("Confidant");
-        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 950f)).IsEqualTo("Dao Partner");
-    }
-
-    [Test]
-    public async Task dialogue_is_deterministic_and_expands_placeholders()
-    {
-        var dialogue = new TemplateDialogue();
-        var context = new DialogueContext(
-            "Su Lan", "aloof", 1, 50f, 3, 7, "Mo Yan", 0);
-
-        var a = dialogue.Reply(Fixture.Config, in context, "How fares the sect this season?");
-        var b = dialogue.Reply(Fixture.Config, in context, "How fares the sect this season?");
-
-        await Assert.That(b).IsEqualTo(a);
-        await Assert.That(a.Contains("{npc}")).IsFalse(); // placeholders must expand
+        // The design-doc table boundaries resolve to the authored tier names (language-agnostic).
+        var tiers = Fixture.Config.AffectionTiers;
+        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, -450f)).IsEqualTo(tiers[0].Name);
+        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 0f)).IsEqualTo(tiers[4].Name);
+        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 150f)).IsEqualTo(tiers[5].Name);
+        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 350f)).IsEqualTo(tiers[7].Name);
+        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 650f)).IsEqualTo(tiers[9].Name);
+        await Assert.That(CultivationRules.AffectionTierName(Fixture.Config, 950f)).IsEqualTo(tiers[11].Name);
     }
 
     [Test]
@@ -134,10 +122,12 @@ public class InteractionTests
         using var runner = Fixture.NewRunner();
         var entity = Fixture.FirstNpcAtPlayerSite(runner);
 
-        runner.RequestChat(entity, "I want to buy that sword.");
+        runner.RequestChat(entity, "这柄剑甚好，我想买下它。");
         Fixture.RunUntilIdle(runner);
 
-        await Assert.That(runner.LastReply).Contains("Trade");
+        // The trade keyword reply, minus its placeholders, must be what came back.
+        var tradeReply = Fixture.Config.Dialogue.KeywordReplies.First(k => k.Keywords.Contains("买")).Reply;
+        await Assert.That(runner.LastReply).Contains(Fixture.Skeleton(tradeReply));
     }
 
     [Test]

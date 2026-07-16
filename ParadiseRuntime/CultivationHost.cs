@@ -21,9 +21,13 @@ internal static class CultivationHost
     private const int Width = 1600;
     private const int Height = 900;
 
+    private static string s_configJson = string.Empty;
+
     public static int Run(string configPath, int seed, int? sizeIndex, int? headlessFrames, string? screenshotPath)
     {
-        var config = CultivationConfig.FromJson(File.ReadAllText(configPath));
+        var configJson = File.ReadAllText(configPath);
+        var config = CultivationConfig.FromJson(configJson);
+        s_configJson = configJson; // glyph source: every authored character gets a glyph
         using var runner = new CultivationRunner(config, seed, sizeIndex);
         Console.WriteLine(
             $"[Cultivation] seed {seed}: {runner.Map.Width}x{runner.Map.Height} world, " +
@@ -207,7 +211,8 @@ internal static class CultivationHost
         // CJK-capable font (chat accepts free text): config path, or probe system fonts.
         var fontConfig = new ParadiseUi.UiFontConfig(
             string.IsNullOrWhiteSpace(runner.Config.Ui.FontPath) ? null : runner.Config.Ui.FontPath,
-            runner.Config.Ui.FontSizePixels);
+            runner.Config.Ui.FontSizePixels,
+            s_configJson);
         var imgui = new ImGuiUi(width, height, fontConfig);
         var ui = new CultivationUi(runner);
         imgui.AddDraw(ui.Draw);
@@ -254,7 +259,10 @@ internal static class CultivationHost
         SDL_Scancode.SDL_SCANCODE_LSHIFT or SDL_Scancode.SDL_SCANCODE_RSHIFT => UiKey.Shift,
         SDL_Scancode.SDL_SCANCODE_A => UiKey.A,
         SDL_Scancode.SDL_SCANCODE_C => UiKey.C,
+        SDL_Scancode.SDL_SCANCODE_D => UiKey.D,
+        SDL_Scancode.SDL_SCANCODE_S => UiKey.S,
         SDL_Scancode.SDL_SCANCODE_V => UiKey.V,
+        SDL_Scancode.SDL_SCANCODE_W => UiKey.W,
         SDL_Scancode.SDL_SCANCODE_X => UiKey.X,
         SDL_Scancode.SDL_SCANCODE_Y => UiKey.Y,
         SDL_Scancode.SDL_SCANCODE_Z => UiKey.Z,

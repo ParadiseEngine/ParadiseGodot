@@ -1,80 +1,300 @@
 {
   "world": {
-    "defaultSizeIndex": 0,
-    "sizes": [
-      { "name": "Small (64)", "width": 64, "height": 64, "townCount": 3, "sectCount": 2 },
-      { "name": "Medium (128)", "width": 128, "height": 128, "townCount": 6, "sectCount": 4 },
-      { "name": "Large (256)", "width": 256, "height": 256, "townCount": 10, "sectCount": 7 }
+    "presets": [
+      {
+        "name": "小界（32x32）",
+        "width": 32,
+        "height": 32,
+        "townCount": 1,
+        "sectCount": 1,
+        "npcsPerTown": 3,
+        "npcsPerSect": 3,
+        "minTownSeparation": 6,
+        "minSectSeparation": 8
+      },
+      {
+        "name": "九州（256x256）",
+        "width": 256,
+        "height": 256,
+        "townCount": 20,
+        "sectCount": 8,
+        "npcsPerTown": 14,
+        "npcsPerSect": 15,
+        "minTownSeparation": 18,
+        "minSectSeparation": 24
+      }
     ],
+    "defaultPresetIndex": 0,
+    "maxGenerationAttempts": 16,
     "terrain": {
       "elevationOctaves": 3,
       "elevationScale": 0.09,
-      "mountainThreshold": 0.66,
-      "waterThreshold": 0.34,
       "moistureScale": 0.13,
-      "forestThreshold": 0.6,
+      "temperatureScale": 0.05,
       "spiritScale": 0.11,
-      "veinQualityThresholds": [0.72, 0.78, 0.84, 0.9]
-    },
-    "minTownSeparation": 10,
-    "minSectSeparation": 14,
-    "npcsPerTown": 4,
-    "npcsPerSect": 5
+      "mountainThreshold": 0.68,
+      "hillThreshold": 0.58,
+      "waterThreshold": 0.34,
+      "snowTemperature": 0.3,
+      "desertTemperature": 0.62,
+      "desertMoisture": 0.38,
+      "swampMoisture": 0.66,
+      "swampElevationMargin": 0.06,
+      "forestMoisture": 0.55,
+      "veinQualityThresholds": [
+        0.72,
+        0.78,
+        0.84,
+        0.9
+      ],
+      "moveCostDays": [
+        1,
+        2,
+        2,
+        4,
+        0,
+        2,
+        3,
+        3
+      ]
+    }
   },
   "time": {
     "daysPerMonth": 30,
     "monthsPerYear": 12,
     "startYear": 1000,
     "startAgeYears": 16,
-    "flow": { "daysPerSecond": 120, "maxActionSeconds": 5 },
-    "actionDays": { "chat": 2, "gift": 1, "spar": 3, "explore": 6, "breakthrough": 30 },
-    "walkDaysPerTile": 1.0,
+    "flow": {
+      "daysPerSecond": 120,
+      "maxActionSeconds": 5
+    },
+    "actionDays": {
+      "chat": 2,
+      "gift": 1,
+      "spar": 3,
+      "explore": 6,
+      "breakthrough": 30
+    },
     "swordFlightTilesPerDay": 5.0,
-    "swordFlightRealmIndex": 1,
-    "mountainTravelMultiplier": 2.0
+    "swordFlightRealmIndex": 1
   },
   "realms": [
-    { "name": "Qi Refining", "lifespanYears": 120, "pointsPerSubStage": 60, "monthlyBasePoints": 10, "breakthroughChance": 0.9, "failureCultivationLoss": 0.1, "failureInjuryMonths": 0, "hasTribulation": false },
-    { "name": "Foundation Establishment", "lifespanYears": 240, "pointsPerSubStage": 150, "monthlyBasePoints": 16, "breakthroughChance": 0.8, "failureCultivationLoss": 0.15, "failureInjuryMonths": 3, "hasTribulation": false },
-    { "name": "Golden Core", "lifespanYears": 500, "pointsPerSubStage": 400, "monthlyBasePoints": 26, "breakthroughChance": 0.65, "failureCultivationLoss": 0.2, "failureInjuryMonths": 6, "hasTribulation": true },
-    { "name": "Nascent Soul", "lifespanYears": 1000, "pointsPerSubStage": 1000, "monthlyBasePoints": 42, "breakthroughChance": 0.55, "failureCultivationLoss": 0.25, "failureInjuryMonths": 12, "hasTribulation": true },
-    { "name": "Soul Formation", "lifespanYears": 2000, "pointsPerSubStage": 2500, "monthlyBasePoints": 68, "breakthroughChance": 0.45, "failureCultivationLoss": 0.3, "failureInjuryMonths": 18, "hasTribulation": true },
-    { "name": "Void Refinement", "lifespanYears": 4000, "pointsPerSubStage": 6000, "monthlyBasePoints": 110, "breakthroughChance": 0.38, "failureCultivationLoss": 0.3, "failureInjuryMonths": 24, "hasTribulation": true },
-    { "name": "Integration", "lifespanYears": 8000, "pointsPerSubStage": 15000, "monthlyBasePoints": 180, "breakthroughChance": 0.32, "failureCultivationLoss": 0.35, "failureInjuryMonths": 36, "hasTribulation": true },
-    { "name": "Mahayana", "lifespanYears": 15000, "pointsPerSubStage": 40000, "monthlyBasePoints": 300, "breakthroughChance": 0.25, "failureCultivationLoss": 0.35, "failureInjuryMonths": 48, "hasTribulation": true },
-    { "name": "Tribulation Transcendence", "lifespanYears": 30000, "pointsPerSubStage": 100000, "monthlyBasePoints": 500, "breakthroughChance": 0.18, "failureCultivationLoss": 0.4, "failureInjuryMonths": 60, "hasTribulation": true },
-    { "name": "True Immortal", "lifespanYears": 1000000, "pointsPerSubStage": 250000, "monthlyBasePoints": 800, "breakthroughChance": 0.0, "failureCultivationLoss": 0.0, "failureInjuryMonths": 0, "hasTribulation": false }
+    {
+      "name": "炼气",
+      "lifespanYears": 120,
+      "pointsPerSubStage": 60,
+      "monthlyBasePoints": 10,
+      "breakthroughChance": 0.9,
+      "failureCultivationLoss": 0.1,
+      "failureInjuryMonths": 0,
+      "hasTribulation": false
+    },
+    {
+      "name": "筑基",
+      "lifespanYears": 240,
+      "pointsPerSubStage": 150,
+      "monthlyBasePoints": 16,
+      "breakthroughChance": 0.8,
+      "failureCultivationLoss": 0.15,
+      "failureInjuryMonths": 3,
+      "hasTribulation": false
+    },
+    {
+      "name": "金丹",
+      "lifespanYears": 500,
+      "pointsPerSubStage": 400,
+      "monthlyBasePoints": 26,
+      "breakthroughChance": 0.65,
+      "failureCultivationLoss": 0.2,
+      "failureInjuryMonths": 6,
+      "hasTribulation": true
+    },
+    {
+      "name": "元婴",
+      "lifespanYears": 1000,
+      "pointsPerSubStage": 1000,
+      "monthlyBasePoints": 42,
+      "breakthroughChance": 0.55,
+      "failureCultivationLoss": 0.25,
+      "failureInjuryMonths": 12,
+      "hasTribulation": true
+    },
+    {
+      "name": "化神",
+      "lifespanYears": 2000,
+      "pointsPerSubStage": 2500,
+      "monthlyBasePoints": 68,
+      "breakthroughChance": 0.45,
+      "failureCultivationLoss": 0.3,
+      "failureInjuryMonths": 18,
+      "hasTribulation": true
+    },
+    {
+      "name": "炼虚",
+      "lifespanYears": 4000,
+      "pointsPerSubStage": 6000,
+      "monthlyBasePoints": 110,
+      "breakthroughChance": 0.38,
+      "failureCultivationLoss": 0.3,
+      "failureInjuryMonths": 24,
+      "hasTribulation": true
+    },
+    {
+      "name": "合体",
+      "lifespanYears": 8000,
+      "pointsPerSubStage": 15000,
+      "monthlyBasePoints": 180,
+      "breakthroughChance": 0.32,
+      "failureCultivationLoss": 0.35,
+      "failureInjuryMonths": 36,
+      "hasTribulation": true
+    },
+    {
+      "name": "大乘",
+      "lifespanYears": 15000,
+      "pointsPerSubStage": 40000,
+      "monthlyBasePoints": 300,
+      "breakthroughChance": 0.25,
+      "failureCultivationLoss": 0.35,
+      "failureInjuryMonths": 48,
+      "hasTribulation": true
+    },
+    {
+      "name": "渡劫",
+      "lifespanYears": 30000,
+      "pointsPerSubStage": 100000,
+      "monthlyBasePoints": 500,
+      "breakthroughChance": 0.18,
+      "failureCultivationLoss": 0.4,
+      "failureInjuryMonths": 60,
+      "hasTribulation": true
+    },
+    {
+      "name": "真仙",
+      "lifespanYears": 1000000,
+      "pointsPerSubStage": 250000,
+      "monthlyBasePoints": 800,
+      "breakthroughChance": 0.0,
+      "failureCultivationLoss": 0.0,
+      "failureInjuryMonths": 0,
+      "hasTribulation": false
+    }
   ],
-  "subStages": ["Early", "Middle", "Late", "Perfected"],
+  "subStages": [
+    "初期",
+    "中期",
+    "后期",
+    "圆满"
+  ],
   "spiritRoots": {
-    "elements": ["Metal", "Wood", "Water", "Fire", "Earth"],
+    "elements": [
+      "金",
+      "木",
+      "水",
+      "火",
+      "土"
+    ],
     "grades": [
-      { "name": "Common Root", "multiplier": 1.0, "weight": 60 },
-      { "name": "Superior Root", "multiplier": 1.5, "weight": 30 },
-      { "name": "Heavenly Root", "multiplier": 2.2, "weight": 10 }
+      {
+        "name": "凡品灵根",
+        "multiplier": 1.0,
+        "weight": 60
+      },
+      {
+        "name": "上品灵根",
+        "multiplier": 1.5,
+        "weight": 30
+      },
+      {
+        "name": "天品灵根",
+        "multiplier": 2.2,
+        "weight": 10
+      }
     ]
   },
-  "veinCultivationBonus": [0.0, 0.2, 0.5, 1.0, 2.0],
+  "veinCultivationBonus": [
+    0.0,
+    0.2,
+    0.5,
+    1.0,
+    2.0
+  ],
   "charmTiers": [
-    { "name": "Ordinary", "multiplier": 1.0, "weight": 45 },
-    { "name": "Pleasant", "multiplier": 1.1, "weight": 30 },
-    { "name": "Handsome", "multiplier": 1.25, "weight": 16 },
-    { "name": "Stunning", "multiplier": 1.5, "weight": 7 },
-    { "name": "Immortal Bearing", "multiplier": 2.0, "weight": 2 }
+    {
+      "name": "平平",
+      "multiplier": 1.0,
+      "weight": 45
+    },
+    {
+      "name": "清秀",
+      "multiplier": 1.1,
+      "weight": 30
+    },
+    {
+      "name": "俊美",
+      "multiplier": 1.25,
+      "weight": 16
+    },
+    {
+      "name": "倾城",
+      "multiplier": 1.5,
+      "weight": 7
+    },
+    {
+      "name": "仙姿",
+      "multiplier": 2.0,
+      "weight": 2
+    }
   ],
   "affectionTiers": [
-    { "min": -500, "name": "Mortal Enemy" },
-    { "min": -399, "name": "Enemy" },
-    { "min": -299, "name": "Hostile" },
-    { "min": -199, "name": "Disliked" },
-    { "min": -99, "name": "Stranger" },
-    { "min": 100, "name": "Acquaintance" },
-    { "min": 200, "name": "Familiar" },
-    { "min": 300, "name": "Friend" },
-    { "min": 400, "name": "Close Friend" },
-    { "min": 500, "name": "Confidant" },
-    { "min": 700, "name": "In Love" },
-    { "min": 900, "name": "Dao Partner" }
+    {
+      "min": -500,
+      "name": "死敌"
+    },
+    {
+      "min": -399,
+      "name": "仇敌"
+    },
+    {
+      "min": -299,
+      "name": "敌视"
+    },
+    {
+      "min": -199,
+      "name": "厌恶"
+    },
+    {
+      "min": -99,
+      "name": "陌生"
+    },
+    {
+      "min": 100,
+      "name": "相识"
+    },
+    {
+      "min": 200,
+      "name": "熟识"
+    },
+    {
+      "min": 300,
+      "name": "好友"
+    },
+    {
+      "min": 400,
+      "name": "挚友"
+    },
+    {
+      "min": 500,
+      "name": "知己"
+    },
+    {
+      "min": 700,
+      "name": "倾心"
+    },
+    {
+      "min": 900,
+      "name": "道侣"
+    }
   ],
   "fortune": {
     "initial": 50,
@@ -95,7 +315,9 @@
     "sparPowerPerRealm": 10,
     "sparPowerPerSubStage": 2,
     "sparRollSpread": 8,
-    "memoryWindow": 8
+    "memoryWindow": 8,
+    "maxProposedAffectionDelta": 12,
+    "maxReplyLength": 280
   },
   "npc": {
     "monthlyPointsMin": 4,
@@ -106,7 +328,16 @@
     "townMaxRealmIndex": 2,
     "sectMaxRealmIndex": 4,
     "leaderMinRealmIndex": 3,
-    "personalities": ["proud", "gentle", "scheming", "forthright", "aloof", "jovial", "suspicious", "scholarly"]
+    "personalities": [
+      "孤傲",
+      "温婉",
+      "心机",
+      "爽朗",
+      "清冷",
+      "豪迈",
+      "多疑",
+      "儒雅"
+    ]
   },
   "player": {
     "startSpiritStones": 50,
@@ -123,57 +354,449 @@
   },
   "dialogue": {
     "buckets": [
-      { "minAffection": -500, "replies": [
-        "{npc} glares coldly. \"You dare speak to me?\"",
-        "\"Leave, before I forget my manners,\" {npc} says through gritted teeth."
-      ] },
-      { "minAffection": -99, "replies": [
-        "{npc} studies you with {personality} eyes. \"A {playerRealm} cultivator. What do you want?\"",
-        "\"Hm. Speak plainly, stranger,\" {npc} says.",
-        "{npc} nods politely but keeps a courteous distance.",
-        "\"The spirit winds are restless this month,\" {npc} remarks, noncommittal."
-      ] },
-      { "minAffection": 100, "replies": [
-        "{npc} smiles. \"Good to see you again, {player}. Our talks number {memories} now, do they not?\"",
-        "\"{player}! Sit, share tea. How goes your cultivation?\"",
-        "{npc} shares a rumor from the market, glad of your company."
-      ] },
-      { "minAffection": 300, "replies": [
-        "\"Between friends, {player}, few words are needed,\" {npc} says warmly.",
-        "{npc} speaks freely of the sect's affairs - a trust not lightly given.",
-        "\"When you next attempt a breakthrough, call on me,\" {npc} offers."
-      ] },
-      { "minAffection": 500, "replies": [
-        "{npc} lowers their voice. \"To you alone I would say this, {player}...\"",
-        "\"Your path and mine have long run side by side,\" {npc} says quietly."
-      ] }
+      {
+        "minAffection": -500,
+        "replies": [
+          "{npc}冷冷地看着你：“你还敢出现在我面前？”",
+          "“滚。”{npc}只吐出一个字。",
+          "{npc}按住剑柄，眼中杀意一闪而过。"
+        ]
+      },
+      {
+        "minAffection": -99,
+        "replies": [
+          "{npc}上下打量着你：“{playerRealm}修士？找我何事。”",
+          "“有话直说，道友。”{npc}淡淡道。",
+          "{npc}微微颔首，客气而疏远。",
+          "“近来灵气躁动，不宜远行。”{npc}随口应付道。",
+          "{npc}拱了拱手：“幸会。只是在下俗务缠身。”",
+          "“此地不比别处，道友且自便。”",
+          "{npc}看了你一眼，又低头拨弄手中的茶盏。",
+          "“萍水相逢，便是缘分。”{npc}淡淡一笑。"
+        ]
+      },
+      {
+        "minAffection": 100,
+        "replies": [
+          "{npc}露出笑意：“又见面了，{player}。算来你我已交谈{memories}回。”",
+          "“{player}！来来来，坐下喝盏茶。修行可有进益？”",
+          "{npc}压低声音，与你说起集市上新近的传闻。",
+          "“前些日子还念叨你呢。”{npc}招呼你坐下。",
+          "{npc}从袖中摸出些茶点：“尝尝，家乡的味道。”",
+          "“修行之余，也该多走动走动。”{npc}笑道。"
+        ]
+      },
+      {
+        "minAffection": 300,
+        "replies": [
+          "“朋友之间，何须客套。”{npc}温声道。",
+          "{npc}与你说起门中之事，毫不避讳——这份信任来之不易。",
+          "“下次你冲击瓶颈，记得唤我护法。”{npc}郑重道。",
+          "{npc}拍了拍你的肩：“有你这个朋友，是我的福气。”",
+          "“这坛灵酒藏了十年，今日与你同醉。”"
+        ]
+      },
+      {
+        "minAffection": 500,
+        "replies": [
+          "{npc}低声道：“这话，我只对你一人说……”",
+          "“你我之道，早已并肩同行。”{npc}轻声道。",
+          "{npc}望着你，欲言又止，终究化作一声轻叹与一盏热茶。",
+          "“纵使天崩地裂，此心不改。”{npc}目光灼灼。"
+        ]
+      }
     ],
     "keywordReplies": [
-      { "keywords": ["buy", "trade", "sell", "purchase"], "reply": "{npc} raises an eyebrow. \"Trade? Spirit stones speak louder than words. Show me what you carry.\"" },
-      { "keywords": ["join", "sect", "apprentice", "disciple"], "reply": "\"The sect tests spirit root and character both,\" {npc} says. \"Prove your {playerRealm} foundation is solid, and doors may open.\"" },
-      { "keywords": ["dual cultivation", "dao companion", "marry"], "reply": "{npc}'s expression flickers. \"Such matters are not spoken of lightly. Deep bonds come before deep words.\"" },
-      { "keywords": ["spar", "fight", "duel", "challenge"], "reply": "{npc} smiles thinly. \"If you wish to test techniques, say so in the sparring hall - words prove nothing.\"" },
-      { "keywords": ["rumor", "news", "heard"], "reply": "{npc} leans in. \"They say a secret realm stirs beyond the mountains... but rumors twist with every telling.\"" }
-    ]
+      {
+        "keywords": [
+          "买",
+          "卖",
+          "交易",
+          "购",
+          "buy",
+          "trade"
+        ],
+        "reply": "{npc}挑了挑眉：“要做交易？灵石比言语更有分量，先亮出你的诚意。”"
+      },
+      {
+        "keywords": [
+          "拜师",
+          "入门",
+          "入宗",
+          "收徒",
+          "join",
+          "sect"
+        ],
+        "reply": "“入宗须验灵根、试心性。”{npc}正色道，“待你{playerRealm}根基稳固，山门自会为你敞开。”"
+      },
+      {
+        "keywords": [
+          "双修",
+          "道侣",
+          "成亲",
+          "嫁",
+          "娶"
+        ],
+        "reply": "{npc}神色微动：“此事非同小可。情深方可言道，言之过早了。”"
+      },
+      {
+        "keywords": [
+          "切磋",
+          "比试",
+          "过招",
+          "一战",
+          "spar"
+        ],
+        "reply": "{npc}淡淡一笑：“要比试便去演武场立下彩头——口舌之争，证不得道。”"
+      },
+      {
+        "keywords": [
+          "传闻",
+          "消息",
+          "听说",
+          "打听",
+          "rumor"
+        ],
+        "reply": "{npc}凑近半分：“听说群山深处有秘境将启……不过传言过三张嘴，就变了味道。”"
+      },
+      {
+        "keywords": [
+          "丹药",
+          "炼丹",
+          "丹方",
+          "疗伤"
+        ],
+        "reply": "“丹道一途，火候最难。”{npc}道，“寻常伤势，灵草配灵泉将养些时日也就是了。”"
+      },
+      {
+        "keywords": [
+          "功法",
+          "秘籍",
+          "法诀",
+          "剑诀"
+        ],
+        "reply": "{npc}摇头：“功法乃立身之本，岂能轻传。除非——你我交情到了那一步。”"
+      },
+      {
+        "keywords": [
+          "灵脉",
+          "灵气",
+          "洞府"
+        ],
+        "reply": "“镇子左近确有灵脉露头，”{npc}压低声音，“只是好地方，向来有主。”"
+      },
+      {
+        "keywords": [
+          "告辞",
+          "再见",
+          "后会有期",
+          "别过"
+        ],
+        "reply": "{npc}拱手：“山高水长，道友保重。”"
+      }
+    ],
+    "personalityReplies": [
+      {
+        "personality": "孤傲",
+        "replies": [
+          "{npc}负手而立，半晌才道：“说完了？”",
+          "“我辈修士，当以己身为峰。”{npc}目不斜视。",
+          "{npc}冷哼一声，却并未离去——似乎还愿意听你说下去。"
+        ]
+      },
+      {
+        "personality": "温婉",
+        "replies": [
+          "{npc}柔声道：“路上辛苦了吧，先歇歇脚。”",
+          "“慢慢说，不着急。”{npc}替你斟了盏茶。",
+          "{npc}抿嘴一笑：“你这个人啊，总是让人放心不下。”"
+        ]
+      },
+      {
+        "personality": "心机",
+        "replies": [
+          "{npc}眼珠一转：“这消息……你想用什么来换？”",
+          "“帮你不是不行。”{npc}笑得意味深长，“只是人情要记账的。”",
+          "{npc}状似无意地问起你的行程，眼底却精光一闪。"
+        ]
+      },
+      {
+        "personality": "爽朗",
+        "replies": [
+          "{npc}大笑：“痛快！就冲这句话，今晚我请酒！”",
+          "“婆婆妈妈作甚，干就完了！”{npc}一拍桌案。",
+          "{npc}勾住你的肩膀：“兄弟，你可算来了！”"
+        ]
+      },
+      {
+        "personality": "清冷",
+        "replies": [
+          "{npc}静静听完，只轻轻“嗯”了一声。",
+          "“世事如霜，不必强求。”{npc}望向远山。",
+          "{npc}眸光微动，似有涟漪，转瞬又归于平静。"
+        ]
+      },
+      {
+        "personality": "豪迈",
+        "replies": [
+          "{npc}朗声道：“大丈夫行事，何须遮掩！”",
+          "“这点小事，包在我身上！”{npc}拍着胸脯。",
+          "{npc}豪饮一口烈酒：“修行路远，先干为敬！”"
+        ]
+      },
+      {
+        "personality": "多疑",
+        "replies": [
+          "{npc}眯起眼：“你为何偏偏来问我？”",
+          "“无事献殷勤……”{npc}退开半步，戒备地看着你。",
+          "{npc}沉默良久：“此话，你还对谁说过？”"
+        ]
+      },
+      {
+        "personality": "儒雅",
+        "replies": [
+          "{npc}摇着折扇：“妙哉。此言颇合大道之趣。”",
+          "“读万卷书，行万里路，修行亦然。”{npc}微笑道。",
+          "{npc}提笔在纸上写下一行小字，赠与你：“共勉。”"
+        ]
+      }
+    ],
+    "personalityReplyPercent": 35
   },
   "names": {
-    "surnames": ["Li", "Zhao", "Xiao", "Mo", "Su", "Gu", "Ye", "Bai", "Han", "Qin", "Shen", "Wei", "Yun", "Feng"],
-    "givenNames": ["Feng", "Lan", "Yun", "Xue", "Chen", "Mei", "Hao", "Ling", "Rui", "Tao", "Qing", "Shan", "Zhi", "Yan", "Jian", "Hui"],
-    "townPrefixes": ["Cloudrest", "Willow", "Stonegate", "Riverfall", "Golden", "Azure", "Moon", "Cranewing"],
-    "townSuffixes": [" Town", " Market", " Crossing", " Hamlet"],
-    "sectPrefixes": ["Azure Cloud", "Heavenly Sword", "Jade Purity", "Silent Thunder", "Drifting Petal", "Black Tortoise", "Sunset Peak"],
-    "sectSuffixes": [" Sect", " Pavilion", " Valley", " Palace"]
+    "surnames": [
+      "苏",
+      "林",
+      "叶",
+      "秦",
+      "顾",
+      "沈",
+      "白",
+      "韩",
+      "楚",
+      "陆",
+      "萧",
+      "洛",
+      "柳",
+      "唐"
+    ],
+    "givenNames": [
+      "婉儿",
+      "青",
+      "无涯",
+      "惊鸿",
+      "若雪",
+      "长风",
+      "星河",
+      "菱",
+      "霜华",
+      "天南",
+      "明月",
+      "子衿",
+      "含烟",
+      "孤舟",
+      "远山",
+      "听雨"
+    ],
+    "townPrefixes": [
+      "云梦",
+      "青石",
+      "落霞",
+      "临江",
+      "杏花",
+      "古渡",
+      "柳溪",
+      "望月"
+    ],
+    "townSuffixes": [
+      "镇",
+      "集",
+      "村",
+      "渡"
+    ],
+    "sectPrefixes": [
+      "青云",
+      "天剑",
+      "玉虚",
+      "太一",
+      "惊雷",
+      "流霞",
+      "紫阳"
+    ],
+    "sectSuffixes": [
+      "宗",
+      "阁",
+      "谷",
+      "宫"
+    ]
   },
   "ui": {
     "fontPath": "",
     "fontSizePixels": 18,
-    "terrainColors": [ 4283937857, 4281231436, 4288950569, 4284900966, 4285102955 ],
-    "veinQualityColors": [ 4285102955, 4287087950, 4289449819, 4291542618, 4294621543 ],
-    "townColor": 4281787903,
-    "sectColor": 4288230141,
-    "playerColor": 4278255615,
-    "tileSizeMin": 4,
-    "tileSizeMax": 20,
-    "tileSizeDefault": 9
+    "terrainColors": [
+      4289907654,
+      4285434478,
+      4287143590,
+      4286084728,
+      4289896588,
+      4288070870,
+      4293979883,
+      4285695606
+    ],
+    "veinQualityColors": [
+      0,
+      4290693270,
+      4290362985,
+      4291015755,
+      4293632120
+    ],
+    "townColor": 4281482924,
+    "sectColor": 4287512688,
+    "playerColor": 4280557088,
+    "gridLineColor": 708260402,
+    "pathColor": 4282143944,
+    "fogColor": 1848385564,
+    "zoomMin": 6,
+    "zoomMax": 64,
+    "zoomDefault": 28,
+    "observableRange": 6,
+    "labelZoomThreshold": 20
+  },
+  "save": {
+    "directory": "saves"
+  },
+  "text": {
+    "intro": [
+      "序章：山外烽烟未起，山中岁月悠长。{0}自幼体察灵机，被游方道人断言身负灵根。",
+      "临行前夜，老家人只嘱咐一句：寿数有尽，大道无涯，莫忘来路。",
+      "指引：先在{1}中与人结识；寻一处灵脉打坐修炼；修为圆满便可冲击瓶颈；筑基之后能御剑远游，去宗门看看。"
+    ],
+    "ui": {
+      "newGameTitle": "初入修行",
+      "newGamePitch": "这是一方活着的天地：宗门林立，灵脉隐现，寿元有尽。不满意眼前的山河，尽可另换一界，直到天命入眼为止。",
+      "seedLabel": "天地种子",
+      "worldLabel": "天地",
+      "rerollWorld": "另换山河",
+      "rerollFate": "另换命数",
+      "nameLine": "姓名：{0}",
+      "spiritRootLine": "灵根：{0}系 {1}（x{2}）",
+      "charmLine": "魅力：{0}",
+      "worldSummaryLine": "此界：{0}镇 {1}宗",
+      "beginJourney": "踏上修行之路",
+      "loadSavedJourney": "续前尘旧档",
+      "mapTitle": "山河图",
+      "mapHelp": "滚轮缩放  拖拽平移  点击赶路  WASD移步   （{0}x{1}）",
+      "tooFarHint": "目力不及之处——先行靠近再看。",
+      "travelTooltip": "赶路：{0}日（{1}）——点击前往",
+      "noFootPath": "徒步无路可达。",
+      "beyondSight": "目力所不及。",
+      "veinTooltip": "灵脉（{0}品）",
+      "townWord": "城镇",
+      "sectWord": "宗门",
+      "statusTitle": "修士",
+      "dateFormat": "{0}年{1}月{2}日",
+      "ageLine": "年岁 {0} ／ 寿元 {1} 年",
+      "progressLine": "修为 {0}/{1}（此地每月{2}）",
+      "charmFortuneLine": "魅力：{0}   气运：{1}（机缘 x{2}）",
+      "stonesHerbsLine": "灵石：{0}   灵草：{1}",
+      "injuredLine": "负伤：修炼减半，还需将养{0}月",
+      "onVeinLine": "身处灵脉：修炼 +{0}",
+      "timeFlowsLine": "光阴流转……尚余{0}日",
+      "actionsTitle": "行动",
+      "monthsLabel": "月",
+      "yearsLabel": "年",
+      "cultivateButton": "修炼",
+      "secludeButton": "闭关",
+      "exploreButton": "探索四野",
+      "breakthroughReadyLine": "瓶颈已现：冲击成功率{0}",
+      "breakthroughButton": "冲击瓶颈",
+      "breakthroughLockedLine": "瓶颈：修为达到圆满方可冲击。",
+      "saveButton": "保存",
+      "loadButton": "读取",
+      "locationTitle": "所在",
+      "wildernessLine": "荒野（{0}），唯余天地寂寥。",
+      "wildernessVeinLine": "身处荒野{0}品灵脉（{1}），正宜打坐修行。",
+      "selectSomeone": "择一人相谈。",
+      "sectLeaderTag": "（宗主）",
+      "terrainNames": [
+        "平原",
+        "林地",
+        "丘陵",
+        "高山",
+        "水泽",
+        "荒漠",
+        "雪原",
+        "沼泽"
+      ],
+      "giftButton": "相赠{0}灵石",
+      "sparButton": "切磋",
+      "sayButton": "诉说",
+      "theirRegardLine": "彼视你：{0}（{1}）",
+      "yourRegardLine": "你视彼：{0}（{1}）",
+      "npcAgeLine": "年岁 {0} ／ {1}",
+      "theyRemember": "犹记",
+      "chronicleTitle": "编年史",
+      "deathTitle": "大道尽头",
+      "deathLine": "{0}修至{1}，享年{2}岁。编年史长存于世。",
+      "reincarnateButton": "转世重修（另换命数）",
+      "realmTitleFormat": "{0}{1}"
+    },
+    "messages": {
+      "arrivalLog": "{0}来到{1}，踏上修行之路。",
+      "wildsName": "荒野",
+      "deathLog": "{0}寿元耗尽，享年{1}岁，止步于{2}。",
+      "walkMode": "徒步",
+      "flightMode": "御剑",
+      "travelStartMsg": "启程（{0}），预计{1}日……",
+      "travelStepBlocked": "此路不通，徒步难越。",
+      "travelNoPath": "徒步无路可达——水泽阻隔。",
+      "arrivedAtMsg": "行程{1}日（{2}），抵达{0}。",
+      "traveledMsg": "跋涉{0}日（{1}）。",
+      "occupied": "你正忙于其他事务。",
+      "cultivateStartMsg": "静心修炼{0}个月……",
+      "cultivateDoneMsg": "修炼{0}个月，得{1}点修为。现为{2}。",
+      "secludeEnterLog": "{0}闭关静修，预计{1}年。",
+      "secludeStartMsg": "闭关{0}年……",
+      "secludeLeaveLog": "{0}出关，历时{1}年。",
+      "secludeDoneMsg": "闭关{0}年功成，得{1}点修为。现为{2}。",
+      "breakthroughNotReady": "尚欠火候——修为需达圆满，方可冲击瓶颈。",
+      "tribulationFlavor": "九重天雷接连落下——尽数扛了过去。",
+      "breakthroughLog": "{0}突破至{1}！{2}",
+      "breakthroughMsg": "突破成功！现为{0}。{1}寿元增至{2}年。",
+      "breakthroughFailLog": "{0}冲击{1}失败。",
+      "breakthroughFailInjuryMsg": "冲击失败——修为受损，伤势将持续{0}个月。",
+      "breakthroughFailMsg": "冲击失败——修为略有损失。",
+      "exploreFoundMsg": "探索四野，寻得{0}。",
+      "exploreListSeparator": "、",
+      "exploreHerbs": "灵草{0}株",
+      "exploreStones": "灵石{0}枚",
+      "exploreInsight": "一缕道韵（修为+{0}）",
+      "exploreInsightLog": "{0}于荒野之间，偶得上古道韵。",
+      "exploreNothing": [
+        "跋山涉水数日，唯见清风与荒草。",
+        "山间云雾缭绕，一无所获，心境却澄澈了几分。",
+        "偶遇采药老人，相谈半日，各自别过。",
+        "夜宿破庙，听了一夜风雨，天明继续赶路。"
+      ],
+      "giftNeedMsg": "需备{0}枚灵石，方成体面的赠礼。",
+      "giftMemory": "{0}相赠灵石{1}枚。",
+      "giftReply": "{0}收下了{1}枚灵石。（{2}）",
+      "sparWinMemory": "与{0}切磋，虽败犹荣。",
+      "sparLoseMemory": "与{0}切磋，更胜一筹。",
+      "sparWinReply": "切磋中你胜过{0}，得{1}点感悟。",
+      "sparLoseReply": "{0}略胜一筹，仍对你的身手点头称许。",
+      "chatMemory": "{0}说：“{1}”",
+      "chatFallbackReply": "……",
+      "saveDoneMsg": "已保存至 {0}。",
+      "saveFailMsg": "保存失败：{0}",
+      "saveBusyMsg": "光阴流转之际，无法保存。",
+      "loadDoneMsg": "已读取 {0}。",
+      "loadFailMsg": "读档失败：{0}",
+      "loadVersionMsg": "读档失败：存档版本{0}不受支持（应为{1}）。",
+      "loadMalformedMsg": "读档失败：存档已损坏。",
+      "loadBusyMsg": "光阴流转之际，无法读档。",
+      "npcBreakthroughLog": "江湖传闻：{1}的{0}突破至{2}。",
+      "npcDeathLog": "{1}的{0}寿元耗尽，坐化了。"
+    }
   }
 }

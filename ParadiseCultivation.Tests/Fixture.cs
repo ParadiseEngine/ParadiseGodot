@@ -16,10 +16,18 @@ internal static class Fixture
 
     public static CultivationConfig Config => Cached.Value;
 
-    /// <summary>A runner already past the new-game screen (BeginJourney processed).</summary>
-    public static CultivationRunner NewRunner(int seed = 12345, int sizeIndex = 0)
+    /// <summary>The longest literal run of a text template (between format slots) — lets
+    /// assertions follow the authored language instead of hardcoding it.</summary>
+    public static string Skeleton(string template)
     {
-        var runner = new CultivationRunner(Config, seed, sizeIndex);
+        var parts = System.Text.RegularExpressions.Regex.Split(template, @"\{[^}]+\}");
+        return parts.OrderByDescending(part => part.Length).First();
+    }
+
+    /// <summary>A runner already past the new-game screen (BeginJourney processed).</summary>
+    public static CultivationRunner NewRunner(int seed = 12345, int presetIndex = 0)
+    {
+        var runner = new CultivationRunner(Config, seed, presetIndex);
         runner.RequestBeginJourney();
         runner.TickOnce();
         return runner;

@@ -52,7 +52,8 @@ namespace ParadiseGodot.Runtime
                     string.IsNullOrWhiteSpace(config.Ui.FontPath)
                         ? null
                         : ProjectSettings.GlobalizePath(config.Ui.FontPath),
-                    config.Ui.FontSizePixels);
+                    config.Ui.FontSizePixels,
+                    json); // glyph source: every authored character gets a glyph
                 _imgui = new ImGuiUiCore((uint)size.X, (uint)size.Y, fontConfig);
             }
             catch (Exception e) when (e is DllNotFoundException or TypeInitializationException)
@@ -170,7 +171,10 @@ namespace ParadiseGodot.Runtime
             Key.Shift => UiKey.Shift,
             Key.A => UiKey.A,
             Key.C => UiKey.C,
+            Key.D => UiKey.D,
+            Key.S => UiKey.S,
             Key.V => UiKey.V,
+            Key.W => UiKey.W,
             Key.X => UiKey.X,
             Key.Y => UiKey.Y,
             Key.Z => UiKey.Z,
