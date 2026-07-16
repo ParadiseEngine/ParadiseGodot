@@ -61,6 +61,7 @@ public sealed class CultivationUi
                 DrawActions();
                 DrawLocation();
                 DrawChronicle();
+                DrawEncounter();
                 break;
             case GamePhase.Dead:
                 DrawMap();
@@ -395,8 +396,9 @@ public sealed class CultivationUi
         }
         ImGui.End();
 
-        // WASD single-tile steps (four-direction adjacency) — outside text inputs only.
-        if (playing && !_runner.Busy && !io.WantTextInput)
+        // WASD single-tile steps (four-direction adjacency) — outside text inputs only,
+        // and never while a beast blocks the road.
+        if (playing && !_runner.Busy && _runner.PendingBeast is null && !io.WantTextInput)
         {
             if (ImGui.IsKeyPressed(ImGuiKey.W, true)) _runner.RequestTravelStep(0, -1);
             else if (ImGui.IsKeyPressed(ImGuiKey.S, true)) _runner.RequestTravelStep(0, 1);
@@ -597,6 +599,37 @@ public sealed class CultivationUi
 
         ImGui.Separator();
         DrawNpcPanel(_selectedNpc);
+        ImGui.End();
+    }
+
+    /// <summary>The beast standoff: the semi-auto contract is that the PLAYER makes the one
+    /// strategic call here (fight or flee, with an honest appraisal of the odds) and the
+    /// rounds then resolve on their own.</summary>
+    private void DrawEncounter()
+    {
+        if (_runner.PendingBeast is not { } beast)
+        {
+            return;
+        }
+        var world = _runner.UiWorld;
+        ref readonly var cultivator = ref world.GetComponent<Cultivator>(_runner.Player);
+        var cfg = Config.Combat;
+
+        ImGui.SetNextWindowPos(new Vector2(560, 300), ImGuiCond.FirstUseEver);
+        ImGui.Begin(T.EncounterTitle, ImGuiWindowFlags.AlwaysAutoResize);
+        ImGui.TextWrapped(F(T.EncounterLine, Config.Names.BeastNames[beast.NameIndex],
+            Config.Realms[beast.RealmIndex].Name));
+
+        var expectedGap = (cultivator.RealmIndex - beast.RealmIndex) * cfg.PowerPerRealm
+            + cultivator.SubStage * cfg.PowerPerSubStage - cfg.BeastPowerBonus;
+        var judge = expectedGap <= -cfg.JudgeThreshold ? 0 : expectedGap < cfg.JudgeThreshold ? 1 : 2;
+        ImGui.TextDisabled(T.EncounterJudgeNames[judge]);
+
+        ImGui.BeginDisabled(_runner.Busy);
+        if (ImGui.Button(T.FightButton, new Vector2(120, 0))) _runner.RequestFight();
+        ImGui.SameLine();
+        if (ImGui.Button(T.FleeButton, new Vector2(120, 0))) _runner.RequestFlee();
+        ImGui.EndDisabled();
         ImGui.End();
     }
 

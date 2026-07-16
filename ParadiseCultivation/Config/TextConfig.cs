@@ -87,6 +87,14 @@ public sealed record UiTextConfig
     /// <summary>{0} vein quality, {1} terrain name.</summary>
     public required string WildernessVeinLine { get; init; }
     public required string SelectSomeone { get; init; }
+    public required string EncounterTitle { get; init; }
+    /// <summary>{0} beast name, {1} its realm name.</summary>
+    public required string EncounterLine { get; init; }
+    /// <summary>Appraisal by expected-power gap: [too strong, even match, beatable].</summary>
+    public required string[] EncounterJudgeNames { get; init; }
+    public required string FightButton { get; init; }
+    public required string FleeButton { get; init; }
+
     public required string RealmSectionTitle { get; init; }
     /// <summary>{0} realm name.</summary>
     public required string RealmHereLine { get; init; }
@@ -211,6 +219,20 @@ public sealed record MessageTextConfig
     public required string ExploreInsightLog { get; init; }
     /// <summary>Atmosphere lines when nothing is found (picked by the saved RNG stream).</summary>
     public required string[] ExploreNothing { get; init; }
+
+    /// <summary>{0} beast name.</summary>
+    public required string EncounterMsg { get; init; }
+    public required string EncounterBlocksMsg { get; init; }
+    /// <summary>{0} rounds, {1} beast, {2} stones, {3} herbs, {4} insight.</summary>
+    public required string FightWinMsg { get; init; }
+    /// <summary>{0} player name, {1} beast.</summary>
+    public required string FightWinLog { get; init; }
+    /// <summary>{0} beast, {1} injury months.</summary>
+    public required string FightLoseMsg { get; init; }
+    /// <summary>{0} beast.</summary>
+    public required string FleeOkMsg { get; init; }
+    /// <summary>{0} beast, {1} injury months.</summary>
+    public required string FleeFailMsg { get; init; }
 
     /// <summary>{0} realm name.</summary>
     public required string RealmOpenLog { get; init; }

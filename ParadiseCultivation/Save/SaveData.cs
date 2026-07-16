@@ -14,8 +14,9 @@ public sealed record SaveData
     /// load with defaults (the doc's "migration established early"); loaders accept
     /// 1…CurrentVersion. v2: trade state (player pills + per-town pill stock).
     /// v3: sect membership (site + rank). v4: secret-realm knowledge (rumor heard + trial
-    /// spent — the schedule itself re-derives from the seed).</summary>
-    public const int CurrentVersion = 4;
+    /// spent — the schedule itself re-derives from the seed). v5: the pending beast
+    /// encounter, so saving mid-standoff is honest.</summary>
+    public const int CurrentVersion = 5;
 
     public required int Version { get; init; }
     public required int Seed { get; init; }
@@ -37,6 +38,10 @@ public sealed record SaveData
     public long? KnownRealmIndex { get; init; }
     /// <summary>Secret-realm opening whose trial is spent. Optional since v4.</summary>
     public long? LastRealmTrialIndex { get; init; }
+    /// <summary>The beast standoff in progress, both set or both absent. Optional since v5;
+    /// NULLABLE like every migration field (see <see cref="SavedPlayer.SectSiteIndex"/>).</summary>
+    public int? EncounterNameIndex { get; init; }
+    public int? EncounterRealmIndex { get; init; }
 }
 
 public sealed record SavedPlayer

@@ -399,6 +399,27 @@
       "消息"
     ]
   },
+  "combat": {
+    "encounterChance": 0.22,
+    "resolveDays": 1,
+    "powerPerRealm": 10,
+    "powerPerSubStage": 2,
+    "rollSpread": 14,
+    "beastPowerBonus": 3,
+    "beastRealmSpread": 1,
+    "maxBeastRealmIndex": 6,
+    "rounds": 3,
+    "judgeThreshold": 6,
+    "lootStonesPerRealm": 30,
+    "lootHerbsPerRealm": 2,
+    "insightPerRealm": 20,
+    "fortuneWinGain": 3,
+    "lossInjuryMonthsPerRealm": 1,
+    "notableRealmIndex": 2,
+    "fleeBaseChance": 0.65,
+    "fleeChancePerRealmDiff": 0.1,
+    "fleeFailInjuryMonths": 1
+  },
   "player": {
     "startSpiritStones": 50,
     "explore": {

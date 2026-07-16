@@ -25,6 +25,8 @@ public enum CommandKind
     JoinSect,
     LeaveSect,
     EnterRealm,
+    Fight,
+    Flee,
     Save,
     Load,
 }
@@ -122,6 +124,7 @@ public sealed class CultivationRunner : IDisposable
     private int[] _townPillStock = Array.Empty<int>();
     private long _knownRealmIndex = -1;
     private long _lastRealmTrialIndex = -1;
+    private (int NameIndex, int RealmIndex)? _pendingBeast;
 
     public CultivationConfig Config { get; }
 
@@ -162,6 +165,9 @@ public sealed class CultivationRunner : IDisposable
     public long KnownRealmIndex => _knownRealmIndex;
     /// <summary>The opening index whose trial is already spent, or -1. SIM THREAD ONLY.</summary>
     public long LastRealmTrialIndex => _lastRealmTrialIndex;
+    /// <summary>The beast blocking the road, if any — every action except fight/flee (and
+    /// save/load) is refused while this is set. SIM THREAD ONLY.</summary>
+    public (int NameIndex, int RealmIndex)? PendingBeast => _pendingBeast;
     /// <summary>An action is animating game time; new time-consuming actions are refused.</summary>
     public bool Busy => _pendingDays > 0;
     /// <summary>Remaining/total days of the animating action (progress display).</summary>
@@ -267,6 +273,14 @@ public sealed class CultivationRunner : IDisposable
     /// <summary>Brave the trial of the secret realm the player is standing in.</summary>
     public void RequestEnterRealm() =>
         Enqueue(new CultivationCommand(CommandKind.EnterRealm, 0, 0, default, null));
+
+    /// <summary>Face the beast blocking the road.</summary>
+    public void RequestFight() =>
+        Enqueue(new CultivationCommand(CommandKind.Fight, 0, 0, default, null));
+
+    /// <summary>Try to slip away from the beast blocking the road.</summary>
+    public void RequestFlee() =>
+        Enqueue(new CultivationCommand(CommandKind.Flee, 0, 0, default, null));
 
     public void RequestSave(string path) =>
         Enqueue(new CultivationCommand(CommandKind.Save, 0, 0, default, path));
@@ -590,6 +604,15 @@ public sealed class CultivationRunner : IDisposable
                 continue;
             }
 
+            // A beast blocks the road: nothing but the encounter itself proceeds
+            // (save/load were already handled above — knowledge is never hostage).
+            if (_pendingBeast is not null &&
+                command.Kind is not (CommandKind.Fight or CommandKind.Flee))
+            {
+                LastActionResult = Msg.EncounterBlocksMsg;
+                continue;
+            }
+
             ref var cultivator = ref write.GetComponent<Cultivator>(_player);
             ref var player = ref write.GetComponent<PlayerData>(_player);
 
@@ -650,6 +673,12 @@ public sealed class CultivationRunner : IDisposable
                     break;
                 case CommandKind.EnterRealm:
                     ApplyEnterRealm(ref cultivator, ref player);
+                    break;
+                case CommandKind.Fight:
+                    ApplyFight(ref cultivator, ref player);
+                    break;
+                case CommandKind.Flee:
+                    ApplyFlee(in cultivator, ref player);
                     break;
             }
         }
@@ -727,6 +756,20 @@ public sealed class CultivationRunner : IDisposable
 
     private void ApplyExplore(ref Cultivator cultivator, ref PlayerData player)
     {
+        // The wilderness bites back: a beast may interrupt the search (no loot this time);
+        // the encounter then blocks everything until the player fights or flees.
+        var combat = Config.Combat;
+        if (_rng.NextDouble() < combat.EncounterChance)
+        {
+            var beastRealm = Math.Clamp(
+                cultivator.RealmIndex + _rng.Next(-combat.BeastRealmSpread, combat.BeastRealmSpread + 1),
+                0, combat.MaxBeastRealmIndex);
+            _pendingBeast = (_rng.Next(Config.Names.BeastNames.Length), beastRealm);
+            LastActionResult = F(Msg.EncounterMsg, Config.Names.BeastNames[_pendingBeast.Value.NameIndex]);
+            BeginAdvance(CommandKind.Explore, Config.Time.ActionDays.Explore);
+            return;
+        }
+
         var explore = Config.Player.Explore;
         var multiplier = CultivationRules.FortuneMultiplier(Config, player.Fortune);
         var found = new List<string>();
@@ -874,6 +917,78 @@ public sealed class CultivationRunner : IDisposable
             ? F(Msg.SparWinReply, CultivationRules.NpcName(Config, in npc), cfg.SparInsightPoints)
             : F(Msg.SparLoseReply, CultivationRules.NpcName(Config, in npc));
         BeginAdvance(CommandKind.Spar, Config.Time.ActionDays.Spar);
+    }
+
+    // ---- combat (semi-auto: the player picks fight-or-flee, the rounds resolve alone) ----
+
+    private void ApplyFight(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (_pendingBeast is not { } beast)
+        {
+            return; // the UI only offers this mid-encounter
+        }
+        var cfg = Config.Combat;
+        var wins = 0;
+        for (var round = 0; round < cfg.Rounds; round++)
+        {
+            var mine = cultivator.RealmIndex * cfg.PowerPerRealm
+                + cultivator.SubStage * cfg.PowerPerSubStage
+                + _rng.NextDouble() * cfg.RollSpread;
+            var theirs = beast.RealmIndex * cfg.PowerPerRealm + cfg.BeastPowerBonus
+                + _rng.NextDouble() * cfg.RollSpread;
+            if (mine >= theirs) wins++;
+        }
+
+        var name = Config.Names.BeastNames[beast.NameIndex];
+        _pendingBeast = null;
+        if (wins * 2 > cfg.Rounds)
+        {
+            var multiplier = CultivationRules.FortuneMultiplier(Config, player.Fortune);
+            var stones = (int)Math.Round((beast.RealmIndex + 1) * cfg.LootStonesPerRealm * multiplier);
+            var herbs = (beast.RealmIndex + 1) * cfg.LootHerbsPerRealm;
+            var insight = (beast.RealmIndex + 1) * cfg.InsightPerRealm;
+            player.SpiritStones += stones;
+            player.Herbs += herbs;
+            player.Fortune = Math.Min(player.Fortune + cfg.FortuneWinGain, Config.Fortune.Max);
+            cultivator.CultivationPoints += insight;
+            CultivationRules.AdvanceSubStages(Config, ref cultivator);
+            if (beast.RealmIndex >= cfg.NotableRealmIndex)
+            {
+                Log(F(Msg.FightWinLog, CultivationRules.PlayerName(Config, in player), name));
+            }
+            LastActionResult = F(Msg.FightWinMsg, cfg.Rounds, name, stones, herbs, insight);
+        }
+        else
+        {
+            var months = Math.Max(1, (beast.RealmIndex + 1) * cfg.LossInjuryMonthsPerRealm);
+            player.InjuryMonths += months;
+            LastActionResult = F(Msg.FightLoseMsg, name, months);
+        }
+        BeginAdvance(CommandKind.Fight, cfg.ResolveDays);
+    }
+
+    private void ApplyFlee(in Cultivator cultivator, ref PlayerData player)
+    {
+        if (_pendingBeast is not { } beast)
+        {
+            return;
+        }
+        var cfg = Config.Combat;
+        var name = Config.Names.BeastNames[beast.NameIndex];
+        _pendingBeast = null;
+        var chance = Math.Clamp(
+            cfg.FleeBaseChance + (cultivator.RealmIndex - beast.RealmIndex) * cfg.FleeChancePerRealmDiff,
+            0.05f, 0.95f);
+        if (_rng.NextDouble() < chance)
+        {
+            LastActionResult = F(Msg.FleeOkMsg, name);
+        }
+        else
+        {
+            player.InjuryMonths += cfg.FleeFailInjuryMonths;
+            LastActionResult = F(Msg.FleeFailMsg, name, cfg.FleeFailInjuryMonths);
+        }
+        BeginAdvance(CommandKind.Flee, cfg.ResolveDays);
     }
 
     // ---- secret realm (rumor-revealed, once-per-opening fortune trial) ----
@@ -1184,6 +1299,8 @@ public sealed class CultivationRunner : IDisposable
             TownPillStock = (int[])_townPillStock.Clone(),
             KnownRealmIndex = _knownRealmIndex,
             LastRealmTrialIndex = _lastRealmTrialIndex,
+            EncounterNameIndex = _pendingBeast?.NameIndex,
+            EncounterRealmIndex = _pendingBeast?.RealmIndex,
         };
 
         static SavedCultivator ToSaved(in Cultivator c) => new()
@@ -1237,6 +1354,10 @@ public sealed class CultivationRunner : IDisposable
         _rng = new Pcg32(data.RngState, data.RngStream);
         _knownRealmIndex = data.KnownRealmIndex ?? -1;
         _lastRealmTrialIndex = data.LastRealmTrialIndex ?? -1;
+        _pendingBeast = data is { EncounterNameIndex: { } beastName, EncounterRealmIndex: { } beastRealm } &&
+            beastName >= 0 && beastName < Config.Names.BeastNames.Length
+            ? (beastName, Math.Clamp(beastRealm, 0, Config.Realms.Length - 1))
+            : null;
         _nextNpcId = data.NextNpcId;
         _npcs.Clear();
         _memories.Clear();
@@ -1375,6 +1496,7 @@ public sealed class CultivationRunner : IDisposable
         RestockMarkets();
         _knownRealmIndex = -1;
         _lastRealmTrialIndex = -1;
+        _pendingBeast = null;
         _rng = new Pcg32(seed * 31 + 17);
         _nextNpcId = generated.Npcs.Count + 1;
         _npcs.Clear();

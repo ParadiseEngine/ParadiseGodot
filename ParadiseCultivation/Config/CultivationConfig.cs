@@ -47,6 +47,7 @@ public sealed record CultivationConfig
     public required TradeConfig Trade { get; init; }
     public required SectConfig Sect { get; init; }
     public required SecretRealmConfig SecretRealm { get; init; }
+    public required CombatConfig Combat { get; init; }
     public required DialogueConfig Dialogue { get; init; }
     public required NamesConfig Names { get; init; }
     public required UiConfig Ui { get; init; }
@@ -261,6 +262,45 @@ public sealed record SecretRealmConfig
     public required string[] RumorKeywords { get; init; }
 }
 
+/// <summary>Semi-auto wilderness combat (the doc's P2 encounter): exploring can provoke a
+/// realm-scaled beast; the PLAYER makes the strategic call (fight or flee), the rounds
+/// resolve automatically. No permadeath in the slice — defeat costs injury months.</summary>
+public sealed record CombatConfig
+{
+    /// <summary>Chance an explore is interrupted by a beast (the explore yields no loot).</summary>
+    public required float EncounterChance { get; init; }
+    /// <summary>Game days resolving the encounter takes (fight or flee).</summary>
+    public required int ResolveDays { get; init; }
+    public required float PowerPerRealm { get; init; }
+    public required float PowerPerSubStage { get; init; }
+    /// <summary>Uniform random spread added to each side's round roll.</summary>
+    public required float RollSpread { get; init; }
+    /// <summary>Flat power the beast adds (they fight dirty).</summary>
+    public required float BeastPowerBonus { get; init; }
+    /// <summary>Beast realm is the player's ± this, clamped to [0, MaxBeastRealmIndex].</summary>
+    public required int BeastRealmSpread { get; init; }
+    public required int MaxBeastRealmIndex { get; init; }
+    /// <summary>Rounds fought; winning more than half wins the encounter (keep it odd).</summary>
+    public required int Rounds { get; init; }
+    /// <summary>Expected-power gap at which the UI's appraisal flips between the three
+    /// <see cref="UiTextConfig.EncounterJudgeNames"/> labels.</summary>
+    public required float JudgeThreshold { get; init; }
+    /// <summary>Victory loot scales linearly with (beast realm + 1).</summary>
+    public required int LootStonesPerRealm { get; init; }
+    public required int LootHerbsPerRealm { get; init; }
+    public required int InsightPerRealm { get; init; }
+    public required float FortuneWinGain { get; init; }
+    /// <summary>Defeat injury: (beast realm + 1) × this, at least 1 month.</summary>
+    public required int LossInjuryMonthsPerRealm { get; init; }
+    /// <summary>Beast realm at/above which a victory enters the chronicle.</summary>
+    public required int NotableRealmIndex { get; init; }
+    public required float FleeBaseChance { get; init; }
+    /// <summary>Per (player realm − beast realm) addition to the flee chance.</summary>
+    public required float FleeChancePerRealmDiff { get; init; }
+    /// <summary>The parting blow when a flee fails.</summary>
+    public required int FleeFailInjuryMonths { get; init; }
+}
+
 public sealed record RealmConfig
 {
     public required string Name { get; init; }
@@ -424,6 +464,8 @@ public sealed record NamesConfig
     public required string[] SectSuffixes { get; init; }
     /// <summary>Secret-realm names, drawn per opening by <see cref="SecretRealms.NameOf"/>.</summary>
     public required string[] RealmNames { get; init; }
+    /// <summary>Wilderness beast names, drawn per encounter from the saved RNG stream.</summary>
+    public required string[] BeastNames { get; init; }
 }
 
 /// <summary>Presentation tunables (map tile colors as 0xAABBGGRR ImGui-packed values, marker
