@@ -20,6 +20,8 @@ public enum CommandKind
     Chat,
     Gift,
     Spar,
+    SellHerbs,
+    BuyPill,
     Save,
     Load,
 }
@@ -114,6 +116,7 @@ public sealed class CultivationRunner : IDisposable
     private int _travelStepsDone;
     private double _pendingGained;
     private World? _uiWorld;
+    private int[] _townPillStock = Array.Empty<int>();
 
     public CultivationConfig Config { get; }
 
@@ -146,6 +149,9 @@ public sealed class CultivationRunner : IDisposable
     public IReadOnlyList<Entity> Npcs => _npcs;
     /// <summary>The world/biography log. SIM THREAD ONLY.</summary>
     public List<MemoryEntry> Chronicle { get; } = new();
+    /// <summary>Breakthrough-pill stock per site index (towns only; restocked monthly).
+    /// SIM THREAD ONLY.</summary>
+    public IReadOnlyList<int> TownPillStock => _townPillStock;
     /// <summary>An action is animating game time; new time-consuming actions are refused.</summary>
     public bool Busy => _pendingDays > 0;
     /// <summary>Remaining/total days of the animating action (progress display).</summary>
@@ -231,6 +237,14 @@ public sealed class CultivationRunner : IDisposable
 
     public void RequestSpar(Entity npc) =>
         Enqueue(new CultivationCommand(CommandKind.Spar, 0, 0, npc, null));
+
+    /// <summary>Sell herbs at the town the player stands in (quantity clamped to owned).</summary>
+    public void RequestSellHerbs(int quantity) =>
+        Enqueue(new CultivationCommand(CommandKind.SellHerbs, quantity, 0, default, null));
+
+    /// <summary>Buy one breakthrough pill at the town the player stands in.</summary>
+    public void RequestBuyPill() =>
+        Enqueue(new CultivationCommand(CommandKind.BuyPill, 0, 0, default, null));
 
     public void RequestSave(string path) =>
         Enqueue(new CultivationCommand(CommandKind.Save, 0, 0, default, path));
@@ -440,6 +454,11 @@ public sealed class CultivationRunner : IDisposable
             }
         }
 
+        if (monthsCrossed > 0)
+        {
+            RestockMarkets();
+        }
+
         var cultivating = _pendingKind is CommandKind.Cultivate or CommandKind.Seclude;
         for (var m = 0; m < monthsCrossed; m++)
         {
@@ -585,6 +604,12 @@ public sealed class CultivationRunner : IDisposable
                 case CommandKind.Spar:
                     ApplySpar(write, command.Target, ref cultivator, ref player);
                     break;
+                case CommandKind.SellHerbs:
+                    ApplySellHerbs(ref player, command.A);
+                    break;
+                case CommandKind.BuyPill:
+                    ApplyBuyPill(ref player);
+                    break;
             }
         }
     }
@@ -621,7 +646,15 @@ public sealed class CultivationRunner : IDisposable
         }
 
         var realm = Config.Realms[cultivator.RealmIndex];
-        if (_rng.NextDouble() < CultivationRules.BreakthroughSuccessChance(Config, _map, in cultivator, in player))
+        var chance = CultivationRules.BreakthroughSuccessChance(Config, _map, in cultivator, in player);
+        var usedPill = player.Pills > 0;
+        if (usedPill)
+        {
+            // The pill is spent by the ATTEMPT (not only success) — that's its gamble.
+            player.Pills--;
+            chance = Math.Clamp(chance + Config.Trade.PillBreakthroughBonus, 0.05f, 0.98f);
+        }
+        if (_rng.NextDouble() < chance)
         {
             cultivator.RealmIndex++;
             cultivator.SubStage = 0;
@@ -643,6 +676,10 @@ public sealed class CultivationRunner : IDisposable
             LastActionResult = realm.FailureInjuryMonths > 0
                 ? F(Msg.BreakthroughFailInjuryMsg, realm.FailureInjuryMonths)
                 : Msg.BreakthroughFailMsg;
+        }
+        if (usedPill)
+        {
+            LastActionResult = F(Msg.PillUsedNote, $"{Config.Trade.PillBreakthroughBonus:P0}") + LastActionResult;
         }
         BeginAdvance(CommandKind.Breakthrough, Config.Time.ActionDays.Breakthrough);
     }
@@ -783,6 +820,81 @@ public sealed class CultivationRunner : IDisposable
         BeginAdvance(CommandKind.Spar, Config.Time.ActionDays.Spar);
     }
 
+    // ---- trade (town markets; the P2 slice) ----
+
+    /// <summary>Trade needs a town under the player's feet; anywhere else is refused.</summary>
+    private bool TryGetMarketSite(in PlayerData player, out int siteIndex)
+    {
+        siteIndex = _map.TileAt(player.X, player.Y).SiteIndex;
+        if (siteIndex >= 0 && _map.Sites[siteIndex].Kind == SiteKind.Town)
+        {
+            return true;
+        }
+        LastActionResult = Msg.TradeNoMarketMsg;
+        return false;
+    }
+
+    private void ApplySellHerbs(ref PlayerData player, int quantity)
+    {
+        if (!TryGetMarketSite(in player, out var siteIndex)) return;
+
+        var count = Math.Min(Math.Max(0, quantity), player.Herbs);
+        if (count <= 0)
+        {
+            LastActionResult = Msg.SellNothingMsg;
+            return;
+        }
+
+        var stones = count * CultivationRules.HerbSellStones(Config, _map, siteIndex);
+        player.Herbs -= count;
+        player.SpiritStones += stones;
+        LastActionResult = F(Msg.SellDoneMsg, count, stones);
+        BeginTrade(CommandKind.SellHerbs);
+    }
+
+    private void ApplyBuyPill(ref PlayerData player)
+    {
+        if (!TryGetMarketSite(in player, out var siteIndex)) return;
+
+        if (_townPillStock[siteIndex] <= 0)
+        {
+            LastActionResult = Msg.BuyPillNoStockMsg;
+            return;
+        }
+        var price = CultivationRules.PillCostStones(Config, _map, siteIndex);
+        if (player.SpiritStones < price)
+        {
+            LastActionResult = F(Msg.BuyPillNeedStonesMsg, price);
+            return;
+        }
+
+        player.SpiritStones -= price;
+        player.Pills++;
+        _townPillStock[siteIndex]--;
+        LastActionResult = F(Msg.BuyPillDoneMsg, price);
+        BeginTrade(CommandKind.BuyPill);
+    }
+
+    private void BeginTrade(CommandKind kind)
+    {
+        if (Config.Time.ActionDays.Trade > 0)
+        {
+            BeginAdvance(kind, Config.Time.ActionDays.Trade);
+        }
+    }
+
+    /// <summary>Shelves reset to full — every town, every month crossing.</summary>
+    private void RestockMarkets()
+    {
+        for (var i = 0; i < _map.Sites.Count; i++)
+        {
+            if (_map.Sites[i].Kind == SiteKind.Town)
+            {
+                _townPillStock[i] = Config.Trade.PillStockPerTown;
+            }
+        }
+    }
+
     // ---- save / load (versioned JSON; corrupt loads must fail safely) ----
 
     private void SaveGame(World write, string path)
@@ -853,11 +965,13 @@ public sealed class CultivationRunner : IDisposable
                 Fortune = player.Fortune,
                 SpiritStones = player.SpiritStones,
                 Herbs = player.Herbs,
+                Pills = player.Pills,
                 InjuryMonths = player.InjuryMonths,
                 LifespanYears = player.LifespanYears,
             },
             Npcs = npcs,
             Chronicle = Chronicle.Select(m => new SavedMemory { Day = m.Day, Summary = m.Summary }).ToArray(),
+            TownPillStock = (int[])_townPillStock.Clone(),
         };
 
         static SavedCultivator ToSaved(in Cultivator c) => new()
@@ -876,7 +990,7 @@ public sealed class CultivationRunner : IDisposable
         {
             data = JsonSerializer.Deserialize(File.ReadAllText(path), CultivationJsonContext.Default.SaveData)
                 ?? throw new JsonException("save deserialized to null");
-            if (data.Version != SaveData.CurrentVersion)
+            if (data.Version < 1 || data.Version > SaveData.CurrentVersion)
             {
                 LastActionResult = F(Msg.LoadVersionMsg, data.Version, SaveData.CurrentVersion);
                 return;
@@ -898,6 +1012,16 @@ public sealed class CultivationRunner : IDisposable
         // The map re-derives from the seed (same-seed reproducibility); dynamic state loads.
         var generated = WorldGenerator.Generate(Config, data.Seed, data.PresetIndex);
         _map = generated.Map;
+        // v1 migration: saves without trade state get freshly stocked shelves.
+        _townPillStock = new int[_map.Sites.Count];
+        if (data.TownPillStock is { } stock && stock.Length == _map.Sites.Count)
+        {
+            stock.CopyTo(_townPillStock, 0);
+        }
+        else
+        {
+            RestockMarkets();
+        }
         _rng = new Pcg32(data.RngState, data.RngStream);
         _nextNpcId = data.NextNpcId;
         _npcs.Clear();
@@ -966,6 +1090,7 @@ public sealed class CultivationRunner : IDisposable
                 Fortune = data.Player.Fortune,
                 SpiritStones = data.Player.SpiritStones,
                 Herbs = data.Player.Herbs,
+                Pills = data.Player.Pills,
                 InjuryMonths = data.Player.InjuryMonths,
                 LifespanYears = data.Player.LifespanYears,
             })
@@ -1027,6 +1152,8 @@ public sealed class CultivationRunner : IDisposable
     {
         var generated = WorldGenerator.Generate(Config, seed, presetIndex);
         _map = generated.Map;
+        _townPillStock = new int[_map.Sites.Count];
+        RestockMarkets();
         _rng = new Pcg32(seed * 31 + 17);
         _nextNpcId = generated.Npcs.Count + 1;
         _npcs.Clear();

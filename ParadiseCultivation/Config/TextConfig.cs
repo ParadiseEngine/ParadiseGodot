@@ -87,6 +87,18 @@ public sealed record UiTextConfig
     /// <summary>{0} vein quality, {1} terrain name.</summary>
     public required string WildernessVeinLine { get; init; }
     public required string SelectSomeone { get; init; }
+    public required string MarketTitle { get; init; }
+    /// <summary>{0} player herbs, {1} stones per herb at this town.</summary>
+    public required string MarketHerbLine { get; init; }
+    public required string SellOneButton { get; init; }
+    public required string SellAllButton { get; init; }
+    /// <summary>{0} pill stock, {1} pill price.</summary>
+    public required string MarketPillLine { get; init; }
+    public required string BuyPillButton { get; init; }
+    /// <summary>{0} pill count (status panel; shown only when &gt; 0).</summary>
+    public required string PillsLine { get; init; }
+    /// <summary>{0} bonus (formatted percent) — under the breakthrough-ready line.</summary>
+    public required string PillReadyLine { get; init; }
     public required string SectLeaderTag { get; init; }
     /// <summary>Terrain display names, indexed by <see cref="Terrain"/> (8 entries).</summary>
     public required string[] TerrainNames { get; init; }
@@ -171,6 +183,18 @@ public sealed record MessageTextConfig
     public required string ExploreInsightLog { get; init; }
     /// <summary>Atmosphere lines when nothing is found (picked by the saved RNG stream).</summary>
     public required string[] ExploreNothing { get; init; }
+
+    public required string TradeNoMarketMsg { get; init; }
+    /// <summary>{0} herbs sold, {1} stones received.</summary>
+    public required string SellDoneMsg { get; init; }
+    public required string SellNothingMsg { get; init; }
+    /// <summary>{0} stones paid.</summary>
+    public required string BuyPillDoneMsg { get; init; }
+    public required string BuyPillNoStockMsg { get; init; }
+    /// <summary>{0} pill price.</summary>
+    public required string BuyPillNeedStonesMsg { get; init; }
+    /// <summary>{0} bonus (formatted percent) — prefixed to the breakthrough result.</summary>
+    public required string PillUsedNote { get; init; }
 
     /// <summary>{0} stone count.</summary>
     public required string GiftNeedMsg { get; init; }

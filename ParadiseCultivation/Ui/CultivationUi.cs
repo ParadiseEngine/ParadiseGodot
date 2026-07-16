@@ -421,6 +421,10 @@ public sealed class CultivationUi
         ImGui.Text(F(T.CharmFortuneLine, Config.CharmTiers[player.CharmTier].Name, $"{player.Fortune:F0}",
             $"{CultivationRules.FortuneMultiplier(Config, player.Fortune):F2}"));
         ImGui.Text(F(T.StonesHerbsLine, player.SpiritStones, player.Herbs));
+        if (player.Pills > 0)
+        {
+            ImGui.Text(F(T.PillsLine, player.Pills));
+        }
         if (player.InjuryMonths > 0)
         {
             ImGui.TextColored(new Vector4(1f, 0.45f, 0.35f, 1f), F(T.InjuredLine, player.InjuryMonths));
@@ -472,6 +476,11 @@ public sealed class CultivationUi
         {
             var chance = CultivationRules.BreakthroughSuccessChance(Config, _runner.Map, in cultivator, in player);
             ImGui.TextColored(new Vector4(1f, 0.9f, 0.4f, 1f), F(T.BreakthroughReadyLine, $"{chance:P0}"));
+            if (player.Pills > 0)
+            {
+                ImGui.TextColored(new Vector4(0.6f, 1f, 0.6f, 1f),
+                    F(T.PillReadyLine, $"{Config.Trade.PillBreakthroughBonus:P0}"));
+            }
             if (ImGui.Button(T.BreakthroughButton, new Vector2(-1, 0)))
             {
                 _runner.RequestBreakthrough();
@@ -529,6 +538,11 @@ public sealed class CultivationUi
         ImGui.Text($"{(site.Kind == SiteKind.Town ? T.TownWord : T.SectWord)}: {site.Name}");
         ImGui.Separator();
 
+        if (site.Kind == SiteKind.Town)
+        {
+            DrawMarket(tile.SiteIndex, in player);
+        }
+
         var found = false;
         foreach (var entity in _runner.Npcs)
         {
@@ -556,6 +570,36 @@ public sealed class CultivationUi
         ImGui.Separator();
         DrawNpcPanel(_selectedNpc);
         ImGui.End();
+    }
+
+    /// <summary>The town market: herbs sell here, breakthrough pills stock here (monthly),
+    /// and each town's deterministic price factor makes distant markets worth the trip.</summary>
+    private void DrawMarket(int siteIndex, in PlayerData player)
+    {
+        ImGui.SeparatorText(T.MarketTitle);
+
+        var herbPrice = CultivationRules.HerbSellStones(Config, _runner.Map, siteIndex);
+        var pillPrice = CultivationRules.PillCostStones(Config, _runner.Map, siteIndex);
+        var stock = _runner.TownPillStock[siteIndex];
+
+        ImGui.BeginDisabled(_runner.Busy);
+
+        ImGui.Text(F(T.MarketHerbLine, player.Herbs, herbPrice));
+        ImGui.SameLine();
+        ImGui.BeginDisabled(player.Herbs <= 0);
+        if (ImGui.Button(T.SellOneButton)) _runner.RequestSellHerbs(1);
+        ImGui.SameLine();
+        if (ImGui.Button(T.SellAllButton)) _runner.RequestSellHerbs(player.Herbs);
+        ImGui.EndDisabled();
+
+        ImGui.Text(F(T.MarketPillLine, stock, pillPrice));
+        ImGui.SameLine();
+        ImGui.BeginDisabled(stock <= 0 || player.SpiritStones < pillPrice);
+        if (ImGui.Button(T.BuyPillButton)) _runner.RequestBuyPill();
+        ImGui.EndDisabled();
+
+        ImGui.EndDisabled();
+        ImGui.Separator();
     }
 
     private void DrawNpcPanel(Entity entity)

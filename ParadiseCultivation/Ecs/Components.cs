@@ -73,6 +73,8 @@ public partial struct PlayerData
     public float Fortune;
     public int SpiritStones;
     public int Herbs;
+    /// <summary>Breakthrough pills; one is auto-consumed by each breakthrough attempt.</summary>
+    public int Pills;
     /// <summary>Months of halved cultivation gain remaining (failed-breakthrough injury).</summary>
     public int InjuryMonths;
     public double LifespanYears;

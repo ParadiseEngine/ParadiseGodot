@@ -75,7 +75,8 @@
       "gift": 1,
       "spar": 3,
       "explore": 6,
-      "breakthrough": 30
+      "breakthrough": 30,
+      "trade": 1
     },
     "swordFlightTilesPerDay": 5.0,
     "swordFlightRealmIndex": 1
@@ -340,6 +341,13 @@
       "多疑",
       "儒雅"
     ]
+  },
+  "trade": {
+    "herbSellStones": 6,
+    "pillCostStones": 120,
+    "pillStockPerTown": 2,
+    "pillBreakthroughBonus": 0.15,
+    "priceSpreadPercent": 25
   },
   "player": {
     "startSpiritStones": 50,

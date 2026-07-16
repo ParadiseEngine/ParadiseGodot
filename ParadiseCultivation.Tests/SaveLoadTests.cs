@@ -115,8 +115,8 @@ public class SaveLoadTests
             // A structurally VALID save with a future version — the version gate must fire.
             runner.RequestSave(wrongVersion);
             runner.TickOnce();
-            File.WriteAllText(wrongVersion,
-                File.ReadAllText(wrongVersion).Replace("\"version\": 1", "\"version\": 999"));
+            File.WriteAllText(wrongVersion, File.ReadAllText(wrongVersion)
+                .Replace($"\"version\": {SaveData.CurrentVersion}", "\"version\": 999"));
             runner.RequestLoad(wrongVersion);
             runner.TickOnce();
             await Assert.That(runner.LastActionResult).Contains(Fixture.Skeleton(Fixture.Config.Text.Messages.LoadVersionMsg));

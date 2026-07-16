@@ -44,6 +44,7 @@ public sealed record CultivationConfig
     public required InteractionConfig Interaction { get; init; }
     public required NpcConfig Npc { get; init; }
     public required PlayerConfig Player { get; init; }
+    public required TradeConfig Trade { get; init; }
     public required DialogueConfig Dialogue { get; init; }
     public required NamesConfig Names { get; init; }
     public required UiConfig Ui { get; init; }
@@ -180,6 +181,23 @@ public sealed record ActionDaysConfig
     public required int Spar { get; init; }
     public required int Explore { get; init; }
     public required int Breakthrough { get; init; }
+    public required int Trade { get; init; }
+}
+
+/// <summary>Town markets (the P2 trade slice): every town buys herbs and stocks breakthrough
+/// pills; prices carry a deterministic per-town spread so distant markets are worth the trip.</summary>
+public sealed record TradeConfig
+{
+    /// <summary>Base spirit stones a town pays per herb.</summary>
+    public required int HerbSellStones { get; init; }
+    /// <summary>Base spirit-stone price of one breakthrough pill.</summary>
+    public required int PillCostStones { get; init; }
+    /// <summary>Pills on each town's shelf; restocked to this on every month crossing.</summary>
+    public required int PillStockPerTown { get; init; }
+    /// <summary>Success-chance bonus of the pill auto-consumed by a breakthrough attempt.</summary>
+    public required float PillBreakthroughBonus { get; init; }
+    /// <summary>Per-town price factor range: 1 ± this percent, hashed from world + site.</summary>
+    public required int PriceSpreadPercent { get; init; }
 }
 
 public sealed record RealmConfig

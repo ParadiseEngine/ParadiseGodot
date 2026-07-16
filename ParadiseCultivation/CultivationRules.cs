@@ -73,6 +73,26 @@ public static class CultivationRules
         return Math.Clamp(chance, 0.05f, 0.98f);
     }
 
+    /// <summary>Deterministic per-town price factor in 1 ± spread — hashed from the world's
+    /// generation seed and the site index, so no dynamic state and every load agrees.</summary>
+    public static float TownPriceMultiplier(CultivationConfig config, WorldMap map, int siteIndex)
+    {
+        var h = (uint)map.GenerationSeed * 2654435761u ^ ((uint)siteIndex + 0x9E3779B9u) * 2246822519u;
+        h ^= h >> 15;
+        h *= 2246822519u;
+        h ^= h >> 13;
+        var unit = (h & 0xFFFFu) / 65535f;
+        return 1f + (unit * 2f - 1f) * (config.Trade.PriceSpreadPercent / 100f);
+    }
+
+    /// <summary>Stones this town pays per herb (base × town factor, floored at 1).</summary>
+    public static int HerbSellStones(CultivationConfig config, WorldMap map, int siteIndex) =>
+        Math.Max(1, (int)MathF.Round(config.Trade.HerbSellStones * TownPriceMultiplier(config, map, siteIndex)));
+
+    /// <summary>Stones one breakthrough pill costs at this town.</summary>
+    public static int PillCostStones(CultivationConfig config, WorldMap map, int siteIndex) =>
+        Math.Max(1, (int)MathF.Round(config.Trade.PillCostStones * TownPriceMultiplier(config, map, siteIndex)));
+
     /// <summary>Plan a journey (terrain-cost A* on foot / straight-line flight); null when
     /// the destination is unreachable. Thin alias over <see cref="Pathfinding.Plan"/>.</summary>
     public static TravelPlan? PlanTravel(
