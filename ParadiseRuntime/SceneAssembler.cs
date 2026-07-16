@@ -362,6 +362,12 @@ public static class SceneAssembler
             Intensity = environment.SsaoIntensity,
             Power = environment.SsaoPower,
         };
+        scene.Bloom = new PbrBloom
+        {
+            Enabled = environment.GlowEnabled,
+            Threshold = environment.GlowThreshold,
+            Intensity = environment.GlowIntensity,
+        };
 
         foreach (var light in state.Lights)
         {

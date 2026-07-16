@@ -107,10 +107,9 @@ public sealed class RuntimeLoop : IDisposable
         {
             _scene.ClearColor = new ColorRgba(clear.R, clear.G, clear.B, 1f);
         }
-        SceneAssembler.PopulateLighting(level, _scene);
+        SceneAssembler.PopulateLighting(level, _scene); // sets _scene.Bloom from the exported glow
 
-        // Bloom (HDR glow) — driven by the scene's exported glow settings later; for now a runtime
-        // env toggle so it can be exercised: PARADISE_BLOOM=1 [threshold knee intensity].
+        // Optional dev override of the exported bloom: PARADISE_BLOOM="threshold,knee,intensity".
         if (Environment.GetEnvironmentVariable("PARADISE_BLOOM") is { Length: > 0 } bloomEnv && bloomEnv != "0")
         {
             var p = bloomEnv.Split(',', ' ');
@@ -120,9 +119,9 @@ public sealed class RuntimeLoop : IDisposable
             _scene.Bloom = new PbrBloom
             {
                 Enabled = true,
-                Threshold = F(p, 1, 1.0f),
-                Knee = F(p, 2, 0.5f),
-                Intensity = F(p, 3, 0.6f),
+                Threshold = F(p, 1, _scene.Bloom.Threshold),
+                Knee = F(p, 2, _scene.Bloom.Knee),
+                Intensity = F(p, 3, _scene.Bloom.Intensity),
             };
         }
 

@@ -353,6 +353,12 @@ namespace ParadiseExport.Data
         public string TonemapMode { get; set; } = "Linear";
         public float TonemapExposure { get; set; } = 1f;
         public float TonemapWhite { get; set; } = 1f;
+
+        // Bloom / glow (Godot Environment.glow_*). The runtime's HDR composite runs a threshold +
+        // dual-filter bloom and adds it back scaled by intensity — the .NET analog of Godot's glow.
+        public bool GlowEnabled { get; set; }
+        public float GlowIntensity { get; set; } = 0.6f;
+        public float GlowThreshold { get; set; } = 1f;
     }
 
     public sealed record SceneLightData

@@ -99,7 +99,10 @@
           "SsaoPower": 1.5,
           "TonemapMode": "Linear",
           "TonemapExposure": 1,
-          "TonemapWhite": 1
+          "TonemapWhite": 1,
+          "GlowEnabled": false,
+          "GlowIntensity": 0.6,
+          "GlowThreshold": 1
         },
         "Lights": [
           {

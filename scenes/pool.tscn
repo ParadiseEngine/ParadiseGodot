@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://cujxyk6bhcl3t" path="res://addons/paradise_export/Authoring/EntityExport.cs" id="1_entity"]
 [ext_resource type="PackedScene" uid="uid://c1cn25jlx2tnu" path="res://data/primitives/sphere_ball.glb" id="2_ball"]
+[ext_resource type="Shader" path="res://data/ui/ball_procedural.gdshader" id="4_procshader"]
 
 [sub_resource type="ProceduralSkyMaterial" id="sky_mat"]
 
@@ -13,6 +14,10 @@ background_mode = 2
 sky = SubResource("sky")
 ambient_light_source = 3
 tonemap_mode = 2
+glow_enabled = true
+glow_intensity = 0.55
+glow_bloom = 0.2
+glow_hdr_threshold = 1.5
 
 [sub_resource type="BoxShape3D" id="shape_unit_box"]
 
@@ -46,11 +51,141 @@ roughness = 0.7
 albedo_color = Color(0.02, 0.02, 0.02, 1)
 roughness = 0.6
 
+[sub_resource type="ShaderMaterial" id="proc_cue"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 9
+shader_parameter/color_a = Color(0.85, 0.86, 0.95, 1)
+shader_parameter/color_b = Color(0.55, 0.6, 0.8, 1)
+shader_parameter/noise_scale = 6.0
+shader_parameter/flow_speed = 0.25
+shader_parameter/emissive_strength = 1.0
+[sub_resource type="ShaderMaterial" id="proc_1"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 5
+shader_parameter/color_a = Color(1.0, 0.76, 0.32, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 6.0
+shader_parameter/flow_speed = 0.5
+shader_parameter/emissive_strength = 1.0
+[sub_resource type="ShaderMaterial" id="proc_2"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 7
+shader_parameter/color_a = Color(0.12, 0.28, 0.85, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 8.0
+shader_parameter/flow_speed = 0.3
+shader_parameter/emissive_strength = 1.5
+[sub_resource type="ShaderMaterial" id="proc_3"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 7
+shader_parameter/color_a = Color(0.85, 0.06, 0.16, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 8.0
+shader_parameter/flow_speed = 0.3
+shader_parameter/emissive_strength = 1.5
+[sub_resource type="ShaderMaterial" id="proc_4"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 7
+shader_parameter/color_a = Color(0.6, 0.35, 0.85, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 8.0
+shader_parameter/flow_speed = 0.3
+shader_parameter/emissive_strength = 1.5
+[sub_resource type="ShaderMaterial" id="proc_5"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 1
+shader_parameter/color_a = Color(1, 1, 1, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 7.0
+shader_parameter/flow_speed = 0.5
+shader_parameter/emissive_strength = 5.0
+[sub_resource type="ShaderMaterial" id="proc_6"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 3
+shader_parameter/color_a = Color(1, 1, 1, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 7.0
+shader_parameter/flow_speed = 0.2
+shader_parameter/emissive_strength = 2.0
+[sub_resource type="ShaderMaterial" id="proc_7"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 5
+shader_parameter/color_a = Color(0.95, 0.58, 0.4, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 6.0
+shader_parameter/flow_speed = 0.45
+shader_parameter/emissive_strength = 1.0
+[sub_resource type="ShaderMaterial" id="proc_8"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 6
+shader_parameter/color_a = Color(1, 1, 1, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 6.0
+shader_parameter/flow_speed = 0.3
+shader_parameter/emissive_strength = 1.0
+[sub_resource type="ShaderMaterial" id="proc_9"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 4
+shader_parameter/color_a = Color(1, 1, 1, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 9.0
+shader_parameter/flow_speed = 0.1
+shader_parameter/emissive_strength = 1.5
+[sub_resource type="ShaderMaterial" id="proc_10"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 3
+shader_parameter/color_a = Color(1, 1, 1, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 8.0
+shader_parameter/flow_speed = 0.2
+shader_parameter/emissive_strength = 2.0
+[sub_resource type="ShaderMaterial" id="proc_11"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 5
+shader_parameter/color_a = Color(0.92, 0.92, 0.95, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 6.0
+shader_parameter/flow_speed = 0.4
+shader_parameter/emissive_strength = 1.0
+[sub_resource type="ShaderMaterial" id="proc_12"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 2
+shader_parameter/color_a = Color(0.92, 0.91, 0.87, 1)
+shader_parameter/color_b = Color(0.32, 0.3, 0.34, 1)
+shader_parameter/noise_scale = 4.0
+shader_parameter/flow_speed = 0.3
+shader_parameter/emissive_strength = 1.0
+[sub_resource type="ShaderMaterial" id="proc_13"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 5
+shader_parameter/color_a = Color(0.72, 0.48, 0.28, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 6.0
+shader_parameter/flow_speed = 0.4
+shader_parameter/emissive_strength = 1.0
+[sub_resource type="ShaderMaterial" id="proc_14"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 8
+shader_parameter/color_a = Color(1, 1, 1, 1)
+shader_parameter/color_b = Color(0, 0, 0, 1)
+shader_parameter/noise_scale = 7.0
+shader_parameter/flow_speed = 0.2
+shader_parameter/emissive_strength = 2.5
+[sub_resource type="ShaderMaterial" id="proc_15"]
+shader = ExtResource("4_procshader")
+shader_parameter/kind = 9
+shader_parameter/color_a = Color(0.9, 0.5, 0.62, 1)
+shader_parameter/color_b = Color(0.6, 0.2, 0.4, 1)
+shader_parameter/noise_scale = 6.0
+shader_parameter/flow_speed = 0.3
+shader_parameter/emissive_strength = 1.5
+
 ; Procedural animated ball materials — the .NET runtime shader generates each surface from a noise
 ; recipe (metadata/material_kind) animated by time. albedo_color is the Godot-editor fallback; the
 ; runtime uses the recipe + color_a/color_b + noise_scale/flow_speed/emissive_strength metadata.
 ; (Godot play mode renders the flat albedo_color until the GDShader mirror lands.)
 [sub_resource type="StandardMaterial3D" id="mat_pool_cue"]
+next_pass = SubResource("proc_cue")
 albedo_color = Color(0.9, 0.9, 0.95, 1)
 roughness = 0.16
 metadata/material_kind = "nebula"
@@ -61,6 +196,7 @@ metadata/flow_speed = 0.25
 metadata/emissive_strength = 1.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_1"]
+next_pass = SubResource("proc_1")
 albedo_color = Color(1.0, 0.78, 0.34, 1)
 metallic = 1.0
 roughness = 0.16
@@ -70,6 +206,7 @@ metadata/noise_scale = 6.0
 metadata/flow_speed = 0.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_2"]
+next_pass = SubResource("proc_2")
 albedo_color = Color(0.09, 0.22, 0.72, 1)
 roughness = 0.1
 metadata/transmission = 0.35
@@ -79,6 +216,7 @@ metadata/noise_scale = 8.0
 metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_3"]
+next_pass = SubResource("proc_3")
 albedo_color = Color(0.7, 0.05, 0.14, 1)
 roughness = 0.1
 metadata/transmission = 0.3
@@ -88,6 +226,7 @@ metadata/noise_scale = 8.0
 metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_4"]
+next_pass = SubResource("proc_4")
 albedo_color = Color(0.52, 0.32, 0.74, 1)
 roughness = 0.12
 metadata/transmission = 0.4
@@ -97,6 +236,7 @@ metadata/noise_scale = 8.0
 metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_5"]
+next_pass = SubResource("proc_5")
 albedo_color = Color(0.5, 0.11, 0.04, 1)
 roughness = 0.55
 metadata/material_kind = "lava"
@@ -105,6 +245,7 @@ metadata/flow_speed = 0.5
 metadata/emissive_strength = 5.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_6"]
+next_pass = SubResource("proc_6")
 albedo_color = Color(0.16, 0.55, 0.4, 1)
 roughness = 0.22
 metadata/transmission = 0.4
@@ -114,6 +255,7 @@ metadata/flow_speed = 0.2
 metadata/emissive_strength = 2.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_7"]
+next_pass = SubResource("proc_7")
 albedo_color = Color(0.95, 0.6, 0.42, 1)
 metallic = 1.0
 roughness = 0.25
@@ -123,12 +265,14 @@ metadata/noise_scale = 6.0
 metadata/flow_speed = 0.45
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_8"]
+next_pass = SubResource("proc_8")
 albedo_color = Color(0.03, 0.03, 0.04, 1)
 roughness = 0.05
 metadata/material_kind = "obsidian"
 metadata/noise_scale = 6.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_9"]
+next_pass = SubResource("proc_9")
 albedo_color = Color(0.72, 0.86, 0.96, 1)
 roughness = 0.06
 metadata/transmission = 0.6
@@ -138,6 +282,7 @@ metadata/flow_speed = 0.1
 metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_10"]
+next_pass = SubResource("proc_10")
 albedo_color = Color(0.05, 0.52, 0.3, 1)
 roughness = 0.1
 metadata/transmission = 0.42
@@ -147,6 +292,7 @@ metadata/flow_speed = 0.2
 metadata/emissive_strength = 2.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_11"]
+next_pass = SubResource("proc_11")
 albedo_color = Color(0.92, 0.92, 0.94, 1)
 metallic = 1.0
 roughness = 0.1
@@ -156,6 +302,7 @@ metadata/noise_scale = 6.0
 metadata/flow_speed = 0.4
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_12"]
+next_pass = SubResource("proc_12")
 albedo_color = Color(0.9, 0.9, 0.87, 1)
 roughness = 0.28
 metadata/material_kind = "marble"
@@ -164,6 +311,7 @@ metadata/color_b = Color(0.32, 0.3, 0.34, 1)
 metadata/noise_scale = 4.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_13"]
+next_pass = SubResource("proc_13")
 albedo_color = Color(0.72, 0.5, 0.3, 1)
 metallic = 1.0
 roughness = 0.34
@@ -173,6 +321,7 @@ metadata/noise_scale = 6.0
 metadata/flow_speed = 0.4
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_14"]
+next_pass = SubResource("proc_14")
 albedo_color = Color(0.86, 0.55, 0.12, 1)
 roughness = 0.14
 metadata/transmission = 0.3
@@ -182,6 +331,7 @@ metadata/flow_speed = 0.2
 metadata/emissive_strength = 2.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_15"]
+next_pass = SubResource("proc_15")
 albedo_color = Color(0.9, 0.52, 0.6, 1)
 roughness = 0.18
 metadata/transmission = 0.35

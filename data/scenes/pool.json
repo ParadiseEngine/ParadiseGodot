@@ -127,7 +127,10 @@
           "SsaoPower": 1.5,
           "TonemapMode": "Filmic",
           "TonemapExposure": 1,
-          "TonemapWhite": 1
+          "TonemapWhite": 1,
+          "GlowEnabled": true,
+          "GlowIntensity": 0.55,
+          "GlowThreshold": 1.5
         },
         "Lights": [
           {
