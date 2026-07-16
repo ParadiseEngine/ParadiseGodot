@@ -20,7 +20,9 @@ public static class StaticSurfaces
         float max = -1f;
         foreach (var surface in surfaces)
         {
-            if (surface.LayerMask != PhysicsLayers.Obstacle) continue;
+            // Bitwise test: a body authored on Obstacle PLUS another layer still counts (both hosts
+            // yield single-bit masks today, but this is robust to multi-layer authoring).
+            if ((surface.LayerMask & PhysicsLayers.Obstacle) == 0) continue;
             max = MathF.Max(max, surface.Restitution);
         }
         return max >= 0f ? max : fallback;

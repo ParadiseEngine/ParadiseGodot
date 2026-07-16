@@ -61,8 +61,12 @@ public sealed class PoolGameController
         _onStrike = onStrike;
     }
 
-    /// <summary>Pocketed-ball count, fed by the host that captures pockets (Godot leaves it 0).</summary>
-    public int SunkCount { get; set; }
+    private volatile int _sunkCount;
+
+    /// <summary>Pocketed-ball count, fed by the host that captures pockets (Godot leaves it 0).
+    /// Written from the host render/_Process thread, read by the sim-thread panel — volatile so
+    /// the "pocketed: N" label doesn't read a stale value (auto-properties can't be volatile).</summary>
+    public int SunkCount { get => _sunkCount; set => _sunkCount = value; }
 
     public int RewindFrameCount => _runner.RewindFrameCount;
     public int RewindScrub { get => _rewindScrub; set => _rewindScrub = Math.Max(0, value); }

@@ -112,19 +112,9 @@ public sealed class RuntimeLoop : IDisposable
             : null;
 
         // Optional dev override of the exported bloom: PARADISE_BLOOM="threshold,knee,intensity".
-        if (Environment.GetEnvironmentVariable("PARADISE_BLOOM") is { Length: > 0 } bloomEnv && bloomEnv != "0")
+        if (ParseBloomOverride(Environment.GetEnvironmentVariable("PARADISE_BLOOM"), _scene.Bloom) is { } bloomOverride)
         {
-            var p = bloomEnv.Split(',', ' ');
-            static float F(string[] a, int i, float d) =>
-                i < a.Length && float.TryParse(a[i], System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : d;
-            _scene.Bloom = new PbrBloom
-            {
-                Enabled = true,
-                Threshold = F(p, 1, _scene.Bloom.Threshold),
-                Knee = F(p, 2, _scene.Bloom.Knee),
-                Intensity = F(p, 3, _scene.Bloom.Intensity),
-            };
+            _scene.Bloom = bloomOverride;
         }
 
         // One point light per pool ball, driven by its BallGlow every frame (energy 0 = off).
@@ -157,6 +147,25 @@ public sealed class RuntimeLoop : IDisposable
                 _runner.EnqueueBallImpulse(autoCue, new Vector3(vx, 0f, vz));
             }
         }
+    }
+
+    /// <summary>Parse the PARADISE_BLOOM dev override — "threshold,knee,intensity" (comma/space
+    /// separated); "0" or empty = no override. Missing tokens keep <paramref name="fallback"/>.
+    /// Returns null when no override is requested.</summary>
+    public static PbrBloom? ParseBloomOverride(string? env, PbrBloom fallback)
+    {
+        if (env is not { Length: > 0 } || env == "0") return null;
+        var p = env.Split(',', ' ');
+        static float F(string[] a, int i, float d) =>
+            i < a.Length && float.TryParse(a[i], System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : d;
+        return new PbrBloom
+        {
+            Enabled = true,
+            Threshold = F(p, 0, fallback.Threshold),
+            Knee = F(p, 1, fallback.Knee),
+            Intensity = F(p, 2, fallback.Intensity),
+        };
     }
 
     public bool HasPoolGame => _pool is not null && _poolBalls.Count > 0;
