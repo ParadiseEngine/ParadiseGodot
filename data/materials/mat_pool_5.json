@@ -12,9 +12,9 @@
   "RoughnessFactor": 0.55,
   "MetallicRoughnessTexture": null,
   "EmissiveFactor": {
-    "r": 1,
-    "g": 0.11764706,
-    "b": 0.007843138,
+    "r": 0,
+    "g": 0,
+    "b": 0,
     "a": 1
   },
   "EmissiveTexture": null,
@@ -24,5 +24,21 @@
   "OcclusionTexture": null,
   "AlphaMode": "Opaque",
   "RenderQueue": -1,
-  "TransmissionFactor": 0
+  "TransmissionFactor": 0,
+  "MaterialKind": "lava",
+  "EmissiveStrength": 5,
+  "NoiseScale": 7,
+  "FlowSpeed": 0.5,
+  "ColorA": {
+    "r": 1,
+    "g": 1,
+    "b": 1,
+    "a": 1
+  },
+  "ColorB": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  }
 }

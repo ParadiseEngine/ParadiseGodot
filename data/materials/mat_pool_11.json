@@ -24,5 +24,21 @@
   "OcclusionTexture": null,
   "AlphaMode": "Opaque",
   "RenderQueue": -1,
-  "TransmissionFactor": 0
+  "TransmissionFactor": 0,
+  "MaterialKind": "molten_metal",
+  "EmissiveStrength": 1,
+  "NoiseScale": 6,
+  "FlowSpeed": 0.4,
+  "ColorA": {
+    "r": 0.827451,
+    "g": 0.827451,
+    "b": 0.8901961,
+    "a": 1
+  },
+  "ColorB": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  }
 }

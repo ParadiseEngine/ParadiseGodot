@@ -51,7 +51,7 @@ public class FancyMaterialTests
     }
 
     [Test]
-    public async Task fancy_ball_materials_are_solid_with_metal_emissive_and_transmission()
+    public async Task procedural_ball_materials_carry_kind_hdr_emissive_and_transmission()
     {
         var level = LoadPool();
 
@@ -61,16 +61,16 @@ public class FancyMaterialTests
             await Assert.That(BallMaterial(level, id).BaseColorTexture).IsNull();
         }
 
-        // Ball1 = gold: fully metallic.
-        await Assert.That(BallMaterial(level, "Ball1").MetallicFactor).IsGreaterThan(0.9f);
-        // Ball8 = obsidian: near-black dielectric, very low roughness.
-        var obsidian = BallMaterial(level, "Ball8");
-        await Assert.That(obsidian.MetallicFactor).IsLessThan(0.1f);
-        await Assert.That(obsidian.RoughnessFactor).IsLessThan(0.1f);
-        // Ball9 = ice: the transmission signal survived the exporter (metadata → contract → JSON).
+        // Procedural material kinds survived metadata → contract → JSON, and map to shader recipe ids.
+        await Assert.That(BallMaterial(level, "Ball1").MaterialKind).IsEqualTo("molten_metal");
+        await Assert.That(SceneAssembler.ProceduralKindId(BallMaterial(level, "Ball1").MaterialKind)).IsEqualTo(5);
+        await Assert.That(BallMaterial(level, "Ball8").MaterialKind).IsEqualTo("obsidian");
+        await Assert.That(BallMaterial(level, "Ball9").MaterialKind).IsEqualTo("ice");
+        // Ball9 = ice: the transmission signal survived the exporter.
         await Assert.That(BallMaterial(level, "Ball9").TransmissionFactor).IsGreaterThan(0f);
-        // Ball5 = lava: emissive is non-black.
+        // Ball5 = lava: HDR emissive strength > 1 (drives the recipe's glow, blooms past white).
         var lava = BallMaterial(level, "Ball5");
-        await Assert.That(lava.EmissiveFactor.R + lava.EmissiveFactor.G + lava.EmissiveFactor.B).IsGreaterThan(0f);
+        await Assert.That(lava.MaterialKind).IsEqualTo("lava");
+        await Assert.That(lava.EmissiveStrength).IsGreaterThan(1f);
     }
 }

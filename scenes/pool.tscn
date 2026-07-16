@@ -46,87 +46,151 @@ roughness = 0.7
 albedo_color = Color(0.02, 0.02, 0.02, 1)
 roughness = 0.6
 
-; Fancy solid PBR ball materials — no shared gradient texture (metal/gem/glow variety).
-; `metadata/transmission` (0..1) is the exporter's translucency signal (glass shader path);
-; it has no effect on Godot's own rendering. Emissive clamps at white with no bloom.
+; Procedural animated ball materials — the .NET runtime shader generates each surface from a noise
+; recipe (metadata/material_kind) animated by time. albedo_color is the Godot-editor fallback; the
+; runtime uses the recipe + color_a/color_b + noise_scale/flow_speed/emissive_strength metadata.
+; (Godot play mode renders the flat albedo_color until the GDShader mirror lands.)
 [sub_resource type="StandardMaterial3D" id="mat_pool_cue"]
-albedo_color = Color(0.96, 0.96, 0.93, 1)
-roughness = 0.14
+albedo_color = Color(0.9, 0.9, 0.95, 1)
+roughness = 0.16
+metadata/material_kind = "nebula"
+metadata/color_a = Color(0.85, 0.86, 0.95, 1)
+metadata/color_b = Color(0.55, 0.6, 0.8, 1)
+metadata/noise_scale = 6.0
+metadata/flow_speed = 0.25
+metadata/emissive_strength = 1.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_1"]
 albedo_color = Color(1.0, 0.78, 0.34, 1)
 metallic = 1.0
 roughness = 0.16
+metadata/material_kind = "molten_metal"
+metadata/color_a = Color(1.0, 0.76, 0.32, 1)
+metadata/noise_scale = 6.0
+metadata/flow_speed = 0.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_2"]
 albedo_color = Color(0.09, 0.22, 0.72, 1)
 roughness = 0.1
 metadata/transmission = 0.35
+metadata/material_kind = "gem"
+metadata/color_a = Color(0.12, 0.28, 0.85, 1)
+metadata/noise_scale = 8.0
+metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_3"]
 albedo_color = Color(0.7, 0.05, 0.14, 1)
 roughness = 0.1
 metadata/transmission = 0.3
+metadata/material_kind = "gem"
+metadata/color_a = Color(0.85, 0.06, 0.16, 1)
+metadata/noise_scale = 8.0
+metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_4"]
 albedo_color = Color(0.52, 0.32, 0.74, 1)
 roughness = 0.12
 metadata/transmission = 0.4
+metadata/material_kind = "gem"
+metadata/color_a = Color(0.6, 0.35, 0.85, 1)
+metadata/noise_scale = 8.0
+metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_5"]
 albedo_color = Color(0.5, 0.11, 0.04, 1)
 roughness = 0.55
-emission_enabled = true
-emission = Color(1.0, 0.38, 0.08, 1)
-emission_energy_multiplier = 1.0
+metadata/material_kind = "lava"
+metadata/noise_scale = 7.0
+metadata/flow_speed = 0.5
+metadata/emissive_strength = 5.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_6"]
 albedo_color = Color(0.16, 0.55, 0.4, 1)
 roughness = 0.22
 metadata/transmission = 0.4
+metadata/material_kind = "jade"
+metadata/noise_scale = 7.0
+metadata/flow_speed = 0.2
+metadata/emissive_strength = 2.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_7"]
 albedo_color = Color(0.95, 0.6, 0.42, 1)
 metallic = 1.0
 roughness = 0.25
+metadata/material_kind = "molten_metal"
+metadata/color_a = Color(0.95, 0.58, 0.4, 1)
+metadata/noise_scale = 6.0
+metadata/flow_speed = 0.45
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_8"]
 albedo_color = Color(0.03, 0.03, 0.04, 1)
 roughness = 0.05
+metadata/material_kind = "obsidian"
+metadata/noise_scale = 6.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_9"]
 albedo_color = Color(0.72, 0.86, 0.96, 1)
 roughness = 0.06
 metadata/transmission = 0.6
+metadata/material_kind = "ice"
+metadata/noise_scale = 9.0
+metadata/flow_speed = 0.1
+metadata/emissive_strength = 1.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_10"]
 albedo_color = Color(0.05, 0.52, 0.3, 1)
 roughness = 0.1
 metadata/transmission = 0.42
+metadata/material_kind = "jade"
+metadata/noise_scale = 8.0
+metadata/flow_speed = 0.2
+metadata/emissive_strength = 2.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_11"]
 albedo_color = Color(0.92, 0.92, 0.94, 1)
 metallic = 1.0
 roughness = 0.1
+metadata/material_kind = "molten_metal"
+metadata/color_a = Color(0.92, 0.92, 0.95, 1)
+metadata/noise_scale = 6.0
+metadata/flow_speed = 0.4
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_12"]
 albedo_color = Color(0.9, 0.9, 0.87, 1)
 roughness = 0.28
+metadata/material_kind = "marble"
+metadata/color_a = Color(0.92, 0.91, 0.87, 1)
+metadata/color_b = Color(0.32, 0.3, 0.34, 1)
+metadata/noise_scale = 4.0
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_13"]
 albedo_color = Color(0.72, 0.5, 0.3, 1)
 metallic = 1.0
 roughness = 0.34
+metadata/material_kind = "molten_metal"
+metadata/color_a = Color(0.72, 0.48, 0.28, 1)
+metadata/noise_scale = 6.0
+metadata/flow_speed = 0.4
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_14"]
 albedo_color = Color(0.86, 0.55, 0.12, 1)
 roughness = 0.14
 metadata/transmission = 0.3
+metadata/material_kind = "amber"
+metadata/noise_scale = 7.0
+metadata/flow_speed = 0.2
+metadata/emissive_strength = 2.5
 
 [sub_resource type="StandardMaterial3D" id="mat_pool_15"]
 albedo_color = Color(0.9, 0.52, 0.6, 1)
 roughness = 0.18
 metadata/transmission = 0.35
+metadata/material_kind = "nebula"
+metadata/color_a = Color(0.9, 0.5, 0.62, 1)
+metadata/color_b = Color(0.6, 0.2, 0.4, 1)
+metadata/noise_scale = 6.0
+metadata/flow_speed = 0.3
+metadata/emissive_strength = 1.5
 
 [node name="Pool" type="Node3D"]
 

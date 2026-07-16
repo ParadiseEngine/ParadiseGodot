@@ -24,5 +24,21 @@
   "OcclusionTexture": null,
   "AlphaMode": "Opaque",
   "RenderQueue": -1,
-  "TransmissionFactor": 0.35
+  "TransmissionFactor": 0.35,
+  "MaterialKind": "nebula",
+  "EmissiveStrength": 1.5,
+  "NoiseScale": 6,
+  "FlowSpeed": 0.3,
+  "ColorA": {
+    "r": 0.7882353,
+    "g": 0.21568628,
+    "b": 0.34117648,
+    "a": 1
+  },
+  "ColorB": {
+    "r": 0.31764707,
+    "g": 0.03137255,
+    "b": 0.13333334,
+    "a": 1
+  }
 }

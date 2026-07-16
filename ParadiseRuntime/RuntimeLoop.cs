@@ -52,6 +52,7 @@ public sealed class RuntimeLoop : IDisposable
     private Vector2 _aimBallScreen;
     private Vector2 _aimPointScreen;
     private double _renderClock;
+    private readonly float? _animTime;
     private static readonly string CollisionAudioEvent =
         Environment.GetEnvironmentVariable("PARADISE_WWISE_COLLISION_EVENT") ?? "Play_Footsteps";
     private const float StrikePowerScale = 2.2f;
@@ -67,6 +68,7 @@ public sealed class RuntimeLoop : IDisposable
         float? animTime = null, IUiInput? uiInput = null, IAudioSystem? audio = null)
     {
         _audio = audio;
+        _animTime = animTime;
         _width = Math.Max(1, width);
         _height = Math.Max(1, height);
 
@@ -106,6 +108,23 @@ public sealed class RuntimeLoop : IDisposable
             _scene.ClearColor = new ColorRgba(clear.R, clear.G, clear.B, 1f);
         }
         SceneAssembler.PopulateLighting(level, _scene);
+
+        // Bloom (HDR glow) — driven by the scene's exported glow settings later; for now a runtime
+        // env toggle so it can be exercised: PARADISE_BLOOM=1 [threshold knee intensity].
+        if (Environment.GetEnvironmentVariable("PARADISE_BLOOM") is { Length: > 0 } bloomEnv && bloomEnv != "0")
+        {
+            var p = bloomEnv.Split(',', ' ');
+            static float F(string[] a, int i, float d) =>
+                i < a.Length && float.TryParse(a[i], System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : d;
+            _scene.Bloom = new PbrBloom
+            {
+                Enabled = true,
+                Threshold = F(p, 1, 1.0f),
+                Knee = F(p, 2, 0.5f),
+                Intensity = F(p, 3, 0.6f),
+            };
+        }
 
         // One point light per pool ball, driven by its BallGlow every frame (energy 0 = off).
         foreach (var (entity, instanceIndex) in assembled.PoolBalls)
@@ -524,6 +543,8 @@ public sealed class RuntimeLoop : IDisposable
         }
 
         _scene.Camera = _camera.Build(_width / (float)_height);
+        // Drive time-animated procedural materials; pinned by --anim-time for deterministic captures.
+        _scene.ElapsedSeconds = _animTime ?? (float)_renderClock;
         if (_audio is not null)
         {
             // The listener rides the camera; per-frame is plenty for a mostly-static rig.

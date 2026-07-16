@@ -24,5 +24,21 @@
   "OcclusionTexture": null,
   "AlphaMode": "Opaque",
   "RenderQueue": -1,
-  "TransmissionFactor": 0
+  "TransmissionFactor": 0,
+  "MaterialKind": "marble",
+  "EmissiveStrength": 1,
+  "NoiseScale": 4,
+  "FlowSpeed": 1,
+  "ColorA": {
+    "r": 0.827451,
+    "g": 0.80784315,
+    "b": 0.7294118,
+    "a": 1
+  },
+  "ColorB": {
+    "r": 0.08235294,
+    "g": 0.07450981,
+    "b": 0.09411765,
+    "a": 1
+  }
 }

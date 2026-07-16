@@ -24,5 +24,21 @@
   "OcclusionTexture": null,
   "AlphaMode": "Opaque",
   "RenderQueue": -1,
-  "TransmissionFactor": 0.3
+  "TransmissionFactor": 0.3,
+  "MaterialKind": "gem",
+  "EmissiveStrength": 1.5,
+  "NoiseScale": 8,
+  "FlowSpeed": 1,
+  "ColorA": {
+    "r": 0.6901961,
+    "g": 0.003921569,
+    "b": 0.023529412,
+    "a": 1
+  },
+  "ColorB": {
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
+  }
 }

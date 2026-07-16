@@ -459,7 +459,9 @@ public static class SceneAssembler
         BaseColorFactor: new Vector4(data.BaseColorFactor.R, data.BaseColorFactor.G, data.BaseColorFactor.B, data.BaseColorFactor.A),
         MetallicFactor: data.MetallicFactor,
         RoughnessFactor: data.RoughnessFactor,
-        EmissiveFactor: new Vector3(data.EmissiveFactor.R, data.EmissiveFactor.G, data.EmissiveFactor.B),
+        // HDR emissive: EmissiveFactor is [0,1] (Color32-clamped), so the unclamped EmissiveStrength
+        // multiplier here is what lets lava exceed white and bloom.
+        EmissiveFactor: new Vector3(data.EmissiveFactor.R, data.EmissiveFactor.G, data.EmissiveFactor.B) * data.EmissiveStrength,
         NormalScale: data.NormalScale,
         OcclusionStrength: data.OcclusionStrength,
         TransmissionFactor: data.TransmissionFactor,
@@ -476,7 +478,31 @@ public static class SceneAssembler
         NormalImage: -1,
         OcclusionImage: -1,
         EmissiveImage: -1,
-        BaseColorUvTransform: GltfUvTransform.Identity);
+        BaseColorUvTransform: GltfUvTransform.Identity)
+    {
+        ProcKind = ProceduralKindId(data.MaterialKind),
+        ProcNoiseScale = data.NoiseScale,
+        ProcFlowSpeed = data.FlowSpeed,
+        ProcEmissiveStrength = data.EmissiveStrength,
+        ProcColorA = new Vector3(data.ColorA.R, data.ColorA.G, data.ColorA.B),
+        ProcColorB = new Vector3(data.ColorB.R, data.ColorB.G, data.ColorB.B),
+    };
+
+    /// <summary>Map an authored procedural material-kind name to the runtime shader's recipe id
+    /// (see pbr.slang <c>evalProcedural</c>). Unknown/empty = 0 (a normal PBR material).</summary>
+    public static int ProceduralKindId(string? kind) => kind switch
+    {
+        "lava" => 1,
+        "marble" => 2,
+        "jade" => 3,
+        "ice" => 4,
+        "molten_metal" => 5,
+        "obsidian" => 6,
+        "gem" => 7,
+        "amber" => 8,
+        "nebula" => 9,
+        _ => 0,
+    };
 
     // -------- geometry/material caches --------
 
