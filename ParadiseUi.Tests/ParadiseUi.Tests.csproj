@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The shared UI cores (ImGui frame + snapshot handoff, Noesis view lifecycle) headless:
+    cimgui is CPU-only so the full ImGui pipeline runs without any GPU or window; Noesis view
+    tests stay natives-free (lazy construction means an unticked core never touches the
+    native library). TUnit on Microsoft.Testing.Platform, matching the repo's test stack.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);NETSDK1188</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.57.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParadiseUi\ParadiseUi.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -7,6 +7,9 @@ using ParadiseExport.Geometry;
 using ParadiseGame;
 using ParadiseGame.Physics;
 using ParadiseGame.Navigation.Detour;
+using ParadiseGame.Ui;
+using ParadiseGodot.Runtime.Ui;
+using ParadiseUi;
 using SN = System.Numerics;
 
 namespace ParadiseGodot.Runtime
@@ -46,6 +49,13 @@ namespace ParadiseGodot.Runtime
         [Export] public bool AutoDemo { get; set; }
         [Export] public Vector3 AutoDemoTarget { get; set; }
 
+        [ExportGroup("UI")]
+        // Dear ImGui debug panel (sim-thread immediate mode, rendered as canvas items).
+        [Export] public bool EnableImGui { get; set; } = true;
+        // NoesisGUI overlay XAML (empty = no Noesis). Rendered on a headless WebGPU device and
+        // composited as a premultiplied-alpha texture overlay.
+        [Export(PropertyHint.File, "*.xaml")] public string UiXaml { get; set; } = "";
+
         // Render sampling: interpolate ~2 sim ticks behind the latest snapshot; skip ahead if we fall too far.
         private const double RenderDelaySeconds = 2.0 / 60.0;
         private const double MaxRenderSampleLagSeconds = 4.0 / 60.0;
@@ -57,6 +67,10 @@ namespace ParadiseGodot.Runtime
         private bool _hasPlayer;
         private double _renderSampleTime;
         private bool _faulted;
+        private int _ballCount;
+        private ImGuiUiCore? _imgui;
+        private NoesisViewCore? _noesis;
+        private NoesisTextureOverlay? _noesisOverlay;
 
         public override void _Ready()
         {
@@ -95,6 +109,7 @@ namespace ParadiseGodot.Runtime
                     // data the .NET host gets through SceneAssembler.
                     Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), BallMass);
                     _agents.Add((node, ball)); // dynamic: interpolated like the player
+                    _ballCount++;
                 }
                 else
                 {
@@ -102,8 +117,12 @@ namespace ParadiseGodot.Runtime
                 }
             }
 
+            SetupUi(); // UiInput must be composed before Start (the sim reads it each tick)
+
             _runner.Start();
             GD.Print($"[EcsSceneBridge] Simulation thread started — {_agents.Count} agent(s). Click the ground to move.");
+
+            AddUiOverlayNodes();
 
             if (AutoDemo && _hasPlayer)
             {
@@ -111,36 +130,188 @@ namespace ParadiseGodot.Runtime
             }
         }
 
-        public override void _UnhandledInput(InputEvent @event)
+        /// <summary>Build the sim-thread UI halves (shared cores) and hand the composed input
+        /// to the runner. Every failure degrades to a warning — the bridge must never lose the
+        /// scene over missing UI natives.</summary>
+        private void SetupUi()
         {
-            if (_runner is null || _camera is null || !_hasPlayer)
+            var size = (Vector2I)GetViewport().GetVisibleRect().Size;
+
+            if (EnableImGui)
+            {
+                try
+                {
+                    _imgui = new ImGuiUiCore((uint)size.X, (uint)size.Y);
+                    _imgui.AddDraw(DrawDebugPanel);
+                }
+                catch (Exception e) when (e is DllNotFoundException or TypeInitializationException)
+                {
+                    GD.PushWarning($"[EcsSceneBridge] cimgui unavailable — ImGui disabled: {e.Message}");
+                    _imgui = null;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(UiXaml))
+            {
+                // Probe the Noesis native up front: NoesisViewCore creates its View LAZILY on
+                // the SIM thread, and a DllNotFoundException there would fault the whole sim.
+                if (System.Runtime.InteropServices.NativeLibrary.TryLoad(
+                        "Noesis", typeof(global::Noesis.GUI).Assembly, null, out _))
+                {
+                    _noesis = new NoesisViewCore(
+                        ProjectSettings.GlobalizePath(UiXaml), (uint)size.X, (uint)size.Y);
+                }
+                else
+                {
+                    GD.PushWarning("[EcsSceneBridge] Noesis native unavailable — XAML overlay disabled.");
+                }
+            }
+
+            // ImGui first: debug panels claim pointer events before the game UI.
+            _runner!.UiInput = (_imgui, _noesis) switch
+            {
+                ({ } imgui, { } noesis) => new CompositeUiInput(imgui.Input, noesis.Input),
+                ({ } imgui, null) => imgui.Input,
+                (null, { } noesis) => noesis.Input,
+                _ => null,
+            };
+            _runner.UiUnhandledPointerDown = OnUiUnhandledPointerDown;
+        }
+
+        /// <summary>Add the render halves as overlay nodes: ImGui canvas items above the
+        /// Noesis texture overlay (same order as the runtime's OverlayPass composition).
+        /// The Noesis view core is only kept when its render device initialized — an
+        /// unrenderable view would still tick invisibly on the sim thread otherwise.</summary>
+        private void AddUiOverlayNodes()
+        {
+            var size = (Vector2I)GetViewport().GetVisibleRect().Size;
+
+            if (_noesis is { } noesis)
+            {
+                var overlay = new NoesisTextureOverlay { Name = "NoesisOverlay" };
+                if (overlay.TryInitialize(noesis, size))
+                {
+                    var layer = new CanvasLayer { Name = "NoesisUiLayer", Layer = 90 };
+                    layer.AddChild(overlay);
+                    AddChild(layer);
+                    _noesisOverlay = overlay;
+                }
+                else
+                {
+                    overlay.QueueFree();
+                    _noesis = null;
+                    _runner!.UiInput = _imgui?.Input; // drop the unrenderable half
+                }
+            }
+
+            if (_imgui is { } imgui)
+            {
+                var renderer = new ImGuiCanvasRenderer { Name = "ImGuiRenderer" };
+                renderer.Initialize(imgui);
+                var layer = new CanvasLayer { Name = "ImGuiLayer", Layer = 100 };
+                layer.AddChild(renderer);
+                AddChild(layer);
+            }
+
+            if (_imgui is not null || _noesis is not null)
+            {
+                GetViewport().SizeChanged += OnViewportResized;
+            }
+        }
+
+        private void OnViewportResized()
+        {
+            if (_runner is null) return;
+            var size = (Vector2I)GetViewport().GetVisibleRect().Size;
+            _runner.EnqueueUiEvent(UiEvent.Resize(size.X, size.Y));
+            _noesisOverlay?.OnResize(size);
+        }
+
+        /// <summary>The ImGui debug panel — runs ON THE SIM THREAD between NewFrame and
+        /// Render, so it reads and mutates sim state directly (Paused is a volatile).</summary>
+        private void DrawDebugPanel()
+        {
+            ImGuiNET.ImGui.Begin("Paradise (Godot)");
+            ImGuiNET.ImGui.Text($"entities: {_agents.Count} dynamic ({_ballCount} balls)");
+            ImGuiNET.ImGui.Text($"sim: t={_runner!.Now:F2}s latest={_runner.LatestSnapshotTime:F2}s");
+            var paused = _runner.Paused;
+            if (ImGuiNET.ImGui.Checkbox("Paused", ref paused))
+            {
+                _runner.Paused = paused;
+            }
+            ImGuiNET.ImGui.End();
+        }
+
+        /// <summary>SIM THREAD — unconsumed pointer-downs fall through to click-to-move.
+        /// CollisionWorld is immutable (thread-safe queries) and EnqueueMoveTo is a
+        /// ConcurrentQueue push, so no marshaling back to the main thread is needed.</summary>
+        private void OnUiUnhandledPointerDown(UiEvent uiEvent)
+        {
+            if (!_hasPlayer || uiEvent.Button != UiPointerButton.Left ||
+                _runner?.CollisionWorld is not { } collision)
             {
                 return;
             }
 
-            if (@event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left } mouse)
+            var input = new RaycastInput
             {
-                // Ground picking runs against the sim's own CollisionWorld (immutable → safe from
-                // this thread). Godot's physics server is Dummy, so DirectSpaceState is unavailable.
-                if (_runner.CollisionWorld is not { } collision)
-                {
-                    return;
-                }
-
-                Vector3 origin = _camera.ProjectRayOrigin(mouse.Position);
-                Vector3 direction = _camera.ProjectRayNormal(mouse.Position);
-                var input = new RaycastInput
-                {
-                    Start = ToSN(origin),
-                    End = ToSN(origin + direction * 1000f),
-                    Filter = PhysicsLayers.ClickRay,
-                };
-                if (collision.CastRay(input, out RaycastHit hit))
-                {
-                    _runner.EnqueueMoveTo(_player, hit.Position);
-                }
+                Start = uiEvent.WorldRayOrigin,
+                End = uiEvent.WorldRayOrigin + uiEvent.WorldRayDirection * 1000f,
+                Filter = PhysicsLayers.ClickRay,
+            };
+            if (collision.CastRay(input, out RaycastHit hit))
+            {
+                _runner.EnqueueMoveTo(_player, hit.Position);
             }
         }
+
+        /// <summary>Mouse events become <see cref="UiEvent"/>s drained on the sim thread: UI
+        /// gets first claim (ImGui panels, then Noesis), and unconsumed pointer-downs fall
+        /// through to click-to-move via <see cref="OnUiUnhandledPointerDown"/>. Pointer-downs
+        /// carry the camera pick ray so the sim needs no camera state — Godot's physics server
+        /// is Dummy, so picking runs against the sim's own immutable CollisionWorld.</summary>
+        public override void _UnhandledInput(InputEvent @event)
+        {
+            if (_runner is null)
+            {
+                return;
+            }
+
+            switch (@event)
+            {
+                case InputEventMouseMotion motion:
+                    _runner.EnqueueUiEvent(UiEvent.PointerMove(motion.Position.X, motion.Position.Y));
+                    break;
+
+                case InputEventMouseButton { Pressed: true } down when ToUiButton(down.ButtonIndex) is { } button:
+                    if (_camera is not null)
+                    {
+                        Vector3 origin = _camera.ProjectRayOrigin(down.Position);
+                        Vector3 direction = _camera.ProjectRayNormal(down.Position);
+                        _runner.EnqueueUiEvent(UiEvent.PointerDown(
+                            down.Position.X, down.Position.Y, button, ToSN(origin), ToSN(direction)));
+                    }
+                    else
+                    {
+                        _runner.EnqueueUiEvent(new UiEvent(
+                            UiEventKind.PointerDown, down.Position.X, down.Position.Y, button,
+                            default, default, false));
+                    }
+                    break;
+
+                case InputEventMouseButton { Pressed: false } up when ToUiButton(up.ButtonIndex) is { } button:
+                    _runner.EnqueueUiEvent(UiEvent.PointerUp(up.Position.X, up.Position.Y, button));
+                    break;
+            }
+        }
+
+        private static UiPointerButton? ToUiButton(MouseButton button) => button switch
+        {
+            MouseButton.Left => UiPointerButton.Left,
+            MouseButton.Right => UiPointerButton.Right,
+            MouseButton.Middle => UiPointerButton.Middle,
+            _ => null,
+        };
 
         public override void _Process(double delta)
         {

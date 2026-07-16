@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ParadiseGame\ParadiseGame.csproj" />
+    <ProjectReference Include="..\ParadiseUi\ParadiseUi.csproj" />
     <ProjectReference Include="..\ParadiseGame.Navigation.Detour\ParadiseGame.Navigation.Detour.csproj" />
     <ProjectReference Include="..\ParadiseExport\ParadiseExport.csproj" />
     <!-- Real sibling paths (NOT the in-tree ParadiseEngine symlink, which breaks restore). -->

@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>ParadiseUi</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <!-- Font-atlas pixel copy from cimgui's unmanaged buffer. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <!-- Loaded into Godot's collectible AssemblyLoadContext, like ParadiseGame. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParadiseGame\ParadiseGame.csproj" />
+    <!-- Real sibling path (NOT the in-tree ParadiseEngine symlink, which breaks restore).
+         Brings ImGui.NET + WebGPUSharp transitively; ImGuiDrawSnapshot lives there. -->
+    <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.Ui.ImGui\Paradise.Ui.ImGui.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pinned to the engine's version (ParadiseEngine/src/Directory.Packages.props). -->
+    <PackageReference Include="Noesis.GUI" Version="3.2.12" />
+  </ItemGroup>
+
+</Project>
