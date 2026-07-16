@@ -76,6 +76,11 @@ public sealed class CultivationUi
                 DrawChronicle();
                 DrawDeath();
                 break;
+            case GamePhase.Ascended:
+                DrawMap();
+                DrawChronicle();
+                DrawAscended();
+                break;
         }
     }
 
@@ -517,7 +522,18 @@ public sealed class CultivationUi
         if (ImGui.Button(T.ExploreButton)) _runner.RequestExplore();
 
         ImGui.Separator();
-        if (CultivationRules.BreakthroughReady(Config, in cultivator))
+        if (CultivationRules.AscensionReady(Config, in cultivator))
+        {
+            // The ladder's top: the last tribulation replaces the breakthrough offer.
+            var chance = CultivationRules.AscensionChance(Config, in player);
+            ImGui.TextColored(new Vector4(1f, 0.75f, 0.3f, 1f),
+                F(T.AscendReadyLine, CultivationRules.Percent(Config, chance)));
+            if (ImGui.Button(T.AscendButton, new Vector2(-1, 0)))
+            {
+                _runner.RequestAscend();
+            }
+        }
+        else if (CultivationRules.BreakthroughReady(Config, in cultivator))
         {
             var chance = CultivationRules.BreakthroughSuccessChance(Config, _runner.Map, in cultivator, in player);
             ImGui.TextColored(new Vector4(1f, 0.9f, 0.4f, 1f), F(T.BreakthroughReadyLine, CultivationRules.Percent(Config, chance)));
@@ -968,6 +984,37 @@ public sealed class CultivationUi
         }
         if (ImGui.GetScrollY() >= ImGui.GetScrollMaxY() - 4f) ImGui.SetScrollHereY(1f);
         ImGui.EndChild();
+        ImGui.End();
+    }
+
+    /// <summary>The victory screen — the Dead screen's golden mirror: the finale line, a
+    /// backward glance at the dao companion if one shared the road, and reincarnation.</summary>
+    private void DrawAscended()
+    {
+        var world = _runner.UiWorld;
+        ref readonly var cultivator = ref world.GetComponent<Cultivator>(_runner.Player);
+        ref readonly var player = ref world.GetComponent<PlayerData>(_runner.Player);
+
+        ImGui.SetNextWindowPos(new Vector2(40, 40), ImGuiCond.FirstUseEver);
+        ImGui.SetNextWindowSize(new Vector2(420, 240), ImGuiCond.FirstUseEver);
+        ImGui.Begin(T.AscendedTitle);
+        var ageYears = cultivator.AgeDays / CultivationRules.DaysPerYear(Config);
+        ImGui.TextColored(new Vector4(1f, 0.85f, 0.4f, 1f),
+            F(T.AscendedLine, CultivationRules.PlayerName(Config, in player), $"{ageYears:F0}"));
+        if (player.CompanionNpcId >= 0 && _runner.FindNpcById(world, player.CompanionNpcId) is { } companion)
+        {
+            ref readonly var companionNpc = ref world.GetComponent<NpcState>(companion);
+            ImGui.TextWrapped(F(T.AscendedCompanionLine, CultivationRules.NpcName(Config, in companionNpc)));
+        }
+        ImGui.Separator();
+        if (ImGui.Button(T.ReincarnateButton, new Vector2(-1, 0)))
+        {
+            _seedInput = unchecked(_seedInput * 48271 + 7);
+            _runner.RequestStartNew(_seedInput, _presetIndex);
+            _hasSelection = false;
+            _chatInput = string.Empty;
+            _mapHint = string.Empty;
+        }
         ImGui.End();
     }
 

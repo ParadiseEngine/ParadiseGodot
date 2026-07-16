@@ -398,6 +398,15 @@
     "dualCultivationBonus": 0.4,
     "leaveAffectionPenalty": -300
   },
+  // The endgame: one fortune-weighted tribulation roll at 真仙圆满 with a full points bar.
+  // Success wins the run; failure burns half the bar and injures — climb again.
+  "ascension": {
+    "baseChance": 0.35,
+    "fortuneChancePerPoint": 0.004,
+    "failureCultivationLoss": 0.5,
+    "failureInjuryMonths": 24,
+    "trialDays": 30
+  },
   "secretRealm": {
     "firstOpenMonth": 2,
     "periodMonths": 6,

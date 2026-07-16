@@ -49,6 +49,7 @@ public sealed record CultivationConfig
     public required TradeConfig Trade { get; init; }
     public required SectConfig Sect { get; init; }
     public required CompanionConfig Companion { get; init; }
+    public required AscensionConfig Ascension { get; init; }
     public required SecretRealmConfig SecretRealm { get; init; }
     public required WorldEventsConfig WorldEvents { get; init; }
     public required CombatConfig Combat { get; init; }
@@ -247,6 +248,22 @@ public sealed record SectMissionConfig
     public required float SuccessChance { get; init; }
     /// <summary>Injury months on failure (the attempt spends the month either way).</summary>
     public required int FailureInjuryMonths { get; init; }
+}
+
+/// <summary>The endgame: standing at the final realm's Perfected peak with a full points
+/// bar, the cultivator may face the last heavenly tribulation. Success wins the game
+/// (<see cref="GamePhase.Ascended"/>); failure burns cultivation and injures — the mountain
+/// can be climbed again. One fortune-weighted roll, the secret-realm-trial shape.</summary>
+public sealed record AscensionConfig
+{
+    public required float BaseChance { get; init; }
+    /// <summary>Per-fortune-point addition to the tribulation chance.</summary>
+    public required float FortuneChancePerPoint { get; init; }
+    /// <summary>Fraction of accumulated points burned by a failed tribulation.</summary>
+    public required float FailureCultivationLoss { get; init; }
+    public required int FailureInjuryMonths { get; init; }
+    /// <summary>Game days a FAILED tribulation consumes (success ends the run outright).</summary>
+    public required int TrialDays { get; init; }
 }
 
 /// <summary>Dao companions: the top of the affection ladder made mechanical — a mutual bond

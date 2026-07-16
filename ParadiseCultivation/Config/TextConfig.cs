@@ -194,6 +194,15 @@ public sealed record UiTextConfig
     public required string DeathLine { get; init; }
     public required string ReincarnateButton { get; init; }
 
+    /// <summary>{0} success chance (formatted percent) — the final-tribulation offer.</summary>
+    public required string AscendReadyLine { get; init; }
+    public required string AscendButton { get; init; }
+    public required string AscendedTitle { get; init; }
+    /// <summary>{0} player name, {1} age years — the victory screen.</summary>
+    public required string AscendedLine { get; init; }
+    /// <summary>{0} companion name — shown on the victory screen when bonded.</summary>
+    public required string AscendedCompanionLine { get; init; }
+
     /// <summary>{0} realm name, {1} sub-stage name.</summary>
     public required string RealmTitleFormat { get; init; }
     /// <summary>{0} whole percent value — every percent display goes through this.</summary>
@@ -233,6 +242,14 @@ public sealed record MessageTextConfig
     public required string SecludeLeaveLog { get; init; }
     /// <summary>{0} years, {1} points gained, {2} realm title.</summary>
     public required string SecludeDoneMsg { get; init; }
+
+    public required string AscendNotReadyMsg { get; init; }
+    /// <summary>{0} player name, {1} age years — the chronicle finale.</summary>
+    public required string AscendLog { get; init; }
+    /// <summary>{0} player name.</summary>
+    public required string AscendFailLog { get; init; }
+    /// <summary>{0} injury months.</summary>
+    public required string AscendFailMsg { get; init; }
 
     public required string BreakthroughNotReady { get; init; }
     public required string TribulationFlavor { get; init; }

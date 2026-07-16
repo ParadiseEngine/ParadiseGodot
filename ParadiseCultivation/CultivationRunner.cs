@@ -16,6 +16,7 @@ public enum CommandKind
     Cultivate,
     Seclude,
     Breakthrough,
+    Ascend,
     Explore,
     Chat,
     Gift,
@@ -287,6 +288,10 @@ public sealed class CultivationRunner : IDisposable
 
     public void RequestBreakthrough() =>
         Enqueue(new CultivationCommand(CommandKind.Breakthrough, 0, 0, default, null));
+
+    /// <summary>Face the final heavenly tribulation (the win-condition gamble).</summary>
+    public void RequestAscend() =>
+        Enqueue(new CultivationCommand(CommandKind.Ascend, 0, 0, default, null));
 
     public void RequestExplore() =>
         Enqueue(new CultivationCommand(CommandKind.Explore, 0, 0, default, null));
@@ -734,6 +739,9 @@ public sealed class CultivationRunner : IDisposable
                 case CommandKind.Breakthrough:
                     ApplyBreakthrough(ref cultivator, ref player);
                     break;
+                case CommandKind.Ascend:
+                    ApplyAscend(ref cultivator, ref player);
+                    break;
                 case CommandKind.Explore:
                     ApplyExplore(ref cultivator, ref player);
                     break;
@@ -854,6 +862,38 @@ public sealed class CultivationRunner : IDisposable
             LastActionResult = F(Msg.PillUsedNote, CultivationRules.Percent(Config, Config.Trade.PillBreakthroughBonus)) + LastActionResult;
         }
         BeginAdvance(CommandKind.Breakthrough, Config.Time.ActionDays.Breakthrough);
+    }
+
+    /// <summary>The endgame gamble: one fortune-weighted tribulation roll at the ladder's
+    /// top. Success ends the run in <see cref="GamePhase.Ascended"/> (the victory mirror of
+    /// the death path); failure burns cultivation and injures — climb again.</summary>
+    private void ApplyAscend(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (!CultivationRules.AscensionReady(Config, in cultivator))
+        {
+            LastActionResult = Msg.AscendNotReadyMsg;
+            return;
+        }
+
+        var playerName = CultivationRules.PlayerName(Config, in player);
+        if (_rng.NextDouble() < CultivationRules.AscensionChance(Config, in player))
+        {
+            _phaseRaw = (int)GamePhase.Ascended;
+            _pendingDays = 0;
+            _pendingKind = CommandKind.None;
+            _travelPlan = null;
+            var finale = F(Msg.AscendLog, playerName,
+                $"{cultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0}");
+            Log(finale);
+            LastActionResult = finale;
+            return;
+        }
+
+        cultivator.CultivationPoints *= 1.0 - Config.Ascension.FailureCultivationLoss;
+        player.InjuryMonths += Config.Ascension.FailureInjuryMonths;
+        Log(F(Msg.AscendFailLog, playerName));
+        LastActionResult = F(Msg.AscendFailMsg, Config.Ascension.FailureInjuryMonths);
+        BeginAdvance(CommandKind.Ascend, Config.Ascension.TrialDays);
     }
 
     private void ApplyExplore(ref Cultivator cultivator, ref PlayerData player)

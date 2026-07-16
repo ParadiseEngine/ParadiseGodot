@@ -88,6 +88,20 @@ public static class CultivationRules
         cultivator.SubStage == config.SubStages.Length - 1 &&
         cultivator.CultivationPoints >= config.Realms[cultivator.RealmIndex].PointsPerSubStage;
 
+    /// <summary>Eligible for the final tribulation: the last realm's Perfected peak with a
+    /// full points bar (the <see cref="BreakthroughReady"/> analog for the ladder's top).</summary>
+    public static bool AscensionReady(CultivationConfig config, in Cultivator cultivator) =>
+        cultivator.RealmIndex == config.Realms.Length - 1 &&
+        cultivator.SubStage == config.SubStages.Length - 1 &&
+        cultivator.CultivationPoints >= config.Realms[cultivator.RealmIndex].PointsPerSubStage;
+
+    /// <summary>The final tribulation's success chance — base + fortune, the same shape as
+    /// the secret-realm trial.</summary>
+    public static float AscensionChance(CultivationConfig config, in PlayerData player) =>
+        Math.Clamp(
+            config.Ascension.BaseChance + player.Fortune * config.Ascension.FortuneChancePerPoint,
+            0.05f, 0.95f);
+
     public static float BreakthroughSuccessChance(
         CultivationConfig config, WorldMap map, in Cultivator cultivator, in PlayerData player)
     {

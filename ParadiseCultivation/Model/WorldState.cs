@@ -6,6 +6,8 @@ public enum GamePhase
     NewGame,
     Playing,
     Dead,
+    /// <summary>The victory ending: the final tribulation passed, the journey complete.</summary>
+    Ascended,
 }
 
 /// <summary>The eight locked base terrains (high-concept v2.0 §8.1). Rivers, roads, and sea
