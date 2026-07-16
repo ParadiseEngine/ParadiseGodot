@@ -1,11 +1,29 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace ParadiseCultivation;
 
-/// <summary>Root of <c>data/cultivation/config.json</c> — every gameplay tunable of the
-/// cultivation slice (world generation, calendar, realm ladder, spirit roots, charm,
-/// affection, interaction economy, dialogue phrase pools). Code contains mechanisms only;
-/// numbers live here, per the project's config-over-constants rule.</summary>
+/// <summary>The authored files under <c>data/cultivation/</c> that compose one
+/// <see cref="CultivationConfig"/> — split for maintainability: gameplay numbers apart from
+/// the (much larger) authored content.</summary>
+public static class ConfigFiles
+{
+    /// <summary>Gameplay tunables (world, time, realms, interaction economy, ui…).</summary>
+    public const string Core = "config.json";
+    /// <summary>Name pools (surnames, given names, town/sect parts).</summary>
+    public const string Names = "names.json";
+    /// <summary>Dialogue content (affection buckets, keyword intents, personality pools).</summary>
+    public const string Dialogue = "dialogue.json";
+    /// <summary>Every user-facing string (UI labels, message templates, intro, flavor).</summary>
+    public const string Text = "text.json";
+
+    public static readonly string[] All = [Core, Names, Dialogue, Text];
+}
+
+/// <summary>Root of the composed cultivation config — every gameplay tunable and every piece
+/// of authored content (see <see cref="ConfigFiles"/> for the on-disk split). Code contains
+/// mechanisms only; numbers and words live in the files, per the project's
+/// config-over-constants rule.</summary>
 public sealed record CultivationConfig
 {
     public required WorldConfig World { get; init; }
@@ -35,6 +53,31 @@ public sealed record CultivationConfig
     public static CultivationConfig FromJson(string json) =>
         JsonSerializer.Deserialize(json, CultivationJsonContext.Default.CultivationConfig)
         ?? throw new InvalidDataException("cultivation config deserialized to null");
+
+    /// <summary>Compose the config from its split files (<see cref="ConfigFiles.All"/>).
+    /// <paramref name="readFile"/> abstracts the host's IO — File.ReadAllText for the .NET
+    /// runtime, Godot.FileAccess for res:// paths. Content files plug into the core document
+    /// under their section names, then the whole composes as one object.</summary>
+    public static CultivationConfig Load(Func<string, string> readFile)
+    {
+        var documentOptions = new JsonDocumentOptions
+        {
+            CommentHandling = JsonCommentHandling.Skip,
+            AllowTrailingCommas = true,
+        };
+        JsonNode Parse(string file) =>
+            JsonNode.Parse(readFile(file), documentOptions: documentOptions)
+            ?? throw new InvalidDataException($"cultivation config file '{file}' parsed to null");
+
+        var root = Parse(ConfigFiles.Core) as JsonObject
+            ?? throw new InvalidDataException($"'{ConfigFiles.Core}' must be a JSON object");
+        root["names"] = Parse(ConfigFiles.Names);
+        root["dialogue"] = Parse(ConfigFiles.Dialogue);
+        root["text"] = Parse(ConfigFiles.Text);
+
+        return root.Deserialize(CultivationJsonContext.Default.CultivationConfig)
+            ?? throw new InvalidDataException("cultivation config deserialized to null");
+    }
 }
 
 public sealed record WorldConfig
@@ -282,7 +325,9 @@ public sealed record DialogueBucketConfig
 public sealed record KeywordReplyConfig
 {
     public required string[] Keywords { get; init; }
-    public required string Reply { get; init; }
+    /// <summary>Variants — selection is salted by the NPC's memory count, so asking the
+    /// same thing twice gets a different answer as the relationship history grows.</summary>
+    public required string[] Replies { get; init; }
 }
 
 public sealed record NamesConfig

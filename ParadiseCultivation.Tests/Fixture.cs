@@ -12,7 +12,7 @@ namespace ParadiseCultivation.Tests;
 internal static class Fixture
 {
     private static readonly Lazy<CultivationConfig> Cached = new(() =>
-        CultivationConfig.FromJson(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "config.json"))));
+        CultivationConfig.Load(file => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, file))));
 
     public static CultivationConfig Config => Cached.Value;
 

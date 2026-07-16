@@ -21,13 +21,16 @@ internal static class CultivationHost
     private const int Width = 1600;
     private const int Height = 900;
 
-    private static string s_configJson = string.Empty;
+    private static string s_glyphSource = string.Empty;
 
     public static int Run(string configPath, int seed, int? sizeIndex, int? headlessFrames, string? screenshotPath)
     {
-        var configJson = File.ReadAllText(configPath);
-        var config = CultivationConfig.FromJson(configJson);
-        s_configJson = configJson; // glyph source: every authored character gets a glyph
+        // configPath names the core file; its siblings (names/dialogue/text) compose in.
+        var configDir = Path.GetDirectoryName(Path.GetFullPath(configPath)) ?? ".";
+        string ReadPart(string file) => File.ReadAllText(Path.Combine(configDir, file));
+        var config = CultivationConfig.Load(ReadPart);
+        // Glyph source: every authored character across ALL config files gets a glyph.
+        s_glyphSource = string.Concat(ConfigFiles.All.Select(ReadPart));
         using var runner = new CultivationRunner(config, seed, sizeIndex);
         Console.WriteLine(
             $"[Cultivation] seed {seed}: {runner.Map.Width}x{runner.Map.Height} world, " +
@@ -212,7 +215,7 @@ internal static class CultivationHost
         var fontConfig = new ParadiseUi.UiFontConfig(
             string.IsNullOrWhiteSpace(runner.Config.Ui.FontPath) ? null : runner.Config.Ui.FontPath,
             runner.Config.Ui.FontSizePixels,
-            s_configJson);
+            s_glyphSource);
         var imgui = new ImGuiUi(width, height, fontConfig);
         var ui = new CultivationUi(runner);
         imgui.AddDraw(ui.Draw);

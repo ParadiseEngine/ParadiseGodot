@@ -34,16 +34,31 @@ world, and CJK-capable chat (system-font loading in `ParadiseUi/UiFonts`).
 
 ## The shipped content is Chinese
 
-EVERY user-facing string lives in config (`text` section: UI labels, message templates with
-positional slots, intro chronicle, explore flavor pools) — code contains mechanisms only, so
-one authored config file localizes the whole game. The shipped `data/cultivation/config.json`
-is a full Chinese context: 炼气→真仙 realms with 初期/中期/后期/圆满 stages, 金木水火土
-spirit roots, Chinese name/town/sect pools, five affection-tier dialogue buckets, nine
-keyword intents (交易/拜师/切磋/传闻/丹药/功法/灵脉/双修/道别), per-personality reply pools
-(孤傲/温婉/心机/爽朗/清冷/豪迈/多疑/儒雅), and an onboarding intro. The font atlas bakes the
-common-Chinese ranges UNION every character actually appearing in the config
-(`UiFontConfig.GlyphSourceText` → ImGui glyph-ranges builder), so authored rare hanzi always
-render. Tests assert config-derived strings (`Fixture.Skeleton`), never hardcoded English.
+EVERY user-facing string lives in the config set — code contains mechanisms only, so the
+authored files localize the whole game. The set is split for maintainability
+(`CultivationConfig.Load` composes them; `ConfigFiles.All`):
+
+- `config.json` — gameplay tunables (world, time, realms, interaction economy, ui)
+- `names.json` — name pools (surnames/given, town/sect parts)
+- `dialogue.json` — ~3000 compiled reply lines: five affection-tier buckets (~2000 lines,
+  pools change as relationships climb 陌生→相识→好友→知己), 17 keyword intents with ~28
+  variants each (交易/拜师/切磋/传闻/丹药/功法/灵脉/天劫/妖兽/秘境/灵石/寿元/大道/来历/
+  称呼/双修/道别), and per-personality pools (孤傲/温婉/心机/爽朗/清冷/豪迈/多疑/儒雅,
+  ~59 lines each)
+- `text.json` — UI labels, message templates, the onboarding intro, explore flavor pools
+
+`dialogue.json` and the flavor pools are BUILD OUTPUT of
+`tools/cultivation/generate_dialogue.py` — the maintained source: ~450 hand-authored
+sentence lexicons composed with attribution frames (two alternating shapes). Edit the
+lexicons there and re-run the script; hand-written signature lines stay verbatim at the
+front of each pool.
+
+Reply selection hashes (line, npc, MEMORY COUNT): deterministic per state — replays and
+saves reproduce exactly — yet asking the same question again gives a different answer as the
+shared history grows. The font atlas bakes the common-Chinese ranges UNION every character
+appearing across ALL config files (`UiFontConfig.GlyphSourceText` → ImGui glyph-ranges
+builder), so authored rare hanzi always render. Tests assert config-derived strings
+(`Fixture.Skeleton`), never hardcoded English.
 
 ## Architecture — ParadiseGame's ECS + snapshot machinery
 

@@ -125,9 +125,31 @@ public class InteractionTests
         runner.RequestChat(entity, "这柄剑甚好，我想买下它。");
         Fixture.RunUntilIdle(runner);
 
-        // The trade keyword reply, minus its placeholders, must be what came back.
-        var tradeReply = Fixture.Config.Dialogue.KeywordReplies.First(k => k.Keywords.Contains("买")).Reply;
-        await Assert.That(runner.LastReply).Contains(Fixture.Skeleton(tradeReply));
+        // One of the trade keyword VARIANTS, minus its placeholders, must be what came back.
+        var tradeVariants = Fixture.Config.Dialogue.KeywordReplies.First(k => k.Keywords.Contains("买")).Replies;
+        await Assert.That(tradeVariants.Any(v => runner.LastReply.Contains(Fixture.Skeleton(v)))).IsTrue();
+    }
+
+    [Test]
+    public async Task repeated_questions_get_varied_replies_as_history_grows()
+    {
+        // Selection is salted by the NPC's memory count: the same line, asked repeatedly,
+        // must not return one identical reply forever (deterministic per state, varied
+        // across the relationship history).
+        var proposer = new TemplateProposer();
+        var replies = new HashSet<string>();
+        for (var memories = 0; memories < 12; memories++)
+        {
+            var context = new DialogueContext("苏 婉儿", Fixture.Config.Npc.Personalities[0], 1, 50f, memories, 3, "秦 孤舟", 0);
+            replies.Add(proposer.Propose(Fixture.Config, in context, "今日天色不错。").ReplyText);
+        }
+        await Assert.That(replies.Count).IsGreaterThanOrEqualTo(3);
+
+        // Still fully deterministic for identical state.
+        var fixedContext = new DialogueContext("苏 婉儿", Fixture.Config.Npc.Personalities[0], 1, 50f, 5, 3, "秦 孤舟", 0);
+        var a = proposer.Propose(Fixture.Config, in fixedContext, "今日天色不错。").ReplyText;
+        var b = proposer.Propose(Fixture.Config, in fixedContext, "今日天色不错。").ReplyText;
+        await Assert.That(b).IsEqualTo(a);
     }
 
     [Test]

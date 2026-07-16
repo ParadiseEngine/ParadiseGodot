@@ -18,7 +18,8 @@ obj/
 # ParadiseExport.Tests / ParadiseRuntime(.Tests) and the engine's real-producer GLB cross-checks.
 # NOT tracked: Godot import sidecars (*.import, *.uid) and any extracted texture PNGs — regenerated
 # on import. Also tracked (force-added): data/cultivation/config.json - the AUTHORED (not
-# exported) gameplay config of the Immortal Cultivation slice, read by both hosts at runtime.
+# exported) cultivation config set - config.json + names.json + dialogue.json + text.json -
+# AUTHORED gameplay tunables and Chinese content, read by both hosts at runtime.
 /data/
 
 # JetBrains IDE

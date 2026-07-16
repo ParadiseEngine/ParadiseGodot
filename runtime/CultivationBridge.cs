@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 using ParadiseCultivation;
 using ParadiseGame.Ui;
@@ -26,21 +27,29 @@ namespace ParadiseGodot.Runtime
 
         public override void _Ready()
         {
-            string json = Godot.FileAccess.GetFileAsString(ConfigPath);
-            if (string.IsNullOrEmpty(json))
+            // ConfigPath names the core file; siblings (names/dialogue/text) compose in.
+            var configDir = ConfigPath[..ConfigPath.LastIndexOf('/')];
+            string ReadPart(string file)
             {
-                GD.PushError($"[CultivationBridge] Config '{ConfigPath}' not found or empty.");
-                return;
+                var text = Godot.FileAccess.GetFileAsString($"{configDir}/{file}");
+                if (string.IsNullOrEmpty(text))
+                {
+                    throw new System.IO.InvalidDataException($"config file '{configDir}/{file}' not found or empty");
+                }
+                return text;
             }
 
             CultivationConfig config;
+            string glyphSource;
             try
             {
-                config = CultivationConfig.FromJson(json);
+                config = CultivationConfig.Load(ReadPart);
+                // Glyph source: every authored character across ALL config files gets a glyph.
+                glyphSource = string.Concat(ConfigFiles.All.Select(ReadPart));
             }
             catch (Exception e)
             {
-                GD.PushError($"[CultivationBridge] Config parse failed: {e.Message}");
+                GD.PushError($"[CultivationBridge] Config load failed: {e.Message}");
                 return;
             }
 
@@ -53,7 +62,7 @@ namespace ParadiseGodot.Runtime
                         ? null
                         : ProjectSettings.GlobalizePath(config.Ui.FontPath),
                     config.Ui.FontSizePixels,
-                    json); // glyph source: every authored character gets a glyph
+                    glyphSource);
                 _imgui = new ImGuiUiCore((uint)size.X, (uint)size.Y, fontConfig);
             }
             catch (Exception e) when (e is DllNotFoundException or TypeInitializationException)

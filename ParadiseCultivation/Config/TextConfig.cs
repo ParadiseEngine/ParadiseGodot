@@ -161,12 +161,12 @@ public sealed record MessageTextConfig
     /// <summary>{0} joined find list.</summary>
     public required string ExploreFoundMsg { get; init; }
     public required string ExploreListSeparator { get; init; }
-    /// <summary>{0} herb count.</summary>
-    public required string ExploreHerbs { get; init; }
-    /// <summary>{0} stone count.</summary>
-    public required string ExploreStones { get; init; }
-    /// <summary>{0} insight points.</summary>
-    public required string ExploreInsight { get; init; }
+    /// <summary>Flavor variants, {0} herb count.</summary>
+    public required string[] ExploreHerbs { get; init; }
+    /// <summary>Flavor variants, {0} stone count.</summary>
+    public required string[] ExploreStones { get; init; }
+    /// <summary>Flavor variants, {0} insight points.</summary>
+    public required string[] ExploreInsight { get; init; }
     /// <summary>{0} player name.</summary>
     public required string ExploreInsightLog { get; init; }
     /// <summary>Atmosphere lines when nothing is found (picked by the saved RNG stream).</summary>

@@ -64,10 +64,11 @@ public static class ProposalRules
 
 /// <summary>Deterministic offline proposer: keyword intents first (trade / sect joining /
 /// dual cultivation hooks from the design doc), otherwise a phrase pool keyed by the NPC's
-/// affection tier, indexed by a stable hash of (line, npc) so the same question to the same
-/// NPC always gets the same answer — and different NPCs answer differently. Suggests the
-/// rule-book affection delta (diminishing chat returns), so validated behavior is identical
-/// with or without a smarter proposer upstream.</summary>
+/// affection tier. Selection hashes (line, npc, MEMORY COUNT) — deterministic per state, so
+/// runs replay identically, yet asking the same question again gives a different answer as
+/// the shared history grows, and different NPCs answer differently. Suggests the rule-book
+/// affection delta, so validated behavior is identical with or without a smarter proposer
+/// upstream.</summary>
 public sealed class TemplateProposer : INpcInteractionProposer
 {
     public InteractionProposal Propose(CultivationConfig config, in DialogueContext context, string playerLine)
@@ -78,10 +79,16 @@ public sealed class TemplateProposer : INpcInteractionProposer
             MemorySummary: null);
     }
 
+    /// <summary>State-derived selection salt: the line, the NPC, and HOW MUCH history they
+    /// share. Deterministic for replays/saves, varied across repeated identical questions.</summary>
+    private static uint Salt(in DialogueContext context, string line) =>
+        StableHash(line) ^ (uint)(context.NpcId * 2654435761) ^ ((uint)context.MemoryCount * 2246822519u);
+
     private static string ComposeReply(CultivationConfig config, in DialogueContext context, string playerLine)
     {
         var line = playerLine.Trim();
         var lower = line.ToLowerInvariant();
+        var salt = Salt(in context, lower);
 
         foreach (var keyword in config.Dialogue.KeywordReplies)
         {
@@ -89,22 +96,21 @@ public sealed class TemplateProposer : INpcInteractionProposer
             {
                 if (lower.Contains(word, StringComparison.Ordinal))
                 {
-                    return Expand(keyword.Reply, config, in context);
+                    var variant = (int)(salt % (uint)keyword.Replies.Length);
+                    return Expand(keyword.Replies[variant], config, in context);
                 }
             }
         }
 
         // A slice of replies comes from the NPC's personality pool — different temperaments
         // answer the same question differently (hash-deterministic, like everything here).
-        var roll = (StableHash(line) ^ (uint)(context.NpcId * 2654435761)) % 100u;
-        if (roll < config.Dialogue.PersonalityReplyPercent)
+        if (salt % 100u < config.Dialogue.PersonalityReplyPercent)
         {
             foreach (var pool in config.Dialogue.PersonalityReplies)
             {
                 if (pool.Personality == context.Personality && pool.Replies.Length > 0)
                 {
-                    var pick = (int)(StableHash(line) % (uint)pool.Replies.Length);
-                    return Expand(pool.Replies[pick], config, in context);
+                    return Expand(pool.Replies[(int)(salt % (uint)pool.Replies.Length)], config, in context);
                 }
             }
         }
@@ -116,8 +122,7 @@ public sealed class TemplateProposer : INpcInteractionProposer
         }
 
         var replies = bucket.Replies;
-        var index = (int)(StableHash(line) % (uint)replies.Length + (uint)context.NpcId) % replies.Length;
-        return Expand(replies[index], config, in context);
+        return Expand(replies[(int)(salt % (uint)replies.Length)], config, in context);
     }
 
     private static string Expand(string template, CultivationConfig config, in DialogueContext context)

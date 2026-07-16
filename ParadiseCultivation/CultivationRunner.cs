@@ -640,13 +640,13 @@ public sealed class CultivationRunner : IDisposable
         {
             var herbs = (int)Math.Round(_rng.Next(explore.HerbMin, explore.HerbMax + 1) * multiplier);
             player.Herbs += herbs;
-            found.Add(F(Msg.ExploreHerbs, herbs));
+            found.Add(F(Msg.ExploreHerbs[_rng.Next(Msg.ExploreHerbs.Length)], herbs));
         }
         if (_rng.NextDouble() < explore.StonesChance)
         {
             var stones = (int)Math.Round(_rng.Next(explore.StonesMin, explore.StonesMax + 1) * multiplier);
             player.SpiritStones += stones;
-            found.Add(F(Msg.ExploreStones, stones));
+            found.Add(F(Msg.ExploreStones[_rng.Next(Msg.ExploreStones.Length)], stones));
         }
         if (_rng.NextDouble() < explore.InsightChance)
         {
@@ -654,7 +654,7 @@ public sealed class CultivationRunner : IDisposable
             cultivator.CultivationPoints += points;
             CultivationRules.AdvanceSubStages(Config, ref cultivator);
             player.Fortune = Math.Min(player.Fortune + Config.Fortune.InsightGain, Config.Fortune.Max);
-            found.Add(F(Msg.ExploreInsight, $"{points:F0}"));
+            found.Add(F(Msg.ExploreInsight[_rng.Next(Msg.ExploreInsight.Length)], $"{points:F0}"));
             Log(F(Msg.ExploreInsightLog, CultivationRules.PlayerName(Config, in player)));
         }
 
