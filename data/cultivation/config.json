@@ -1,0 +1,177 @@
+{
+  "world": {
+    "defaultSizeIndex": 0,
+    "sizes": [
+      { "name": "Small (64)", "width": 64, "height": 64, "townCount": 3, "sectCount": 2 },
+      { "name": "Medium (128)", "width": 128, "height": 128, "townCount": 6, "sectCount": 4 },
+      { "name": "Large (256)", "width": 256, "height": 256, "townCount": 10, "sectCount": 7 }
+    ],
+    "terrain": {
+      "elevationOctaves": 3,
+      "elevationScale": 0.09,
+      "mountainThreshold": 0.66,
+      "waterThreshold": 0.34,
+      "moistureScale": 0.13,
+      "forestThreshold": 0.6,
+      "spiritScale": 0.11,
+      "veinQualityThresholds": [0.72, 0.78, 0.84, 0.9]
+    },
+    "minTownSeparation": 10,
+    "minSectSeparation": 14,
+    "npcsPerTown": 4,
+    "npcsPerSect": 5
+  },
+  "time": {
+    "daysPerMonth": 30,
+    "monthsPerYear": 12,
+    "startYear": 1000,
+    "startAgeYears": 16,
+    "flow": { "daysPerSecond": 120, "maxActionSeconds": 5 },
+    "actionDays": { "chat": 2, "gift": 1, "spar": 3, "explore": 6, "breakthrough": 30 },
+    "walkDaysPerTile": 1.0,
+    "swordFlightTilesPerDay": 5.0,
+    "swordFlightRealmIndex": 1,
+    "mountainTravelMultiplier": 2.0
+  },
+  "realms": [
+    { "name": "Qi Refining", "lifespanYears": 120, "pointsPerSubStage": 60, "monthlyBasePoints": 10, "breakthroughChance": 0.9, "failureCultivationLoss": 0.1, "failureInjuryMonths": 0, "hasTribulation": false },
+    { "name": "Foundation Establishment", "lifespanYears": 240, "pointsPerSubStage": 150, "monthlyBasePoints": 16, "breakthroughChance": 0.8, "failureCultivationLoss": 0.15, "failureInjuryMonths": 3, "hasTribulation": false },
+    { "name": "Golden Core", "lifespanYears": 500, "pointsPerSubStage": 400, "monthlyBasePoints": 26, "breakthroughChance": 0.65, "failureCultivationLoss": 0.2, "failureInjuryMonths": 6, "hasTribulation": true },
+    { "name": "Nascent Soul", "lifespanYears": 1000, "pointsPerSubStage": 1000, "monthlyBasePoints": 42, "breakthroughChance": 0.55, "failureCultivationLoss": 0.25, "failureInjuryMonths": 12, "hasTribulation": true },
+    { "name": "Soul Formation", "lifespanYears": 2000, "pointsPerSubStage": 2500, "monthlyBasePoints": 68, "breakthroughChance": 0.45, "failureCultivationLoss": 0.3, "failureInjuryMonths": 18, "hasTribulation": true },
+    { "name": "Void Refinement", "lifespanYears": 4000, "pointsPerSubStage": 6000, "monthlyBasePoints": 110, "breakthroughChance": 0.38, "failureCultivationLoss": 0.3, "failureInjuryMonths": 24, "hasTribulation": true },
+    { "name": "Integration", "lifespanYears": 8000, "pointsPerSubStage": 15000, "monthlyBasePoints": 180, "breakthroughChance": 0.32, "failureCultivationLoss": 0.35, "failureInjuryMonths": 36, "hasTribulation": true },
+    { "name": "Mahayana", "lifespanYears": 15000, "pointsPerSubStage": 40000, "monthlyBasePoints": 300, "breakthroughChance": 0.25, "failureCultivationLoss": 0.35, "failureInjuryMonths": 48, "hasTribulation": true },
+    { "name": "Tribulation Transcendence", "lifespanYears": 30000, "pointsPerSubStage": 100000, "monthlyBasePoints": 500, "breakthroughChance": 0.18, "failureCultivationLoss": 0.4, "failureInjuryMonths": 60, "hasTribulation": true },
+    { "name": "True Immortal", "lifespanYears": 1000000, "pointsPerSubStage": 250000, "monthlyBasePoints": 800, "breakthroughChance": 0.0, "failureCultivationLoss": 0.0, "failureInjuryMonths": 0, "hasTribulation": false }
+  ],
+  "subStages": ["Early", "Middle", "Late", "Perfected"],
+  "spiritRoots": {
+    "elements": ["Metal", "Wood", "Water", "Fire", "Earth"],
+    "grades": [
+      { "name": "Common Root", "multiplier": 1.0, "weight": 60 },
+      { "name": "Superior Root", "multiplier": 1.5, "weight": 30 },
+      { "name": "Heavenly Root", "multiplier": 2.2, "weight": 10 }
+    ]
+  },
+  "veinCultivationBonus": [0.0, 0.2, 0.5, 1.0, 2.0],
+  "charmTiers": [
+    { "name": "Ordinary", "multiplier": 1.0, "weight": 45 },
+    { "name": "Pleasant", "multiplier": 1.1, "weight": 30 },
+    { "name": "Handsome", "multiplier": 1.25, "weight": 16 },
+    { "name": "Stunning", "multiplier": 1.5, "weight": 7 },
+    { "name": "Immortal Bearing", "multiplier": 2.0, "weight": 2 }
+  ],
+  "affectionTiers": [
+    { "min": -500, "name": "Mortal Enemy" },
+    { "min": -399, "name": "Enemy" },
+    { "min": -299, "name": "Hostile" },
+    { "min": -199, "name": "Disliked" },
+    { "min": -99, "name": "Stranger" },
+    { "min": 100, "name": "Acquaintance" },
+    { "min": 200, "name": "Familiar" },
+    { "min": 300, "name": "Friend" },
+    { "min": 400, "name": "Close Friend" },
+    { "min": 500, "name": "Confidant" },
+    { "min": 700, "name": "In Love" },
+    { "min": 900, "name": "Dao Partner" }
+  ],
+  "fortune": {
+    "initial": 50,
+    "rewardPerPoint": 0.003,
+    "maxMultiplier": 3.0,
+    "max": 1000,
+    "insightGain": 2,
+    "breakthroughChancePerPoint": 0.0002
+  },
+  "interaction": {
+    "chatAffection": 6,
+    "playerAffectionShare": 0.8,
+    "giftSpiritStones": 5,
+    "giftAffectionPerStone": 2.0,
+    "sparWinAffection": 8,
+    "sparLoseAffection": 4,
+    "sparInsightPoints": 15,
+    "sparPowerPerRealm": 10,
+    "sparPowerPerSubStage": 2,
+    "sparRollSpread": 8,
+    "memoryWindow": 8
+  },
+  "npc": {
+    "monthlyPointsMin": 4,
+    "monthlyPointsMax": 14,
+    "breakthroughChanceScale": 0.5,
+    "replacementAgeYears": 16,
+    "notableRealmIndex": 2,
+    "townMaxRealmIndex": 2,
+    "sectMaxRealmIndex": 4,
+    "leaderMinRealmIndex": 3,
+    "personalities": ["proud", "gentle", "scheming", "forthright", "aloof", "jovial", "suspicious", "scholarly"]
+  },
+  "player": {
+    "startSpiritStones": 50,
+    "explore": {
+      "herbChance": 0.35,
+      "herbMin": 1,
+      "herbMax": 3,
+      "stonesChance": 0.4,
+      "stonesMin": 5,
+      "stonesMax": 20,
+      "insightChance": 0.12,
+      "insightPoints": 40
+    }
+  },
+  "dialogue": {
+    "buckets": [
+      { "minAffection": -500, "replies": [
+        "{npc} glares coldly. \"You dare speak to me?\"",
+        "\"Leave, before I forget my manners,\" {npc} says through gritted teeth."
+      ] },
+      { "minAffection": -99, "replies": [
+        "{npc} studies you with {personality} eyes. \"A {playerRealm} cultivator. What do you want?\"",
+        "\"Hm. Speak plainly, stranger,\" {npc} says.",
+        "{npc} nods politely but keeps a courteous distance.",
+        "\"The spirit winds are restless this month,\" {npc} remarks, noncommittal."
+      ] },
+      { "minAffection": 100, "replies": [
+        "{npc} smiles. \"Good to see you again, {player}. Our talks number {memories} now, do they not?\"",
+        "\"{player}! Sit, share tea. How goes your cultivation?\"",
+        "{npc} shares a rumor from the market, glad of your company."
+      ] },
+      { "minAffection": 300, "replies": [
+        "\"Between friends, {player}, few words are needed,\" {npc} says warmly.",
+        "{npc} speaks freely of the sect's affairs - a trust not lightly given.",
+        "\"When you next attempt a breakthrough, call on me,\" {npc} offers."
+      ] },
+      { "minAffection": 500, "replies": [
+        "{npc} lowers their voice. \"To you alone I would say this, {player}...\"",
+        "\"Your path and mine have long run side by side,\" {npc} says quietly."
+      ] }
+    ],
+    "keywordReplies": [
+      { "keywords": ["buy", "trade", "sell", "purchase"], "reply": "{npc} raises an eyebrow. \"Trade? Spirit stones speak louder than words. Show me what you carry.\"" },
+      { "keywords": ["join", "sect", "apprentice", "disciple"], "reply": "\"The sect tests spirit root and character both,\" {npc} says. \"Prove your {playerRealm} foundation is solid, and doors may open.\"" },
+      { "keywords": ["dual cultivation", "dao companion", "marry"], "reply": "{npc}'s expression flickers. \"Such matters are not spoken of lightly. Deep bonds come before deep words.\"" },
+      { "keywords": ["spar", "fight", "duel", "challenge"], "reply": "{npc} smiles thinly. \"If you wish to test techniques, say so in the sparring hall - words prove nothing.\"" },
+      { "keywords": ["rumor", "news", "heard"], "reply": "{npc} leans in. \"They say a secret realm stirs beyond the mountains... but rumors twist with every telling.\"" }
+    ]
+  },
+  "names": {
+    "surnames": ["Li", "Zhao", "Xiao", "Mo", "Su", "Gu", "Ye", "Bai", "Han", "Qin", "Shen", "Wei", "Yun", "Feng"],
+    "givenNames": ["Feng", "Lan", "Yun", "Xue", "Chen", "Mei", "Hao", "Ling", "Rui", "Tao", "Qing", "Shan", "Zhi", "Yan", "Jian", "Hui"],
+    "townPrefixes": ["Cloudrest", "Willow", "Stonegate", "Riverfall", "Golden", "Azure", "Moon", "Cranewing"],
+    "townSuffixes": [" Town", " Market", " Crossing", " Hamlet"],
+    "sectPrefixes": ["Azure Cloud", "Heavenly Sword", "Jade Purity", "Silent Thunder", "Drifting Petal", "Black Tortoise", "Sunset Peak"],
+    "sectSuffixes": [" Sect", " Pavilion", " Valley", " Palace"]
+  },
+  "ui": {
+    "terrainColors": [ 4283937857, 4281231436, 4288950569, 4284900966, 4285102955 ],
+    "veinQualityColors": [ 4285102955, 4287087950, 4289449819, 4291542618, 4294621543 ],
+    "townColor": 4281787903,
+    "sectColor": 4288230141,
+    "playerColor": 4278255615,
+    "tileSizeMin": 4,
+    "tileSizeMax": 20,
+    "tileSizeDefault": 9
+  }
+}

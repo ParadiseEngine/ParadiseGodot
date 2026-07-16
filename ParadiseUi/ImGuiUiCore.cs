@@ -110,10 +110,46 @@ public sealed class ImGuiUiCore
                 case UiEventKind.Resize:
                     io.DisplaySize = new Vector2(uiEvent.X, uiEvent.Y);
                     return false;
+                case UiEventKind.Scroll:
+                    io.AddMouseWheelEvent(uiEvent.X, uiEvent.Y);
+                    return io.WantCaptureMouse;
+                case UiEventKind.KeyDown when ToImGui(uiEvent.Key) is { } downKey:
+                    io.AddKeyEvent(downKey, true);
+                    return io.WantCaptureKeyboard;
+                case UiEventKind.KeyUp when ToImGui(uiEvent.Key) is { } upKey:
+                    io.AddKeyEvent(upKey, false);
+                    return io.WantCaptureKeyboard;
+                case UiEventKind.Text:
+                    io.AddInputCharacter(uiEvent.Character);
+                    return io.WantCaptureKeyboard;
                 default:
                     return false;
             }
         }
+
+        private static ImGuiKey? ToImGui(UiKey key) => key switch
+        {
+            UiKey.Enter => ImGuiKey.Enter,
+            UiKey.Escape => ImGuiKey.Escape,
+            UiKey.Backspace => ImGuiKey.Backspace,
+            UiKey.Delete => ImGuiKey.Delete,
+            UiKey.Tab => ImGuiKey.Tab,
+            UiKey.Left => ImGuiKey.LeftArrow,
+            UiKey.Right => ImGuiKey.RightArrow,
+            UiKey.Up => ImGuiKey.UpArrow,
+            UiKey.Down => ImGuiKey.DownArrow,
+            UiKey.Home => ImGuiKey.Home,
+            UiKey.End => ImGuiKey.End,
+            UiKey.Ctrl => ImGuiKey.ModCtrl,
+            UiKey.Shift => ImGuiKey.ModShift,
+            UiKey.A => ImGuiKey.A,
+            UiKey.C => ImGuiKey.C,
+            UiKey.V => ImGuiKey.V,
+            UiKey.X => ImGuiKey.X,
+            UiKey.Y => ImGuiKey.Y,
+            UiKey.Z => ImGuiKey.Z,
+            _ => null,
+        };
 
         public void Tick(double simTimeSeconds)
         {

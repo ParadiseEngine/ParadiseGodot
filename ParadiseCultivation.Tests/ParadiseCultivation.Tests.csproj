@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Headless proof that the cultivation slice runs without any engine host. TUnit on
+    Microsoft.Testing.Platform, matching the repo's test stack. Run via `dotnet test` with
+    this project. The shipped config is copied in as a fixture so the tests validate the
+    real authored numbers, not synthetic ones.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Microsoft.Testing.Platform ships resource locales the .NET 10 SDK doesn't recognize. -->
+    <NoWarn>$(NoWarn);NETSDK1188</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.57.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ParadiseCultivation\ParadiseCultivation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\data\cultivation\config.json" Link="config.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

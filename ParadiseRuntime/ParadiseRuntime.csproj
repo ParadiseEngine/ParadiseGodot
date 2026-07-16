@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ParadiseGame\ParadiseGame.csproj" />
+    <ProjectReference Include="..\ParadiseCultivation\ParadiseCultivation.csproj" />
     <ProjectReference Include="..\ParadiseUi\ParadiseUi.csproj" />
     <ProjectReference Include="..\ParadiseGame.Navigation.Detour\ParadiseGame.Navigation.Detour.csproj" />
     <ProjectReference Include="..\ParadiseExport\ParadiseExport.csproj" />
