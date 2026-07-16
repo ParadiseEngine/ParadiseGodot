@@ -37,12 +37,15 @@ public static class Pathfinding
     {
         if (!map.InBounds(toX, toY) || (fromX == toX && fromY == toY)) return null;
 
+        // No stopping on water for ANY mode (inland lakes, no boats): flight crosses it but
+        // may not end on it — otherwise a flyer parks mid-lake, which the design never meant.
+        if (!IsWalkable(config, map.TileAt(toX, toY))) return null;
+
         if (realmIndex >= config.Time.SwordFlightRealmIndex)
         {
             return PlanFlight(config, fromX, fromY, toX, toY);
         }
 
-        if (!IsWalkable(config, map.TileAt(toX, toY))) return null;
         return PlanWalk(config, map, fromX, fromY, toX, toY);
     }
 

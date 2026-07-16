@@ -158,6 +158,8 @@ public sealed record UiTextConfig
 
     /// <summary>{0} realm name, {1} sub-stage name.</summary>
     public required string RealmTitleFormat { get; init; }
+    /// <summary>{0} whole percent value — every percent display goes through this.</summary>
+    public required string PercentFormat { get; init; }
 }
 
 /// <summary>Runner-produced messages, chronicle entries, and memory log lines.</summary>

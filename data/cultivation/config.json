@@ -464,6 +464,8 @@
     "zoomMax": 64,
     "zoomDefault": 28,
     "observableRange": 6,
+    "observableRangePerRealm": 2,
+    "observableRangeMax": 14,
     "labelZoomThreshold": 20
   },
   "save": {

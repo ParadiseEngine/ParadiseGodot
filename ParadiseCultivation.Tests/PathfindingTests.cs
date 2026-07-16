@@ -35,7 +35,7 @@ public class PathfindingTests
     }
 
     [Test]
-    public async Task water_is_impassable_on_foot_but_flight_crosses_it()
+    public async Task water_is_impassable_on_foot_and_flight_may_cross_but_not_stop()
     {
         var map = DemoMap();
         var water = FindTile(map, t => t.Terrain == Terrain.Water);
@@ -44,10 +44,11 @@ public class PathfindingTests
         var walk = Pathfinding.Plan(Fixture.Config, map, home.X, home.Y, realmIndex: 0, water.X, water.Y);
         await Assert.That(walk).IsNull(); // a water destination has no foot path
 
+        // Flight ignores terrain EN ROUTE but may not park on a lake either (no boats,
+        // no hovering camps — the destination-walkable rule applies to every mode).
         var flight = Pathfinding.Plan(
             Fixture.Config, map, home.X, home.Y, Fixture.Config.Time.SwordFlightRealmIndex, water.X, water.Y);
-        await Assert.That(flight).IsNotNull();
-        await Assert.That(flight!.Mode).IsEqualTo(Fixture.Config.Text.Messages.FlightMode);
+        await Assert.That(flight).IsNull();
     }
 
     [Test]
@@ -135,6 +136,45 @@ public class PathfindingTests
         var after = runner.Current.GetComponent<PlayerData>(runner.Player);
         await Assert.That((after.X, after.Y)).IsEqualTo(before);
         await Assert.That(runner.Busy).IsFalse();
+    }
+
+    [Test]
+    public async Task no_mode_may_stop_on_water()
+    {
+        var (map, _) = WorldGenerator.Generate(Fixture.Config, seed: 42, presetIndex: 0);
+        var from = map.Sites[0];
+        var water = FindTile(map, tile => tile.Terrain == Terrain.Water);
+        var flightRealm = Fixture.Config.Time.SwordFlightRealmIndex;
+
+        // A flyer may CROSS water but never end on it; walkers were always refused.
+        await Assert.That(Pathfinding.Plan(
+            Fixture.Config, map, from.X, from.Y, flightRealm, water.X, water.Y) is null).IsTrue();
+        await Assert.That(Pathfinding.Plan(
+            Fixture.Config, map, from.X, from.Y, 0, water.X, water.Y) is null).IsTrue();
+
+        // Land destinations still fly fine (mode says so).
+        var land = map.Sites[^1];
+        var plan = Pathfinding.Plan(Fixture.Config, map, from.X, from.Y, flightRealm, land.X, land.Y);
+        await Assert.That(plan is not null).IsTrue();
+        await Assert.That(plan!.Mode).IsEqualTo(Fixture.Config.Text.Messages.FlightMode);
+    }
+
+    [Test]
+    public async Task divine_sense_grows_with_realm_and_caps()
+    {
+        var ui = Fixture.Config.Ui;
+        await Assert.That(CultivationRules.ObservableRange(Fixture.Config, 0)).IsEqualTo(ui.ObservableRange);
+        await Assert.That(CultivationRules.ObservableRange(Fixture.Config, 1))
+            .IsEqualTo(Math.Min(ui.ObservableRangeMax, ui.ObservableRange + ui.ObservableRangePerRealm));
+        await Assert.That(CultivationRules.ObservableRange(Fixture.Config, 99)).IsEqualTo(ui.ObservableRangeMax);
+    }
+
+    [Test]
+    public async Task percent_displays_have_no_stray_space()
+    {
+        var text = CultivationRules.Percent(Fixture.Config, 0.15);
+        await Assert.That(text).Contains("15");
+        await Assert.That(text.Contains(' ') || text.Contains(' ')).IsFalse();
     }
 
     private static (int X, int Y) FindTile(WorldMap map, Func<Tile, bool> predicate)

@@ -492,8 +492,13 @@ public sealed record UiConfig
     public required float ZoomMin { get; init; }
     public required float ZoomMax { get; init; }
     public required float ZoomDefault { get; init; }
-    /// <summary>Chebyshev radius (tiles) the player can see and click destinations within.</summary>
+    /// <summary>Chebyshev radius (tiles) the player can see and click destinations within
+    /// at realm 0 — divine sense: the effective range is base + realm ×
+    /// <see cref="ObservableRangePerRealm"/>, capped at <see cref="ObservableRangeMax"/>
+    /// (see <see cref="CultivationRules.ObservableRange"/>).</summary>
     public required int ObservableRange { get; init; }
+    public required int ObservableRangePerRealm { get; init; }
+    public required int ObservableRangeMax { get; init; }
     /// <summary>Zoom (tile width px) at or above which site name labels draw.</summary>
     public required float LabelZoomThreshold { get; init; }
 }

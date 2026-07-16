@@ -21,7 +21,7 @@
     "mapHelp": "滚轮缩放  拖拽平移  点击赶路  WASD移步   （{0}x{1}）",
     "tooFarHint": "目力不及之处——先行靠近再看。",
     "travelTooltip": "赶路：{0}日（{1}）——点击前往",
-    "noFootPath": "徒步无路可达。",
+    "noFootPath": "无路可达，此处亦无法驻足。",
     "beyondSight": "目力所不及。",
     "veinTooltip": "灵脉（{0}品）",
     "townWord": "城镇",
@@ -115,7 +115,8 @@
     "deathTitle": "大道尽头",
     "deathLine": "{0}修至{1}，享年{2}岁。编年史长存于世。",
     "reincarnateButton": "转世重修（另换命数）",
-    "realmTitleFormat": "{0}{1}"
+    "realmTitleFormat": "{0}{1}",
+    "percentFormat": "{0}%"
   },
   "messages": {
     "arrivalLog": "{0}来到{1}，踏上修行之路。",

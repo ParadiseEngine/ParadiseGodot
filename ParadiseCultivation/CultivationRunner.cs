@@ -749,7 +749,7 @@ public sealed class CultivationRunner : IDisposable
         }
         if (usedPill)
         {
-            LastActionResult = F(Msg.PillUsedNote, $"{Config.Trade.PillBreakthroughBonus:P0}") + LastActionResult;
+            LastActionResult = F(Msg.PillUsedNote, CultivationRules.Percent(Config, Config.Trade.PillBreakthroughBonus)) + LastActionResult;
         }
         BeginAdvance(CommandKind.Breakthrough, Config.Time.ActionDays.Breakthrough);
     }

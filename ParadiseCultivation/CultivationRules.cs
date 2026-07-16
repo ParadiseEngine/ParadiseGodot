@@ -44,6 +44,18 @@ public static class CultivationRules
     public static float VeinBonusAt(CultivationConfig config, WorldMap map, int x, int y) =>
         config.VeinCultivationBonus[map.TileAt(x, y).VeinQuality]; // L3 layer, any terrain
 
+    /// <summary>How far the player sees (and may click destinations): divine sense grows
+    /// with realm — base + per-realm bonus, capped. Fog, vein visibility, and the travel
+    /// click gate all follow this one number.</summary>
+    public static int ObservableRange(CultivationConfig config, int realmIndex) =>
+        Math.Min(config.Ui.ObservableRangeMax,
+            config.Ui.ObservableRange + realmIndex * config.Ui.ObservableRangePerRealm);
+
+    /// <summary>Percent display through the authored format (invariant :P0 inserts a
+    /// non-breaking space before %, which reads wrong in Chinese text).</summary>
+    public static string Percent(CultivationConfig config, double fraction) =>
+        F(config.Text.Ui.PercentFormat, (int)Math.Round(fraction * 100.0));
+
     /// <summary>Player points per cultivated month: realm base × spirit root × vein bonus,
     /// halved while injured.</summary>
     public static double MonthlyCultivationGain(

@@ -236,7 +236,7 @@ public sealed class CultivationUi
             }
         }
 
-        var range = ui.ObservableRange;
+        var range = CultivationRules.ObservableRange(Config, realmIndex); // divine sense
         var showGrid = _zoom >= 10f;
         for (var y = 0; y < map.Height; y++)
         {
@@ -453,7 +453,7 @@ public sealed class CultivationUi
         var veinBonus = CultivationRules.VeinBonusAt(Config, _runner.Map, player.X, player.Y);
         if (veinBonus > 0)
         {
-            ImGui.TextColored(new Vector4(0.5f, 0.9f, 1f, 1f), F(T.OnVeinLine, $"{veinBonus:P0}"));
+            ImGui.TextColored(new Vector4(0.5f, 0.9f, 1f, 1f), F(T.OnVeinLine, CultivationRules.Percent(Config, veinBonus)));
         }
 
         if (_runner.Busy)
@@ -496,11 +496,11 @@ public sealed class CultivationUi
         if (CultivationRules.BreakthroughReady(Config, in cultivator))
         {
             var chance = CultivationRules.BreakthroughSuccessChance(Config, _runner.Map, in cultivator, in player);
-            ImGui.TextColored(new Vector4(1f, 0.9f, 0.4f, 1f), F(T.BreakthroughReadyLine, $"{chance:P0}"));
+            ImGui.TextColored(new Vector4(1f, 0.9f, 0.4f, 1f), F(T.BreakthroughReadyLine, CultivationRules.Percent(Config, chance)));
             if (player.Pills > 0)
             {
                 ImGui.TextColored(new Vector4(0.6f, 1f, 0.6f, 1f),
-                    F(T.PillReadyLine, $"{Config.Trade.PillBreakthroughBonus:P0}"));
+                    F(T.PillReadyLine, CultivationRules.Percent(Config, Config.Trade.PillBreakthroughBonus)));
             }
             if (ImGui.Button(T.BreakthroughButton, new Vector2(-1, 0)))
             {
@@ -648,7 +648,7 @@ public sealed class CultivationUi
             var cfg = Config.SecretRealm;
             var chance = Math.Clamp(
                 cfg.BaseSuccessChance + player.Fortune * cfg.FortuneChancePerPoint, 0.05f, 0.95f);
-            ImGui.Text(F(T.RealmChanceLine, $"{chance:P0}"));
+            ImGui.Text(F(T.RealmChanceLine, CultivationRules.Percent(Config, chance)));
             ImGui.BeginDisabled(_runner.Busy);
             if (ImGui.Button(T.EnterRealmButton)) _runner.RequestEnterRealm();
             ImGui.EndDisabled();
