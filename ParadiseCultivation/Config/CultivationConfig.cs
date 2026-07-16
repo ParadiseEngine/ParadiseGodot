@@ -170,6 +170,11 @@ public sealed record SaveConfig
 {
     /// <summary>Directory for save files, relative to the working directory.</summary>
     public required string Directory { get; init; }
+    /// <summary>Manual save slots offered by the UI.</summary>
+    public required int SlotCount { get; init; }
+    /// <summary>Autosave whenever the world is idle and this many game months passed since
+    /// the last one (0 disables). Quiet: never clobbers the action-result line.</summary>
+    public required int AutosaveMonths { get; init; }
 }
 
 /// <summary>Actions animate: game days tick by at <see cref="DaysPerSecond"/> real-time (the

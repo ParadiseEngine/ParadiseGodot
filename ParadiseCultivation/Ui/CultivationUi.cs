@@ -84,7 +84,96 @@ public sealed class CultivationUi
         }
     }
 
-    private string SaveSlotPath => Path.Combine(_runner.SaveRoot, "slot1.json");
+    private string SlotPath(int slot) => Path.Combine(_runner.SaveRoot, $"slot{slot + 1}.json");
+
+    /// <summary>The newest existing save among the manual slots and the autosave, or null —
+    /// the new-game screen's "continue" target.</summary>
+    private string? NewestSavePath()
+    {
+        string? newest = null;
+        var newestTime = DateTime.MinValue;
+        for (var slot = -1; slot < Config.Save.SlotCount; slot++)
+        {
+            var path = slot < 0 ? _runner.AutosavePath : SlotPath(slot);
+            if (!File.Exists(path)) continue;
+            var time = File.GetLastWriteTimeUtc(path);
+            if (time <= newestTime) continue;
+            newest = path;
+            newestTime = time;
+        }
+        return newest;
+    }
+
+    // Slot rows poll the filesystem — cheap, but not per frame. Refreshed every ~2 s and
+    // immediately after any save/load click.
+    private (bool Exists, string Label)[] _slotCache = [];
+    private long _slotCacheFrame = long.MinValue;
+    private long _uiFrame;
+
+    private void RefreshSlotCache(bool force = false)
+    {
+        if (!force && _slotCache.Length == Config.Save.SlotCount + 1 && _uiFrame - _slotCacheFrame < 120)
+        {
+            return;
+        }
+        _slotCacheFrame = _uiFrame;
+        var slots = new (bool, string)[Config.Save.SlotCount + 1];
+        for (var slot = 0; slot < Config.Save.SlotCount; slot++)
+        {
+            slots[slot] = SlotStatus(SlotPath(slot));
+        }
+        slots[^1] = SlotStatus(_runner.AutosavePath);
+        _slotCache = slots;
+
+        static (bool, string) SlotStatus(string path) =>
+            File.Exists(path)
+                ? (true, File.GetLastWriteTime(path).ToString("yyyy-MM-dd HH:mm"))
+                : (false, string.Empty);
+    }
+
+    /// <summary>Manual slots (save + load each) and the autosave row (load only).</summary>
+    private void DrawSaveSlots()
+    {
+        _uiFrame++;
+        RefreshSlotCache();
+
+        for (var slot = 0; slot < Config.Save.SlotCount; slot++)
+        {
+            var (exists, label) = _slotCache[slot];
+            ImGui.Text(F(T.SlotLine, slot + 1, exists ? label : T.EmptySlotWord));
+            ImGui.SameLine();
+            if (ImGui.Button($"{T.SaveButton}##slot{slot}"))
+            {
+                _runner.RequestSave(SlotPath(slot));
+                RefreshSlotCache(force: true);
+            }
+            ImGui.SameLine();
+            ImGui.BeginDisabled(!exists);
+            if (ImGui.Button($"{T.LoadButton}##slot{slot}"))
+            {
+                _runner.RequestLoad(SlotPath(slot));
+                _hasSelection = false;
+                RefreshSlotCache(force: true);
+            }
+            ImGui.EndDisabled();
+        }
+
+        var (autosaveExists, autosaveLabel) = _slotCache[^1];
+        ImGui.Text(F(T.SlotLine, T.AutosaveSlotWord, autosaveExists ? autosaveLabel : T.EmptySlotWord));
+        ImGui.SameLine();
+        ImGui.BeginDisabled(!autosaveExists);
+        if (ImGui.Button($"{T.LoadButton}##autosave"))
+        {
+            _runner.RequestLoad(_runner.AutosavePath);
+            _hasSelection = false;
+            RefreshSlotCache(force: true);
+        }
+        ImGui.EndDisabled();
+        if (_runner.LastAutosaveDay >= 0)
+        {
+            ImGui.TextDisabled(F(T.AutosaveLine, CultivationRules.FormatDate(Config, _runner.LastAutosaveDay)));
+        }
+    }
 
     // ---- new game ---------------------------------------------------------------------------
 
@@ -139,9 +228,9 @@ public sealed class CultivationUi
         {
             _runner.RequestBeginJourney();
         }
-        if (File.Exists(SaveSlotPath) && ImGui.Button(T.LoadSavedJourney, new Vector2(-1, 0)))
+        if (NewestSavePath() is { } newestSave && ImGui.Button(T.LoadSavedJourney, new Vector2(-1, 0)))
         {
-            _runner.RequestLoad(SaveSlotPath);
+            _runner.RequestLoad(newestSave);
             _hasSelection = false;
         }
         ImGui.End();
@@ -553,15 +642,7 @@ public sealed class CultivationUi
         }
 
         ImGui.Separator();
-        if (ImGui.Button(T.SaveButton)) _runner.RequestSave(SaveSlotPath);
-        ImGui.SameLine();
-        ImGui.BeginDisabled(!File.Exists(SaveSlotPath));
-        if (ImGui.Button(T.LoadButton))
-        {
-            _runner.RequestLoad(SaveSlotPath);
-            _hasSelection = false;
-        }
-        ImGui.EndDisabled();
+        DrawSaveSlots();
 
         ImGui.EndDisabled();
 

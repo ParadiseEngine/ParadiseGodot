@@ -525,6 +525,8 @@
     "labelZoomThreshold": 20
   },
   "save": {
-    "directory": "saves"
+    "directory": "saves",
+    "slotCount": 3,
+    "autosaveMonths": 12
   }
 }

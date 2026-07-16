@@ -474,6 +474,7 @@ public sealed class CultivationRunner : IDisposable
         _runByWorld[write](current);
 
         PostPass(write);
+        MaybeAutosave(write);
 
         lock (_lock)
         {
@@ -1718,7 +1719,7 @@ public sealed class CultivationRunner : IDisposable
 
     // ---- save / load (versioned JSON; corrupt loads must fail safely) ----
 
-    private void SaveGame(World write, string path)
+    private void SaveGame(World write, string path, bool announce = true)
     {
         try
         {
@@ -1726,12 +1727,40 @@ public sealed class CultivationRunner : IDisposable
             var directory = Path.GetDirectoryName(path);
             if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
             File.WriteAllText(path, JsonSerializer.Serialize(data, CultivationJsonContext.Default.SaveData));
-            LastActionResult = F(Msg.SaveDoneMsg, path);
+            if (announce) LastActionResult = F(Msg.SaveDoneMsg, path);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
         {
-            LastActionResult = F(Msg.SaveFailMsg, e.Message);
+            if (announce) LastActionResult = F(Msg.SaveFailMsg, e.Message);
         }
+    }
+
+    /// <summary>Where the periodic autosave lands (under <see cref="SaveRoot"/>).</summary>
+    public string AutosavePath => Path.Combine(SaveRoot, "autosave.json");
+
+    /// <summary>Day of the last successful autosave, or -1 (UI status line). SIM THREAD ONLY.</summary>
+    public long LastAutosaveDay { get; private set; } = -1;
+
+    private long _lastAutosaveMonth;
+
+    /// <summary>Quiet periodic autosave: fires only while the world is idle (never mid-action
+    /// — a completed action is a coherent moment) and at most once per the config cadence.
+    /// Silent by design: the action-result line belongs to the player's last action.</summary>
+    private void MaybeAutosave(World write)
+    {
+        var cadence = Config.Save.AutosaveMonths;
+        if (cadence <= 0 || Phase != GamePhase.Playing || Busy)
+        {
+            return;
+        }
+        var month = _day / Config.Time.DaysPerMonth;
+        if (month - _lastAutosaveMonth < cadence)
+        {
+            return;
+        }
+        _lastAutosaveMonth = month;
+        SaveGame(write, AutosavePath, announce: false);
+        LastAutosaveDay = _day;
     }
 
     private SaveData BuildSaveData(World write)
@@ -1876,6 +1905,8 @@ public sealed class CultivationRunner : IDisposable
         LastReply = string.Empty;
         _llmChatSeq++;    // in-flight LLM results belong to the pre-load world — discard
         _llmGeneration++;
+        _lastAutosaveMonth = data.Day / Config.Time.DaysPerMonth; // restart the cadence here
+        LastAutosaveDay = -1;
 
         write.Clear();
         foreach (var saved in data.Npcs)
@@ -2109,6 +2140,8 @@ public sealed class CultivationRunner : IDisposable
         LastReply = string.Empty;
         _llmChatSeq++;    // in-flight LLM results belong to the previous world — discard
         _llmGeneration++;
+        _lastAutosaveMonth = 0; // the fresh world starts its own autosave cadence
+        LastAutosaveDay = -1;
         _dayCursor = 0;
         Volatile.Write(ref _day, 0);
         _pendingDays = 0;

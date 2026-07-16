@@ -82,6 +82,12 @@ public sealed record UiTextConfig
     public required string BreakthroughLockedLine { get; init; }
     public required string SaveButton { get; init; }
     public required string LoadButton { get; init; }
+    /// <summary>{0} slot number (or the autosave word), {1} timestamp or the empty word.</summary>
+    public required string SlotLine { get; init; }
+    public required string EmptySlotWord { get; init; }
+    public required string AutosaveSlotWord { get; init; }
+    /// <summary>{0} in-game date of the last autosave.</summary>
+    public required string AutosaveLine { get; init; }
 
     public required string LocationTitle { get; init; }
     /// <summary>{0} terrain name.</summary>
