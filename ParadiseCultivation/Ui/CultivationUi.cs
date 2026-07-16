@@ -421,6 +421,11 @@ public sealed class CultivationUi
         ImGui.Text(F(T.CharmFortuneLine, Config.CharmTiers[player.CharmTier].Name, $"{player.Fortune:F0}",
             $"{CultivationRules.FortuneMultiplier(Config, player.Fortune):F2}"));
         ImGui.Text(F(T.StonesHerbsLine, player.SpiritStones, player.Herbs));
+        if (player.SectSiteIndex >= 0)
+        {
+            ImGui.Text(F(T.StatusSectLine, _runner.Map.Sites[player.SectSiteIndex].Name,
+                Config.Sect.Ranks[player.SectRank].Name));
+        }
         if (player.Pills > 0)
         {
             ImGui.Text(F(T.PillsLine, player.Pills));
@@ -542,6 +547,10 @@ public sealed class CultivationUi
         {
             DrawMarket(tile.SiteIndex, in player);
         }
+        else
+        {
+            DrawSectSection(tile.SiteIndex, in player);
+        }
 
         var found = false;
         foreach (var entity in _runner.Npcs)
@@ -570,6 +579,59 @@ public sealed class CultivationUi
         ImGui.Separator();
         DrawNpcPanel(_selectedNpc);
         ImGui.End();
+    }
+
+    /// <summary>The sect panel: apprenticeship for outsiders (requirement lines + a join
+    /// button that only lights up when the leader's regard and the spirit root qualify),
+    /// rank/stipend/next-step for members, and the leave-in-person button.</summary>
+    private void DrawSectSection(int siteIndex, in PlayerData player)
+    {
+        ImGui.SeparatorText(T.SectSectionTitle);
+        var world = _runner.UiWorld;
+        var ranks = Config.Sect.Ranks;
+
+        if (player.SectSiteIndex == siteIndex)
+        {
+            var rank = ranks[player.SectRank];
+            ImGui.Text(F(T.MemberRankLine, rank.Name, rank.MonthlyStipendStones));
+            if (player.SectRank + 1 < ranks.Length)
+            {
+                ImGui.TextDisabled(F(T.NextRankLine, ranks[player.SectRank + 1].Name,
+                    Config.Realms[ranks[player.SectRank + 1].MinRealmIndex].Name));
+            }
+            else
+            {
+                ImGui.TextDisabled(T.TopRankLine);
+            }
+            ImGui.BeginDisabled(_runner.Busy);
+            if (ImGui.Button(T.LeaveSectButton)) _runner.RequestLeaveSect();
+            ImGui.EndDisabled();
+        }
+        else if (player.SectSiteIndex >= 0)
+        {
+            ImGui.TextWrapped(F(T.OtherSectLine, _runner.Map.Sites[player.SectSiteIndex].Name));
+        }
+        else if (_runner.FindSectLeader(world, siteIndex) is not { } leader)
+        {
+            ImGui.TextDisabled(T.SectNoLeaderLine);
+        }
+        else
+        {
+            var affection = world.GetComponent<NpcState>(leader).AffectionToPlayer;
+            var affectionOk = affection >= Config.Sect.JoinMinLeaderAffection;
+            var rootOk = player.SpiritRootGrade >= Config.Sect.JoinMinSpiritRootGrade;
+            ImGui.Text(F(T.JoinReqAffectionLine, $"{affection:F0}",
+                $"{Config.Sect.JoinMinLeaderAffection:F0}"));
+            if (!rootOk)
+            {
+                ImGui.Text(F(T.JoinReqRootLine,
+                    Config.SpiritRoots.Grades[Config.Sect.JoinMinSpiritRootGrade].Name));
+            }
+            ImGui.BeginDisabled(_runner.Busy || !affectionOk || !rootOk);
+            if (ImGui.Button(T.JoinSectButton)) _runner.RequestJoinSect();
+            ImGui.EndDisabled();
+        }
+        ImGui.Separator();
     }
 
     /// <summary>The town market: herbs sell here, breakthrough pills stock here (monthly),

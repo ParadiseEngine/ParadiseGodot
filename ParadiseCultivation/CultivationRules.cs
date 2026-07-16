@@ -53,6 +53,11 @@ public static class CultivationRules
         var gain = realm.MonthlyBasePoints
             * config.SpiritRoots.Grades[player.SpiritRootGrade].Multiplier
             * (1f + VeinBonusAt(config, map, player.X, player.Y));
+        if (player.SectSiteIndex >= 0 &&
+            map.TileAt(player.X, player.Y).SiteIndex == player.SectSiteIndex)
+        {
+            gain *= 1f + config.Sect.MemberCultivationBonus; // training at one's own mountain
+        }
         return player.InjuryMonths > 0 ? gain * 0.5 : gain;
     }
 

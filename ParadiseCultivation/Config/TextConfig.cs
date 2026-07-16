@@ -87,6 +87,24 @@ public sealed record UiTextConfig
     /// <summary>{0} vein quality, {1} terrain name.</summary>
     public required string WildernessVeinLine { get; init; }
     public required string SelectSomeone { get; init; }
+    public required string SectSectionTitle { get; init; }
+    public required string JoinSectButton { get; init; }
+    /// <summary>{0} current leader affection, {1} required.</summary>
+    public required string JoinReqAffectionLine { get; init; }
+    /// <summary>{0} required spirit-root grade name.</summary>
+    public required string JoinReqRootLine { get; init; }
+    public required string SectNoLeaderLine { get; init; }
+    /// <summary>{0} rank name, {1} monthly stipend.</summary>
+    public required string MemberRankLine { get; init; }
+    /// <summary>{0} next rank name, {1} required realm name.</summary>
+    public required string NextRankLine { get; init; }
+    public required string TopRankLine { get; init; }
+    public required string LeaveSectButton { get; init; }
+    /// <summary>{0} the sect the player already belongs to.</summary>
+    public required string OtherSectLine { get; init; }
+    /// <summary>{0} sect name, {1} rank name (status panel).</summary>
+    public required string StatusSectLine { get; init; }
+
     public required string MarketTitle { get; init; }
     /// <summary>{0} player herbs, {1} stones per herb at this town.</summary>
     public required string MarketHerbLine { get; init; }
@@ -183,6 +201,25 @@ public sealed record MessageTextConfig
     public required string ExploreInsightLog { get; init; }
     /// <summary>Atmosphere lines when nothing is found (picked by the saved RNG stream).</summary>
     public required string[] ExploreNothing { get; init; }
+
+    public required string JoinNoSectMsg { get; init; }
+    /// <summary>{0} the sect the player already belongs to.</summary>
+    public required string JoinAlreadyMemberMsg { get; init; }
+    /// <summary>{0} current leader affection, {1} required.</summary>
+    public required string JoinNeedAffectionMsg { get; init; }
+    public required string JoinNeedRootMsg { get; init; }
+    public required string JoinNoLeaderMsg { get; init; }
+    /// <summary>{0} sect name, {1} starting rank name.</summary>
+    public required string JoinDoneMsg { get; init; }
+    /// <summary>{0} player name, {1} sect name, {2} starting rank name.</summary>
+    public required string JoinSectLog { get; init; }
+    public required string LeaveNotHereMsg { get; init; }
+    /// <summary>{0} sect name.</summary>
+    public required string LeaveDoneMsg { get; init; }
+    /// <summary>{0} player name, {1} sect name.</summary>
+    public required string LeaveSectLog { get; init; }
+    /// <summary>{0} player name, {1} sect name, {2} new rank name.</summary>
+    public required string SectPromoteLog { get; init; }
 
     public required string TradeNoMarketMsg { get; init; }
     /// <summary>{0} herbs sold, {1} stones received.</summary>

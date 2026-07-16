@@ -22,6 +22,8 @@ public enum CommandKind
     Spar,
     SellHerbs,
     BuyPill,
+    JoinSect,
+    LeaveSect,
     Save,
     Load,
 }
@@ -246,6 +248,14 @@ public sealed class CultivationRunner : IDisposable
     public void RequestBuyPill() =>
         Enqueue(new CultivationCommand(CommandKind.BuyPill, 0, 0, default, null));
 
+    /// <summary>Seek apprenticeship at the sect the player stands in.</summary>
+    public void RequestJoinSect() =>
+        Enqueue(new CultivationCommand(CommandKind.JoinSect, 0, 0, default, null));
+
+    /// <summary>Leave one's sect — must be said in person, at the mountain gate.</summary>
+    public void RequestLeaveSect() =>
+        Enqueue(new CultivationCommand(CommandKind.LeaveSect, 0, 0, default, null));
+
     public void RequestSave(string path) =>
         Enqueue(new CultivationCommand(CommandKind.Save, 0, 0, default, path));
 
@@ -463,6 +473,7 @@ public sealed class CultivationRunner : IDisposable
         for (var m = 0; m < monthsCrossed; m++)
         {
             if (player.InjuryMonths > 0) player.InjuryMonths--;
+            SettleSectMonth(ref cultivator, ref player);
             if (cultivating)
             {
                 var gain = CultivationRules.MonthlyCultivationGain(Config, _map, in cultivator, in player);
@@ -609,6 +620,12 @@ public sealed class CultivationRunner : IDisposable
                     break;
                 case CommandKind.BuyPill:
                     ApplyBuyPill(ref player);
+                    break;
+                case CommandKind.JoinSect:
+                    ApplyJoinSect(write, ref player);
+                    break;
+                case CommandKind.LeaveSect:
+                    ApplyLeaveSect(write, ref player);
                     break;
             }
         }
@@ -820,6 +837,113 @@ public sealed class CultivationRunner : IDisposable
         BeginAdvance(CommandKind.Spar, Config.Time.ActionDays.Spar);
     }
 
+    // ---- sect membership (apprenticeship, ranks, stipend) ----
+
+    /// <summary>The living leader of the sect at <paramref name="siteIndex"/>, if any —
+    /// shared by the join gate and the UI's requirement lines. SIM THREAD ONLY.</summary>
+    public Entity? FindSectLeader(World world, int siteIndex)
+    {
+        foreach (var entity in _npcs)
+        {
+            ref readonly var npc = ref world.GetComponent<NpcState>(entity);
+            if (npc.Alive != 0 && npc.IsLeader != 0 && npc.SiteIndex == siteIndex)
+            {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    private void ApplyJoinSect(World write, ref PlayerData player)
+    {
+        var siteIndex = _map.TileAt(player.X, player.Y).SiteIndex;
+        if (siteIndex < 0 || _map.Sites[siteIndex].Kind != SiteKind.Sect)
+        {
+            LastActionResult = Msg.JoinNoSectMsg;
+            return;
+        }
+        if (player.SectSiteIndex >= 0)
+        {
+            LastActionResult = F(Msg.JoinAlreadyMemberMsg, _map.Sites[player.SectSiteIndex].Name);
+            return;
+        }
+        if (player.SpiritRootGrade < Config.Sect.JoinMinSpiritRootGrade)
+        {
+            LastActionResult = Msg.JoinNeedRootMsg;
+            return;
+        }
+        if (FindSectLeader(write, siteIndex) is not { } leader)
+        {
+            LastActionResult = Msg.JoinNoLeaderMsg;
+            return;
+        }
+        ref var leaderState = ref write.GetComponent<NpcState>(leader);
+        if (leaderState.AffectionToPlayer < Config.Sect.JoinMinLeaderAffection)
+        {
+            LastActionResult = F(Msg.JoinNeedAffectionMsg,
+                $"{leaderState.AffectionToPlayer:F0}", $"{Config.Sect.JoinMinLeaderAffection:F0}");
+            return;
+        }
+
+        // Everyone starts at the gate rank; the next monthly settlement promotes through
+        // whatever the realm already qualifies for.
+        player.SectSiteIndex = siteIndex;
+        player.SectRank = 0;
+        var sectName = _map.Sites[siteIndex].Name;
+        var rankName = Config.Sect.Ranks[0].Name;
+        var playerName = CultivationRules.PlayerName(Config, in player);
+        _memories[leader].Add(new MemoryEntry(_day, F(Msg.JoinSectLog, playerName, sectName, rankName)));
+        Log(F(Msg.JoinSectLog, playerName, sectName, rankName));
+        LastActionResult = F(Msg.JoinDoneMsg, sectName, rankName);
+        BeginAdvance(CommandKind.JoinSect, Config.Sect.JoinCeremonyDays);
+    }
+
+    private void ApplyLeaveSect(World write, ref PlayerData player)
+    {
+        if (player.SectSiteIndex < 0)
+        {
+            return; // nothing to leave; the UI never offers this sectless
+        }
+        var siteIndex = _map.TileAt(player.X, player.Y).SiteIndex;
+        if (siteIndex != player.SectSiteIndex)
+        {
+            LastActionResult = Msg.LeaveNotHereMsg;
+            return;
+        }
+
+        var sectName = _map.Sites[player.SectSiteIndex].Name;
+        if (FindSectLeader(write, player.SectSiteIndex) is { } leader)
+        {
+            ref var leaderState = ref write.GetComponent<NpcState>(leader);
+            GainAffection(ref leaderState, in player, Config.Sect.LeaveAffectionPenalty);
+            _memories[leader].Add(new MemoryEntry(
+                _day, F(Msg.LeaveSectLog, CultivationRules.PlayerName(Config, in player), sectName)));
+        }
+        player.SectSiteIndex = -1;
+        player.SectRank = 0;
+        Log(F(Msg.LeaveSectLog, CultivationRules.PlayerName(Config, in player), sectName));
+        LastActionResult = F(Msg.LeaveDoneMsg, sectName);
+    }
+
+    /// <summary>Monthly sect settlement: promote through every rank the realm now qualifies
+    /// for, then pay the (possibly new) rank's stipend.</summary>
+    private void SettleSectMonth(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (player.SectSiteIndex < 0)
+        {
+            return;
+        }
+        var ranks = Config.Sect.Ranks;
+        while (player.SectRank + 1 < ranks.Length &&
+               cultivator.RealmIndex >= ranks[player.SectRank + 1].MinRealmIndex)
+        {
+            player.SectRank++;
+            Log(F(Msg.SectPromoteLog, CultivationRules.PlayerName(Config, in player),
+                _map.Sites[player.SectSiteIndex].Name, ranks[player.SectRank].Name));
+        }
+        player.SpiritStones += ranks[player.SectRank].MonthlyStipendStones;
+    }
+
     // ---- trade (town markets; the P2 slice) ----
 
     /// <summary>Trade needs a town under the player's feet; anywhere else is refused.</summary>
@@ -966,6 +1090,8 @@ public sealed class CultivationRunner : IDisposable
                 SpiritStones = player.SpiritStones,
                 Herbs = player.Herbs,
                 Pills = player.Pills,
+                SectSiteIndex = player.SectSiteIndex,
+                SectRank = player.SectRank,
                 InjuryMonths = player.InjuryMonths,
                 LifespanYears = player.LifespanYears,
             },
@@ -1091,6 +1217,11 @@ public sealed class CultivationRunner : IDisposable
                 SpiritStones = data.Player.SpiritStones,
                 Herbs = data.Player.Herbs,
                 Pills = data.Player.Pills,
+                // Range-check against the regenerated map/config: a save from different data
+                // must degrade to sectless rather than index out of bounds.
+                SectSiteIndex = data.Player.SectSiteIndex is { } sect && sect >= 0 && sect < _map.Sites.Count
+                    ? sect : -1,
+                SectRank = Math.Clamp(data.Player.SectRank, 0, Config.Sect.Ranks.Length - 1),
                 InjuryMonths = data.Player.InjuryMonths,
                 LifespanYears = data.Player.LifespanYears,
             })
@@ -1238,6 +1369,7 @@ public sealed class CultivationRunner : IDisposable
                 Y = home?.Y ?? _map.Height / 2,
                 Fortune = Config.Fortune.Initial,
                 SpiritStones = Config.Player.StartSpiritStones,
+                SectSiteIndex = -1, // zero-default would mean "member of site 0"
                 LifespanYears = Config.Realms[0].LifespanYears,
             })
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed }));

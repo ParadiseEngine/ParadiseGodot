@@ -45,6 +45,7 @@ public sealed record CultivationConfig
     public required NpcConfig Npc { get; init; }
     public required PlayerConfig Player { get; init; }
     public required TradeConfig Trade { get; init; }
+    public required SectConfig Sect { get; init; }
     public required DialogueConfig Dialogue { get; init; }
     public required NamesConfig Names { get; init; }
     public required UiConfig Ui { get; init; }
@@ -198,6 +199,35 @@ public sealed record TradeConfig
     public required float PillBreakthroughBonus { get; init; }
     /// <summary>Per-town price factor range: 1 ± this percent, hashed from world + site.</summary>
     public required int PriceSpreadPercent { get; init; }
+}
+
+/// <summary>Sect membership (the P2 slice): apprenticeship gated on the leader's regard and
+/// the spirit root, a rank ladder promoted by realm at monthly settlement, a stipend, and a
+/// cultivation bonus while at one's own mountain gate. Reuses the affection machinery whole.</summary>
+public sealed record SectConfig
+{
+    /// <summary>The sect leader's affection toward the player required to be accepted.</summary>
+    public required float JoinMinLeaderAffection { get; init; }
+    /// <summary>Minimum spirit-root grade INDEX to be accepted (0 = any root qualifies).</summary>
+    public required int JoinMinSpiritRootGrade { get; init; }
+    /// <summary>Game days the apprenticeship ceremony takes.</summary>
+    public required int JoinCeremonyDays { get; init; }
+    /// <summary>Applied to the leader's affection when the player walks away (negative).</summary>
+    public required float LeaveAffectionPenalty { get; init; }
+    /// <summary>Cultivation-gain multiplier bonus while standing at one's OWN sect.</summary>
+    public required float MemberCultivationBonus { get; init; }
+    /// <summary>Ascending by <see cref="SectRankConfig.MinRealmIndex"/>; everyone joins at
+    /// rank 0 and monthly settlement promotes through every rank the realm qualifies for.</summary>
+    public required SectRankConfig[] Ranks { get; init; }
+}
+
+public sealed record SectRankConfig
+{
+    public required string Name { get; init; }
+    /// <summary>Realm index required to hold this rank.</summary>
+    public required int MinRealmIndex { get; init; }
+    /// <summary>Spirit stones paid at each monthly settlement.</summary>
+    public required int MonthlyStipendStones { get; init; }
 }
 
 public sealed record RealmConfig

@@ -10,10 +10,11 @@ namespace ParadiseCultivation;
 /// </summary>
 public sealed record SaveData
 {
-    /// <summary>v2 added the trade state (player pills + per-town pill stock) as OPTIONAL
-    /// fields, so v1 saves still load — missing values fall back to defaults (the doc's
-    /// "migration established early"). Loaders accept 1…CurrentVersion.</summary>
-    public const int CurrentVersion = 2;
+    /// <summary>Version history — every addition is OPTIONAL fields, so older saves still
+    /// load with defaults (the doc's "migration established early"); loaders accept
+    /// 1…CurrentVersion. v2: trade state (player pills + per-town pill stock).
+    /// v3: sect membership (site + rank).</summary>
+    public const int CurrentVersion = 3;
 
     public required int Version { get; init; }
     public required int Seed { get; init; }
@@ -47,6 +48,12 @@ public sealed record SavedPlayer
     public required int Herbs { get; init; }
     /// <summary>Optional since v2 — absent (v1) defaults to 0.</summary>
     public int Pills { get; init; }
+    /// <summary>Optional since v3 — null (v1/v2) means sectless. NULLABLE on purpose: 0 is a
+    /// VALID site index, and STJ creates types with <c>required</c> members via
+    /// GetUninitializedObject, so a <c>= -1</c> initializer would silently never run.</summary>
+    public int? SectSiteIndex { get; init; }
+    /// <summary>Optional since v3.</summary>
+    public int SectRank { get; init; }
     public required int InjuryMonths { get; init; }
     public required double LifespanYears { get; init; }
 }

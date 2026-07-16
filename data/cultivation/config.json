@@ -349,6 +349,35 @@
     "pillBreakthroughBonus": 0.15,
     "priceSpreadPercent": 25
   },
+  "sect": {
+    "joinMinLeaderAffection": 120,
+    "joinMinSpiritRootGrade": 0,
+    "joinCeremonyDays": 3,
+    "leaveAffectionPenalty": -80,
+    "memberCultivationBonus": 0.3,
+    "ranks": [
+      {
+        "name": "外门弟子",
+        "minRealmIndex": 0,
+        "monthlyStipendStones": 2
+      },
+      {
+        "name": "内门弟子",
+        "minRealmIndex": 1,
+        "monthlyStipendStones": 6
+      },
+      {
+        "name": "核心弟子",
+        "minRealmIndex": 2,
+        "monthlyStipendStones": 15
+      },
+      {
+        "name": "长老",
+        "minRealmIndex": 4,
+        "monthlyStipendStones": 40
+      }
+    ]
+  },
   "player": {
     "startSpiritStones": 50,
     "explore": {

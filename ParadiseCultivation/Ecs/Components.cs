@@ -75,6 +75,10 @@ public partial struct PlayerData
     public int Herbs;
     /// <summary>Breakthrough pills; one is auto-consumed by each breakthrough attempt.</summary>
     public int Pills;
+    /// <summary>Site index of the sect the player belongs to, or -1 (one sect at a time).</summary>
+    public int SectSiteIndex;
+    /// <summary>Index into the config's sect rank ladder (meaningless while sectless).</summary>
+    public int SectRank;
     /// <summary>Months of halved cultivation gain remaining (failed-breakthrough injury).</summary>
     public int InjuryMonths;
     public double LifespanYears;
