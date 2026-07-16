@@ -30,6 +30,8 @@ public enum CommandKind
     ExchangeHeal,
     ProposeCompanion,
     LeaveCompanion,
+    /// <summary>A = 1 invites the companion to travel along, 0 sends them home.</summary>
+    CompanionTravel,
     EnterRealm,
     Fight,
     Flee,
@@ -340,6 +342,10 @@ public sealed class CultivationRunner : IDisposable
     /// <summary>Sever the dao-companion bond.</summary>
     public void RequestLeaveCompanion() =>
         Enqueue(new CultivationCommand(CommandKind.LeaveCompanion, 0, 0, default, null));
+
+    /// <summary>Invite the companion to travel along (in person), or send them home.</summary>
+    public void RequestCompanionTravel(bool along) =>
+        Enqueue(new CultivationCommand(CommandKind.CompanionTravel, along ? 1 : 0, 0, default, null));
 
     /// <summary>Brave the trial of the secret realm the player is standing in.</summary>
     public void RequestEnterRealm() =>
@@ -780,6 +786,9 @@ public sealed class CultivationRunner : IDisposable
                     break;
                 case CommandKind.LeaveCompanion:
                     ApplyLeaveCompanion(write, ref player);
+                    break;
+                case CommandKind.CompanionTravel:
+                    ApplyCompanionTravel(write, ref player, command.A != 0);
                     break;
                 case CommandKind.EnterRealm:
                     ApplyEnterRealm(ref cultivator, ref player);
@@ -1496,8 +1505,9 @@ public sealed class CultivationRunner : IDisposable
         return null;
     }
 
-    /// <summary>Dual cultivation is active: the companion lives (and is alive) at the site
-    /// the player stands on. Shared by the settle loop and the UI status line.</summary>
+    /// <summary>Dual cultivation is active: a traveling companion is always at the player's
+    /// side; a home-bound one only when the player stands at their site. Shared by the
+    /// settle loop and the UI status line.</summary>
     public bool CompanionPresent(World world, in PlayerData player)
     {
         if (player.CompanionNpcId < 0 || FindNpcById(world, player.CompanionNpcId) is not { } entity)
@@ -1505,8 +1515,48 @@ public sealed class CultivationRunner : IDisposable
             return false;
         }
         ref readonly var npc = ref world.GetComponent<NpcState>(entity);
-        return npc.Alive != 0 && npc.SiteIndex >= 0 &&
-               npc.SiteIndex == _map.TileAt(player.X, player.Y).SiteIndex;
+        if (npc.Alive == 0)
+        {
+            return false;
+        }
+        return player.CompanionFollowing != 0 ||
+               (npc.SiteIndex >= 0 && npc.SiteIndex == _map.TileAt(player.X, player.Y).SiteIndex);
+    }
+
+    /// <summary>Invite the companion to travel along (must be said in person — the player
+    /// stands where they live), or send them home from anywhere.</summary>
+    private void ApplyCompanionTravel(World write, ref PlayerData player, bool along)
+    {
+        if (player.CompanionNpcId < 0 || FindNpcById(write, player.CompanionNpcId) is not { } entity ||
+            !TryGetLivingNpc(write, entity, out _))
+        {
+            return; // no bond or no living companion; the UI never offers this
+        }
+
+        _llmChatSeq++; // this interaction owns LastReply
+        ref readonly var npc = ref write.GetComponent<NpcState>(entity);
+        var npcName = CultivationRules.NpcName(Config, in npc);
+        if (along)
+        {
+            if (player.CompanionFollowing != 0) return;
+            if (npc.SiteIndex != _map.TileAt(player.X, player.Y).SiteIndex)
+            {
+                LastReply = F(Msg.TravelInviteNotHereMsg, npcName);
+                return;
+            }
+            player.CompanionFollowing = 1;
+            _memories[entity].Add(new MemoryEntry(
+                _day, F(Msg.TravelInviteMemory, CultivationRules.PlayerName(Config, in player))));
+            LastReply = F(Msg.TravelInviteMsg, npcName);
+        }
+        else
+        {
+            if (player.CompanionFollowing == 0) return;
+            player.CompanionFollowing = 0;
+            _memories[entity].Add(new MemoryEntry(
+                _day, F(Msg.TravelHomeMemory, CultivationRules.PlayerName(Config, in player))));
+            LastReply = F(Msg.TravelHomeMsg, npcName);
+        }
     }
 
     private void ApplyProposeCompanion(World write, Entity target, ref Cultivator cultivator, ref PlayerData player)
@@ -1568,6 +1618,7 @@ public sealed class CultivationRunner : IDisposable
             LastReply = F(Msg.CompanionLeaveMsg, npcName);
         }
         player.CompanionNpcId = -1;
+        player.CompanionFollowing = 0;
     }
 
     /// <summary>Monthly sect settlement: promote through every rank the realm now qualifies
@@ -1740,6 +1791,7 @@ public sealed class CultivationRunner : IDisposable
                 InjuryMonths = player.InjuryMonths,
                 LifespanYears = player.LifespanYears,
                 CompanionNpcId = player.CompanionNpcId >= 0 ? player.CompanionNpcId : null,
+                CompanionFollowing = player.CompanionFollowing != 0,
                 SectContribution = player.SectContribution,
                 LastMissionMonth = player.LastMissionMonth >= 0 ? player.LastMissionMonth : null,
             },
@@ -1885,6 +1937,7 @@ public sealed class CultivationRunner : IDisposable
                 InjuryMonths = data.Player.InjuryMonths,
                 LifespanYears = data.Player.LifespanYears,
                 CompanionNpcId = data.Player.CompanionNpcId ?? -1,
+                CompanionFollowing = (byte)(data.Player is { CompanionFollowing: true, CompanionNpcId: not null } ? 1 : 0),
                 SectContribution = data.Player.SectContribution,
                 LastMissionMonth = data.Player.LastMissionMonth ?? -1,
             })
@@ -1930,6 +1983,7 @@ public sealed class CultivationRunner : IDisposable
                 if (npc.NpcId == player.CompanionNpcId)
                 {
                     player.CompanionNpcId = -1;
+                    player.CompanionFollowing = 0;
                     Log(F(Msg.CompanionDeathLog, CultivationRules.NpcName(Config, in npc)));
                 }
                 _replacementScratch.Add(WorldGenerator.CreateNpcSpec(

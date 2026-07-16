@@ -159,6 +159,129 @@ public class CompanionTests
             Fixture.Skeleton(Fixture.Config.Text.Messages.CompanionDeathLog)))).IsTrue();
     }
 
+    // ---- companion travel (道侣同行) ----
+
+    private static void MoveToSite(CultivationRunner runner, int siteIndex)
+    {
+        ref var player = ref runner.Current.GetComponent<PlayerData>(runner.Player);
+        player.X = runner.Map.Sites[siteIndex].X;
+        player.Y = runner.Map.Sites[siteIndex].Y;
+    }
+
+    private static void MoveToWilds(CultivationRunner runner)
+    {
+        var map = runner.Map;
+        for (var y = 0; y < map.Height; y++)
+        {
+            for (var x = 0; x < map.Width; x++)
+            {
+                if (map.TileAt(x, y).SiteIndex < 0)
+                {
+                    ref var player = ref runner.Current.GetComponent<PlayerData>(runner.Player);
+                    player.X = x;
+                    player.Y = y;
+                    return;
+                }
+            }
+        }
+        throw new InvalidOperationException("no wilderness on this map");
+    }
+
+    [Test]
+    public async Task the_invitation_is_said_in_person()
+    {
+        var (runner, npc) = BondedRunner();
+        using var _ = runner;
+
+        MoveToWilds(runner); // the companion stayed home — inviting from afar is refused
+        runner.RequestCompanionTravel(true);
+        runner.TickOnce();
+        await Assert.That(Player(runner).CompanionFollowing).IsEqualTo((byte)0);
+        await Assert.That(runner.LastReply)
+            .Contains(Fixture.Skeleton(Fixture.Config.Text.Messages.TravelInviteNotHereMsg));
+
+        // Back at their side, the invitation lands and enters their memories.
+        var home = runner.Current.GetComponent<NpcState>(npc).SiteIndex;
+        MoveToSite(runner, home);
+        runner.RequestCompanionTravel(true);
+        runner.TickOnce();
+        await Assert.That(Player(runner).CompanionFollowing).IsEqualTo((byte)1);
+        await Assert.That(runner.MemoriesOf(npc).Any(memory => memory.Summary.Contains(
+            Fixture.Skeleton(Fixture.Config.Text.Messages.TravelInviteMemory)))).IsTrue();
+    }
+
+    [Test]
+    public async Task a_traveling_companion_dual_cultivates_anywhere()
+    {
+        var (runner, _) = BondedRunner();
+        using var __ = runner;
+        runner.RequestCompanionTravel(true); // bonded at the home town — invite in person
+        runner.TickOnce();
+
+        MoveToWilds(runner);
+        var world = runner.Current;
+        var player = Player(runner);
+        await Assert.That(runner.CompanionPresent(world, in player)).IsTrue();
+
+        runner.RequestCompanionTravel(false); // sent home, the wilds are lonely again
+        runner.TickOnce();
+        world = runner.Current;
+        player = Player(runner);
+        await Assert.That(Player(runner).CompanionFollowing).IsEqualTo((byte)0);
+        await Assert.That(runner.CompanionPresent(world, in player)).IsFalse();
+    }
+
+    [Test]
+    public async Task severance_and_death_both_end_the_shared_road()
+    {
+        var (severed, _) = BondedRunner();
+        using (severed)
+        {
+            severed.RequestCompanionTravel(true);
+            severed.TickOnce();
+            severed.RequestLeaveCompanion();
+            Fixture.RunUntilIdle(severed);
+            await Assert.That(Player(severed).CompanionFollowing).IsEqualTo((byte)0);
+        }
+
+        var (widowed, widowedNpc) = BondedRunner(seed: 777);
+        using (widowed)
+        {
+            widowed.RequestCompanionTravel(true);
+            widowed.TickOnce();
+            KillNpc(widowed, widowedNpc);
+            widowed.TickOnce();
+            await Assert.That(Player(widowed).CompanionNpcId).IsEqualTo(-1);
+            await Assert.That(Player(widowed).CompanionFollowing).IsEqualTo((byte)0);
+        }
+    }
+
+    [Test]
+    public async Task the_shared_road_survives_a_save_round_trip()
+    {
+        var (runner, _) = BondedRunner();
+        using var __ = runner;
+        runner.RequestCompanionTravel(true);
+        runner.TickOnce();
+        var path = Path.Combine(Path.GetTempPath(), $"cultivation-travel-{Guid.NewGuid():N}.json");
+        try
+        {
+            runner.RequestSave(path);
+            runner.TickOnce();
+            runner.RequestCompanionTravel(false);
+            runner.TickOnce();
+            await Assert.That(Player(runner).CompanionFollowing).IsEqualTo((byte)0);
+
+            runner.RequestLoad(path);
+            runner.TickOnce();
+            await Assert.That(Player(runner).CompanionFollowing).IsEqualTo((byte)1);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     [Test]
     public async Task the_bond_survives_a_save_round_trip()
     {

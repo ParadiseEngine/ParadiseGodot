@@ -146,6 +146,10 @@ public sealed record UiTextConfig
     public required string CompanionReqRealmLine { get; init; }
     /// <summary>{0} companion name (status panel).</summary>
     public required string StatusCompanionLine { get; init; }
+    /// <summary>Tag next to a companion currently traveling along.</summary>
+    public required string FollowingTag { get; init; }
+    public required string InviteTravelButton { get; init; }
+    public required string SendHomeButton { get; init; }
     /// <summary>{0} bonus (formatted percent) — status panel while dual-cultivating.</summary>
     public required string DualCultivationLine { get; init; }
 
@@ -360,6 +364,16 @@ public sealed record MessageTextConfig
     public required string CompanionLeaveMemory { get; init; }
     /// <summary>{0} companion name — chronicle grief line when the companion dies.</summary>
     public required string CompanionDeathLog { get; init; }
+    /// <summary>{0} companion name — inviting requires standing where they live.</summary>
+    public required string TravelInviteNotHereMsg { get; init; }
+    /// <summary>{0} companion name.</summary>
+    public required string TravelInviteMsg { get; init; }
+    /// <summary>{0} player name.</summary>
+    public required string TravelInviteMemory { get; init; }
+    /// <summary>{0} companion name.</summary>
+    public required string TravelHomeMsg { get; init; }
+    /// <summary>{0} player name.</summary>
+    public required string TravelHomeMemory { get; init; }
 
     public required string TradeNoMarketMsg { get; init; }
     /// <summary>{0} herbs sold, {1} stones received.</summary>

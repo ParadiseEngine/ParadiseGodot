@@ -16,8 +16,8 @@ public sealed record SaveData
     /// v3: sect membership (site + rank). v4: secret-realm knowledge (rumor heard + trial
     /// spent — the schedule itself re-derives from the seed). v5: the pending beast
     /// encounter, so saving mid-standoff is honest. v6: dao companion + sect economy
-    /// (contribution, last mission month).</summary>
-    public const int CurrentVersion = 6;
+    /// (contribution, last mission month). v7: the companion travels along.</summary>
+    public const int CurrentVersion = 7;
 
     public required int Version { get; init; }
     public required int Seed { get; init; }
@@ -76,6 +76,8 @@ public sealed record SavedPlayer
     /// <summary>Month of the last sect-mission attempt. Optional since v6 — null means
     /// never (month 0 is valid, so nullable, not a sentinel initializer).</summary>
     public long? LastMissionMonth { get; init; }
+    /// <summary>The companion is traveling along. Optional since v7 — absent means at home.</summary>
+    public bool CompanionFollowing { get; init; }
 }
 
 public sealed record SavedNpc

@@ -85,6 +85,9 @@ public partial struct PlayerData
     /// <summary>NpcId of the player's dao companion, or -1. Like <see cref="SectSiteIndex"/>,
     /// every spawn/load must set it explicitly (zero default would mean "bonded to npc 0").</summary>
     public int CompanionNpcId;
+    /// <summary>The companion walks the world with the player (dual cultivation anywhere
+    /// together, selectable on the road). Zero default = at home, which is correct.</summary>
+    public byte CompanionFollowing;
     /// <summary>Sect contribution points — missions earn, the exchange spends; reset to 0
     /// on leaving the sect.</summary>
     public int SectContribution;

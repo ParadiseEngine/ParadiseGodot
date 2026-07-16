@@ -596,6 +596,18 @@ public sealed class CultivationUi
             {
                 DrawRealmSection(in realm, in player);
             }
+            // The traveling companion is at your side even in the wilds.
+            if (player.CompanionFollowing != 0 &&
+                _runner.FindNpcById(world, player.CompanionNpcId) is { } roadCompanion &&
+                world.GetComponent<NpcState>(roadCompanion).Alive != 0)
+            {
+                ImGui.Separator();
+                if (DrawNpcSelectable(roadCompanion))
+                {
+                    ImGui.Separator();
+                    DrawNpcPanel(_selectedNpc);
+                }
+            }
             ImGui.End();
             return;
         }
@@ -617,17 +629,10 @@ public sealed class CultivationUi
         foreach (var entity in _runner.Npcs)
         {
             ref readonly var npc = ref world.GetComponent<NpcState>(entity);
-            if (npc.Alive == 0 || npc.SiteIndex != tile.SiteIndex) continue;
-            var realmIndex = world.GetComponent<Cultivator>(entity).RealmIndex;
-            var label = $"{CultivationRules.NpcName(Config, in npc)}" +
-                $"{(npc.IsLeader != 0 ? T.SectLeaderTag : string.Empty)}: {Config.Realms[realmIndex].Name}";
-            var selected = _hasSelection && entity == _selectedNpc;
-            if (ImGui.Selectable(label, selected))
-            {
-                _selectedNpc = entity;
-                _hasSelection = true;
-            }
-            found |= _hasSelection && entity == _selectedNpc;
+            // The traveling companion stands beside you wherever you are.
+            var travelingHere = player.CompanionFollowing != 0 && npc.NpcId == player.CompanionNpcId;
+            if (npc.Alive == 0 || (npc.SiteIndex != tile.SiteIndex && !travelingHere)) continue;
+            found |= DrawNpcSelectable(entity);
         }
 
         if (!found)
@@ -640,6 +645,27 @@ public sealed class CultivationUi
         ImGui.Separator();
         DrawNpcPanel(_selectedNpc);
         ImGui.End();
+    }
+
+    /// <summary>One row of the NPC list (leader / traveling-companion tags); returns whether
+    /// this entity is the current selection.</summary>
+    private bool DrawNpcSelectable(Entity entity)
+    {
+        var world = _runner.UiWorld;
+        ref readonly var npc = ref world.GetComponent<NpcState>(entity);
+        ref readonly var player = ref world.GetComponent<PlayerData>(_runner.Player);
+        var realmIndex = world.GetComponent<Cultivator>(entity).RealmIndex;
+        var following = player.CompanionFollowing != 0 && player.CompanionNpcId == npc.NpcId;
+        var label = $"{CultivationRules.NpcName(Config, in npc)}" +
+            $"{(npc.IsLeader != 0 ? T.SectLeaderTag : string.Empty)}" +
+            $"{(following ? T.FollowingTag : string.Empty)}: {Config.Realms[realmIndex].Name}";
+        var selected = _hasSelection && entity == _selectedNpc;
+        if (ImGui.Selectable(label, selected))
+        {
+            _selectedNpc = entity;
+            _hasSelection = true;
+        }
+        return _hasSelection && entity == _selectedNpc;
     }
 
     /// <summary>The beast standoff: the semi-auto contract is that the PLAYER makes the one
@@ -854,6 +880,20 @@ public sealed class CultivationUi
             ImGui.TextColored(new Vector4(1f, 0.65f, 0.75f, 1f), T.CompanionTag);
             ImGui.SameLine();
             ImGui.BeginDisabled(_runner.Busy);
+            if (playerData.CompanionFollowing != 0)
+            {
+                if (ImGui.Button(T.SendHomeButton)) _runner.RequestCompanionTravel(false);
+            }
+            else
+            {
+                // The invitation is said in person, where the companion lives.
+                var colocated = npc.SiteIndex ==
+                    _runner.Map.TileAt(playerData.X, playerData.Y).SiteIndex;
+                ImGui.BeginDisabled(!colocated);
+                if (ImGui.Button(T.InviteTravelButton)) _runner.RequestCompanionTravel(true);
+                ImGui.EndDisabled();
+            }
+            ImGui.SameLine();
             if (ImGui.Button(T.LeaveCompanionButton)) _runner.RequestLeaveCompanion();
             ImGui.EndDisabled();
         }
