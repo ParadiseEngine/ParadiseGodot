@@ -4,12 +4,12 @@
   "BaseColorFactor": {
     "r": 0.9098039,
     "g": 0.9098039,
-    "b": 0.87058824,
+    "b": 0.84705883,
     "a": 1
   },
-  "BaseColorTexture": "data/primitives/sphere_ball_albedo.png",
+  "BaseColorTexture": null,
   "MetallicFactor": 0,
-  "RoughnessFactor": 0.35,
+  "RoughnessFactor": 0.14,
   "MetallicRoughnessTexture": null,
   "EmissiveFactor": {
     "r": 0,

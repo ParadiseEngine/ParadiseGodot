@@ -2,14 +2,14 @@
   "Path": "materials/mat_pool_11.json",
   "Name": "pool",
   "BaseColorFactor": {
-    "r": 0.76862746,
-    "g": 0.22745098,
-    "b": 0.22745098,
+    "r": 0.827451,
+    "g": 0.827451,
+    "b": 0.87058824,
     "a": 1
   },
-  "BaseColorTexture": "data/primitives/sphere_ball_albedo.png",
-  "MetallicFactor": 0,
-  "RoughnessFactor": 0.4,
+  "BaseColorTexture": null,
+  "MetallicFactor": 1,
+  "RoughnessFactor": 0.1,
   "MetallicRoughnessTexture": null,
   "EmissiveFactor": {
     "r": 0,

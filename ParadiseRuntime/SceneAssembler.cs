@@ -428,6 +428,14 @@ public static class SceneAssembler
         material.BaseColorImage >= 0 || material.MetallicRoughnessImage >= 0 ||
         material.NormalImage >= 0 || material.OcclusionImage >= 0 || material.EmissiveImage >= 0;
 
+    /// <summary>Whether a slot override should inherit the GLB material's textures (glTF
+    /// factor × texture) rather than render solid. Matches Godot's <c>surface_material_override</c>
+    /// semantics: an override that references a texture tints the GLB's; an override with NO
+    /// texture (<see cref="LevelMaterialData.BaseColorTexture"/> null) FULLY REPLACES the surface
+    /// (solid factor), so it must not silently pull the GLB's embedded texture back in.</summary>
+    public static bool ShouldInheritTextures(LevelMaterialData data, in GltfMaterialData glb) =>
+        HasAnyTexture(in glb) && data.BaseColorTexture is not null;
+
     /// <summary>A slot-override material: the override JSON's FACTORS over the GLB material's
     /// TEXTURES (glTF factor × texture — Godot parity for surface_material_override with
     /// textured materials).</summary>
@@ -588,7 +596,8 @@ public static class SceneAssembler
             // surface_material_override with textured materials). The cache key includes the
             // texture source so the same override JSON over differently-textured primitives
             // yields distinct GPU materials.
-            var inherit = glbMaterialIndex >= 0 && HasAnyTexture(asset.Materials[glbMaterialIndex]);
+            var inherit = glbMaterialIndex >= 0
+                && ShouldInheritTextures(level.Materials[field], in asset.Materials[glbMaterialIndex]);
             var key = inherit ? (asset, glbMaterialIndex, field) : ((GltfAsset?)null, -1, field);
             if (_levelMaterialIds.TryGetValue(key, out var id)) return id;
 

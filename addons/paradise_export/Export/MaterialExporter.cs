@@ -103,7 +103,14 @@ namespace ParadiseGodot.Export
                 OcclusionTexture = m.AOEnabled ? TexturePath(m.AOTexture) : null,
                 AlphaMode = AlphaModeName(m),
                 RenderQueue = -1,
-                TransmissionFactor = 0f,
+                // Godot's StandardMaterial3D has no glTF-transmission property, so translucency
+                // is authored as a `transmission` resource-metadata float (0..1) — an explicit
+                // signal with zero effect on Godot's own rendering. Absent → 0, so materials that
+                // don't set it re-export byte-identical. The runtime shader's stylized glass path
+                // (applyGlassResponse) consumes it.
+                TransmissionFactor = m.HasMeta("transmission")
+                    ? Mathf.Clamp((float)m.GetMeta("transmission").AsSingle(), 0f, 1f)
+                    : 0f,
             };
         }
 
