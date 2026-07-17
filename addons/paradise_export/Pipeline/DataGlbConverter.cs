@@ -41,8 +41,79 @@ namespace ParadiseGodot.Pipeline
                 EditorInterface.Singleton.GetResourceFilesystem().ReimportFiles(reimport.ToArray());
             }
 
+            converted += ConvertSpriteSheets();
+
             GD.Print($"[ParadiseExport] data/ GLB KTX2 pass: {converted} converted.");
             return converted;
+        }
+
+        private const string SpritesDir = "res://data/sprites";
+
+        /// <summary>Encode a KTX2 sidecar next to every spritesheet image under
+        /// <c>res://data/sprites/</c> (the sheet convention the SpriteAnimation/ParticleEmitter
+        /// contract components reference with a <c>.ktx2</c> extension). The Godot host keeps
+        /// rendering the source image; only the .NET runtime reads the sidecar. Idempotent by
+        /// timestamp (see <see cref="KtxCreate.ConvertImageFile"/>).</summary>
+        public static int ConvertSpriteSheets()
+        {
+            int converted = 0;
+            foreach (string resPath in FindDataImages(SpritesDir))
+            {
+                string full = ProjectSettings.GlobalizePath(resPath);
+                KtxCreate.ConversionResult result = KtxCreate.ConvertImageFile(
+                    full,
+                    Path.ChangeExtension(full, ".ktx2"),
+                    repoRoot: ProjectSettings.GlobalizePath("res://"),
+                    log: msg => GD.Print($"[ParadiseExport] {msg}"),
+                    error: msg => GD.PushError($"[ParadiseExport] {msg}"));
+                switch (result)
+                {
+                    case KtxCreate.ConversionResult.ConvertedAllTextures:
+                        converted++;
+                        break;
+                    case KtxCreate.ConversionResult.ToolMissing:
+                        GD.PushWarning(
+                            $"[ParadiseExport] ktx (KTX-Software v5) not found — '{resPath}' has no KTX2 sidecar. " +
+                            "The Godot editor renders the source image, but the .NET runtime needs the sidecar; set " +
+                            "PARADISE_KTX_PATH or install KTX-Software, then re-run Paradise/Convert data GLBs → KTX2.");
+                        return converted; // one warning is enough — the tool is missing for all of them
+                }
+            }
+
+            return converted;
+        }
+
+        private static IEnumerable<string> FindDataImages(string dirResPath)
+        {
+            using var dir = DirAccess.Open(dirResPath);
+            if (dir is null)
+            {
+                yield break;
+            }
+
+            dir.ListDirBegin();
+            for (string entry = dir.GetNext(); !string.IsNullOrEmpty(entry); entry = dir.GetNext())
+            {
+                if (entry is "." or "..")
+                {
+                    continue;
+                }
+
+                string childResPath = $"{dirResPath}/{entry}";
+                if (dir.CurrentIsDir())
+                {
+                    foreach (string nested in FindDataImages(childResPath))
+                    {
+                        yield return nested;
+                    }
+                }
+                else if (entry.EndsWith(".png", System.StringComparison.OrdinalIgnoreCase) ||
+                         entry.EndsWith(".jpg", System.StringComparison.OrdinalIgnoreCase) ||
+                         entry.EndsWith(".jpeg", System.StringComparison.OrdinalIgnoreCase))
+                {
+                    yield return childResPath;
+                }
+            }
         }
 
         /// <summary>Convert a single GLB in place. <paramref name="rewritten"/> is true only when

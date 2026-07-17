@@ -135,6 +135,22 @@ public sealed class SimulationRunner : IDisposable
     }
     private readonly List<Entity> _ballEntities = new();
 
+    /// <summary>Spawn a flipbook 2D-animation clock (a placed sprite). The sim owns sprite
+    /// time; renderers read <see cref="SpriteAnimation.Frame"/> from snapshots.</summary>
+    public Entity SpawnSpriteAnimation(Vector3 position, Quaternion rotation, float fps, int frameCount, bool loop) =>
+        Current.CreateEntity(EntityBuilder.Create()
+            .Add(new LocalTransform(position, rotation))
+            .Add(new SpriteAnimation(fps, frameCount, loop))
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds }));
+
+    /// <summary>Spawn a deterministic particle emitter; <paramref name="emitter"/> carries the
+    /// authored config (build with the <see cref="ParticleEmitter"/> constructor).</summary>
+    public Entity SpawnParticleEmitter(Vector3 position, Quaternion rotation, in ParticleEmitter emitter) =>
+        Current.CreateEntity(EntityBuilder.Create()
+            .Add(new LocalTransform(position, rotation))
+            .Add(emitter)
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds }));
+
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
 
     /// <summary>The optional sim-thread UI half. Set before <see cref="Start"/>; every tick the
@@ -416,7 +432,10 @@ public sealed class SimulationRunner : IDisposable
         World world = _shared.CreateWorld();
         var schedule = SystemSchedule.Create(world)
             .AddWorld<MovementSystem>()
+            .AddWorld<SpriteAnimationSystem>()
+            .AddWorld<ParticleSystem>()
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
+        SimulationTick.WarmSystemQueries(world);
         _schedules.Add(schedule);
         _runByWorld[world] = schedule.Run;
         return world;

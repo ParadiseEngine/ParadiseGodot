@@ -11,6 +11,9 @@ using ParadiseGame.Ui;
 using ParadiseGodot.Runtime.Ui;
 using ParadiseUi;
 using SN = System.Numerics;
+// The source-generated `World` alias only exists inside ParadiseGame (per-assembly generator
+// output); this assembly names the closed generic type explicitly.
+using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, ParadiseGame.GameConfig>;
 
 namespace ParadiseGodot.Runtime
 {
@@ -63,6 +66,23 @@ namespace ParadiseGodot.Runtime
         private SimulationRunner? _runner;
         private Camera3D? _camera;
         private readonly List<(Node3D Node, Entity Entity)> _agents = new();
+        private readonly List<(Sprite3D Sprite, Entity Entity)> _sprites = new();
+        private readonly List<ParticleEmitterView> _emitters = new();
+
+        /// <summary>One emitter's render half: the MultiMesh the bridge refills from snapshot
+        /// particle pools each frame, plus the presentation config (sizes, flipbook) that the
+        /// sim deliberately does not carry.</summary>
+        private sealed class ParticleEmitterView
+        {
+            public required MultiMeshInstance3D Node;
+            public required Entity Entity;
+            public required int Capacity;
+            public required bool SpriteKind;
+            public required float StartSize;
+            public required float EndSize;
+            public required int FrameCount;
+            public required float Fps;
+        }
         private Entity _player;
         private bool _hasPlayer;
         private double _renderSampleTime;
@@ -113,7 +133,28 @@ namespace ParadiseGodot.Runtime
                 }
                 else
                 {
-                    _runner.SpawnStatic(pos, rot);
+                    // Sprite animations and particle emitters spawn their own sim entities
+                    // (independent features — a node may author both); anything else is scenery.
+                    bool special = false;
+                    if (FirstSprite3D(node) is { } sprite)
+                    {
+                        _sprites.Add((sprite, _runner.SpawnSpriteAnimation(pos, rot,
+                            ReadFloat(node, "SpriteFps", 10f),
+                            ReadInt(node, "SpriteFrameCount", 0) is var authored && authored > 0
+                                ? authored
+                                : Math.Max(1, sprite.Hframes * sprite.Vframes),
+                            ReadBool(node, "SpriteLoop", true))));
+                        special = true;
+                    }
+                    if (ReadInt(node, "ParticleKind", 0) > 0)
+                    {
+                        SetupParticleEmitter(node, pos, rot);
+                        special = true;
+                    }
+                    if (!special)
+                    {
+                        _runner.SpawnStatic(pos, rot);
+                    }
                 }
             }
 
@@ -373,12 +414,231 @@ namespace ParadiseGodot.Runtime
                 SN.Quaternion rot = SN.Quaternion.Slerp(ta.Rotation, tb.Rotation, alpha);
                 node.GlobalTransform = new Transform3D(new Basis(ToGodot(rot)), ToGodot(pos));
             }
+
+            DriveSprites(worldA, worldB, alpha);
+            DriveParticles(worldA, worldB, alpha);
         }
 
         public override void _ExitTree()
         {
             _runner?.Dispose();
             _runner = null;
+        }
+
+        // ---- sprite animations + particle emitters (sim-driven presentation) ----
+
+        /// <summary>Spawn the emitter's sim entity and build its render half: a MultiMesh of
+        /// unit quads (Sprite kind, particle-billboarded with flipbook animation) or unit boxes
+        /// (Voxel kind), refilled from snapshot particle pools in <see cref="_Process"/>.
+        /// Presentation config is read from the authored EntityExport properties (present in
+        /// editor play mode; exported builds fall back to defaults, like MoveSpeed).</summary>
+        private void SetupParticleEmitter(Node3D node, SN.Vector3 pos, SN.Quaternion rot)
+        {
+            bool spriteKind = ReadInt(node, "ParticleKind", 0) != 2;
+            int capacity = Math.Clamp(ReadInt(node, "ParticleMaxCount", 64), 1, ParticleEmitter.MaxParticles);
+            int columns = Math.Max(1, ReadInt(node, "ParticleSheetColumns", 1));
+            int rows = Math.Max(1, ReadInt(node, "ParticleSheetRows", 1));
+            int authoredFrames = ReadInt(node, "ParticleSheetFrameCount", 0);
+            int frameCount = Math.Clamp(authoredFrames <= 0 ? columns * rows : authoredFrames, 1, columns * rows);
+            Color color = ReadColor(node, "ParticleColor", Colors.White);
+
+            Entity entity = _runner!.SpawnParticleEmitter(pos, rot, new ParticleEmitter(
+                ReadFloat(node, "ParticleEmitRate", 8f),
+                ReadFloat(node, "ParticleLifetime", 1.5f),
+                ReadFloat(node, "ParticleSpeed", 2f),
+                Mathf.DegToRad(ReadFloat(node, "ParticleSpreadDegrees", 25f)),
+                ReadFloat(node, "ParticleGravity", -9.8f),
+                ReadFloat(node, "ParticleDrag", 0f),
+                capacity,
+                unchecked((uint)ReadInt(node, "ParticleSeed", 1))));
+
+            Material material;
+            PrimitiveMesh mesh;
+            if (spriteKind)
+            {
+                var standard = new StandardMaterial3D
+                {
+                    // Particle billboard: the shader faces the camera and reads INSTANCE_CUSTOM.z
+                    // as the flipbook phase — the bridge writes (frame + 0.5) / frameCount so the
+                    // shader lands exactly on the sim's frame index (loop already applied sim-side).
+                    BillboardMode = BaseMaterial3D.BillboardModeEnum.Particles,
+                    BillboardKeepScale = true,
+                    ParticlesAnimHFrames = columns,
+                    ParticlesAnimVFrames = rows,
+                    ParticlesAnimLoop = false,
+                    // Alpha blend, matching the .NET host's Blend material (its shader has no
+                    // cutout/mask path).
+                    Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+                    AlbedoColor = color,
+                };
+                string sheet = ReadString(node, "ParticleSheet", "");
+                if (!string.IsNullOrEmpty(sheet) && ResourceLoader.Load<Texture2D>(sheet) is { } texture)
+                {
+                    standard.AlbedoTexture = texture;
+                }
+                material = standard;
+                mesh = new QuadMesh { Size = Vector2.One };
+            }
+            else
+            {
+                material = new StandardMaterial3D { AlbedoColor = color };
+                mesh = new BoxMesh { Size = Vector3.One };
+            }
+            mesh.Material = material;
+
+            var instance = new MultiMeshInstance3D
+            {
+                Name = $"{node.Name}Particles",
+                // Particle positions are WORLD space — opt out of any parent transform.
+                TopLevel = true,
+                Multimesh = new MultiMesh
+                {
+                    TransformFormat = MultiMesh.TransformFormatEnum.Transform3D,
+                    UseCustomData = spriteKind,
+                    Mesh = mesh,
+                    InstanceCount = capacity,
+                    VisibleInstanceCount = 0,
+                },
+            };
+            AddChild(instance);
+            instance.GlobalTransform = Transform3D.Identity;
+
+            _emitters.Add(new ParticleEmitterView
+            {
+                Node = instance,
+                Entity = entity,
+                Capacity = capacity,
+                SpriteKind = spriteKind,
+                StartSize = ReadFloat(node, "ParticleStartSize", 0.25f),
+                EndSize = ReadFloat(node, "ParticleEndSize", 0.25f),
+                FrameCount = frameCount,
+                Fps = ReadFloat(node, "ParticleSheetFps", 0f),
+            });
+        }
+
+        /// <summary>Flipbook frames from interpolated snapshot time — the SAME sampling rule the
+        /// sim used (<see cref="SpriteAnimationSystem.SampleFrame"/>), so the shown frame can
+        /// never disagree with the .NET host's.</summary>
+        private void DriveSprites(SimWorld worldA, SimWorld worldB, float alpha)
+        {
+            foreach ((Sprite3D sprite, Entity entity) in _sprites)
+            {
+                if (!GodotObject.IsInstanceValid(sprite) || !worldB.IsAlive(entity))
+                {
+                    continue;
+                }
+
+                SpriteAnimation b = worldB.GetComponent<SpriteAnimation>(entity);
+                float time = worldA.IsAlive(entity)
+                    ? float.Lerp(worldA.GetComponent<SpriteAnimation>(entity).Time, b.Time, alpha)
+                    : b.Time;
+                sprite.Frame = SpriteAnimationSystem.SampleFrame(time, b.Fps, b.FrameCount, b.Loop != 0);
+            }
+        }
+
+        /// <summary>Refill each emitter's MultiMesh from the snapshot particle pools: live slots
+        /// interpolate position/age between the pair (slot-stable buffers), sizes lerp over the
+        /// particle's life, and Sprite-kind instances carry the flipbook phase in CUSTOM.z.</summary>
+        private void DriveParticles(SimWorld worldA, SimWorld worldB, float alpha)
+        {
+            foreach (ParticleEmitterView view in _emitters)
+            {
+                if (!GodotObject.IsInstanceValid(view.Node) || !worldB.IsAlive(view.Entity))
+                {
+                    continue;
+                }
+
+                ParticleEmitter a = worldA.IsAlive(view.Entity)
+                    ? worldA.GetComponent<ParticleEmitter>(view.Entity)
+                    : worldB.GetComponent<ParticleEmitter>(view.Entity);
+                ParticleEmitter b = worldB.GetComponent<ParticleEmitter>(view.Entity);
+                MultiMesh multimesh = view.Node.Multimesh;
+
+                int visible = 0;
+                for (int slot = 0; slot < view.Capacity; slot++)
+                {
+                    Particle pb = b.Particles[slot];
+                    if (pb.Lifetime <= 0f)
+                    {
+                        continue;
+                    }
+
+                    // Slot reuse guard: if the slot died and respawned between the snapshots
+                    // (older age in the LATER world), interpolating would sweep across the world.
+                    Particle pa = a.Particles[slot];
+                    SN.Vector3 position;
+                    float age;
+                    if (pa.Lifetime > 0f && pa.Age <= pb.Age)
+                    {
+                        position = SN.Vector3.Lerp(pa.Position, pb.Position, alpha);
+                        age = float.Lerp(pa.Age, pb.Age, alpha);
+                    }
+                    else
+                    {
+                        position = pb.Position;
+                        age = pb.Age;
+                    }
+
+                    float life01 = Math.Clamp(age / pb.Lifetime, 0f, 1f);
+                    float size = float.Lerp(view.StartSize, view.EndSize, life01);
+                    multimesh.SetInstanceTransform(visible,
+                        new Transform3D(Basis.FromScale(new Vector3(size, size, size)), ToGodot(position)));
+                    if (view.SpriteKind)
+                    {
+                        int frame = SpriteAnimationSystem.SampleParticleFrame(
+                            age, pb.Lifetime, view.Fps, view.FrameCount);
+                        multimesh.SetInstanceCustomData(visible,
+                            new Color(0f, 0f, (frame + 0.5f) / view.FrameCount, 0f));
+                    }
+                    visible++;
+                }
+
+                multimesh.VisibleInstanceCount = visible;
+            }
+        }
+
+        private Sprite3D? FirstSprite3D(Node3D node)
+        {
+            foreach (Sprite3D sprite in Descendants<Sprite3D>(node))
+            {
+                return sprite;
+            }
+
+            return null;
+        }
+
+        // Authored EntityExport properties, read dynamically like ReadAuthoredMoveSpeed
+        // (EntityExport is TOOLS-only; absent property → fallback).
+        private static float ReadFloat(Node3D node, string property, float fallback)
+        {
+            Variant value = node.Get(property);
+            return value.VariantType == Variant.Type.Float && float.IsFinite((float)value.AsDouble())
+                ? (float)value.AsDouble()
+                : fallback;
+        }
+
+        private static int ReadInt(Node3D node, string property, int fallback)
+        {
+            Variant value = node.Get(property);
+            return value.VariantType == Variant.Type.Int ? value.AsInt32() : fallback;
+        }
+
+        private static bool ReadBool(Node3D node, string property, bool fallback)
+        {
+            Variant value = node.Get(property);
+            return value.VariantType == Variant.Type.Bool ? value.AsBool() : fallback;
+        }
+
+        private static Color ReadColor(Node3D node, string property, Color fallback)
+        {
+            Variant value = node.Get(property);
+            return value.VariantType == Variant.Type.Color ? value.AsColor() : fallback;
+        }
+
+        private static string ReadString(Node3D node, string property, string fallback)
+        {
+            Variant value = node.Get(property);
+            return value.VariantType == Variant.Type.String ? value.AsString() : fallback;
         }
 
         // WASD → a horizontal world-space direction relative to the camera's facing.

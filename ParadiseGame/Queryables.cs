@@ -29,6 +29,21 @@ public readonly ref partial struct MoveIntents;
 [With<PhysicsWorldRef>(IsReadOnly = true)]
 public readonly ref partial struct Agents;
 
+/// <summary>Flipbook sprite clocks for <see cref="SpriteAnimationSystem"/>.</summary>
+[Queryable]
+[With<SpriteAnimation>]
+[With<SimulationContext>(IsReadOnly = true)]
+public readonly ref partial struct SpriteAnimations;
+
+/// <summary>Particle emitters for <see cref="ParticleSystem"/>. The transform is read-only
+/// (snapshot-bound): emitters are placed scenery — a one-tick-stale pose only matters for
+/// moving emitters, where it trails by 1/60 s.</summary>
+[Queryable]
+[With<ParticleEmitter>]
+[With<LocalTransform>(IsReadOnly = true)]
+[With<SimulationContext>(IsReadOnly = true)]
+public readonly ref partial struct ParticleEmitters;
+
 /// <summary>Dynamic physics balls for the unified <see cref="MovementSystem"/>.</summary>
 [Queryable]
 [With<LocalTransform>]

@@ -32,6 +32,7 @@ namespace ParadiseExport.Serialization
                     new Matrix4x4Converter(),
                     new JsonStringEnumConverter<PhysicsBodyType>(),
                     new JsonStringEnumConverter<PhysicsShapeType>(),
+                    new JsonStringEnumConverter<ParticleRenderKind>(),
                 },
             };
             options.TypeInfoResolverChain.Add(ParadiseJsonContext.Default);

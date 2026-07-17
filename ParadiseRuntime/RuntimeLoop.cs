@@ -8,6 +8,9 @@ using ParadiseGame;
 using ParadiseGame.Physics;
 using ParadiseGame.Audio;
 using ParadiseGame.Ui;
+// The source-generated `World` alias only exists inside ParadiseGame (per-assembly generator
+// output); this assembly names the closed generic type explicitly.
+using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, ParadiseGame.GameConfig>;
 
 namespace ParadiseRuntime;
 
@@ -33,6 +36,8 @@ public sealed class RuntimeLoop : IDisposable
     private readonly PbrScene _scene = new();
     private readonly CameraRig _camera;
     private readonly List<RuntimeInstance> _instances;
+    private readonly List<SpriteQuadState> _sprites;
+    private readonly List<ParticleBatchState> _particleBatches;
     private readonly Entity? _player;
     private readonly CollisionWorld? _collisionWorld;
     private readonly IAudioSystem? _audio;
@@ -90,6 +95,8 @@ public sealed class RuntimeLoop : IDisposable
 
         var assembled = SceneAssembler.Assemble(level, _runner, _pbr);
         _instances = assembled.Instances;
+        _sprites = assembled.Sprites;
+        _particleBatches = assembled.ParticleBatches;
         _player = assembled.Player;
         _cueBall = assembled.CueBall;
         foreach (var instance in _instances)
@@ -97,6 +104,8 @@ public sealed class RuntimeLoop : IDisposable
             _scene.Instances.Add(instance.Render);
             if (instance.Skinned is not null) instance.Skinned.TimeOverride = animTime;
         }
+        foreach (var sprite in _sprites) _scene.Instances.Add(sprite.Instance);
+        foreach (var batch in _particleBatches) _scene.Instances.Add(batch.Instance);
 
         _camera = new CameraRig(level.Level.Camera, orthographic, fovDegrees);
         // Camera background is the fallback clear; PopulateLighting overrides it with the exported
@@ -440,6 +449,8 @@ public sealed class RuntimeLoop : IDisposable
                         * Matrix4x4.CreateFromQuaternion(rotation)
                         * Matrix4x4.CreateTranslation(position);
                 }
+
+                DriveSpritesAndParticles(worldA, worldB, alpha);
             }
         }
 
@@ -531,6 +542,43 @@ public sealed class RuntimeLoop : IDisposable
         }
         _pbr.RenderFrame(_scene);
         _audio?.Pump();
+    }
+
+    /// <summary>Re-write the sprite quads and particle batches from the sampled snapshot pair —
+    /// the .NET twin of EcsSceneBridge's DriveSprites/DriveParticles (same sampling rules).
+    /// Billboards face the camera basis taken from the inverted view matrix.</summary>
+    private void DriveSpritesAndParticles(SimWorld worldA, SimWorld worldB, float alpha)
+    {
+        if (_sprites.Count == 0 && _particleBatches.Count == 0) return;
+
+        var camera = _camera.Build(_width / (float)_height);
+        Matrix4x4.Invert(camera.View, out var cameraWorld);
+        var cameraRight = new Vector3(cameraWorld.M11, cameraWorld.M12, cameraWorld.M13);
+        var cameraUp = new Vector3(cameraWorld.M21, cameraWorld.M22, cameraWorld.M23);
+
+        foreach (var sprite in _sprites)
+        {
+            if (!worldA.IsAlive(sprite.Entity) || !worldB.IsAlive(sprite.Entity)) continue;
+            var a = worldA.GetComponent<LocalTransform>(sprite.Entity);
+            var b = worldB.GetComponent<LocalTransform>(sprite.Entity);
+            var time = float.Lerp(
+                worldA.GetComponent<SpriteAnimation>(sprite.Entity).Time,
+                worldB.GetComponent<SpriteAnimation>(sprite.Entity).Time,
+                alpha);
+            sprite.Update(_pbr,
+                Vector3.Lerp(a.Position, b.Position, alpha),
+                Quaternion.Slerp(a.Rotation, b.Rotation, alpha),
+                time, cameraRight, cameraUp);
+        }
+
+        foreach (var batch in _particleBatches)
+        {
+            if (!worldA.IsAlive(batch.Entity) || !worldB.IsAlive(batch.Entity)) continue;
+            batch.Update(_pbr,
+                worldA.GetComponent<ParticleEmitter>(batch.Entity),
+                worldB.GetComponent<ParticleEmitter>(batch.Entity),
+                alpha, cameraRight, cameraUp);
+        }
     }
 
     public void Dispose()
