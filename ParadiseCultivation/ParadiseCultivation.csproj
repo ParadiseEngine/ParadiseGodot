@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Immortal Cultivation vertical slice — engine-agnostic game core + ImGui panels, hosted by
+    BOTH the standalone .NET runtime (ParadiseRuntime ‑‑game cultivation) and the Godot
+    play-mode bridge (runtime/CultivationBridge.cs + scenes/cultivation.tscn).
+
+    Built on Paradise.ECS with the same snapshot machinery as ParadiseGame: dynamic state
+    (player + NPC cultivators) lives in unmanaged components, a 60 Hz sim thread publishes
+    immutable world snapshots (CultivationRunner, the SimulationRunner analog), and monthly
+    settlement runs as a system under [SingleWriter] + [SnapshotReadSystems]. The immutable
+    terrain/site map stays OUTSIDE the ECS (the navmesh/CollisionWorld precedent), and
+    string logs (NPC memories, the chronicle) are sim-thread side stores owned by the runner.
+    Every gameplay tunable lives in data/cultivation/config.json — no balance constants in
+    code. All randomness is seeded, so worlds and runs are reproducible.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <RootNamespace>ParadiseCultivation</RootNamespace>
+    <!-- Required so Godot can load this library into its collectible assembly load context. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <!-- ParadiseRuntime publishes NativeAOT; config JSON uses source-generated STJ. -->
+    <IsAotCompatible>true</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The engine-neutral UI input contract (IUiInput / UiEvent) lives in ParadiseGame.Ui —
+         same dependency ParadiseUi takes for it. -->
+    <ProjectReference Include="..\ParadiseGame\ParadiseGame.csproj" />
+    <!-- Real sibling path (NOT the in-tree ParadiseEngine symlink, which breaks restore).
+         NO Paradise.ECS.Tag reference: the snapshot model needs World.CopyFrom, which only
+         the plain (untagged) World has (see .claude/lessons.md). -->
+    <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.ECS\Paradise.ECS.csproj" />
+    <ProjectReference Include="..\..\ParadiseEngine\src\Paradise.ECS.Generators\Paradise.ECS.Generators.csproj"
+                      OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Pinned to the engine's version (ParadiseEngine/src/Directory.Packages.props). -->
+    <PackageReference Include="ImGui.NET" Version="1.91.6.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Paradise.ECS" />
+  </ItemGroup>
+
+</Project>

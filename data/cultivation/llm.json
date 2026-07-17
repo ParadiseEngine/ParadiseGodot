@@ -1,0 +1,18 @@
+// The OPTIONAL online intelligence layer: an LLM restyles NPC chat replies and world-event
+// narration — strings only; every number stays rules-derived and deterministic. Requires
+// OPENAI_API_KEY in the environment (OPENAI_BASE_URL points at any OpenAI-compatible
+// server); without a key the game runs fully offline on the template proposer, exactly as
+// before. Replies are budget-clamped, control-stripped, length-clamped, and filtered to the
+// font atlas's baked glyph set before they may touch a side store.
+{
+  "enabled": true,
+  "model": "gpt-5-mini",
+  "maxTokens": 400,
+  "timeoutSeconds": 20,
+  "recentMemories": 5,
+  "memorySeparator": "；",
+  "dialogueSystem": "你是修仙世界中的人物「{0}」，性格{1}，修为{2}。正在与你交谈的是修士「{3}」，修为{4}，你与其交情为「{5}」。请完全以此角色的口吻应答。只输出一行JSON，不要其他文字：{{\"reply\":\"以简体中文回答一句话，不超过{6}字，不要换行、旁白或生僻字\",\"affection\":整数}}。affection表示这句话令你对其好感的增减，范围-{7}到{7}，寻常寒暄给小数值。",
+  "dialogueUser": "你与对方的过往：{0}\n对方对你说：「{1}」",
+  "eventSystem": "你是修仙世界的编年史官，文风古雅凝练。请将所述异象改写为一句简体中文记载，不超过{0}字，不要换行，不要使用生僻字。",
+  "eventUser": "{0}，天下异象「{1}」。原始记载：{2}"
+}

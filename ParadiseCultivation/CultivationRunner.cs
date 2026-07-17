@@ -1,0 +1,2347 @@
+using System.Collections.Concurrent;
+using System.Diagnostics;
+using System.Text.Json;
+using ParadiseGame.Ui;
+
+namespace ParadiseCultivation;
+
+/// <summary>A queued player action from any thread, applied on the sim thread.</summary>
+public enum CommandKind
+{
+    None,
+    StartNew,
+    BeginJourney,
+    Travel,
+    TravelStep,
+    Cultivate,
+    Seclude,
+    Breakthrough,
+    Ascend,
+    Explore,
+    Chat,
+    Gift,
+    Spar,
+    SellHerbs,
+    BuyPill,
+    JoinSect,
+    LeaveSect,
+    SectMission,
+    ExchangePill,
+    ExchangeHeal,
+    ProposeCompanion,
+    LeaveCompanion,
+    /// <summary>A = 1 invites the companion to travel along, 0 sends them home.</summary>
+    CompanionTravel,
+    EnterRealm,
+    Fight,
+    Flee,
+    Save,
+    Load,
+    /// <summary>Internal: an async LLM chat reply re-entering the sim thread (A = request
+    /// sequence — stale replies are discarded).</summary>
+    LlmChatReply,
+    /// <summary>Internal: async LLM event narration re-entering the sim thread (A = world
+    /// generation counter, B = chronicle index to rewrite).</summary>
+    LlmEventText,
+}
+
+public readonly record struct CultivationCommand(CommandKind Kind, int A, int B, Entity Target, string? Text);
+
+/// <summary>
+/// The cultivation slice on ParadiseGame's snapshot machinery (the <c>SimulationRunner</c>
+/// analog): a 60 Hz sim thread advances the ECS world as a sequence of IMMUTABLE snapshots —
+/// each tick rents a write-world from a pre-created pool, <c>CopyFrom</c>s the current one,
+/// mutates the copy, and publishes it; published worlds are never mutated again. Readers pin
+/// pairs via <see cref="TrySampleInterpolation"/> and a world is recycled only when unpinned
+/// and outside the window.
+///
+/// Game flow: player actions arrive as <see cref="CultivationCommand"/>s and are applied on
+/// the sim thread; time-consuming actions start an ANIMATED time advance (game days flow at
+/// the config rate). Travel walks a terrain-cost A* path tile by tile as the days tick.
+/// Month boundaries settle the player in managed code and the NPC population through
+/// <see cref="SettlementSystem"/> (snapshot-read parallel schedule); the managed post-pass
+/// turns the system's flags into chronicle entries and replacement spawns. The ImGui UI runs
+/// on the sim thread via <see cref="UiInput"/>, reading <see cref="UiWorld"/> directly and
+/// enqueueing commands — the BankHeist direct-world-access pattern, no facade.
+///
+/// Free-text interaction goes through the intelligence-layer seam
+/// (<see cref="Proposer"/> → <see cref="ProposalRules"/> validation): proposers only
+/// suggest; this runner's rules code is the sole writer of authoritative state, and the
+/// deterministic <see cref="TemplateProposer"/> keeps everything working offline.
+///
+/// Randomness is a serializable <see cref="Pcg32"/> stream, so the versioned JSON save
+/// (<see cref="SaveData"/>) captures it exactly and a loaded game continues deterministically.
+/// String state lives OUTSIDE the ECS: <see cref="Chronicle"/> and the per-NPC memory logs
+/// are sim-thread side stores; names/personalities are config-pool indices on components.
+/// The terrain/site <see cref="Map"/> is immutable and thread-agnostic.
+/// </summary>
+public sealed class CultivationRunner : IDisposable
+{
+    public const double FixedDeltaSeconds = 1.0 / 60.0;
+    private const double MaxAccumulatedSeconds = 0.25;
+    // Pre-created on the owner thread (SharedWorld.CreateWorld is thread-affinity-guarded);
+    // the sim thread only pops from the pool. Sized to absorb reader stalls that pin snapshots.
+    private const int PoolSize = 32;
+
+    private sealed class Snapshot
+    {
+        public required World World;
+        public long Frame;
+        public int Pinned;
+        public double Time => Frame * FixedDeltaSeconds;
+    }
+
+    private readonly SharedWorld _shared;
+    private readonly ConcurrentQueue<CultivationCommand> _commands = new();
+    private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
+    private readonly object _lock = new();
+    private readonly Stopwatch _clock = new();
+
+    private readonly List<Snapshot> _live = new();
+    private readonly Stack<World> _pool = new();
+    private readonly List<IDisposable> _schedules = new();
+    private readonly Dictionary<World, Action<World>> _runByWorld = new();
+    private long _heldFrameA = -1;
+    private long _heldFrameB = -1;
+    private long _frame;
+
+    private volatile bool _running;
+    private Thread? _thread;
+    private volatile Exception? _threadException;
+    private bool _disposed;
+    private volatile bool _paused;
+    private long _uiTicks;
+
+    // ---- game state (sim thread; ctor sets up on the owner thread before Start) ----
+
+    private readonly RealmLadder _ladder;
+    private readonly SettlementTuning _tuning;
+    private WorldMap _map = null!;
+    private Pcg32 _rng = null!;
+    private int _nextNpcId;
+    private readonly List<Entity> _npcs = new();
+    private readonly Dictionary<Entity, List<MemoryEntry>> _memories = new();
+    private Entity _player;
+    private volatile int _phaseRaw = (int)GamePhase.NewGame;
+
+    private double _dayCursor;   // fractional days; _day is its floor
+    private long _day;
+    private double _pendingDays;
+    private double _pendingTargetCursor; // integer-valued double → exact completion day
+    private double _pendingRate;         // game days per real second for this action
+    private CommandKind _pendingKind;
+    private int _pendingAmount;          // months cultivated / years secluded / travel days
+    private TravelPlan? _travelPlan;
+    private int _travelStepsDone;
+    private double _pendingGained;
+    private World? _uiWorld;
+    private int[] _townPillStock = Array.Empty<int>();
+    private long _knownRealmIndex = -1;
+    private long _lastRealmTrialIndex = -1;
+    private (int NameIndex, int RealmIndex)? _pendingBeast;
+
+    public CultivationConfig Config { get; }
+
+    /// <summary>The intelligence-layer proposer for free-text interaction. Swap in an
+    /// LLM-backed implementation later; every proposal is validated by
+    /// <see cref="ProposalRules"/> and the default keeps the game fully offline.</summary>
+    public INpcInteractionProposer Proposer { get; set; } = new TemplateProposer();
+
+    /// <summary>The OPTIONAL online intelligence layer. When set (host wiring, only with a
+    /// credential present), chats and event months additionally fire an async LLM request off
+    /// the sim thread; the reply re-enters through the command queue, is sanitized/glyph-
+    /// filtered by the rules layer, and rewrites ONLY side-store strings (LastReply, the
+    /// chronicle line). The template text always displays first, so the game never waits on
+    /// the network and stays byte-identical in everything the determinism tests cover.
+    /// The runner takes ownership (disposed with the runner).</summary>
+    public ILlmTextService? Llm { get; set; }
+
+    /// <summary>Swap the LLM client at runtime (the settings panel's Apply): disposes the
+    /// old one — in-flight requests on it fail silently into the best-effort catch. SIM
+    /// THREAD ONLY (the UI panels run there), or before <see cref="Start"/>.</summary>
+    public void ReplaceLlm(ILlmTextService? llm)
+    {
+        if (ReferenceEquals(Llm, llm)) return;
+        (Llm as IDisposable)?.Dispose();
+        Llm = llm;
+    }
+
+    /// <summary>Characters the host's font atlas baked (the union of all config files) —
+    /// LLM text is filtered to this set plus ASCII so unauthored glyphs never render as
+    /// tofu. Null (default) disables filtering. Set before <see cref="Start"/>.</summary>
+    public string? GlyphSource
+    {
+        set => _glyphs = value is null ? null : new HashSet<char>(value);
+    }
+
+    private HashSet<char>? _glyphs;
+    private readonly CancellationTokenSource _llmCts = new();
+    /// <summary>Bumped by every interaction that writes <see cref="LastReply"/> and by world
+    /// swaps — an LLM chat reply applies only if it carries the CURRENT value.</summary>
+    private int _llmChatSeq;
+    /// <summary>Bumped on new-world/load — pending event narration for the old world dies.</summary>
+    private int _llmGeneration;
+
+    /// <summary>The immutable generated map — safe from any thread.</summary>
+    public WorldMap Map => _map;
+
+    public GamePhase Phase => (GamePhase)_phaseRaw;
+    public Exception? ThreadException => _threadException;
+    public double Now => _clock.Elapsed.TotalSeconds;
+    public bool HasSnapshots { get { lock (_lock) { return _live.Count > 0; } } }
+    public double LatestSnapshotTime { get { lock (_lock) { return _live.Count == 0 ? 0 : _live[^1].Time; } } }
+
+    /// <summary>Absolute game day (calendar). Torn-read-safe for host status lines.</summary>
+    public long Day => Volatile.Read(ref _day);
+
+    // ---- sim-thread state for the UI panels (which run on the sim thread via UiInput) ----
+
+    /// <summary>The world the UI panels read during their draw (the tick's write world, in
+    /// last-published state until this tick's mutations land). SIM THREAD ONLY.</summary>
+    public World UiWorld => _uiWorld ?? Current;
+
+    public Entity Player => _player;
+    /// <summary>All NPC entities ever spawned (dead ones keep their components + memories).
+    /// SIM THREAD ONLY.</summary>
+    public IReadOnlyList<Entity> Npcs => _npcs;
+    /// <summary>The world/biography log. SIM THREAD ONLY.</summary>
+    public List<MemoryEntry> Chronicle { get; } = new();
+    /// <summary>Breakthrough-pill stock per site index (towns only; restocked monthly).
+    /// SIM THREAD ONLY.</summary>
+    public IReadOnlyList<int> TownPillStock => _townPillStock;
+    /// <summary>The opening index the player has HEARD about (map marker gate), or -1.
+    /// SIM THREAD ONLY.</summary>
+    public long KnownRealmIndex => _knownRealmIndex;
+    /// <summary>The opening index whose trial is already spent, or -1. SIM THREAD ONLY.</summary>
+    public long LastRealmTrialIndex => _lastRealmTrialIndex;
+    /// <summary>The beast blocking the road, if any — every action except fight/flee (and
+    /// save/load) is refused while this is set. SIM THREAD ONLY.</summary>
+    public (int NameIndex, int RealmIndex)? PendingBeast => _pendingBeast;
+    /// <summary>An action is animating game time; new time-consuming actions are refused.</summary>
+    public bool Busy => _pendingDays > 0;
+    /// <summary>Remaining/total days of the animating action (progress display).</summary>
+    public (double Remaining, double Total) PendingProgress =>
+        (_pendingDays, _pendingKind == CommandKind.None ? 0 : _pendingTotalDays);
+    private double _pendingTotalDays;
+
+    /// <summary>The path being traveled (null when not traveling) plus days completed —
+    /// the UI interpolates the moving player marker from these. SIM THREAD ONLY.</summary>
+    public (TravelPlan? Plan, double DaysDone) ActiveTravel =>
+        _pendingKind is CommandKind.Travel or CommandKind.TravelStep && _travelPlan is not null
+            ? (_travelPlan, _pendingTotalDays - _pendingDays)
+            : (null, 0);
+
+    public string LastActionResult { get; private set; } = string.Empty;
+    public string LastReply { get; private set; } = string.Empty;
+
+    public string Today => CultivationRules.FormatDate(Config, _day);
+
+    /// <summary>Absolute base directory for save slots. Hosts override it (the Godot bridge
+    /// maps it under user://); defaults to the config directory name relative to the cwd.</summary>
+    public string SaveRoot { get; set; }
+
+    private MessageTextConfig Msg => Config.Text.Messages;
+    private static string F(string template, params object[] args) => CultivationRules.F(template, args);
+
+    public IReadOnlyList<MemoryEntry> MemoriesOf(Entity npc) =>
+        _memories.TryGetValue(npc, out var list) ? list : Array.Empty<MemoryEntry>();
+
+    /// <summary>The latest world. Pre-<see cref="Start"/> setup and SYNCHRONOUS tests only —
+    /// once the sim thread runs, published worlds are immutable and must not be poked.</summary>
+    public World Current => _live[^1].World;
+
+    public CultivationRunner(CultivationConfig config, int seed, int? presetIndex = null)
+    {
+        Config = config;
+        SaveRoot = config.Save.Directory;
+        (_ladder, _tuning) = CultivationRules.BakeSettlementData(config);
+        _shared = SharedWorldFactory.Create();
+        for (var i = 0; i < PoolSize; i++)
+        {
+            _pool.Push(CreateWorldWithSchedule());
+        }
+        _live.Add(new Snapshot { World = RentWorldUnlocked(), Frame = 0 });
+
+        StartNewWorld(Current, seed, presetIndex ?? config.World.DefaultPresetIndex);
+    }
+
+    // ---- commands (any thread) ----
+
+    public void Enqueue(in CultivationCommand command) => _commands.Enqueue(command);
+
+    public void RequestStartNew(int seed, int presetIndex) =>
+        Enqueue(new CultivationCommand(CommandKind.StartNew, seed, presetIndex, default, null));
+
+    public void RequestBeginJourney() =>
+        Enqueue(new CultivationCommand(CommandKind.BeginJourney, 0, 0, default, null));
+
+    public void RequestTravel(int x, int y) =>
+        Enqueue(new CultivationCommand(CommandKind.Travel, x, y, default, null));
+
+    /// <summary>WASD: step one tile in a cardinal direction (four-direction adjacency).</summary>
+    public void RequestTravelStep(int dx, int dy) =>
+        Enqueue(new CultivationCommand(CommandKind.TravelStep, dx, dy, default, null));
+
+    public void RequestCultivate(int months) =>
+        Enqueue(new CultivationCommand(CommandKind.Cultivate, months, 0, default, null));
+
+    public void RequestSeclude(int years) =>
+        Enqueue(new CultivationCommand(CommandKind.Seclude, years, 0, default, null));
+
+    public void RequestBreakthrough() =>
+        Enqueue(new CultivationCommand(CommandKind.Breakthrough, 0, 0, default, null));
+
+    /// <summary>Face the final heavenly tribulation (the win-condition gamble).</summary>
+    public void RequestAscend() =>
+        Enqueue(new CultivationCommand(CommandKind.Ascend, 0, 0, default, null));
+
+    public void RequestExplore() =>
+        Enqueue(new CultivationCommand(CommandKind.Explore, 0, 0, default, null));
+
+    public void RequestChat(Entity npc, string text) =>
+        Enqueue(new CultivationCommand(CommandKind.Chat, 0, 0, npc, text));
+
+    public void RequestGift(Entity npc) =>
+        Enqueue(new CultivationCommand(CommandKind.Gift, 0, 0, npc, null));
+
+    public void RequestSpar(Entity npc) =>
+        Enqueue(new CultivationCommand(CommandKind.Spar, 0, 0, npc, null));
+
+    /// <summary>Sell herbs at the town the player stands in (quantity clamped to owned).</summary>
+    public void RequestSellHerbs(int quantity) =>
+        Enqueue(new CultivationCommand(CommandKind.SellHerbs, quantity, 0, default, null));
+
+    /// <summary>Buy one breakthrough pill at the town the player stands in.</summary>
+    public void RequestBuyPill() =>
+        Enqueue(new CultivationCommand(CommandKind.BuyPill, 0, 0, default, null));
+
+    /// <summary>Seek apprenticeship at the sect the player stands in.</summary>
+    public void RequestJoinSect() =>
+        Enqueue(new CultivationCommand(CommandKind.JoinSect, 0, 0, default, null));
+
+    /// <summary>Leave one's sect — must be said in person, at the mountain gate.</summary>
+    public void RequestLeaveSect() =>
+        Enqueue(new CultivationCommand(CommandKind.LeaveSect, 0, 0, default, null));
+
+    /// <summary>Take this month's sect mission (at one's own mountain gate).</summary>
+    public void RequestSectMission() =>
+        Enqueue(new CultivationCommand(CommandKind.SectMission, 0, 0, default, null));
+
+    /// <summary>Exchange contribution for a breakthrough pill at one's own sect.</summary>
+    public void RequestExchangePill() =>
+        Enqueue(new CultivationCommand(CommandKind.ExchangePill, 0, 0, default, null));
+
+    /// <summary>Exchange contribution to clear all injury at one's own sect.</summary>
+    public void RequestExchangeHeal() =>
+        Enqueue(new CultivationCommand(CommandKind.ExchangeHeal, 0, 0, default, null));
+
+    /// <summary>Propose becoming dao companions to the NPC before you.</summary>
+    public void RequestProposeCompanion(Entity npc) =>
+        Enqueue(new CultivationCommand(CommandKind.ProposeCompanion, 0, 0, npc, null));
+
+    /// <summary>Sever the dao-companion bond.</summary>
+    public void RequestLeaveCompanion() =>
+        Enqueue(new CultivationCommand(CommandKind.LeaveCompanion, 0, 0, default, null));
+
+    /// <summary>Invite the companion to travel along (in person), or send them home.</summary>
+    public void RequestCompanionTravel(bool along) =>
+        Enqueue(new CultivationCommand(CommandKind.CompanionTravel, along ? 1 : 0, 0, default, null));
+
+    /// <summary>Brave the trial of the secret realm the player is standing in.</summary>
+    public void RequestEnterRealm() =>
+        Enqueue(new CultivationCommand(CommandKind.EnterRealm, 0, 0, default, null));
+
+    /// <summary>Face the beast blocking the road.</summary>
+    public void RequestFight() =>
+        Enqueue(new CultivationCommand(CommandKind.Fight, 0, 0, default, null));
+
+    /// <summary>Try to slip away from the beast blocking the road.</summary>
+    public void RequestFlee() =>
+        Enqueue(new CultivationCommand(CommandKind.Flee, 0, 0, default, null));
+
+    public void RequestSave(string path) =>
+        Enqueue(new CultivationCommand(CommandKind.Save, 0, 0, default, path));
+
+    public void RequestLoad(string path) =>
+        Enqueue(new CultivationCommand(CommandKind.Load, 0, 0, default, path));
+
+    // ---- UI pump (the SimulationRunner contract) ----
+
+    /// <summary>The sim-thread UI half. Set before <see cref="Start"/>; every fixed step the
+    /// runner drains queued UI events into it and advances its time — panels therefore run on
+    /// the sim thread and may read <see cref="UiWorld"/> and the side stores directly.</summary>
+    public IUiInput? UiInput { get; set; }
+
+    public void EnqueueUiEvent(in UiEvent uiEvent) => _uiEvents.Enqueue(uiEvent);
+
+    /// <summary>Freeze the world clock; the UI keeps ticking (pause menus stay interactive).</summary>
+    public bool Paused
+    {
+        get => _paused;
+        set => _paused = value;
+    }
+
+    // ---- threading (mirrors SimulationRunner) ----
+
+    public void Start()
+    {
+        if (_thread is not null) throw new InvalidOperationException("Already started.");
+        _running = true;
+        _clock.Start();
+        _thread = new Thread(Run) { IsBackground = true, Name = "CultivationSim" };
+        _thread.Start();
+    }
+
+    public void Stop()
+    {
+        _running = false;
+        _thread?.Join(1000);
+        _thread = null;
+    }
+
+    private void Run()
+    {
+        try
+        {
+            double accumulator = 0, last = _clock.Elapsed.TotalSeconds;
+            while (_running)
+            {
+                var now = _clock.Elapsed.TotalSeconds;
+                accumulator = Math.Min(accumulator + (now - last), MaxAccumulatedSeconds);
+                last = now;
+                while (accumulator >= FixedDeltaSeconds && _running)
+                {
+                    if (_paused)
+                    {
+                        PumpUi(); // pause freezes the WORLD, never the UI
+                    }
+                    else
+                    {
+                        TickOnce();
+                    }
+                    accumulator -= FixedDeltaSeconds;
+                }
+                Thread.Sleep(1);
+            }
+        }
+        catch (Exception ex)
+        {
+            _threadException = ex;
+            _running = false;
+        }
+    }
+
+    private void PumpUi()
+    {
+        var ui = UiInput;
+        while (_uiEvents.TryDequeue(out var uiEvent))
+        {
+            ui?.Handle(in uiEvent);
+        }
+        ui?.Tick(++_uiTicks * FixedDeltaSeconds);
+    }
+
+    // ---- one double-buffered frame (also drives the tests synchronously) ----
+
+    public void TickOnce()
+    {
+        World current;
+        World write;
+        lock (_lock)
+        {
+            if (_pool.Count == 0)
+            {
+                PruneUnlocked(); // publish normally prunes; a starved pool must prune here
+            }
+            if (_pool.Count == 0)
+            {
+                return; // every world pinned by a stalled reader — skip (backpressure)
+            }
+            current = _live[^1].World;
+            write = _pool.Pop();
+        }
+
+        write.CopyFrom(current);
+        _uiWorld = write;
+
+        // UI first (panels read last-published state and enqueue commands), then commands,
+        // then the time advance they may have started, then the settlement schedule.
+        PumpUi();
+        ProcessCommands(write);
+        AdvanceTime(write, out var monthsCrossed, out var firstMonthIndex);
+        PrepareFrame(write, monthsCrossed, firstMonthIndex);
+
+        _runByWorld[write](current);
+
+        PostPass(write);
+        MaybeAutosave(write);
+
+        lock (_lock)
+        {
+            _live.Add(new Snapshot { World = write, Frame = ++_frame });
+            PruneUnlocked();
+        }
+    }
+
+    private void PrepareFrame(World write, int monthsCrossed, long firstMonthIndex)
+    {
+        foreach (var data in write.Query(default(SimulationContexts)))
+        {
+            data.SimulationContext.DeltaSeconds = (float)FixedDeltaSeconds;
+            data.SimulationContext.Day = _day;
+            data.SimulationContext.MonthsCrossed = monthsCrossed;
+            data.SimulationContext.FirstMonthIndex = firstMonthIndex;
+            data.SimulationContext.WorldSeed = _map.GenerationSeed;
+        }
+    }
+
+    // ---- time flow ----
+
+    private void BeginAdvance(CommandKind kind, int totalDays, int amount = 0)
+    {
+        _pendingKind = kind;
+        _pendingTotalDays = totalDays;
+        _pendingDays = totalDays;
+        _pendingTargetCursor = Math.Floor(_dayCursor) + totalDays; // integer-valued → exact end
+        _pendingAmount = amount;
+        _pendingGained = 0;
+        if (kind is not (CommandKind.Travel or CommandKind.TravelStep))
+        {
+            _travelPlan = null;
+        }
+        // Pace by wall-clock duration: journeys are stretched to stay visible (the moving
+        // character is the point), WASD steps stay snappy and terrain-independent, and
+        // everything is capped so century seclusions finish within MaxActionSeconds.
+        var flow = Config.Time.Flow;
+        var duration = kind switch
+        {
+            CommandKind.TravelStep => flow.StepSeconds,
+            CommandKind.Travel => Math.Clamp(
+                totalDays / flow.DaysPerSecond, flow.TravelMinSeconds, flow.MaxActionSeconds),
+            _ => Math.Min(totalDays / flow.DaysPerSecond, flow.MaxActionSeconds),
+        };
+        _pendingRate = totalDays / Math.Max(0.05, duration);
+    }
+
+    private void AdvanceTime(World write, out int monthsCrossed, out long firstMonthIndex)
+    {
+        monthsCrossed = 0;
+        firstMonthIndex = 0;
+        if (Phase != GamePhase.Playing || _pendingDays <= 0)
+        {
+            return;
+        }
+
+        var step = Math.Min(_pendingRate * FixedDeltaSeconds, _pendingDays);
+        _pendingDays -= step;
+        var done = _pendingDays <= 1e-9;
+        _dayCursor = done ? _pendingTargetCursor : _dayCursor + step;
+        if (done) _pendingDays = 0;
+
+        var dayBefore = _day;
+        var dayAfter = (long)_dayCursor;
+        Volatile.Write(ref _day, dayAfter);
+
+        var monthsBefore = dayBefore / Config.Time.DaysPerMonth;
+        var monthsAfter = dayAfter / Config.Time.DaysPerMonth;
+        monthsCrossed = (int)(monthsAfter - monthsBefore);
+        firstMonthIndex = monthsBefore;
+
+        // Player-side settlement (managed — the player entity carries no NpcState, so the
+        // settlement system never touches it): aging always, gains only while cultivating.
+        ref var cultivator = ref write.GetComponent<Cultivator>(_player);
+        ref var player = ref write.GetComponent<PlayerData>(_player);
+        cultivator.AgeDays += (dayAfter - dayBefore);
+
+        // Travel: the marker walks the path as days accumulate — the design's "player is
+        // always a small moving character on the map", not teleport-on-arrival.
+        if (_travelPlan is { } plan && _pendingKind is CommandKind.Travel or CommandKind.TravelStep)
+        {
+            var daysDone = _pendingTotalDays - _pendingDays;
+            while (_travelStepsDone < plan.Steps.Count &&
+                   (done || plan.CumulativeDays[_travelStepsDone] <= daysDone))
+            {
+                var (sx, sy) = plan.Steps[_travelStepsDone];
+                player.X = sx;
+                player.Y = sy;
+                _travelStepsDone++;
+            }
+        }
+
+        if (monthsCrossed > 0)
+        {
+            RestockMarkets();
+            // Announce fresh openings (name only — the WHERE is what rumors are for).
+            for (var mm = firstMonthIndex + 1; mm <= firstMonthIndex + monthsCrossed; mm++)
+            {
+                if (SecretRealms.OpensAtMonth(Config, mm))
+                {
+                    var index = (mm - Config.SecretRealm.FirstOpenMonth) / Config.SecretRealm.PeriodMonths;
+                    Log(F(Msg.RealmOpenLog, SecretRealms.NameOf(Config, index)));
+                }
+                // World events: the authored line lands immediately (deterministic); the
+                // optional LLM narration rewrites that exact chronicle slot when it arrives.
+                if (WorldEvents.TryGetForMonth(Config, _map.GenerationSeed, mm) is { } worldEvent)
+                {
+                    var chronicleIndex = Chronicle.Count;
+                    Log(F(Msg.WorldEventLog, worldEvent.Name, worldEvent.LogLine));
+                    RequestLlmEventText(in worldEvent, chronicleIndex);
+                }
+                LogWorldLifeBeat(write, mm);
+            }
+        }
+
+        var cultivating = _pendingKind is CommandKind.Cultivate or CommandKind.Seclude;
+        var companionPresent = cultivating && CompanionPresent(write, in player);
+        for (var m = 0; m < monthsCrossed; m++)
+        {
+            if (player.InjuryMonths > 0) player.InjuryMonths--;
+            SettleSectMonth(ref cultivator, ref player);
+            if (cultivating)
+            {
+                // Per-month day so event multipliers land on THEIR month, independent of
+                // how many crossings this tick happened to batch.
+                var monthDay = (firstMonthIndex + 1 + m) * Config.Time.DaysPerMonth;
+                var gain = CultivationRules.MonthlyCultivationGain(
+                    Config, _map, in cultivator, in player, monthDay, companionPresent);
+                cultivator.CultivationPoints += gain;
+                _pendingGained += gain;
+                CultivationRules.AdvanceSubStages(Config, ref cultivator);
+            }
+        }
+
+        if (cultivator.AgeDays / CultivationRules.DaysPerYear(Config) >= player.LifespanYears)
+        {
+            _phaseRaw = (int)GamePhase.Dead;
+            _pendingDays = 0;
+            _pendingKind = CommandKind.None;
+            _travelPlan = null;
+            var epitaph = F(Msg.DeathLog, CultivationRules.PlayerName(Config, in player),
+                $"{cultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0}",
+                Config.Realms[cultivator.RealmIndex].Name);
+            Log(epitaph);
+            LastActionResult = epitaph; // not the stale "in seclusion..." line
+            return;
+        }
+
+        if (done)
+        {
+            CompleteAdvance(in cultivator, in player);
+        }
+    }
+
+    private void CompleteAdvance(in Cultivator cultivator, in PlayerData player)
+    {
+        switch (_pendingKind)
+        {
+            case CommandKind.Travel:
+            case CommandKind.TravelStep:
+            {
+                var site = _map.TileAt(player.X, player.Y).SiteIndex;
+                var mode = _travelPlan?.Mode ?? Msg.WalkMode;
+                LastActionResult = site >= 0
+                    ? F(Msg.ArrivedAtMsg, _map.Sites[site].Name, _pendingAmount, mode)
+                    : F(Msg.TraveledMsg, _pendingAmount, mode);
+                _travelPlan = null;
+                break;
+            }
+            case CommandKind.Cultivate:
+                LastActionResult = F(Msg.CultivateDoneMsg, _pendingAmount, $"{_pendingGained:F0}",
+                    CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage));
+                break;
+            case CommandKind.Seclude:
+                Log(F(Msg.SecludeLeaveLog, CultivationRules.PlayerName(Config, in player), _pendingAmount));
+                LastActionResult = F(Msg.SecludeDoneMsg, _pendingAmount, $"{_pendingGained:F0}",
+                    CultivationRules.RealmTitle(Config, cultivator.RealmIndex, cultivator.SubStage));
+                break;
+        }
+        _pendingKind = CommandKind.None;
+    }
+
+    // ---- command application (sim thread) ----
+
+    private void ProcessCommands(World write)
+    {
+        while (_commands.TryDequeue(out var command))
+        {
+            switch (command.Kind)
+            {
+                case CommandKind.StartNew:
+                    StartNewWorld(write, command.A, Math.Clamp(command.B, 0, Config.World.Presets.Length - 1));
+                    continue;
+                case CommandKind.BeginJourney:
+                    if (Phase == GamePhase.NewGame) _phaseRaw = (int)GamePhase.Playing;
+                    continue;
+                case CommandKind.Load:
+                    if (!Busy) LoadGame(write, command.Text ?? string.Empty);
+                    else LastActionResult = Msg.LoadBusyMsg;
+                    continue;
+                // Async LLM results bypass the Busy gate (the chat's own time advance is
+                // usually still animating when they arrive) — staleness guards inside.
+                case CommandKind.LlmChatReply:
+                    ApplyLlmChatReply(write, command.A, command.Text);
+                    continue;
+                case CommandKind.LlmEventText:
+                    ApplyLlmEventText(command.A, command.B, command.Text);
+                    continue;
+            }
+
+            if (Phase != GamePhase.Playing)
+            {
+                continue;
+            }
+
+            if (command.Kind == CommandKind.Save)
+            {
+                if (!Busy) SaveGame(write, command.Text ?? string.Empty);
+                else LastActionResult = Msg.SaveBusyMsg;
+                continue;
+            }
+
+            if (Busy)
+            {
+                LastActionResult = Msg.Occupied;
+                continue;
+            }
+
+            // A beast blocks the road: nothing but the encounter itself proceeds
+            // (save/load were already handled above — knowledge is never hostage).
+            if (_pendingBeast is not null &&
+                command.Kind is not (CommandKind.Fight or CommandKind.Flee))
+            {
+                LastActionResult = Msg.EncounterBlocksMsg;
+                continue;
+            }
+
+            ref var cultivator = ref write.GetComponent<Cultivator>(_player);
+            ref var player = ref write.GetComponent<PlayerData>(_player);
+
+            switch (command.Kind)
+            {
+                case CommandKind.Travel:
+                    BeginTravel(in cultivator, in player, command.A, command.B);
+                    break;
+                case CommandKind.TravelStep:
+                {
+                    var dx = Math.Clamp(command.A, -1, 1);
+                    var dy = Math.Clamp(command.B, -1, 1);
+                    if (dx != 0 && dy != 0) break; // four-direction adjacency only
+                    BeginTravel(in cultivator, in player, player.X + dx, player.Y + dy, step: true);
+                    break;
+                }
+                case CommandKind.Cultivate:
+                {
+                    var months = Math.Max(1, command.A);
+                    LastActionResult = F(Msg.CultivateStartMsg, months);
+                    BeginAdvance(CommandKind.Cultivate, months * Config.Time.DaysPerMonth, months);
+                    break;
+                }
+                case CommandKind.Seclude:
+                {
+                    var years = Math.Max(1, command.A);
+                    Log(F(Msg.SecludeEnterLog, CultivationRules.PlayerName(Config, in player), years));
+                    LastActionResult = F(Msg.SecludeStartMsg, years);
+                    BeginAdvance(CommandKind.Seclude, (int)(years * CultivationRules.DaysPerYear(Config)), years);
+                    break;
+                }
+                case CommandKind.Breakthrough:
+                    ApplyBreakthrough(ref cultivator, ref player);
+                    break;
+                case CommandKind.Ascend:
+                    ApplyAscend(ref cultivator, ref player);
+                    break;
+                case CommandKind.Explore:
+                    ApplyExplore(ref cultivator, ref player);
+                    break;
+                case CommandKind.Chat:
+                    ApplyChat(write, command.Target, command.Text ?? string.Empty, ref player, in cultivator);
+                    break;
+                case CommandKind.Gift:
+                    ApplyGift(write, command.Target, ref player);
+                    break;
+                case CommandKind.Spar:
+                    ApplySpar(write, command.Target, ref cultivator, ref player);
+                    break;
+                case CommandKind.SellHerbs:
+                    ApplySellHerbs(ref player, command.A);
+                    break;
+                case CommandKind.BuyPill:
+                    ApplyBuyPill(ref player);
+                    break;
+                case CommandKind.JoinSect:
+                    ApplyJoinSect(write, ref player);
+                    break;
+                case CommandKind.LeaveSect:
+                    ApplyLeaveSect(write, ref player);
+                    break;
+                case CommandKind.SectMission:
+                    ApplySectMission(ref player);
+                    break;
+                case CommandKind.ExchangePill:
+                    ApplyExchangePill(ref player);
+                    break;
+                case CommandKind.ExchangeHeal:
+                    ApplyExchangeHeal(ref player);
+                    break;
+                case CommandKind.ProposeCompanion:
+                    ApplyProposeCompanion(write, command.Target, ref cultivator, ref player);
+                    break;
+                case CommandKind.LeaveCompanion:
+                    ApplyLeaveCompanion(write, ref player);
+                    break;
+                case CommandKind.CompanionTravel:
+                    ApplyCompanionTravel(write, ref player, command.A != 0);
+                    break;
+                case CommandKind.EnterRealm:
+                    ApplyEnterRealm(ref cultivator, ref player);
+                    break;
+                case CommandKind.Fight:
+                    ApplyFight(ref cultivator, ref player);
+                    break;
+                case CommandKind.Flee:
+                    ApplyFlee(in cultivator, ref player);
+                    break;
+            }
+        }
+    }
+
+    private void BeginTravel(in Cultivator cultivator, in PlayerData player, int toX, int toY, bool step = false)
+    {
+        if (!_map.InBounds(toX, toY) || (toX == player.X && toY == player.Y))
+        {
+            return;
+        }
+
+        var plan = Pathfinding.Plan(Config, _map, player.X, player.Y, cultivator.RealmIndex, toX, toY);
+        if (plan is null)
+        {
+            LastActionResult = step ? Msg.TravelStepBlocked : Msg.TravelNoPath;
+            return;
+        }
+
+        _travelPlan = plan;
+        _travelStepsDone = 0;
+        if (!step)
+        {
+            LastActionResult = F(Msg.TravelStartMsg, plan.Mode, plan.TotalDays);
+        }
+        BeginAdvance(step ? CommandKind.TravelStep : CommandKind.Travel, plan.TotalDays, plan.TotalDays);
+    }
+
+    private void ApplyBreakthrough(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (!CultivationRules.BreakthroughReady(Config, in cultivator))
+        {
+            LastActionResult = Msg.BreakthroughNotReady;
+            return;
+        }
+
+        var realm = Config.Realms[cultivator.RealmIndex];
+        var chance = CultivationRules.BreakthroughSuccessChance(Config, _map, in cultivator, in player);
+        var usedPill = player.Pills > 0;
+        if (usedPill)
+        {
+            // The pill is spent by the ATTEMPT (not only success) — that's its gamble.
+            player.Pills--;
+            chance = Math.Clamp(chance + Config.Trade.PillBreakthroughBonus, 0.05f, 0.98f);
+        }
+        if (_rng.NextDouble() < chance)
+        {
+            cultivator.RealmIndex++;
+            cultivator.SubStage = 0;
+            cultivator.CultivationPoints = 0;
+            player.LifespanYears = Config.Realms[cultivator.RealmIndex].LifespanYears;
+            var tribulation = realm.HasTribulation ? Msg.TribulationFlavor : string.Empty;
+            Log(F(Msg.BreakthroughLog, CultivationRules.PlayerName(Config, in player),
+                Config.Realms[cultivator.RealmIndex].Name, tribulation));
+            LastActionResult = F(Msg.BreakthroughMsg,
+                CultivationRules.RealmTitle(Config, cultivator.RealmIndex, 0), tribulation,
+                $"{player.LifespanYears:N0}");
+        }
+        else
+        {
+            cultivator.CultivationPoints *= 1.0 - realm.FailureCultivationLoss;
+            player.InjuryMonths += realm.FailureInjuryMonths;
+            Log(F(Msg.BreakthroughFailLog, CultivationRules.PlayerName(Config, in player),
+                Config.Realms[cultivator.RealmIndex + 1].Name));
+            LastActionResult = realm.FailureInjuryMonths > 0
+                ? F(Msg.BreakthroughFailInjuryMsg, realm.FailureInjuryMonths)
+                : Msg.BreakthroughFailMsg;
+        }
+        if (usedPill)
+        {
+            LastActionResult = F(Msg.PillUsedNote, CultivationRules.Percent(Config, Config.Trade.PillBreakthroughBonus)) + LastActionResult;
+        }
+        BeginAdvance(CommandKind.Breakthrough, Config.Time.ActionDays.Breakthrough);
+    }
+
+    /// <summary>The endgame gamble: one fortune-weighted tribulation roll at the ladder's
+    /// top. Success ends the run in <see cref="GamePhase.Ascended"/> (the victory mirror of
+    /// the death path); failure burns cultivation and injures — climb again.</summary>
+    private void ApplyAscend(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (!CultivationRules.AscensionReady(Config, in cultivator))
+        {
+            LastActionResult = Msg.AscendNotReadyMsg;
+            return;
+        }
+
+        var playerName = CultivationRules.PlayerName(Config, in player);
+        if (_rng.NextDouble() < CultivationRules.AscensionChance(Config, in player))
+        {
+            _phaseRaw = (int)GamePhase.Ascended;
+            _pendingDays = 0;
+            _pendingKind = CommandKind.None;
+            _travelPlan = null;
+            var finale = F(Msg.AscendLog, playerName,
+                $"{cultivator.AgeDays / CultivationRules.DaysPerYear(Config):F0}");
+            Log(finale);
+            LastActionResult = finale;
+            return;
+        }
+
+        cultivator.CultivationPoints *= 1.0 - Config.Ascension.FailureCultivationLoss;
+        player.InjuryMonths += Config.Ascension.FailureInjuryMonths;
+        Log(F(Msg.AscendFailLog, playerName));
+        LastActionResult = F(Msg.AscendFailMsg, Config.Ascension.FailureInjuryMonths);
+        BeginAdvance(CommandKind.Ascend, Config.Ascension.TrialDays);
+    }
+
+    private void ApplyExplore(ref Cultivator cultivator, ref PlayerData player)
+    {
+        // The wilderness bites back: a beast may interrupt the search (no loot this time);
+        // the encounter then blocks everything until the player fights or flees.
+        var combat = Config.Combat;
+        var encounterChance = Math.Min(1f, combat.EncounterChance
+            * WorldEvents.Multiplier(Config, _map.GenerationSeed, _day, WorldEventEffect.EncounterChance));
+        if (_rng.NextDouble() < encounterChance)
+        {
+            var beastRealm = Math.Clamp(
+                cultivator.RealmIndex + _rng.Next(-combat.BeastRealmSpread, combat.BeastRealmSpread + 1),
+                0, combat.MaxBeastRealmIndex);
+            _pendingBeast = (_rng.Next(Config.Names.BeastNames.Length), beastRealm);
+            LastActionResult = F(Msg.EncounterMsg, Config.Names.BeastNames[_pendingBeast.Value.NameIndex]);
+            BeginAdvance(CommandKind.Explore, Config.Time.ActionDays.Explore);
+            return;
+        }
+
+        var explore = Config.Player.Explore;
+        var multiplier = CultivationRules.FortuneMultiplier(Config, player.Fortune);
+        var found = new List<string>();
+
+        if (_rng.NextDouble() < explore.HerbChance)
+        {
+            var herbs = (int)Math.Round(_rng.Next(explore.HerbMin, explore.HerbMax + 1) * multiplier);
+            player.Herbs += herbs;
+            found.Add(F(Msg.ExploreHerbs[_rng.Next(Msg.ExploreHerbs.Length)], herbs));
+        }
+        if (_rng.NextDouble() < explore.StonesChance)
+        {
+            var stones = (int)Math.Round(_rng.Next(explore.StonesMin, explore.StonesMax + 1) * multiplier);
+            player.SpiritStones += stones;
+            found.Add(F(Msg.ExploreStones[_rng.Next(Msg.ExploreStones.Length)], stones));
+        }
+        if (_rng.NextDouble() < explore.InsightChance)
+        {
+            var points = explore.InsightPoints * Config.SpiritRoots.Grades[player.SpiritRootGrade].Multiplier;
+            cultivator.CultivationPoints += points;
+            CultivationRules.AdvanceSubStages(Config, ref cultivator);
+            player.Fortune = Math.Min(player.Fortune + Config.Fortune.InsightGain, Config.Fortune.Max);
+            found.Add(F(Msg.ExploreInsight[_rng.Next(Msg.ExploreInsight.Length)], $"{points:F0}"));
+            Log(F(Msg.ExploreInsightLog, CultivationRules.PlayerName(Config, in player)));
+        }
+
+        LastActionResult = found.Count == 0
+            ? Msg.ExploreNothing[_rng.Next(Msg.ExploreNothing.Length)]
+            : F(Msg.ExploreFoundMsg, string.Join(Msg.ExploreListSeparator, found));
+        BeginAdvance(CommandKind.Explore, Config.Time.ActionDays.Explore);
+    }
+
+    /// <summary>Positive gains scale with charm (never the negative ones, per the design doc)
+    /// and are clamped to the affection table's range.</summary>
+    private void GainAffection(ref NpcState npc, in PlayerData player, float baseAmount)
+    {
+        var amount = baseAmount > 0
+            ? baseAmount * Config.CharmTiers[player.CharmTier].Multiplier
+            : baseAmount;
+        npc.AffectionToPlayer = Math.Clamp(npc.AffectionToPlayer + amount, -500f, 1000f);
+        npc.PlayerAffection = Math.Clamp(
+            npc.PlayerAffection + amount * Config.Interaction.PlayerAffectionShare, -500f, 1000f);
+    }
+
+    private bool TryGetLivingNpc(World write, Entity target, out Entity npc)
+    {
+        npc = target;
+        return write.IsAlive(target) && write.HasComponent<NpcState>(target) &&
+               write.GetComponent<NpcState>(target).Alive != 0;
+    }
+
+    private void ApplyChat(World write, Entity target, string text, ref PlayerData player, in Cultivator cultivator)
+    {
+        if (string.IsNullOrWhiteSpace(text) || !TryGetLivingNpc(write, target, out var entity)) return;
+
+        _llmChatSeq++; // a new interaction owns LastReply; older in-flight LLM replies die
+        ref var npc = ref write.GetComponent<NpcState>(entity);
+        var memories = _memories[entity];
+        var context = new DialogueContext(
+            CultivationRules.NpcName(Config, in npc),
+            Config.Npc.Personalities[npc.PersonalityIndex],
+            write.GetComponent<Cultivator>(entity).RealmIndex,
+            npc.AffectionToPlayer,
+            memories.Count,
+            npc.NpcId,
+            CultivationRules.PlayerName(Config, in player),
+            cultivator.RealmIndex);
+
+        // Intelligence layer proposes; the rules layer validates and applies. The proposer's
+        // affection suggestion is clamped to the budget, then subjected to the same rules as
+        // ever: diminishing monthly returns and charm scaling on the positive side.
+        var proposal = Proposer.Propose(Config, in context, text);
+        var suggested = ProposalRules.ClampAffectionDelta(Config, proposal.AffectionDeltaSuggestion);
+        var divisor = 1f + npc.ChatsThisMonth;
+        GainAffection(ref npc, in player, suggested / divisor);
+        npc.ChatsThisMonth++;
+
+        LastReply = ProposalRules.SanitizeReply(Config, proposal.ReplyText, Msg.ChatFallbackReply);
+        var summary = ProposalRules.SanitizeReply(
+            Config, proposal.MemorySummary, F(Msg.ChatMemory, context.PlayerName, Truncate(text, 60)));
+        memories.Add(new MemoryEntry(_day, summary));
+
+        // The rumor mechanic: asking around WHILE a secret realm is open gets its actual
+        // whereabouts (and lights the map marker) — rules-side, so it works with any
+        // proposer and stays deterministic.
+        var rumorFired = false;
+        if (SecretRealms.TryGetCurrent(Config, _map, _day) is { } realm &&
+            Config.SecretRealm.RumorKeywords.Any(k => text.Contains(k, StringComparison.Ordinal)))
+        {
+            _knownRealmIndex = realm.Index;
+            var dx = realm.X - player.X;
+            var dy = realm.Y - player.Y;
+            var monthsLeft = (realm.CloseDay - _day + Config.Time.DaysPerMonth - 1) / Config.Time.DaysPerMonth;
+            LastReply = F(Msg.RumorRealmMsg, realm.Name,
+                SecretRealms.DirectionName(Config, dx, dy),
+                Math.Max(Math.Abs(dx), Math.Abs(dy)) * 10, monthsLeft);
+            rumorFired = true;
+        }
+        // The optional LLM layer proposes the FULL InteractionProposal shape asynchronously:
+        // a better reply plus a budget-clamped affection suggestion (the memory record stays
+        // rules-side). Never the rumor line, whose content is mechanical.
+        if (!rumorFired)
+        {
+            RequestLlmChatReply(in context, memories, text, entity, divisor, suggested);
+        }
+        BeginAdvance(CommandKind.Chat, Config.Time.ActionDays.Chat);
+    }
+
+    // ---- the async LLM layer (strings only; template text always displayed first) ----------
+
+    /// <summary>The chat whose LLM proposal is still in flight: which NPC, the diminishing
+    /// divisor at chat time, and the template suggestion already applied — so the arriving
+    /// suggestion can be applied as an exact adjustment under identical rules.</summary>
+    private (int Seq, Entity Npc, float Divisor, float Applied) _pendingLlmChat;
+
+    /// <summary>Fire the async chat request (sim thread builds every prompt string; only the
+    /// network call leaves the thread). No-op without a wired <see cref="Llm"/>.</summary>
+    private void RequestLlmChatReply(
+        in DialogueContext context, List<MemoryEntry> memories, string playerLine,
+        Entity npcEntity, float divisor, float appliedSuggestion)
+    {
+        if (Llm is null || !Config.Llm.Enabled) return;
+
+        var cfg = Config.Llm;
+        var seq = _llmChatSeq;
+        _pendingLlmChat = (seq, npcEntity, divisor, appliedSuggestion);
+        var recentCount = Math.Min(Math.Max(0, cfg.RecentMemories), memories.Count);
+        var recent = string.Join(cfg.MemorySeparator,
+            memories.Skip(memories.Count - recentCount).Select(m => m.Summary));
+        var system = F(cfg.DialogueSystem, context.NpcName, context.Personality,
+            Config.Realms[context.NpcRealmIndex].Name, context.PlayerName,
+            Config.Realms[context.PlayerRealmIndex].Name,
+            CultivationRules.AffectionTierName(Config, context.AffectionToPlayer),
+            Config.Interaction.MaxReplyLength,
+            $"{Config.Interaction.MaxProposedAffectionDelta:F0}");
+        var user = F(cfg.DialogueUser, recent, playerLine);
+        DispatchLlm(system, user, text => new CultivationCommand(CommandKind.LlmChatReply, seq, 0, default, text));
+    }
+
+    /// <summary>Fire the async event-narration request; the reply rewrites the chronicle slot
+    /// the authored line already occupies. No-op without a wired <see cref="Llm"/>.</summary>
+    private void RequestLlmEventText(in WorldEventInfo worldEvent, int chronicleIndex)
+    {
+        if (Llm is null || !Config.Llm.Enabled) return;
+
+        var cfg = Config.Llm;
+        var system = F(cfg.EventSystem, Config.Interaction.MaxReplyLength);
+        var user = F(cfg.EventUser,
+            CultivationRules.FormatDate(Config, worldEvent.MonthIndex * Config.Time.DaysPerMonth),
+            worldEvent.Name, worldEvent.LogLine);
+        var generation = _llmGeneration;
+        DispatchLlm(system, user,
+            text => new CultivationCommand(CommandKind.LlmEventText, generation, chronicleIndex, default, text));
+    }
+
+    /// <summary>Run the request on the thread pool and funnel a successful result back through
+    /// the command queue — the ONLY door back into the simulation. Failures are silent by
+    /// design: the deterministic template text already displayed.</summary>
+    private void DispatchLlm(string systemPrompt, string userPrompt, Func<string, CultivationCommand> makeCommand)
+    {
+        var llm = Llm!;
+        var token = _llmCts.Token;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (await llm.CompleteAsync(systemPrompt, userPrompt, token).ConfigureAwait(false) is { } reply &&
+                    !string.IsNullOrWhiteSpace(reply))
+                {
+                    Enqueue(makeCommand(reply));
+                }
+            }
+            catch
+            {
+                // Best-effort layer — never let a network hiccup near the sim thread.
+            }
+        }, token);
+    }
+
+    private void ApplyLlmChatReply(World write, int seq, string? text)
+    {
+        if (Phase != GamePhase.Playing || seq != _llmChatSeq || text is null) return;
+
+        var (reply, affectionSuggestion) = LlmProposalParser.Parse(text);
+        var filtered = ProposalRules.FilterToGlyphs(reply, _glyphs);
+        if (!string.IsNullOrWhiteSpace(filtered)) // fully unbaked text: keep the template
+        {
+            LastReply = ProposalRules.SanitizeReply(Config, filtered, LastReply);
+        }
+
+        // The full-proposal path: the LLM's affection suggestion is clamped to the SAME
+        // budget as any proposer, then applied as an exact adjustment against the template
+        // delta that already landed — identical charm scaling and diminishing divisor, so
+        // "with LLM" can never exceed what a max-budget synchronous proposer could do.
+        if (affectionSuggestion is { } suggestion && _pendingLlmChat.Seq == seq &&
+            TryGetLivingNpc(write, _pendingLlmChat.Npc, out var entity))
+        {
+            ref var npc = ref write.GetComponent<NpcState>(entity);
+            ref readonly var player = ref write.GetComponent<PlayerData>(_player);
+            var charm = Config.CharmTiers[player.CharmTier].Multiplier;
+            float Scaled(float amount) => amount > 0 ? amount * charm : amount;
+
+            var want = Scaled(ProposalRules.ClampAffectionDelta(Config, suggestion)) / _pendingLlmChat.Divisor;
+            var got = Scaled(_pendingLlmChat.Applied) / _pendingLlmChat.Divisor;
+            var delta = want - got;
+            npc.AffectionToPlayer = Math.Clamp(npc.AffectionToPlayer + delta, -500f, 1000f);
+            npc.PlayerAffection = Math.Clamp(
+                npc.PlayerAffection + delta * Config.Interaction.PlayerAffectionShare, -500f, 1000f);
+        }
+    }
+
+    private void ApplyLlmEventText(int generation, int chronicleIndex, string? text)
+    {
+        if (Phase != GamePhase.Playing || generation != _llmGeneration || text is null) return;
+        if (chronicleIndex < 0 || chronicleIndex >= Chronicle.Count) return;
+
+        var filtered = ProposalRules.FilterToGlyphs(text, _glyphs);
+        if (string.IsNullOrWhiteSpace(filtered)) return;
+        var entry = Chronicle[chronicleIndex];
+        Chronicle[chronicleIndex] = new MemoryEntry(entry.Day,
+            ProposalRules.SanitizeReply(Config, filtered, entry.Summary));
+    }
+
+    private void ApplyGift(World write, Entity target, ref PlayerData player)
+    {
+        if (!TryGetLivingNpc(write, target, out var entity)) return;
+
+        _llmChatSeq++; // gift owns LastReply now; a late chat LLM reply must not stomp it
+        var stones = Config.Interaction.GiftSpiritStones;
+        if (player.SpiritStones < stones)
+        {
+            LastReply = F(Msg.GiftNeedMsg, stones);
+            return;
+        }
+
+        player.SpiritStones -= stones;
+        ref var npc = ref write.GetComponent<NpcState>(entity);
+        GainAffection(ref npc, in player, stones * Config.Interaction.GiftAffectionPerStone);
+        _memories[entity].Add(new MemoryEntry(
+            _day, F(Msg.GiftMemory, CultivationRules.PlayerName(Config, in player), stones)));
+        LastReply = F(Msg.GiftReply, CultivationRules.NpcName(Config, in npc), stones,
+            CultivationRules.AffectionTierName(Config, npc.AffectionToPlayer));
+        BeginAdvance(CommandKind.Gift, Config.Time.ActionDays.Gift);
+    }
+
+    private void ApplySpar(World write, Entity target, ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (!TryGetLivingNpc(write, target, out var entity)) return;
+
+        _llmChatSeq++; // spar owns LastReply now; a late chat LLM reply must not stomp it
+        var cfg = Config.Interaction;
+        ref var npc = ref write.GetComponent<NpcState>(entity);
+        ref var npcCultivator = ref write.GetComponent<Cultivator>(entity);
+
+        var playerPower = cultivator.RealmIndex * cfg.SparPowerPerRealm + cultivator.SubStage * cfg.SparPowerPerSubStage
+            + (float)(_rng.NextDouble() * cfg.SparRollSpread);
+        var npcPower = npcCultivator.RealmIndex * cfg.SparPowerPerRealm + npcCultivator.SubStage * cfg.SparPowerPerSubStage
+            + (float)(_rng.NextDouble() * cfg.SparRollSpread);
+        var won = playerPower >= npcPower;
+
+        // Sparring is the no-consequence combat type: both sides gain respect either way.
+        GainAffection(ref npc, in player, won ? cfg.SparWinAffection : cfg.SparLoseAffection);
+        if (won)
+        {
+            cultivator.CultivationPoints += cfg.SparInsightPoints;
+            CultivationRules.AdvanceSubStages(Config, ref cultivator);
+        }
+        var playerName = CultivationRules.PlayerName(Config, in player);
+        _memories[entity].Add(new MemoryEntry(_day, won
+            ? F(Msg.SparWinMemory, playerName)
+            : F(Msg.SparLoseMemory, playerName)));
+        LastReply = won
+            ? F(Msg.SparWinReply, CultivationRules.NpcName(Config, in npc), cfg.SparInsightPoints)
+            : F(Msg.SparLoseReply, CultivationRules.NpcName(Config, in npc));
+        BeginAdvance(CommandKind.Spar, Config.Time.ActionDays.Spar);
+    }
+
+    // ---- combat (semi-auto: the player picks fight-or-flee, the rounds resolve alone) ----
+
+    private void ApplyFight(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (_pendingBeast is not { } beast)
+        {
+            return; // the UI only offers this mid-encounter
+        }
+        var cfg = Config.Combat;
+        var wins = 0;
+        for (var round = 0; round < cfg.Rounds; round++)
+        {
+            var mine = cultivator.RealmIndex * cfg.PowerPerRealm
+                + cultivator.SubStage * cfg.PowerPerSubStage
+                + _rng.NextDouble() * cfg.RollSpread;
+            var theirs = beast.RealmIndex * cfg.PowerPerRealm + cfg.BeastPowerBonus
+                + _rng.NextDouble() * cfg.RollSpread;
+            if (mine >= theirs) wins++;
+        }
+
+        var name = Config.Names.BeastNames[beast.NameIndex];
+        _pendingBeast = null;
+        if (wins * 2 > cfg.Rounds)
+        {
+            var multiplier = CultivationRules.FortuneMultiplier(Config, player.Fortune);
+            var stones = (int)Math.Round((beast.RealmIndex + 1) * cfg.LootStonesPerRealm * multiplier);
+            var herbs = (beast.RealmIndex + 1) * cfg.LootHerbsPerRealm;
+            var insight = (beast.RealmIndex + 1) * cfg.InsightPerRealm;
+            player.SpiritStones += stones;
+            player.Herbs += herbs;
+            player.Fortune = Math.Min(player.Fortune + cfg.FortuneWinGain, Config.Fortune.Max);
+            cultivator.CultivationPoints += insight;
+            CultivationRules.AdvanceSubStages(Config, ref cultivator);
+            if (beast.RealmIndex >= cfg.NotableRealmIndex)
+            {
+                Log(F(Msg.FightWinLog, CultivationRules.PlayerName(Config, in player), name));
+            }
+            LastActionResult = F(Msg.FightWinMsg, cfg.Rounds, name, stones, herbs, insight);
+        }
+        else
+        {
+            var months = Math.Max(1, (beast.RealmIndex + 1) * cfg.LossInjuryMonthsPerRealm);
+            player.InjuryMonths += months;
+            LastActionResult = F(Msg.FightLoseMsg, name, months);
+        }
+        BeginAdvance(CommandKind.Fight, cfg.ResolveDays);
+    }
+
+    private void ApplyFlee(in Cultivator cultivator, ref PlayerData player)
+    {
+        if (_pendingBeast is not { } beast)
+        {
+            return;
+        }
+        var cfg = Config.Combat;
+        var name = Config.Names.BeastNames[beast.NameIndex];
+        _pendingBeast = null;
+        var chance = Math.Clamp(
+            cfg.FleeBaseChance + (cultivator.RealmIndex - beast.RealmIndex) * cfg.FleeChancePerRealmDiff,
+            0.05f, 0.95f);
+        if (_rng.NextDouble() < chance)
+        {
+            LastActionResult = F(Msg.FleeOkMsg, name);
+        }
+        else
+        {
+            player.InjuryMonths += cfg.FleeFailInjuryMonths;
+            LastActionResult = F(Msg.FleeFailMsg, name, cfg.FleeFailInjuryMonths);
+        }
+        BeginAdvance(CommandKind.Flee, cfg.ResolveDays);
+    }
+
+    // ---- secret realm (rumor-revealed, once-per-opening fortune trial) ----
+
+    private void ApplyEnterRealm(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (SecretRealms.TryGetCurrent(Config, _map, _day) is not { } realm ||
+            player.X != realm.X || player.Y != realm.Y)
+        {
+            LastActionResult = Msg.RealmNotHereMsg;
+            return;
+        }
+        if (_lastRealmTrialIndex == realm.Index)
+        {
+            LastActionResult = Msg.RealmSpentMsg;
+            return;
+        }
+
+        // Standing inside is knowing: the marker stays for the rest of this opening.
+        _knownRealmIndex = realm.Index;
+        _lastRealmTrialIndex = realm.Index; // the ATTEMPT spends the opening, win or lose
+
+        var cfg = Config.SecretRealm;
+        var chance = Math.Clamp(
+            cfg.BaseSuccessChance + player.Fortune * cfg.FortuneChancePerPoint, 0.05f, 0.95f);
+        if (_rng.NextDouble() < chance)
+        {
+            var multiplier = CultivationRules.FortuneMultiplier(Config, player.Fortune);
+            var stones = (int)Math.Round(_rng.Next(cfg.RewardStonesMin, cfg.RewardStonesMax + 1) * multiplier);
+            var herbs = _rng.Next(cfg.RewardHerbsMin, cfg.RewardHerbsMax + 1);
+            var insight = cfg.RewardInsightPoints * Config.SpiritRoots.Grades[player.SpiritRootGrade].Multiplier;
+            player.SpiritStones += stones;
+            player.Herbs += herbs;
+            player.Fortune = Math.Min(player.Fortune + cfg.FortuneGain, Config.Fortune.Max);
+            cultivator.CultivationPoints += insight;
+            CultivationRules.AdvanceSubStages(Config, ref cultivator);
+            Log(F(Msg.RealmSuccessLog, CultivationRules.PlayerName(Config, in player), realm.Name));
+            LastActionResult = F(Msg.RealmSuccessMsg, realm.Name, stones, herbs, $"{insight:F0}");
+        }
+        else
+        {
+            player.InjuryMonths += cfg.FailureInjuryMonths;
+            LastActionResult = F(Msg.RealmFailMsg, realm.Name, cfg.FailureInjuryMonths);
+        }
+        BeginAdvance(CommandKind.EnterRealm, cfg.TrialDays);
+    }
+
+    // ---- sect membership (apprenticeship, ranks, stipend) ----
+
+    /// <summary>The living leader of the sect at <paramref name="siteIndex"/>, if any —
+    /// shared by the join gate and the UI's requirement lines. SIM THREAD ONLY.</summary>
+    public Entity? FindSectLeader(World world, int siteIndex)
+    {
+        foreach (var entity in _npcs)
+        {
+            ref readonly var npc = ref world.GetComponent<NpcState>(entity);
+            if (npc.Alive != 0 && npc.IsLeader != 0 && npc.SiteIndex == siteIndex)
+            {
+                return entity;
+            }
+        }
+        return null;
+    }
+
+    private void ApplyJoinSect(World write, ref PlayerData player)
+    {
+        var siteIndex = _map.TileAt(player.X, player.Y).SiteIndex;
+        if (siteIndex < 0 || _map.Sites[siteIndex].Kind != SiteKind.Sect)
+        {
+            LastActionResult = Msg.JoinNoSectMsg;
+            return;
+        }
+        if (player.SectSiteIndex >= 0)
+        {
+            LastActionResult = F(Msg.JoinAlreadyMemberMsg, _map.Sites[player.SectSiteIndex].Name);
+            return;
+        }
+        if (player.SpiritRootGrade < Config.Sect.JoinMinSpiritRootGrade)
+        {
+            LastActionResult = Msg.JoinNeedRootMsg;
+            return;
+        }
+        if (FindSectLeader(write, siteIndex) is not { } leader)
+        {
+            LastActionResult = Msg.JoinNoLeaderMsg;
+            return;
+        }
+        ref var leaderState = ref write.GetComponent<NpcState>(leader);
+        if (leaderState.AffectionToPlayer < Config.Sect.JoinMinLeaderAffection)
+        {
+            LastActionResult = F(Msg.JoinNeedAffectionMsg,
+                $"{leaderState.AffectionToPlayer:F0}", $"{Config.Sect.JoinMinLeaderAffection:F0}");
+            return;
+        }
+
+        // Everyone starts at the gate rank; the next monthly settlement promotes through
+        // whatever the realm already qualifies for.
+        player.SectSiteIndex = siteIndex;
+        player.SectRank = 0;
+        var sectName = _map.Sites[siteIndex].Name;
+        var rankName = Config.Sect.Ranks[0].Name;
+        var playerName = CultivationRules.PlayerName(Config, in player);
+        _memories[leader].Add(new MemoryEntry(_day, F(Msg.JoinSectLog, playerName, sectName, rankName)));
+        Log(F(Msg.JoinSectLog, playerName, sectName, rankName));
+        LastActionResult = F(Msg.JoinDoneMsg, sectName, rankName);
+        BeginAdvance(CommandKind.JoinSect, Config.Sect.JoinCeremonyDays);
+    }
+
+    private void ApplyLeaveSect(World write, ref PlayerData player)
+    {
+        if (player.SectSiteIndex < 0)
+        {
+            return; // nothing to leave; the UI never offers this sectless
+        }
+        var siteIndex = _map.TileAt(player.X, player.Y).SiteIndex;
+        if (siteIndex != player.SectSiteIndex)
+        {
+            LastActionResult = Msg.LeaveNotHereMsg;
+            return;
+        }
+
+        var sectName = _map.Sites[player.SectSiteIndex].Name;
+        if (FindSectLeader(write, player.SectSiteIndex) is { } leader)
+        {
+            ref var leaderState = ref write.GetComponent<NpcState>(leader);
+            GainAffection(ref leaderState, in player, Config.Sect.LeaveAffectionPenalty);
+            _memories[leader].Add(new MemoryEntry(
+                _day, F(Msg.LeaveSectLog, CultivationRules.PlayerName(Config, in player), sectName)));
+        }
+        player.SectSiteIndex = -1;
+        player.SectRank = 0;
+        player.SectContribution = 0; // contribution is sect-scoped; it does not travel
+        Log(F(Msg.LeaveSectLog, CultivationRules.PlayerName(Config, in player), sectName));
+        LastActionResult = F(Msg.LeaveDoneMsg, sectName);
+    }
+
+    // ---- sect economy (contribution missions + exchange, at one's own mountain gate) ----
+
+    /// <summary>Member standing at their OWN sect — the gate every economy action shares.</summary>
+    private bool AtOwnSect(in PlayerData player) =>
+        player.SectSiteIndex >= 0 &&
+        _map.TileAt(player.X, player.Y).SiteIndex == player.SectSiteIndex;
+
+    private void ApplySectMission(ref PlayerData player)
+    {
+        if (!AtOwnSect(in player))
+        {
+            LastActionResult = Msg.MissionNotHereMsg;
+            return;
+        }
+        var month = _day / Config.Time.DaysPerMonth;
+        if (player.LastMissionMonth == month)
+        {
+            LastActionResult = Msg.MissionDoneThisMonthMsg;
+            return;
+        }
+        var index = CultivationRules.SectMissionIndex(Config, _map.GenerationSeed, player.SectSiteIndex, month);
+        if (index < 0)
+        {
+            return; // no missions authored
+        }
+
+        var mission = Config.Sect.Missions[index];
+        player.LastMissionMonth = month; // the ATTEMPT spends the month, win or lose
+        if (_rng.NextDouble() < mission.SuccessChance)
+        {
+            player.SectContribution += mission.ContributionReward;
+            LastActionResult = F(Msg.MissionSuccessMsg,
+                mission.Name, mission.ContributionReward, player.SectContribution);
+        }
+        else
+        {
+            player.InjuryMonths += mission.FailureInjuryMonths;
+            LastActionResult = F(Msg.MissionFailMsg, mission.Name, mission.FailureInjuryMonths);
+        }
+        BeginAdvance(CommandKind.SectMission, Config.Sect.MissionDays);
+    }
+
+    private void ApplyExchangePill(ref PlayerData player)
+    {
+        if (!AtOwnSect(in player))
+        {
+            LastActionResult = Msg.MissionNotHereMsg;
+            return;
+        }
+        var cost = Config.Sect.ExchangePillContribution;
+        if (player.SectContribution < cost)
+        {
+            LastActionResult = F(Msg.ExchangeNeedMsg, cost);
+            return;
+        }
+        player.SectContribution -= cost;
+        player.Pills++;
+        LastActionResult = F(Msg.ExchangePillDoneMsg, cost, player.SectContribution);
+        BeginTrade(CommandKind.ExchangePill);
+    }
+
+    private void ApplyExchangeHeal(ref PlayerData player)
+    {
+        if (!AtOwnSect(in player))
+        {
+            LastActionResult = Msg.MissionNotHereMsg;
+            return;
+        }
+        if (player.InjuryMonths <= 0)
+        {
+            LastActionResult = Msg.ExchangeNoInjuryMsg;
+            return;
+        }
+        var cost = Config.Sect.ExchangeHealContribution;
+        if (player.SectContribution < cost)
+        {
+            LastActionResult = F(Msg.ExchangeNeedMsg, cost);
+            return;
+        }
+        player.SectContribution -= cost;
+        player.InjuryMonths = 0;
+        LastActionResult = F(Msg.ExchangeHealDoneMsg, cost, player.SectContribution);
+        BeginTrade(CommandKind.ExchangeHeal);
+    }
+
+    // ---- dao companions (the top of the affection ladder, made mechanical) ----
+
+    /// <summary>The living or dead NPC entity carrying <paramref name="npcId"/>, or null.
+    /// SIM THREAD ONLY (linear over the roster; rosters are small).</summary>
+    public Entity? FindNpcById(World world, int npcId)
+    {
+        if (npcId < 0) return null;
+        foreach (var entity in _npcs)
+        {
+            if (world.GetComponent<NpcState>(entity).NpcId == npcId) return entity;
+        }
+        return null;
+    }
+
+    /// <summary>Dual cultivation is active: a traveling companion is always at the player's
+    /// side; a home-bound one only when the player stands at their site. Shared by the
+    /// settle loop and the UI status line.</summary>
+    public bool CompanionPresent(World world, in PlayerData player)
+    {
+        if (player.CompanionNpcId < 0 || FindNpcById(world, player.CompanionNpcId) is not { } entity)
+        {
+            return false;
+        }
+        ref readonly var npc = ref world.GetComponent<NpcState>(entity);
+        if (npc.Alive == 0)
+        {
+            return false;
+        }
+        return player.CompanionFollowing != 0 ||
+               (npc.SiteIndex >= 0 && npc.SiteIndex == _map.TileAt(player.X, player.Y).SiteIndex);
+    }
+
+    /// <summary>Invite the companion to travel along (must be said in person — the player
+    /// stands where they live), or send them home from anywhere.</summary>
+    private void ApplyCompanionTravel(World write, ref PlayerData player, bool along)
+    {
+        if (player.CompanionNpcId < 0 || FindNpcById(write, player.CompanionNpcId) is not { } entity ||
+            !TryGetLivingNpc(write, entity, out _))
+        {
+            return; // no bond or no living companion; the UI never offers this
+        }
+
+        _llmChatSeq++; // this interaction owns LastReply
+        ref readonly var npc = ref write.GetComponent<NpcState>(entity);
+        var npcName = CultivationRules.NpcName(Config, in npc);
+        if (along)
+        {
+            if (player.CompanionFollowing != 0) return;
+            if (npc.SiteIndex != _map.TileAt(player.X, player.Y).SiteIndex)
+            {
+                LastReply = F(Msg.TravelInviteNotHereMsg, npcName);
+                return;
+            }
+            player.CompanionFollowing = 1;
+            _memories[entity].Add(new MemoryEntry(
+                _day, F(Msg.TravelInviteMemory, CultivationRules.PlayerName(Config, in player))));
+            LastReply = F(Msg.TravelInviteMsg, npcName);
+        }
+        else
+        {
+            if (player.CompanionFollowing == 0) return;
+            player.CompanionFollowing = 0;
+            _memories[entity].Add(new MemoryEntry(
+                _day, F(Msg.TravelHomeMemory, CultivationRules.PlayerName(Config, in player))));
+            LastReply = F(Msg.TravelHomeMsg, npcName);
+        }
+    }
+
+    private void ApplyProposeCompanion(World write, Entity target, ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (!TryGetLivingNpc(write, target, out var entity)) return;
+
+        _llmChatSeq++; // this interaction owns LastReply
+        ref var npc = ref write.GetComponent<NpcState>(entity);
+        var cfg = Config.Companion;
+
+        if (player.CompanionNpcId >= 0)
+        {
+            var currentName = FindNpcById(write, player.CompanionNpcId) is { } current
+                ? CultivationRules.NpcName(Config, write.GetComponent<NpcState>(current))
+                : string.Empty;
+            LastReply = F(Msg.CompanionAlreadyMsg, currentName);
+            return;
+        }
+        if (Math.Abs(write.GetComponent<Cultivator>(entity).RealmIndex - cultivator.RealmIndex) > cfg.MaxRealmGap)
+        {
+            LastReply = F(Msg.CompanionRefuseRealmMsg, cfg.MaxRealmGap);
+            return;
+        }
+        if (npc.AffectionToPlayer < cfg.MinAffectionBoth || npc.PlayerAffection < cfg.MinAffectionBoth)
+        {
+            LastReply = F(Msg.CompanionRefuseAffectionMsg, $"{cfg.MinAffectionBoth:F0}");
+            return;
+        }
+
+        player.CompanionNpcId = npc.NpcId;
+        var playerName = CultivationRules.PlayerName(Config, in player);
+        var npcName = CultivationRules.NpcName(Config, in npc);
+        _memories[entity].Add(new MemoryEntry(_day, F(Msg.CompanionBondMemory, playerName)));
+        Log(F(Msg.CompanionBondLog, playerName, npcName));
+        LastReply = F(Msg.CompanionBondMsg, npcName);
+        BeginAdvance(CommandKind.ProposeCompanion, cfg.CeremonyDays);
+    }
+
+    private void ApplyLeaveCompanion(World write, ref PlayerData player)
+    {
+        if (player.CompanionNpcId < 0)
+        {
+            return; // nothing to sever; the UI never offers this unbonded
+        }
+
+        _llmChatSeq++; // this interaction owns LastReply
+        var playerName = CultivationRules.PlayerName(Config, in player);
+        if (FindNpcById(write, player.CompanionNpcId) is { } entity)
+        {
+            ref var npc = ref write.GetComponent<NpcState>(entity);
+            // Mutual severance: the penalty lands raw on BOTH directions (negatives are
+            // never charm-scaled, per the affection rules).
+            var penalty = Config.Companion.LeaveAffectionPenalty;
+            npc.AffectionToPlayer = Math.Clamp(npc.AffectionToPlayer + penalty, -500f, 1000f);
+            npc.PlayerAffection = Math.Clamp(npc.PlayerAffection + penalty, -500f, 1000f);
+            var npcName = CultivationRules.NpcName(Config, in npc);
+            _memories[entity].Add(new MemoryEntry(_day, F(Msg.CompanionLeaveMemory, playerName)));
+            Log(F(Msg.CompanionLeaveLog, playerName, npcName));
+            LastReply = F(Msg.CompanionLeaveMsg, npcName);
+        }
+        player.CompanionNpcId = -1;
+        player.CompanionFollowing = 0;
+    }
+
+    /// <summary>Monthly sect settlement: promote through every rank the realm now qualifies
+    /// for, then pay the (possibly new) rank's stipend.</summary>
+    private void SettleSectMonth(ref Cultivator cultivator, ref PlayerData player)
+    {
+        if (player.SectSiteIndex < 0)
+        {
+            return;
+        }
+        var ranks = Config.Sect.Ranks;
+        while (player.SectRank + 1 < ranks.Length &&
+               cultivator.RealmIndex >= ranks[player.SectRank + 1].MinRealmIndex)
+        {
+            player.SectRank++;
+            Log(F(Msg.SectPromoteLog, CultivationRules.PlayerName(Config, in player),
+                _map.Sites[player.SectSiteIndex].Name, ranks[player.SectRank].Name));
+        }
+        player.SpiritStones += ranks[player.SectRank].MonthlyStipendStones;
+    }
+
+    // ---- trade (town markets; the P2 slice) ----
+
+    /// <summary>Trade needs a town under the player's feet; anywhere else is refused.</summary>
+    private bool TryGetMarketSite(in PlayerData player, out int siteIndex)
+    {
+        siteIndex = _map.TileAt(player.X, player.Y).SiteIndex;
+        if (siteIndex >= 0 && _map.Sites[siteIndex].Kind == SiteKind.Town)
+        {
+            return true;
+        }
+        LastActionResult = Msg.TradeNoMarketMsg;
+        return false;
+    }
+
+    private void ApplySellHerbs(ref PlayerData player, int quantity)
+    {
+        if (!TryGetMarketSite(in player, out var siteIndex)) return;
+
+        var count = Math.Min(Math.Max(0, quantity), player.Herbs);
+        if (count <= 0)
+        {
+            LastActionResult = Msg.SellNothingMsg;
+            return;
+        }
+
+        var stones = count * CultivationRules.HerbSellStones(Config, _map, siteIndex, _day);
+        player.Herbs -= count;
+        player.SpiritStones += stones;
+        LastActionResult = F(Msg.SellDoneMsg, count, stones);
+        BeginTrade(CommandKind.SellHerbs);
+    }
+
+    private void ApplyBuyPill(ref PlayerData player)
+    {
+        if (!TryGetMarketSite(in player, out var siteIndex)) return;
+
+        if (_townPillStock[siteIndex] <= 0)
+        {
+            LastActionResult = Msg.BuyPillNoStockMsg;
+            return;
+        }
+        var price = CultivationRules.PillCostStones(Config, _map, siteIndex, _day);
+        if (player.SpiritStones < price)
+        {
+            LastActionResult = F(Msg.BuyPillNeedStonesMsg, price);
+            return;
+        }
+
+        player.SpiritStones -= price;
+        player.Pills++;
+        _townPillStock[siteIndex]--;
+        LastActionResult = F(Msg.BuyPillDoneMsg, price);
+        BeginTrade(CommandKind.BuyPill);
+    }
+
+    private void BeginTrade(CommandKind kind)
+    {
+        if (Config.Time.ActionDays.Trade > 0)
+        {
+            BeginAdvance(kind, Config.Time.ActionDays.Trade);
+        }
+    }
+
+    /// <summary>Shelves reset to full — every town, every month crossing.</summary>
+    private void RestockMarkets()
+    {
+        for (var i = 0; i < _map.Sites.Count; i++)
+        {
+            if (_map.Sites[i].Kind == SiteKind.Town)
+            {
+                _townPillStock[i] = Config.Trade.PillStockPerTown;
+            }
+        }
+    }
+
+    // ---- save / load (versioned JSON; corrupt loads must fail safely) ----
+
+    private void SaveGame(World write, string path, bool announce = true)
+    {
+        try
+        {
+            var data = BuildSaveData(write);
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            File.WriteAllText(path, JsonSerializer.Serialize(data, CultivationJsonContext.Default.SaveData));
+            if (announce) LastActionResult = F(Msg.SaveDoneMsg, path);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            if (announce) LastActionResult = F(Msg.SaveFailMsg, e.Message);
+        }
+    }
+
+    /// <summary>Where the periodic autosave lands (under <see cref="SaveRoot"/>).</summary>
+    public string AutosavePath => Path.Combine(SaveRoot, "autosave.json");
+
+    /// <summary>Day of the last successful autosave, or -1 (UI status line). SIM THREAD ONLY.</summary>
+    public long LastAutosaveDay { get; private set; } = -1;
+
+    private long _lastAutosaveMonth;
+
+    /// <summary>Quiet periodic autosave: fires only while the world is idle (never mid-action
+    /// — a completed action is a coherent moment) and at most once per the config cadence.
+    /// Silent by design: the action-result line belongs to the player's last action.</summary>
+    private void MaybeAutosave(World write)
+    {
+        var cadence = Config.Save.AutosaveMonths;
+        if (cadence <= 0 || Phase != GamePhase.Playing || Busy)
+        {
+            return;
+        }
+        var month = _day / Config.Time.DaysPerMonth;
+        if (month - _lastAutosaveMonth < cadence)
+        {
+            return;
+        }
+        _lastAutosaveMonth = month;
+        SaveGame(write, AutosavePath, announce: false);
+        LastAutosaveDay = _day;
+    }
+
+    private SaveData BuildSaveData(World write)
+    {
+        var npcs = new SavedNpc[_npcs.Count];
+        for (var i = 0; i < _npcs.Count; i++)
+        {
+            var entity = _npcs[i];
+            var npc = write.GetComponent<NpcState>(entity);
+            var cultivator = write.GetComponent<Cultivator>(entity);
+            npcs[i] = new SavedNpc
+            {
+                Cultivator = ToSaved(in cultivator),
+                NpcId = npc.NpcId,
+                SiteIndex = npc.SiteIndex,
+                SurnameIndex = npc.SurnameIndex,
+                GivenNameIndex = npc.GivenNameIndex,
+                PersonalityIndex = npc.PersonalityIndex,
+                CharmTier = npc.CharmTier,
+                AffectionToPlayer = npc.AffectionToPlayer,
+                PlayerAffection = npc.PlayerAffection,
+                ChatsThisMonth = npc.ChatsThisMonth,
+                Alive = npc.Alive != 0,
+                IsLeader = npc.IsLeader != 0,
+                Memories = _memories[entity].Select(m => new SavedMemory { Day = m.Day, Summary = m.Summary }).ToArray(),
+            };
+        }
+
+        var player = write.GetComponent<PlayerData>(_player);
+        var playerCultivator = write.GetComponent<Cultivator>(_player);
+        return new SaveData
+        {
+            Version = SaveData.CurrentVersion,
+            Seed = _map.Seed,
+            PresetIndex = _map.PresetIndex,
+            Day = _day,
+            DayCursor = _dayCursor,
+            Phase = Phase,
+            RngState = _rng.State,
+            RngStream = _rng.Stream,
+            NextNpcId = _nextNpcId,
+            Player = new SavedPlayer
+            {
+                Cultivator = ToSaved(in playerCultivator),
+                SurnameIndex = player.SurnameIndex,
+                GivenNameIndex = player.GivenNameIndex,
+                SpiritRootElement = player.SpiritRootElement,
+                SpiritRootGrade = player.SpiritRootGrade,
+                CharmTier = player.CharmTier,
+                X = player.X,
+                Y = player.Y,
+                Fortune = player.Fortune,
+                SpiritStones = player.SpiritStones,
+                Herbs = player.Herbs,
+                Pills = player.Pills,
+                SectSiteIndex = player.SectSiteIndex,
+                SectRank = player.SectRank,
+                InjuryMonths = player.InjuryMonths,
+                LifespanYears = player.LifespanYears,
+                CompanionNpcId = player.CompanionNpcId >= 0 ? player.CompanionNpcId : null,
+                CompanionFollowing = player.CompanionFollowing != 0,
+                SectContribution = player.SectContribution,
+                LastMissionMonth = player.LastMissionMonth >= 0 ? player.LastMissionMonth : null,
+            },
+            Npcs = npcs,
+            Chronicle = Chronicle.Select(m => new SavedMemory { Day = m.Day, Summary = m.Summary }).ToArray(),
+            TownPillStock = (int[])_townPillStock.Clone(),
+            KnownRealmIndex = _knownRealmIndex,
+            LastRealmTrialIndex = _lastRealmTrialIndex,
+            EncounterNameIndex = _pendingBeast?.NameIndex,
+            EncounterRealmIndex = _pendingBeast?.RealmIndex,
+        };
+
+        static SavedCultivator ToSaved(in Cultivator c) => new()
+        {
+            RealmIndex = c.RealmIndex,
+            SubStage = c.SubStage,
+            CultivationPoints = c.CultivationPoints,
+            AgeDays = c.AgeDays,
+        };
+    }
+
+    private void LoadGame(World write, string path)
+    {
+        SaveData data;
+        try
+        {
+            data = JsonSerializer.Deserialize(File.ReadAllText(path), CultivationJsonContext.Default.SaveData)
+                ?? throw new JsonException("save deserialized to null");
+            if (data.Version < 1 || data.Version > SaveData.CurrentVersion)
+            {
+                LastActionResult = F(Msg.LoadVersionMsg, data.Version, SaveData.CurrentVersion);
+                return;
+            }
+            if (data.PresetIndex < 0 || data.PresetIndex >= Config.World.Presets.Length ||
+                data.Npcs is null || data.Player is null || data.Chronicle is null)
+            {
+                LastActionResult = Msg.LoadMalformedMsg;
+                return;
+            }
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException)
+        {
+            // Fail safely: the running world is untouched.
+            LastActionResult = F(Msg.LoadFailMsg, e.Message);
+            return;
+        }
+
+        // The map re-derives from the seed (same-seed reproducibility); dynamic state loads.
+        var generated = WorldGenerator.Generate(Config, data.Seed, data.PresetIndex);
+        _map = generated.Map;
+        // v1 migration: saves without trade state get freshly stocked shelves.
+        _townPillStock = new int[_map.Sites.Count];
+        if (data.TownPillStock is { } stock && stock.Length == _map.Sites.Count)
+        {
+            stock.CopyTo(_townPillStock, 0);
+        }
+        else
+        {
+            RestockMarkets();
+        }
+        _rng = new Pcg32(data.RngState, data.RngStream);
+        _knownRealmIndex = data.KnownRealmIndex ?? -1;
+        _lastRealmTrialIndex = data.LastRealmTrialIndex ?? -1;
+        _pendingBeast = data is { EncounterNameIndex: { } beastName, EncounterRealmIndex: { } beastRealm } &&
+            beastName >= 0 && beastName < Config.Names.BeastNames.Length
+            ? (beastName, Math.Clamp(beastRealm, 0, Config.Realms.Length - 1))
+            : null;
+        _nextNpcId = data.NextNpcId;
+        _npcs.Clear();
+        _memories.Clear();
+        Chronicle.Clear();
+        foreach (var entry in data.Chronicle)
+        {
+            Chronicle.Add(new MemoryEntry(entry.Day, entry.Summary));
+        }
+        _dayCursor = data.DayCursor;
+        Volatile.Write(ref _day, data.Day);
+        _pendingDays = 0;
+        _pendingKind = CommandKind.None;
+        _travelPlan = null;
+        LastReply = string.Empty;
+        _llmChatSeq++;    // in-flight LLM results belong to the pre-load world — discard
+        _llmGeneration++;
+        _lastAutosaveMonth = data.Day / Config.Time.DaysPerMonth; // restart the cadence here
+        LastAutosaveDay = -1;
+
+        write.Clear();
+        foreach (var saved in data.Npcs)
+        {
+            var entity = write.CreateEntity(EntityBuilder.Create()
+                .Add(new Cultivator
+                {
+                    RealmIndex = saved.Cultivator.RealmIndex,
+                    SubStage = saved.Cultivator.SubStage,
+                    CultivationPoints = saved.Cultivator.CultivationPoints,
+                    AgeDays = saved.Cultivator.AgeDays,
+                })
+                .Add(new NpcState
+                {
+                    NpcId = saved.NpcId,
+                    SiteIndex = saved.SiteIndex,
+                    SurnameIndex = saved.SurnameIndex,
+                    GivenNameIndex = saved.GivenNameIndex,
+                    PersonalityIndex = saved.PersonalityIndex,
+                    CharmTier = saved.CharmTier,
+                    AffectionToPlayer = saved.AffectionToPlayer,
+                    PlayerAffection = saved.PlayerAffection,
+                    ChatsThisMonth = saved.ChatsThisMonth,
+                    Alive = (byte)(saved.Alive ? 1 : 0),
+                    IsLeader = (byte)(saved.IsLeader ? 1 : 0),
+                })
+                .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed })
+                .Add(_ladder)
+                .Add(_tuning));
+            _npcs.Add(entity);
+            _memories[entity] = saved.Memories.Select(m => new MemoryEntry(m.Day, m.Summary)).ToList();
+        }
+
+        _player = write.CreateEntity(EntityBuilder.Create()
+            .Add(new Cultivator
+            {
+                RealmIndex = data.Player.Cultivator.RealmIndex,
+                SubStage = data.Player.Cultivator.SubStage,
+                CultivationPoints = data.Player.Cultivator.CultivationPoints,
+                AgeDays = data.Player.Cultivator.AgeDays,
+            })
+            .Add(new PlayerData
+            {
+                SurnameIndex = data.Player.SurnameIndex,
+                GivenNameIndex = data.Player.GivenNameIndex,
+                SpiritRootElement = data.Player.SpiritRootElement,
+                SpiritRootGrade = data.Player.SpiritRootGrade,
+                CharmTier = data.Player.CharmTier,
+                X = Math.Clamp(data.Player.X, 0, _map.Width - 1),
+                Y = Math.Clamp(data.Player.Y, 0, _map.Height - 1),
+                Fortune = data.Player.Fortune,
+                SpiritStones = data.Player.SpiritStones,
+                Herbs = data.Player.Herbs,
+                Pills = data.Player.Pills,
+                // Range-check against the regenerated map/config: a save from different data
+                // must degrade to sectless rather than index out of bounds.
+                SectSiteIndex = data.Player.SectSiteIndex is { } sect && sect >= 0 && sect < _map.Sites.Count
+                    ? sect : -1,
+                SectRank = Math.Clamp(data.Player.SectRank, 0, Config.Sect.Ranks.Length - 1),
+                InjuryMonths = data.Player.InjuryMonths,
+                LifespanYears = data.Player.LifespanYears,
+                CompanionNpcId = data.Player.CompanionNpcId ?? -1,
+                CompanionFollowing = (byte)(data.Player is { CompanionFollowing: true, CompanionNpcId: not null } ? 1 : 0),
+                SectContribution = data.Player.SectContribution,
+                LastMissionMonth = data.Player.LastMissionMonth ?? -1,
+            })
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed }));
+
+        _phaseRaw = (int)data.Phase;
+        LastActionResult = F(Msg.LoadDoneMsg, path);
+    }
+
+    // ---- post-pass: turn system flags into chronicle entries + replacement spawns ----
+
+    private void PostPass(World write)
+    {
+        // Structural changes wait until after the flag scan (spawning while holding component
+        // refs would be fragile even though chunk blocks never move).
+        _replacementScratch.Clear();
+        ref var player = ref write.GetComponent<PlayerData>(_player);
+        foreach (var entity in _npcs)
+        {
+            ref var npc = ref write.GetComponent<NpcState>(entity);
+
+            if (npc.JustBrokeThrough != 0)
+            {
+                npc.JustBrokeThrough = 0;
+                var realmIndex = write.GetComponent<Cultivator>(entity).RealmIndex;
+                if (realmIndex >= Config.Npc.NotableRealmIndex)
+                {
+                    Log(F(Msg.NpcBreakthroughLog, CultivationRules.NpcName(Config, in npc),
+                        _map.Sites[npc.SiteIndex].Name, Config.Realms[realmIndex].Name));
+                }
+            }
+
+            if (npc.JustDied != 0)
+            {
+                npc.JustDied = 0;
+                var realmIndex = write.GetComponent<Cultivator>(entity).RealmIndex;
+                if (realmIndex >= Config.Npc.NotableRealmIndex || npc.IsLeader != 0)
+                {
+                    Log(F(Msg.NpcDeathLog, CultivationRules.NpcName(Config, in npc),
+                        _map.Sites[npc.SiteIndex].Name));
+                }
+                // Widowed: the bond clears (memories stay), the chronicle grieves.
+                if (npc.NpcId == player.CompanionNpcId)
+                {
+                    player.CompanionNpcId = -1;
+                    player.CompanionFollowing = 0;
+                    Log(F(Msg.CompanionDeathLog, CultivationRules.NpcName(Config, in npc)));
+                }
+                // A fallen leader's mountain passes to the strongest surviving disciple;
+                // only an EMPTIED sect gets a fresh outside leader (world continuity).
+                var replaceAsLeader = npc.IsLeader != 0 &&
+                    !TryPromoteSuccessor(write, entity, npc.SiteIndex);
+                _replacementScratch.Add(WorldGenerator.CreateNpcSpec(
+                    Config, _rng, _nextNpcId++, _map, npc.SiteIndex, replaceAsLeader,
+                    Config.Npc.ReplacementAgeYears));
+            }
+        }
+
+        foreach (var replacement in _replacementScratch)
+        {
+            SpawnNpc(write, in replacement);
+        }
+    }
+    private readonly List<NpcSpec> _replacementScratch = new();
+
+    /// <summary>Succession: the strongest living non-leader of the fallen leader's site
+    /// inherits — realm, then sub-stage, then points, then seniority (lower NpcId). False
+    /// when nobody survives to inherit.</summary>
+    private bool TryPromoteSuccessor(World write, Entity fallen, int siteIndex)
+    {
+        var best = default(Entity);
+        var found = false;
+        var bestRealm = -1;
+        var bestStage = -1;
+        var bestPoints = double.MinValue;
+        var bestId = int.MaxValue;
+        foreach (var candidate in _npcs)
+        {
+            if (candidate == fallen) continue;
+            ref readonly var state = ref write.GetComponent<NpcState>(candidate);
+            if (state.Alive == 0 || state.IsLeader != 0 || state.SiteIndex != siteIndex) continue;
+            ref readonly var cultivator = ref write.GetComponent<Cultivator>(candidate);
+            var better = cultivator.RealmIndex != bestRealm ? cultivator.RealmIndex > bestRealm
+                : cultivator.SubStage != bestStage ? cultivator.SubStage > bestStage
+                : cultivator.CultivationPoints != bestPoints ? cultivator.CultivationPoints > bestPoints
+                : state.NpcId < bestId;
+            if (!better) continue;
+            best = candidate;
+            found = true;
+            bestRealm = cultivator.RealmIndex;
+            bestStage = cultivator.SubStage;
+            bestPoints = cultivator.CultivationPoints;
+            bestId = state.NpcId;
+        }
+        if (!found)
+        {
+            return false;
+        }
+
+        ref var successor = ref write.GetComponent<NpcState>(best);
+        successor.IsLeader = 1;
+        Log(F(Msg.SectSuccessionLog,
+            CultivationRules.NpcName(Config, in successor), _map.Sites[siteIndex].Name));
+        return true;
+    }
+
+    /// <summary>A hash-scheduled world-life beat: two living cultivators of one site share a
+    /// small story in the chronicle — authored flavor, no mechanics, drawn from the CURRENT
+    /// roster deterministically (same commands → same chronicle).</summary>
+    private void LogWorldLifeBeat(World write, long month)
+    {
+        var cfg = Config.WorldLife;
+        if (cfg.Beats.Length == 0 || _map.Sites.Count == 0)
+        {
+            return;
+        }
+        var seed = _map.GenerationSeed;
+        if (WorldEvents.Hash(seed, month, 0x11FEu) % 100u >= (uint)cfg.MonthlyChancePercent)
+        {
+            return;
+        }
+
+        var siteIndex = (int)(WorldEvents.Hash(seed, month, 0x517Eu) % (uint)_map.Sites.Count);
+        _beatScratch.Clear();
+        foreach (var entity in _npcs)
+        {
+            ref readonly var npc = ref write.GetComponent<NpcState>(entity);
+            if (npc.Alive != 0 && npc.SiteIndex == siteIndex)
+            {
+                _beatScratch.Add(entity);
+            }
+        }
+        if (_beatScratch.Count < 2)
+        {
+            return; // a quiet month at a lonely site
+        }
+
+        var first = (int)(WorldEvents.Hash(seed, month, 0xA11Cu) % (uint)_beatScratch.Count);
+        var second = (first + 1 +
+            (int)(WorldEvents.Hash(seed, month, 0x0B0Bu) % (uint)(_beatScratch.Count - 1))) % _beatScratch.Count;
+        var template = cfg.Beats[(int)(WorldEvents.Hash(seed, month, 0xF00Du) % (uint)cfg.Beats.Length)];
+        Log(F(template,
+            CultivationRules.NpcName(Config, write.GetComponent<NpcState>(_beatScratch[first])),
+            CultivationRules.NpcName(Config, write.GetComponent<NpcState>(_beatScratch[second])),
+            _map.Sites[siteIndex].Name));
+    }
+    private readonly List<Entity> _beatScratch = new();
+
+    // ---- world (re)construction ----
+
+    /// <summary>(Re)generate the world and a fresh character into <paramref name="world"/> —
+    /// the design doc's "reroll until satisfied". Deterministic per (seed, presetIndex).</summary>
+    private void StartNewWorld(World world, int seed, int presetIndex)
+    {
+        var generated = WorldGenerator.Generate(Config, seed, presetIndex);
+        _map = generated.Map;
+        _townPillStock = new int[_map.Sites.Count];
+        RestockMarkets();
+        _knownRealmIndex = -1;
+        _lastRealmTrialIndex = -1;
+        _pendingBeast = null;
+        _rng = new Pcg32(seed * 31 + 17);
+        _nextNpcId = generated.Npcs.Count + 1;
+        _npcs.Clear();
+        _memories.Clear();
+        Chronicle.Clear();
+        LastActionResult = string.Empty;
+        LastReply = string.Empty;
+        _llmChatSeq++;    // in-flight LLM results belong to the previous world — discard
+        _llmGeneration++;
+        _lastAutosaveMonth = 0; // the fresh world starts its own autosave cadence
+        LastAutosaveDay = -1;
+        _dayCursor = 0;
+        Volatile.Write(ref _day, 0);
+        _pendingDays = 0;
+        _pendingKind = CommandKind.None;
+        _travelPlan = null;
+
+        world.Clear();
+        foreach (var spec in generated.Npcs)
+        {
+            SpawnNpc(world, in spec);
+        }
+        _player = SpawnPlayer(world, seed);
+        _phaseRaw = (int)GamePhase.NewGame;
+
+        var home = _map.Sites.FirstOrDefault(s => s.Kind == SiteKind.Town);
+        var playerName = CultivationRules.PlayerName(Config, world.GetComponent<PlayerData>(_player));
+        var homeName = home?.Name ?? Msg.WildsName;
+        Log(F(Msg.ArrivalLog, playerName, homeName));
+        // The onboarding guidance beat: a short main-storyline opening in the chronicle.
+        foreach (var line in Config.Text.Intro)
+        {
+            Log(F(line, playerName, homeName));
+        }
+    }
+
+    private Entity SpawnNpc(World world, in NpcSpec spec)
+    {
+        var entity = world.CreateEntity(EntityBuilder.Create()
+            .Add(new Cultivator
+            {
+                RealmIndex = spec.RealmIndex,
+                SubStage = spec.SubStage,
+                AgeDays = spec.AgeDays,
+            })
+            .Add(new NpcState
+            {
+                NpcId = spec.NpcId,
+                SiteIndex = spec.SiteIndex,
+                SurnameIndex = spec.SurnameIndex,
+                GivenNameIndex = spec.GivenNameIndex,
+                PersonalityIndex = spec.PersonalityIndex,
+                CharmTier = spec.CharmTier,
+                Alive = 1,
+                IsLeader = (byte)(spec.IsLeader ? 1 : 0),
+            })
+            // Seeded like SimulationRunner.SpawnAgent: under snapshot reads, read-only fields
+            // see the CURRENT world's values, so the spawn tick must not read zeros.
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed })
+            .Add(_ladder)
+            .Add(_tuning));
+        _npcs.Add(entity);
+        _memories[entity] = new List<MemoryEntry>();
+        return entity;
+    }
+
+    private Entity SpawnPlayer(World world, int seed)
+    {
+        var rng = new SystemRng(seed ^ 0x0C171A7E);
+        var home = _map.Sites.FirstOrDefault(s => s.Kind == SiteKind.Town);
+        return world.CreateEntity(EntityBuilder.Create()
+            .Add(new Cultivator
+            {
+                RealmIndex = 0,
+                SubStage = 0,
+                AgeDays = (double)Config.Time.StartAgeYears * CultivationRules.DaysPerYear(Config),
+            })
+            .Add(new PlayerData
+            {
+                SurnameIndex = rng.Next(Config.Names.Surnames.Length),
+                GivenNameIndex = rng.Next(Config.Names.GivenNames.Length),
+                SpiritRootElement = rng.Next(Config.SpiritRoots.Elements.Length),
+                SpiritRootGrade = WorldGenerator.RollWeighted(rng, Config.SpiritRoots.Grades, static g => g.Weight),
+                CharmTier = WorldGenerator.RollWeighted(rng, Config.CharmTiers, static t => t.Weight),
+                X = home?.X ?? _map.Width / 2,
+                Y = home?.Y ?? _map.Height / 2,
+                Fortune = Config.Fortune.Initial,
+                SpiritStones = Config.Player.StartSpiritStones,
+                SectSiteIndex = -1,    // zero-default would mean "member of site 0"
+                CompanionNpcId = -1,   // zero-default would mean "bonded to npc 0"
+                LastMissionMonth = -1, // zero-default would block month 0's mission
+                LifespanYears = Config.Realms[0].LifespanYears,
+            })
+            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds, Day = _day, WorldSeed = _map.GenerationSeed }));
+    }
+
+    private void Log(string text) => Chronicle.Add(new MemoryEntry(_day, text));
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : text[..max] + "...";
+
+    // ---- snapshot pool + sampling (verbatim SimulationRunner mechanics) ----
+
+    private void PruneUnlocked()
+    {
+        for (var i = _live.Count - 3; i >= 0; i--)
+        {
+            if (_live[i].Pinned == 0)
+            {
+                _pool.Push(_live[i].World);
+                _live.RemoveAt(i);
+            }
+        }
+    }
+
+    private World RentWorldUnlocked()
+    {
+        if (_pool.Count == 0)
+        {
+            throw new InvalidOperationException(
+                $"World pool exhausted ({PoolSize}) — a reader stalled too long while holding snapshots.");
+        }
+        return _pool.Pop();
+    }
+
+    private World CreateWorldWithSchedule()
+    {
+        var world = _shared.CreateWorld();
+        var schedule = SystemSchedule.Create(world)
+            .Add<SettlementSystem>()
+            .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
+        _schedules.Add(schedule);
+        _runByWorld[world] = schedule.Run;
+        return world;
+    }
+
+    /// <summary>
+    /// Pin and return the two published snapshots bracketing <paramref name="sampleTime"/> plus
+    /// the interpolation factor. The pair stays pinned (never recycled) until the next call
+    /// releases it. Out of range clamps both to one snapshot (alpha 0). Single reader.
+    /// </summary>
+    public bool TrySampleInterpolation(double sampleTime, out World a, out World b, out float alpha)
+    {
+        lock (_lock)
+        {
+            Unpin(_heldFrameA);
+            Unpin(_heldFrameB);
+            _heldFrameA = _heldFrameB = -1;
+
+            a = default!;
+            b = default!;
+            alpha = 0f;
+            if (_live.Count == 0) return false;
+
+            var oldest = _live[0];
+            var latest = _live[^1];
+            Snapshot sa, sb;
+            if (sampleTime <= oldest.Time) { sa = sb = oldest; }
+            else if (sampleTime >= latest.Time) { sa = sb = latest; }
+            else
+            {
+                sa = latest;
+                sb = latest;
+                for (var i = _live.Count - 1; i > 0; i--)
+                {
+                    if (_live[i - 1].Time <= sampleTime && sampleTime < _live[i].Time)
+                    {
+                        sa = _live[i - 1];
+                        sb = _live[i];
+                        var span = sb.Time - sa.Time;
+                        alpha = span <= 0 ? 0f : (float)((sampleTime - sa.Time) / span);
+                        break;
+                    }
+                }
+            }
+
+            sa.Pinned++;
+            sb.Pinned++;
+            _heldFrameA = sa.Frame;
+            _heldFrameB = sb.Frame;
+            a = sa.World;
+            b = sb.World;
+            return true;
+        }
+    }
+
+    private void Unpin(long frame)
+    {
+        if (frame < 0) return;
+        foreach (var snapshot in _live)
+        {
+            if (snapshot.Frame == frame)
+            {
+                snapshot.Pinned--;
+                return;
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _llmCts.Cancel(); // orphan any in-flight LLM requests before the sim thread stops
+        Stop();
+        _llmCts.Dispose();
+        (Llm as IDisposable)?.Dispose();
+        lock (_lock)
+        {
+            foreach (var schedule in _schedules) schedule.Dispose();
+        }
+        _shared.Dispose();
+    }
+}

@@ -14,7 +14,11 @@ namespace ParadiseRuntime;
 /// camera-relative; left-click paths via the navmesh. <c>--headless N</c> renders N frames
 /// offscreen for CI.
 ///
-/// Usage: ParadiseRuntime --scene data/scenes/sample.json [--headless N] [--ortho] [--fov N]</summary>
+/// Usage: ParadiseRuntime --scene data/scenes/sample.json [--headless N] [--ortho] [--fov N]
+///
+/// <c>--game cultivation</c> instead runs the Immortal Cultivation ImGui slice (no exported
+/// scene): ParadiseRuntime --game cultivation [--seed N] [--world-size N] [--config path]
+/// [--headless N] [--screenshot path].</summary>
 internal static class Program
 {
     private const int InitialWidth = 1280;
@@ -23,6 +27,10 @@ internal static class Program
     private static int Main(string[] args)
     {
         string scenePath = "data/scenes/sample.json";
+        string? gameName = null;
+        string cultivationConfigPath = "data/cultivation/config.json";
+        var seed = 20260716;
+        int? worldSizeIndex = null;
         string? uiXamlPath = null;
         var enableImGui = false;
         string? audioBanksPath = null;
@@ -37,6 +45,20 @@ internal static class Program
             {
                 case "--scene" when i + 1 < args.Length:
                     scenePath = args[++i];
+                    break;
+                case "--game" when i + 1 < args.Length:
+                    gameName = args[++i];
+                    break;
+                case "--config" when i + 1 < args.Length:
+                    cultivationConfigPath = args[++i];
+                    break;
+                case "--seed" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedSeed):
+                    seed = parsedSeed;
+                    i++;
+                    break;
+                case "--world-size" when i + 1 < args.Length && int.TryParse(args[i + 1], out var parsedSize):
+                    worldSizeIndex = parsedSize;
+                    i++;
                     break;
                 case "--headless" when i + 1 < args.Length && int.TryParse(args[i + 1], out var frames):
                     headlessFrames = frames;
@@ -72,6 +94,16 @@ internal static class Program
 
         try
         {
+            if (gameName is not null)
+            {
+                if (!string.Equals(gameName, "cultivation", StringComparison.OrdinalIgnoreCase))
+                {
+                    Console.Error.WriteLine($"Unknown --game '{gameName}' (supported: cultivation).");
+                    return 1;
+                }
+                return CultivationHost.Run(cultivationConfigPath, seed, worldSizeIndex, headlessFrames, screenshotPath);
+            }
+
             var level = LevelLoader.Load(scenePath);
             Console.WriteLine(
                 $"[ParadiseRuntime] {scenePath}: {level.Level.Entities.Count} entities, " +
@@ -195,7 +227,7 @@ internal static class Program
 
     /// <summary>Write tightly-packed top-down BGRA8 pixels as an uncompressed 32-bit BMP (bottom-up,
     /// BI_RGB — BMP stores BGRA natively). Dependency-free; convert to PNG with `sips` if needed.</summary>
-    private static void WriteBmp(string path, byte[] bgra, uint width, uint height)
+    internal static void WriteBmp(string path, byte[] bgra, uint width, uint height)
     {
         const int headerSize = 54; // 14-byte file header + 40-byte info header
         var imageSize = (int)(width * height * 4);

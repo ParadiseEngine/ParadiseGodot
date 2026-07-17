@@ -48,13 +48,19 @@ public sealed class ImGuiUiCore
     public uint FontWidth { get; }
     public uint FontHeight { get; }
 
-    public unsafe ImGuiUiCore(uint pixelWidth, uint pixelHeight)
+    /// <param name="cjkFont">Optional CJK-capable font (see <see cref="UiFonts"/>). Null =
+    /// the classic ASCII default font, unchanged behavior for existing hosts. When the
+    /// requested font cannot be resolved/loaded the core degrades to the default font.</param>
+    public unsafe ImGuiUiCore(uint pixelWidth, uint pixelHeight, UiFontConfig? cjkFont = null)
     {
         ImGui.CreateContext();
         var io = ImGui.GetIO();
         io.BackendFlags |= ImGuiBackendFlags.RendererHasVtxOffset;
         io.DisplaySize = new Vector2(pixelWidth, pixelHeight);
-        io.Fonts.AddFontDefault();
+        if (cjkFont is null || !UiFonts.TryAddCjkFont(io, cjkFont))
+        {
+            io.Fonts.AddFontDefault();
+        }
         io.Fonts.Build();
         io.Fonts.GetTexDataAsRGBA32(out byte* pixels, out var width, out var height, out _);
         _fontPixels = new ReadOnlySpan<byte>(pixels, width * height * 4).ToArray();
@@ -110,10 +116,49 @@ public sealed class ImGuiUiCore
                 case UiEventKind.Resize:
                     io.DisplaySize = new Vector2(uiEvent.X, uiEvent.Y);
                     return false;
+                case UiEventKind.Scroll:
+                    io.AddMouseWheelEvent(uiEvent.X, uiEvent.Y);
+                    return io.WantCaptureMouse;
+                case UiEventKind.KeyDown when ToImGui(uiEvent.Key) is { } downKey:
+                    io.AddKeyEvent(downKey, true);
+                    return io.WantCaptureKeyboard;
+                case UiEventKind.KeyUp when ToImGui(uiEvent.Key) is { } upKey:
+                    io.AddKeyEvent(upKey, false);
+                    return io.WantCaptureKeyboard;
+                case UiEventKind.Text:
+                    io.AddInputCharacter(uiEvent.Character);
+                    return io.WantCaptureKeyboard;
                 default:
                     return false;
             }
         }
+
+        private static ImGuiKey? ToImGui(UiKey key) => key switch
+        {
+            UiKey.Enter => ImGuiKey.Enter,
+            UiKey.Escape => ImGuiKey.Escape,
+            UiKey.Backspace => ImGuiKey.Backspace,
+            UiKey.Delete => ImGuiKey.Delete,
+            UiKey.Tab => ImGuiKey.Tab,
+            UiKey.Left => ImGuiKey.LeftArrow,
+            UiKey.Right => ImGuiKey.RightArrow,
+            UiKey.Up => ImGuiKey.UpArrow,
+            UiKey.Down => ImGuiKey.DownArrow,
+            UiKey.Home => ImGuiKey.Home,
+            UiKey.End => ImGuiKey.End,
+            UiKey.Ctrl => ImGuiKey.ModCtrl,
+            UiKey.Shift => ImGuiKey.ModShift,
+            UiKey.A => ImGuiKey.A,
+            UiKey.C => ImGuiKey.C,
+            UiKey.D => ImGuiKey.D,
+            UiKey.S => ImGuiKey.S,
+            UiKey.V => ImGuiKey.V,
+            UiKey.W => ImGuiKey.W,
+            UiKey.X => ImGuiKey.X,
+            UiKey.Y => ImGuiKey.Y,
+            UiKey.Z => ImGuiKey.Z,
+            _ => null,
+        };
 
         public void Tick(double simTimeSeconds)
         {
