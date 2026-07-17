@@ -82,6 +82,8 @@ namespace ParadiseGodot.Authoring
         [Export] public float ParticleStartSize { get; set; } = 0.25f;
         [Export] public float ParticleEndSize { get; set; } = 0.25f;
         [Export] public int ParticleMaxCount { get; set; } = 64;
+        // Any nonzero value is valid; negatives wrap to large unsigned seeds at export
+        // (the contract stores a uint), which is harmless but surprising — prefer positives.
         [Export] public int ParticleSeed { get; set; } = 1;
         [Export] public Color ParticleColor { get; set; } = Colors.White;
         // Sprite kind only: the flipbook sheet (an image under res://data/, e.g. data/sprites/).

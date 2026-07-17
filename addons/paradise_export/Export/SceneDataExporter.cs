@@ -658,10 +658,12 @@ namespace ParadiseGodot.Export
             return data;
         }
 
-        // A spritesheet contract field: the source image resolved under data/, stored with the
-        // runtime (.ktx2) extension — the sidecar the data-ingest pass encodes next to the
-        // source (SpriteSheetConverter). Null (with a warning) when the image lives outside
-        // data/ or is a sub-resource (no standalone runtime file).
+        // A spritesheet contract field: the source image resolved under data/sprites/, stored
+        // with the runtime (.ktx2) extension — the sidecar the data-ingest pass encodes next to
+        // the source (DataGlbConverter.ConvertSpriteSheets). Null (with a warning) when the
+        // image is a sub-resource (no standalone runtime file) or lives outside data/sprites/ —
+        // the resolver deliberately accepts EXACTLY the set the sidecar pass covers, so an
+        // exported sheet field always has a generator.
         private static string? ResolveSheetField(EntityExport entity, string? texturePath, ExportPaths paths)
         {
             if (string.IsNullOrWhiteSpace(texturePath))
@@ -673,16 +675,17 @@ namespace ParadiseGodot.Export
             {
                 GD.PushWarning(
                     $"[ParadiseExport] Entity '{entity.Name}' uses a sub-resource spritesheet ('{texturePath}') — " +
-                    "the runtime needs a standalone image under res://data/. The sheet is not exported.");
+                    "the runtime needs a standalone image under res://data/sprites/. The sheet is not exported.");
                 return null;
             }
 
             string? field = paths.DataRelativeMeshField(texturePath);
-            if (field is null)
+            if (field is null || !field.StartsWith("sprites/", System.StringComparison.Ordinal))
             {
                 GD.PushWarning(
-                    $"[ParadiseExport] Entity '{entity.Name}' references spritesheet '{texturePath}' outside res://data/ — " +
-                    "the runtime resolves sheets under data/, so it will not render. Move the image under data/.");
+                    $"[ParadiseExport] Entity '{entity.Name}' references spritesheet '{texturePath}' outside " +
+                    "res://data/sprites/ — the KTX2 sidecar pass only covers that directory, so the .NET runtime " +
+                    "could never load it. Move the image under data/sprites/. The sheet is not exported.");
                 return null;
             }
 
