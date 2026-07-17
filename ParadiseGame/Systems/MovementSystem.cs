@@ -208,6 +208,7 @@ public ref partial struct MovementSystem : IWorldSystem
                     Mass = body.Mass,
                     LinearDamping = body.LinearDamping,
                     Restitution = body.Restitution,
+                    SpinY = body.SpinY,
                 };
                 mapScratch[liveCount] = i;
                 liveCount++;
@@ -241,6 +242,8 @@ public ref partial struct MovementSystem : IWorldSystem
                 MinSpeed = tuning.MinSpeed,
                 Skin = tuning.Skin,
                 PushStrength = tuning.PushStrength,
+                RailEnglish = tuning.RailEnglish,
+                RailSpinLoss = tuning.RailSpinLoss,
                 StaticRestitution = Balls.DynamicBody[map[0]].StaticRestitution,
             };
             PlanarSphereDynamics.Step(spheres, pushers, statics, settings, dt);
@@ -253,6 +256,9 @@ public ref partial struct MovementSystem : IWorldSystem
                 Vector3 old = transform.Position;
                 transform.Position = new Vector3(sphere.Position.X, old.Y, sphere.Position.Z);
                 Balls.DynamicBody[i].Velocity = sphere.Velocity;
+                // Persist the spin the solver bled at any cushion contact this step (stateless
+                // engine: SpinY is owned here, round-tripped through the DynamicSphere span).
+                Balls.DynamicBody[i].SpinY = sphere.SpinY;
 
                 // Collision glow: spike with the pairwise contact impulse (normalized by an
                 // impulse that reads as a "solid hit"), then decay — slowly while the ball still

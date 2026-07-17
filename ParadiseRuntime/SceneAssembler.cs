@@ -191,7 +191,8 @@ public static class SceneAssembler
         var pockets = ExtractPockets(level.Level);
         var dynamics = level.PhysicsDynamics;
         var staticRestitution = StaticSurfaceRestitution(level.Level, dynamics.DefaultStaticRestitution);
-        var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength);
+        var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength,
+            dynamics.RailEnglish, dynamics.RailSpinLoss);
         var trayIndex = 0;
 
         foreach (var entity in level.Level.Entities)

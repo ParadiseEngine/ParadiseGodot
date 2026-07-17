@@ -43,6 +43,8 @@ physics/min_speed=0.005
 physics/skin=0.02
 physics/push_strength=1.2
 physics/default_static_restitution=0.4
+physics/rail_english=1.5
+physics/rail_spin_loss=0.6
 
 [physics]
 

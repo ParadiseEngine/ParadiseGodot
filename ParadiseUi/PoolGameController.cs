@@ -39,19 +39,54 @@ public sealed class PoolGameController
     private const float StrikePowerScale = 2.2f;
     private const float StrikeMaxSpeed = 9f;
 
+    // Aim-trail preview (controller-local like the strike tuning above): how far ahead to roll
+    // the deterministic sim (120 ticks = 2 s at 60 Hz) and the max points cached for the polyline.
+    private const int MaxPredictSteps = 120;
+    private const int MaxTrailPoints = MaxPredictSteps + 1;
+
+    // Cue-spot widget geometry (pixels) — the little cue-ball disc you click to set english.
+    private const float CueSpotRadius = 34f;
+
     private readonly SimulationRunner _runner;
     private readonly Entity _cueBall;
     private readonly IPoolCameraProjection _camera;
     private readonly Action? _onStrike; // fired when a strike is applied immediately (not staged) — host audio hook
 
     private readonly List<RewoundBall> _scrubScratch = new();
-    private Vector3? _stagedImpulse;   // strike captured while paused, applied on resume
+    private (Vector3 Impulse, float Spin)? _staged;   // strike captured while paused, applied on resume
     private bool _aiming;
     private Vector3 _aimGroundPoint;
     private volatile bool _aimVisible;
     private Vector2 _aimBallScreen;
     private Vector2 _aimPointScreen;
     private volatile int _rewindScrub; // frames back shown while paused (0 = present)
+
+    // Sidespin ("english"), −1 (left) … +1 (right). Written by the cue-spot widget on the sim
+    // thread (DrawPanel), read by the aim methods on the render thread — floats can't be volatile,
+    // so it's stored as int bits behind a volatile field.
+    private volatile int _englishBits;
+
+    /// <summary>Sidespin ("english") applied to the next strike, −1 (left) … +1 (right). Set by
+    /// the cue-spot widget; also settable by a host (e.g. a headless auto-strike). Clamped.</summary>
+    public float English
+    {
+        get => BitConverter.Int32BitsToSingle(_englishBits);
+        set => _englishBits = BitConverter.SingleToInt32Bits(Math.Clamp(value, -1f, 1f));
+    }
+
+    // Predicted cue-ball trail: world points rolled out on the render thread, projected to screen
+    // pixels, and drawn by the sim-thread panel. Same volatile-guard pattern as the aim endpoints.
+    private readonly List<Vector3> _trailWorld = new(MaxTrailPoints);
+    private readonly Vector2[] _trailScreen = new Vector2[MaxTrailPoints];
+    private volatile int _trailCount;
+    private volatile bool _trailVisible;
+
+    // Throttle for the lock-held rollout: re-run PredictCueBallPath only when the aim actually
+    // moved; otherwise reuse the cached world path and just re-project it (cheap, no lock) so a
+    // camera move still tracks. Reset at TryBeginAim so a fresh aim always recomputes.
+    private Vector3 _lastPredictGround;
+    private float _lastPredictEnglish;
+    private int _lastPredictFrames = -1;
 
     public PoolGameController(SimulationRunner runner, Entity cueBall, IPoolCameraProjection camera, Action? onStrike = null)
     {
@@ -70,8 +105,9 @@ public sealed class PoolGameController
 
     public int RewindFrameCount => _runner.RewindFrameCount;
     public int RewindScrub { get => _rewindScrub; set => _rewindScrub = Math.Max(0, value); }
-    public Vector3? StagedImpulse => _stagedImpulse;
-    public void ClearStagedImpulse() => _stagedImpulse = null;
+    public Vector3? StagedImpulse => _staged?.Impulse;
+    public float? StagedSpin => _staged?.Spin;
+    public void ClearStagedImpulse() => _staged = null;
 
     /// <summary>Pause state; resuming applies a pending rewind-restore and staged strike
     /// (call from the sim thread — the ImGui panel does).</summary>
@@ -93,10 +129,10 @@ public sealed class PoolGameController
                     }
                     _rewindScrub = 0;
                 }
-                if (_stagedImpulse is { } staged)
+                if (_staged is { } staged)
                 {
-                    _runner.EnqueueBallImpulse(_cueBall, staged);
-                    _stagedImpulse = null;
+                    _runner.EnqueueBallImpulse(_cueBall, staged.Impulse, staged.Spin);
+                    _staged = null;
                 }
             }
             _runner.Paused = value;
@@ -121,26 +157,83 @@ public sealed class PoolGameController
             {
                 _rewindScrub = Math.Clamp(scrub, 0, max);
             }
-            ImGuiNET.ImGui.TextWrapped(_stagedImpulse is { } s
-                ? $"staged strike: {s.Length():F1} m/s — resumes with it"
+            ImGuiNET.ImGui.TextWrapped(_staged is { } s
+                ? $"staged strike: {s.Impulse.Length():F1} m/s — resumes with it"
                 : "drag from the white ball to stage a strike");
         }
         else
         {
             ImGuiNET.ImGui.TextWrapped("drag from the white ball to strike; pause to rewind");
         }
+
+        DrawCueSpot();
+
         if (SunkCount > 0)
         {
             ImGuiNET.ImGui.Text($"pocketed: {SunkCount}");
         }
         ImGuiNET.ImGui.End();
 
+        // Predicted cue-ball trail: thin translucent polyline + a ghost circle where it ends,
+        // drawn UNDER the crisp white aim line so the aim direction still reads clearly.
+        if (_trailVisible)
+        {
+            var draw = ImGuiNET.ImGui.GetForegroundDrawList();
+            int count = _trailCount;
+            for (int i = 1; i < count; i++)
+            {
+                draw.AddLine(_trailScreen[i - 1], _trailScreen[i], 0x90FFE04Eu, 1.6f); // translucent cyan
+            }
+            for (int i = 0; i < count; i += 6) // dotted feel
+            {
+                draw.AddCircleFilled(_trailScreen[i], 1.8f, 0xC0FFE04Eu);
+            }
+            if (count > 0)
+            {
+                draw.AddCircle(_trailScreen[count - 1], 6f, 0xC0FFE04Eu, 0, 2f); // ghost ball
+            }
+        }
+
         if (_aimVisible)
         {
             var draw = ImGuiNET.ImGui.GetForegroundDrawList();
-            draw.AddLine(_aimBallScreen, _aimPointScreen, 0xE0FFFFFF, 2.5f);
-            draw.AddCircleFilled(_aimPointScreen, 5f, 0xE04E82FF);
+            draw.AddLine(_aimBallScreen, _aimPointScreen, 0xE0FFFFFFu, 2.5f);
+            draw.AddCircleFilled(_aimPointScreen, 5f, 0xE04E82FFu);
         }
+    }
+
+    /// <summary>The 2D cue-spot widget: a cue-ball disc you click/drag left↔right to set english
+    /// (horizontal offset only — this is sidespin). Right-click recenters. An immediate-mode ImGui
+    /// widget like the panel's Checkbox/SliderInt, so it works from the sim-thread draw callback.</summary>
+    private void DrawCueSpot()
+    {
+        ImGuiNET.ImGui.Text("English (sidespin)");
+        Vector2 origin = ImGuiNET.ImGui.GetCursorScreenPos();
+        float diameter = CueSpotRadius * 2f;
+        ImGuiNET.ImGui.InvisibleButton("##cuespot", new Vector2(diameter, diameter));
+        var center = new Vector2(origin.X + CueSpotRadius, origin.Y + CueSpotRadius);
+
+        float english = English;
+        if (ImGuiNET.ImGui.IsItemActive()) // click or drag on the disc
+        {
+            float mouseX = ImGuiNET.ImGui.GetMousePos().X;
+            english = Math.Clamp((mouseX - center.X) / (CueSpotRadius - 6f), -1f, 1f);
+            English = english;
+        }
+        if (ImGuiNET.ImGui.IsItemClicked(ImGuiNET.ImGuiMouseButton.Right))
+        {
+            english = 0f;
+            English = 0f;
+        }
+
+        var dl = ImGuiNET.ImGui.GetWindowDrawList();
+        dl.AddCircleFilled(center, CueSpotRadius, 0xFFE8E8E8u);          // cue ball
+        dl.AddCircle(center, CueSpotRadius, 0xFF404040u, 0, 2f);          // outline
+        dl.AddLine(new Vector2(center.X, center.Y - CueSpotRadius + 3f),  // vertical center guide
+                   new Vector2(center.X, center.Y + CueSpotRadius - 3f), 0x30404040u, 1f);
+        var spot = new Vector2(center.X + english * (CueSpotRadius - 6f), center.Y);
+        dl.AddCircleFilled(spot, 6f, 0xFFF04040u);                        // contact spot (blue-ish in ABGR)
+        ImGuiNET.ImGui.Text($"english: {english:+0.00;-0.00; 0.00}");
     }
 
     // ---- aiming (host main/render thread — camera access) ----
@@ -158,6 +251,7 @@ public sealed class PoolGameController
         var closest = origin + direction * along;
         if (Vector3.Distance(closest, ballPos) > 0.6f) return false;
         _aiming = true;
+        _lastPredictFrames = -1; // force a fresh rollout: the world may have moved since the last aim
         UpdateAim(screenPixel);
         return true;
     }
@@ -178,28 +272,86 @@ public sealed class PoolGameController
         _aimBallScreen = _camera.WorldToScreen(ballPos);
         _aimPointScreen = _camera.WorldToScreen(_aimGroundPoint);
         _aimVisible = true;
+
+        UpdatePredictedTrail();
+    }
+
+    /// <summary>Roll the tentative strike forward through the real solver and cache the cue's
+    /// predicted path as screen pixels for <see cref="DrawPanel"/>. Render thread (camera access).</summary>
+    private void UpdatePredictedTrail()
+    {
+        if (!TryComputeStrike(out var previewImpulse))
+        {
+            _trailVisible = false;
+            return;
+        }
+        // While paused-and-scrubbed, predict from the scrubbed frame so the preview matches the
+        // staged strike that will apply on resume (0 = predict from the live present).
+        int framesBack = _runner.Paused && _rewindScrub > 0 ? _rewindScrub : 0;
+        float english = English;
+        // Only pay the lock-held rollout when the aim genuinely changed (~1 cm of ground point,
+        // or english/scrub). Otherwise reuse the cached world path — projection below still runs
+        // every call, so camera motion tracks without re-simulating.
+        bool changed = framesBack != _lastPredictFrames
+            || MathF.Abs(english - _lastPredictEnglish) > 0.005f
+            || Vector3.DistanceSquared(_aimGroundPoint, _lastPredictGround) > 1e-4f;
+        if (changed)
+        {
+            if (!_runner.PredictCueBallPath(_cueBall, previewImpulse, english, _trailWorld, MaxPredictSteps, framesBack))
+            {
+                _trailVisible = false;
+                return;
+            }
+            _lastPredictGround = _aimGroundPoint;
+            _lastPredictEnglish = english;
+            _lastPredictFrames = framesBack;
+        }
+        else if (_trailWorld.Count < 2)
+        {
+            _trailVisible = false;
+            return;
+        }
+        int count = Math.Min(_trailWorld.Count, MaxTrailPoints);
+        for (int i = 0; i < count; i++)
+        {
+            _trailScreen[i] = _camera.WorldToScreen(_trailWorld[i]);
+        }
+        _trailCount = count;
+        _trailVisible = true;
+    }
+
+    /// <summary>The slingshot impulse from the current aim (cue fires OPPOSITE the drag, speed
+    /// scaled by pull length and clamped). False inside the dead-zone. Shared by the trail
+    /// preview and the actual release so both agree exactly.</summary>
+    private bool TryComputeStrike(out Vector3 impulse)
+    {
+        impulse = default;
+        var ballPos = DisplayedCuePosition();
+        var pull = ballPos - _aimGroundPoint;
+        pull.Y = 0;
+        var speed = MathF.Min(pull.Length() * StrikePowerScale, StrikeMaxSpeed);
+        if (speed < 0.2f) return false;
+        impulse = Vector3.Normalize(pull) * speed;
+        return true;
     }
 
     /// <summary>Slingshot release: the cue fires OPPOSITE the drag, speed scaled by drag
-    /// length. Applied immediately while running, staged while paused.</summary>
+    /// length, carrying the dialed-in english. Applied immediately while running, staged while paused.</summary>
     public void ReleaseAim()
     {
         if (!_aiming) return;
         _aiming = false;
         _aimVisible = false;
-        var ballPos = DisplayedCuePosition();
-        var pull = ballPos - _aimGroundPoint;
-        pull.Y = 0;
-        var speed = MathF.Min(pull.Length() * StrikePowerScale, StrikeMaxSpeed);
-        if (speed < 0.2f) return;
-        var impulse = Vector3.Normalize(pull) * speed;
+        _trailVisible = false;
+        if (!TryComputeStrike(out var impulse)) return;
+        var spin = English;
         if (_runner.Paused)
         {
-            _stagedImpulse = impulse;
+            _staged = (impulse, spin);
         }
         else
         {
-            _runner.EnqueueBallImpulse(_cueBall, impulse);
+            _runner.EnqueueBallImpulse(_cueBall, impulse, spin);
             _onStrike?.Invoke();
         }
     }
