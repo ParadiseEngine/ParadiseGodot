@@ -81,6 +81,13 @@ public sealed class PoolGameController
     private volatile int _trailCount;
     private volatile bool _trailVisible;
 
+    // Throttle for the lock-held rollout: re-run PredictCueBallPath only when the aim actually
+    // moved; otherwise reuse the cached world path and just re-project it (cheap, no lock) so a
+    // camera move still tracks. Reset at TryBeginAim so a fresh aim always recomputes.
+    private Vector3 _lastPredictGround;
+    private float _lastPredictEnglish;
+    private int _lastPredictFrames = -1;
+
     public PoolGameController(SimulationRunner runner, Entity cueBall, IPoolCameraProjection camera, Action? onStrike = null)
     {
         _runner = runner;
@@ -244,6 +251,7 @@ public sealed class PoolGameController
         var closest = origin + direction * along;
         if (Vector3.Distance(closest, ballPos) > 0.6f) return false;
         _aiming = true;
+        _lastPredictFrames = -1; // force a fresh rollout: the world may have moved since the last aim
         UpdateAim(screenPixel);
         return true;
     }
@@ -280,7 +288,25 @@ public sealed class PoolGameController
         // While paused-and-scrubbed, predict from the scrubbed frame so the preview matches the
         // staged strike that will apply on resume (0 = predict from the live present).
         int framesBack = _runner.Paused && _rewindScrub > 0 ? _rewindScrub : 0;
-        if (!_runner.PredictCueBallPath(_cueBall, previewImpulse, English, _trailWorld, MaxPredictSteps, framesBack))
+        float english = English;
+        // Only pay the lock-held rollout when the aim genuinely changed (~1 cm of ground point,
+        // or english/scrub). Otherwise reuse the cached world path — projection below still runs
+        // every call, so camera motion tracks without re-simulating.
+        bool changed = framesBack != _lastPredictFrames
+            || MathF.Abs(english - _lastPredictEnglish) > 0.005f
+            || Vector3.DistanceSquared(_aimGroundPoint, _lastPredictGround) > 1e-4f;
+        if (changed)
+        {
+            if (!_runner.PredictCueBallPath(_cueBall, previewImpulse, english, _trailWorld, MaxPredictSteps, framesBack))
+            {
+                _trailVisible = false;
+                return;
+            }
+            _lastPredictGround = _aimGroundPoint;
+            _lastPredictEnglish = english;
+            _lastPredictFrames = framesBack;
+        }
+        else if (_trailWorld.Count < 2)
         {
             _trailVisible = false;
             return;

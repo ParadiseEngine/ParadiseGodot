@@ -47,7 +47,7 @@ public sealed class SimulationRunner : IDisposable
     private readonly INavigationMesh _navigationMesh;
     private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
     private readonly ConcurrentQueue<MoveCommand> _input = new();
-    private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta, float SpinY)> _impulses = new();
+    private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta, float? SpinY)> _impulses = new();
     private readonly RewindBuffer _rewind = new();
     private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
     private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
@@ -163,10 +163,12 @@ public sealed class SimulationRunner : IDisposable
     /// (zero = no input). Overrides click-to-move path following while non-zero.</summary>
     public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
 
-    /// <summary>Add a velocity delta to a dynamic ball on its next tick (the pool strike), and
-    /// set its sidespin ("english"). <paramref name="spinY"/> is assigned (not accumulated) so a
-    /// fresh strike fully replaces any leftover spin.</summary>
-    public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta, float spinY = 0f) =>
+    /// <summary>Add a velocity delta to a dynamic ball on its next tick (the pool strike). When
+    /// <paramref name="spinY"/> is given it is ASSIGNED (not accumulated) as the ball's sidespin
+    /// ("english"), fully replacing any leftover spin — a fresh strike. Left null (the default),
+    /// the impulse leaves spin untouched, so a non-strike velocity nudge never clobbers a spinning
+    /// ball's english.</summary>
+    public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta, float? spinY = null) =>
         _impulses.Enqueue((entity, velocityDelta, spinY));
 
     /// <summary>Freeze the fixed-tick loop (rendering keeps interpolating the last published
@@ -480,7 +482,7 @@ public sealed class SimulationRunner : IDisposable
             {
                 ref var body = ref write.GetComponent<DynamicBody>(impulse.Entity);
                 body.Velocity += impulse.VelocityDelta;
-                body.SpinY = impulse.SpinY;
+                if (impulse.SpinY is { } spin) body.SpinY = spin; // a strike sets english; a plain nudge leaves it
             }
         }
 
