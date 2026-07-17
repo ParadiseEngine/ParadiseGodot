@@ -266,7 +266,7 @@ public sealed class SimulationRunner : IDisposable
     /// Forward-simulate the CURRENT ball set with a tentative strike (<paramref name="aimImpulse"/>
     /// added to the cue's velocity, <paramref name="spinY"/> set as its english) and fill
     /// <paramref name="outPoints"/> with the cue ball's predicted world-space path — the aim
-    /// preview. Runs the EXACT same stateless <see cref="PlanarSphereDynamics"/> the sim ticks,
+    /// preview. Runs the EXACT same stateless <see cref="RigidSphereDynamics"/> the sim ticks,
     /// so the trail matches reality: cushion bounces, the first object-ball contact, and english.
     /// Purely read-only — it copies component data out of the immutable latest snapshot and never
     /// mutates any published world; safe to call from the host render thread. When
@@ -333,7 +333,7 @@ public sealed class SimulationRunner : IDisposable
             // Batch-wide solver tuning from the first live ball — identical to StepBalls.
             Entity first = _predictEntities[0];
             PhysicsTuning tuning = world.GetComponent<PhysicsTuning>(first);
-            var settings = PlanarDynamicsSettings.Default with
+            var settings = SphereDynamicsSettings.Default with
             {
                 StaticFilter = Physics.PhysicsLayers.BallContact,
                 Gravity = tuning.Gravity,
@@ -352,7 +352,7 @@ public sealed class SimulationRunner : IDisposable
             outPoints.Add(span[cueIndex].Position);
             for (int step = 0; step < maxSteps; step++)
             {
-                PlanarSphereDynamics.Step(span, ReadOnlySpan<KinematicCapsule>.Empty, statics, settings, dt);
+                RigidSphereDynamics.Step(span, ReadOnlySpan<KinematicCapsule>.Empty, statics, settings, dt);
                 Vector3 p = span[cueIndex].Position;
                 outPoints.Add(p);
                 Vector3 v = span[cueIndex].Velocity;

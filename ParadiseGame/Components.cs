@@ -112,9 +112,10 @@ public partial struct PhysicsWorldRef
 
 /// <summary>
 /// A dynamic physics body (sphere-only in this phase). ALL of its physics state lives here —
-/// the stateless resolver (<c>Paradise.Physics.PlanarSphereDynamics</c>) reads and writes
+/// the stateless resolver (<c>Paradise.Physics.RigidSphereDynamics</c>) reads and writes
 /// components each tick, so snapshots stay complete. Position is the sphere center
-/// (<see cref="LocalTransform"/>); Y is never modified (planar contract).
+/// (<see cref="LocalTransform"/>) in full 3D — gravity, resting on the felt, and jumps all
+/// move Y now.
 /// </summary>
 /// <summary>Collision feedback for a dynamic ball: <see cref="Intensity"/> spikes to 1 on a
 /// ball↔ball hit (scaled by contact impulse) and decays each tick — fast once the ball is
@@ -188,7 +189,7 @@ public partial struct PoolBall
     public PocketBuffer Pockets;
     public int PocketCount;
 
-    /// <summary>Where this ball rests once sunk (its tray slot); Y is ignored (planar contract).</summary>
+    /// <summary>Where this ball rests once sunk (its tray slot).</summary>
     public Vector3 ParkPosition;
 
     /// <summary>Where the cue ball reappears after a scratch (the head spot).</summary>
@@ -196,6 +197,14 @@ public partial struct PoolBall
 
     public byte IsCue;
     public byte Sunk;
+
+    /// <summary>1 while the ball is dropping into a pocket (centered over the mouth, falling under
+    /// gravity, excluded from table contact) — before it reaches <see cref="SinkTargetY"/> and is
+    /// parked/marked Sunk. Gives a real visible fall rather than an instant teleport.</summary>
+    public byte Sinking;
+
+    /// <summary>Y the sinking ball falls to before it parks (the pocket bottom).</summary>
+    public float SinkTargetY;
 }
 
 /// <summary>Fixed-capacity inline buffer of pocket definitions (unmanaged, blittable).</summary>
