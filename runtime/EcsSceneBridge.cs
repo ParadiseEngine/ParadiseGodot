@@ -155,7 +155,8 @@ namespace ParadiseGodot.Runtime
                     bool isCue = string.Equals(node.Name, "CueBall", StringComparison.OrdinalIgnoreCase);
                     PoolBall poolBall = PoolRack.BuildBall(pockets, isCue, pos, trayIndex++);
                     Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), mass,
-                        damping, restitution, staticRestitution, poolBall, tuning);
+                        damping, restitution, staticRestitution, poolBall, tuning,
+                        friction: GetFloat(node, "BodyFriction", 0.3f));
                     _agents.Add((node, ball, scale)); // dynamic: interpolated like the player
                     _poolBallEntities.Add(ball);
                     _ballCount++;
@@ -913,8 +914,9 @@ namespace ParadiseGodot.Runtime
                 GetPhysicsSetting("paradise/physics/min_speed", d.MinSpeed),
                 GetPhysicsSetting("paradise/physics/skin", d.Skin),
                 GetPhysicsSetting("paradise/physics/push_strength", d.PushStrength),
-                GetPhysicsSetting("paradise/physics/rail_english", d.RailEnglish),
-                GetPhysicsSetting("paradise/physics/rail_spin_loss", d.RailSpinLoss));
+                new SN.Vector3(0f, GetPhysicsSetting("paradise/physics/gravity_y", d.Gravity.Y), 0f),
+                GetPhysicsSetting("paradise/physics/static_friction", d.StaticFriction),
+                GetPhysicsSetting("paradise/physics/min_angular_speed", d.MinAngularSpeed));
         }
 
         /// <summary>The bounciest Obstacle-layer static surface (the cushions/frames), else the

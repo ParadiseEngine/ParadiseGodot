@@ -47,7 +47,7 @@ public sealed class SimulationRunner : IDisposable
     private readonly INavigationMesh _navigationMesh;
     private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
     private readonly ConcurrentQueue<MoveCommand> _input = new();
-    private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta, float? SpinY)> _impulses = new();
+    private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta, Vector3? Angular)> _impulses = new();
     private readonly RewindBuffer _rewind = new();
     private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
     private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
@@ -121,11 +121,12 @@ public sealed class SimulationRunner : IDisposable
     /// carries the scene's global solver tuning (data/ProjectSettings.json); null = defaults.</summary>
     public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f,
         float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f,
-        in PoolBall poolBall = default, PhysicsTuning? tuning = null)
+        in PoolBall poolBall = default, PhysicsTuning? tuning = null,
+        float friction = 0.3f, float angularDamping = 0.4f)
     {
         var ball = Current.CreateEntity(EntityBuilder.Create()
             .Add(new LocalTransform(position, rotation))
-            .Add(new DynamicBody(radius, mass, linearDamping, restitution, staticRestitution))
+            .Add(new DynamicBody(radius, mass, linearDamping, restitution, staticRestitution, friction, angularDamping))
             .Add(new BallGlow())
             .Add(poolBall)
             .Add(tuning ?? PhysicsTuning.Default)
@@ -180,12 +181,11 @@ public sealed class SimulationRunner : IDisposable
     public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
 
     /// <summary>Add a velocity delta to a dynamic ball on its next tick (the pool strike). When
-    /// <paramref name="spinY"/> is given it is ASSIGNED (not accumulated) as the ball's sidespin
-    /// ("english"), fully replacing any leftover spin — a fresh strike. Left null (the default),
-    /// the impulse leaves spin untouched, so a non-strike velocity nudge never clobbers a spinning
-    /// ball's english.</summary>
-    public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta, float? spinY = null) =>
-        _impulses.Enqueue((entity, velocityDelta, spinY));
+    /// <paramref name="angularVelocity"/> is given it is ASSIGNED (not accumulated) as the ball's
+    /// full 3D spin (english + draw/follow) — a fresh strike. Left null (the default), the impulse
+    /// leaves spin untouched, so a non-strike velocity nudge never clobbers a spinning ball.</summary>
+    public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta, Vector3? angularVelocity = null) =>
+        _impulses.Enqueue((entity, velocityDelta, angularVelocity));
 
     /// <summary>Freeze the fixed-tick loop (rendering keeps interpolating the last published
     /// snapshots). While paused the rewind buffer can be scrubbed and
@@ -239,7 +239,7 @@ public sealed class SimulationRunner : IDisposable
             transform.Rotation = ball.Rotation;
             ref var body = ref write.GetComponent<DynamicBody>(ball.Entity);
             body.Velocity = ball.Velocity;
-            body.SpinY = ball.SpinY;
+            body.AngularVelocity = ball.AngularVelocity;
             write.GetComponent<BallGlow>(ball.Entity).Intensity = ball.Glow;
             // Restoring to a pre-sink frame resurrects the ball (positions are recorded every
             // tick, so the transform write above already moved it back onto the table).
@@ -274,7 +274,7 @@ public sealed class SimulationRunner : IDisposable
     /// frame (the scrubbed present) so a paused-and-scrubbed preview matches the staged strike
     /// applied on resume. Returns false when there is no cue or no snapshot yet.
     /// </summary>
-    public bool PredictCueBallPath(Entity cue, Vector3 aimImpulse, float spinY,
+    public bool PredictCueBallPath(Entity cue, Vector3 aimImpulse, Vector3 angularVelocity,
         List<Vector3> outPoints, int maxSteps, int framesBack = 0)
     {
         outPoints.Clear();
@@ -306,18 +306,19 @@ public sealed class SimulationRunner : IDisposable
                 ref readonly DynamicBody body = ref world.GetComponent<DynamicBody>(e);
                 Vector3 pos = world.GetComponent<LocalTransform>(e).Position;
                 Vector3 vel = body.Velocity;
-                float spin = body.SpinY;
+                Vector3 spin = body.AngularVelocity;
                 if (useRewind)
                 {
                     foreach (RewoundBall rb in _predictRewind)
                     {
-                        if (rb.Entity == e) { pos = rb.Position; vel = rb.Velocity; spin = rb.SpinY; break; }
+                        if (rb.Entity == e) { pos = rb.Position; vel = rb.Velocity; spin = rb.AngularVelocity; break; }
                     }
                 }
                 _predictSpheres[live] = new DynamicSphere
                 {
-                    Position = pos, Velocity = vel, Radius = body.Radius, Mass = body.Mass,
-                    LinearDamping = body.LinearDamping, Restitution = body.Restitution, SpinY = spin,
+                    Position = pos, Velocity = vel, AngularVelocity = spin, Radius = body.Radius, Mass = body.Mass,
+                    LinearDamping = body.LinearDamping, AngularDamping = body.AngularDamping,
+                    Restitution = body.Restitution, Friction = body.Friction,
                 };
                 _predictEntities[live] = e;
                 if (e == cue) cueIndex = live;
@@ -327,22 +328,20 @@ public sealed class SimulationRunner : IDisposable
 
             // Apply the tentative strike to the cue copy.
             _predictSpheres[cueIndex].Velocity += aimImpulse;
-            _predictSpheres[cueIndex].SpinY = spinY;
+            _predictSpheres[cueIndex].AngularVelocity = angularVelocity;
 
             // Batch-wide solver tuning from the first live ball — identical to StepBalls.
             Entity first = _predictEntities[0];
             PhysicsTuning tuning = world.GetComponent<PhysicsTuning>(first);
             var settings = PlanarDynamicsSettings.Default with
             {
-                StaticFilter = Physics.PhysicsLayers.DynamicBodyCast,
-                RequireSupport = true,
-                SupportFilter = Physics.PhysicsLayers.SupportRay,
-                SupportProbeDepth = Physics.PhysicsLayers.SupportProbeDepth,
+                StaticFilter = Physics.PhysicsLayers.BallContact,
+                Gravity = tuning.Gravity,
                 MinSpeed = tuning.MinSpeed,
+                MinAngularSpeed = tuning.MinAngularSpeed,
                 Skin = tuning.Skin,
                 PushStrength = tuning.PushStrength,
-                RailEnglish = tuning.RailEnglish,
-                RailSpinLoss = tuning.RailSpinLoss,
+                StaticFriction = tuning.StaticFriction,
                 StaticRestitution = world.GetComponent<DynamicBody>(first).StaticRestitution,
             };
             CollisionWorldHandle statics = _collisionWorld?.Handle ?? default;
@@ -498,7 +497,7 @@ public sealed class SimulationRunner : IDisposable
             {
                 ref var body = ref write.GetComponent<DynamicBody>(impulse.Entity);
                 body.Velocity += impulse.VelocityDelta;
-                if (impulse.SpinY is { } spin) body.SpinY = spin; // a strike sets english; a plain nudge leaves it
+                if (impulse.Angular is { } w) body.AngularVelocity = w; // a strike sets spin; a plain nudge leaves it
             }
         }
 

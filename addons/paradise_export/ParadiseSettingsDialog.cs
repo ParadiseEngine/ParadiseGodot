@@ -39,8 +39,9 @@ namespace ParadiseGodot
         private readonly LineEdit _skinEdit;
         private readonly LineEdit _pushStrengthEdit;
         private readonly LineEdit _staticRestitutionEdit;
-        private readonly LineEdit _railEnglishEdit;
-        private readonly LineEdit _railSpinLossEdit;
+        private readonly LineEdit _gravityYEdit;
+        private readonly LineEdit _staticFrictionEdit;
+        private readonly LineEdit _minAngularSpeedEdit;
         private EditorFileDialog? _fileDialog;
         private LineEdit? _browseTarget;
 
@@ -75,10 +76,12 @@ namespace ParadiseGodot
                 "Scale applied to a character pusher's velocity when injected into a ball.");
             _staticRestitutionEdit = AddTextRow(layout, "Static restitution",
                 "Body ↔ static bounce fallback when no obstacle-layer static in the scene authors a Restitution.");
-            _railEnglishEdit = AddTextRow(layout, "Rail english",
-                "Sidespin strength: tangential rebound velocity (m/s) added per unit cue spin at a cushion. 0 disables english.");
-            _railSpinLossEdit = AddTextRow(layout, "Rail spin loss",
-                "Fraction of a ball's sidespin retained after each cushion contact (0..1).");
+            _gravityYEdit = AddTextRow(layout, "Gravity Y",
+                "Vertical gravity (m/s²) on balls; holds them on the felt and drives draw/jump/masse. Default -9.81.");
+            _staticFrictionEdit = AddTextRow(layout, "Static friction",
+                "Coulomb μ for ball↔cushion/cloth contacts — the coupling that turns spin into draw/follow/english/throw.");
+            _minAngularSpeedEdit = AddTextRow(layout, "Min angular speed",
+                "Angular speeds below this settle to rest when a ball is supported (rad/s).");
 
             AboutToPopup += LoadFromSettings;
             Confirmed += SaveAndApply;
@@ -234,8 +237,9 @@ namespace ParadiseGodot
             _pushStrengthEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.PushStrengthSetting, defaults.PushStrength);
             _staticRestitutionEdit.Text = ReadProjectFloat(
                 Export.ProjectSettingsExporter.DefaultStaticRestitutionSetting, defaults.DefaultStaticRestitution);
-            _railEnglishEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.RailEnglishSetting, defaults.RailEnglish);
-            _railSpinLossEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.RailSpinLossSetting, defaults.RailSpinLoss);
+            _gravityYEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.GravityYSetting, defaults.GravityY);
+            _staticFrictionEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.StaticFrictionSetting, defaults.StaticFriction);
+            _minAngularSpeedEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.MinAngularSpeedSetting, defaults.MinAngularSpeed);
             RefreshStatus();
         }
 
@@ -261,8 +265,9 @@ namespace ParadiseGodot
             WriteProjectFloat(Export.ProjectSettingsExporter.PushStrengthSetting, _pushStrengthEdit.Text, defaults.PushStrength);
             WriteProjectFloat(Export.ProjectSettingsExporter.DefaultStaticRestitutionSetting,
                 _staticRestitutionEdit.Text, defaults.DefaultStaticRestitution);
-            WriteProjectFloat(Export.ProjectSettingsExporter.RailEnglishSetting, _railEnglishEdit.Text, defaults.RailEnglish);
-            WriteProjectFloat(Export.ProjectSettingsExporter.RailSpinLossSetting, _railSpinLossEdit.Text, defaults.RailSpinLoss);
+            WriteProjectFloat(Export.ProjectSettingsExporter.GravityYSetting, _gravityYEdit.Text, defaults.GravityY);
+            WriteProjectFloat(Export.ProjectSettingsExporter.StaticFrictionSetting, _staticFrictionEdit.Text, defaults.StaticFriction);
+            WriteProjectFloat(Export.ProjectSettingsExporter.MinAngularSpeedSetting, _minAngularSpeedEdit.Text, defaults.MinAngularSpeed);
             ProjectSettings.Save();
             Export.ProjectSettingsExporter.Export(
                 new ParadiseExport.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data")));

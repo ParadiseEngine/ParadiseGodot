@@ -44,10 +44,8 @@ public ref partial struct MovementSystem : IWorldSystem
     // (PhysicsTuning + DynamicBody components), never from these defaults.
     private static readonly PlanarDynamicsSettings BallSettings = PlanarDynamicsSettings.Default with
     {
-        StaticFilter = PhysicsLayers.DynamicBodyCast,
-        RequireSupport = true, // balls stop/slide at slab edges instead of rolling into the void
-        SupportFilter = PhysicsLayers.SupportRay,
-        SupportProbeDepth = PhysicsLayers.SupportProbeDepth,
+        // 3D contacts vs BOTH floor (gravity rests balls on it) and obstacles (cushions).
+        StaticFilter = PhysicsLayers.BallContact,
     };
 
     public AgentsSegments Agents;
@@ -204,11 +202,13 @@ public ref partial struct MovementSystem : IWorldSystem
                 {
                     Position = Balls.LocalTransform[i].Position,
                     Velocity = body.Velocity,
+                    AngularVelocity = body.AngularVelocity,
                     Radius = body.Radius,
                     Mass = body.Mass,
                     LinearDamping = body.LinearDamping,
+                    AngularDamping = body.AngularDamping,
                     Restitution = body.Restitution,
-                    SpinY = body.SpinY,
+                    Friction = body.Friction,
                 };
                 mapScratch[liveCount] = i;
                 liveCount++;
@@ -239,11 +239,12 @@ public ref partial struct MovementSystem : IWorldSystem
             ref readonly PhysicsTuning tuning = ref Balls.PhysicsTuning[map[0]];
             PlanarDynamicsSettings settings = BallSettings with
             {
+                Gravity = tuning.Gravity,
                 MinSpeed = tuning.MinSpeed,
+                MinAngularSpeed = tuning.MinAngularSpeed,
                 Skin = tuning.Skin,
                 PushStrength = tuning.PushStrength,
-                RailEnglish = tuning.RailEnglish,
-                RailSpinLoss = tuning.RailSpinLoss,
+                StaticFriction = tuning.StaticFriction,
                 StaticRestitution = Balls.DynamicBody[map[0]].StaticRestitution,
             };
             PlanarSphereDynamics.Step(spheres, pushers, statics, settings, dt);
@@ -253,12 +254,10 @@ public ref partial struct MovementSystem : IWorldSystem
                 ref readonly DynamicSphere sphere = ref spheres[k];
                 int i = map[k];
                 ref LocalTransform transform = ref Balls.LocalTransform[i];
-                Vector3 old = transform.Position;
-                transform.Position = new Vector3(sphere.Position.X, old.Y, sphere.Position.Z);
+                // Full 3D now: the solver owns Y too (gravity, rest-on-felt, jumps).
+                transform.Position = sphere.Position;
                 Balls.DynamicBody[i].Velocity = sphere.Velocity;
-                // Persist the spin the solver bled at any cushion contact this step (stateless
-                // engine: SpinY is owned here, round-tripped through the DynamicSphere span).
-                Balls.DynamicBody[i].SpinY = sphere.SpinY;
+                Balls.DynamicBody[i].AngularVelocity = sphere.AngularVelocity;
 
                 // Collision glow: spike with the pairwise contact impulse (normalized by an
                 // impulse that reads as a "solid hit"), then decay — slowly while the ball still
@@ -273,14 +272,14 @@ public ref partial struct MovementSystem : IWorldSystem
                     glow.Intensity = 0f;
                 }
 
-                // Rolling visual: for rolling-without-slipping on a Y-up plane, ω = (Up × v) / r.
-                // Cosmetic and game-side (the engine library stays transcendental-free); rotation
-                // lives in LocalTransform so the renderer's existing Slerp interpolates it.
-                float speed = ballSpeed;
-                if (speed > 1e-4f && sphere.Radius > 1e-4f)
+                // Integrate orientation from the REAL angular velocity the solver produced (world
+                // frame): q ← normalize(Δ · q). Replaces the old cosmetic ω=(Up×v)/r — rolling now
+                // emerges from friction, and this shows draw/follow/side spin honestly.
+                Vector3 w = sphere.AngularVelocity;
+                float wLen = w.Length();
+                if (wLen > 1e-5f)
                 {
-                    Vector3 axis = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, sphere.Velocity));
-                    Quaternion delta = Quaternion.CreateFromAxisAngle(axis, speed * dt / sphere.Radius);
+                    Quaternion delta = Quaternion.CreateFromAxisAngle(w / wLen, wLen * dt);
                     transform.Rotation = Quaternion.Normalize(
                         Quaternion.Concatenate(transform.Rotation, delta));
                 }

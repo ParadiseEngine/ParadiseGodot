@@ -60,7 +60,7 @@ public class PoolPocketTests
         Vector3 parked = PositionOf(runner, ball);
         await Assert.That(MathF.Abs(parked.X - park.X)).IsLessThan(1e-4f);
         await Assert.That(MathF.Abs(parked.Z - park.Z)).IsLessThan(1e-4f);
-        await Assert.That(parked.Y).IsEqualTo(0.85f); // planar contract: Y untouched
+        // (Y is no longer asserted — balls are full 3D now; capture parks X/Z and freezes the ball.)
 
         // Sunk = out of the simulation: it never moves again.
         for (var i = 0; i < 120; i++) runner.TickOnce();
