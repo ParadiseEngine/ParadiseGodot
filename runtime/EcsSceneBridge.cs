@@ -652,7 +652,9 @@ namespace ParadiseGodot.Runtime
             return new PhysicsTuning(
                 GetPhysicsSetting("paradise/physics/min_speed", d.MinSpeed),
                 GetPhysicsSetting("paradise/physics/skin", d.Skin),
-                GetPhysicsSetting("paradise/physics/push_strength", d.PushStrength));
+                GetPhysicsSetting("paradise/physics/push_strength", d.PushStrength),
+                GetPhysicsSetting("paradise/physics/rail_english", d.RailEnglish),
+                GetPhysicsSetting("paradise/physics/rail_spin_loss", d.RailSpinLoss));
         }
 
         /// <summary>The bounciest Obstacle-layer static surface (the cushions/frames), else the

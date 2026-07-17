@@ -27,6 +27,8 @@ namespace ParadiseGodot.Export
         public const string SkinSetting = "paradise/physics/skin";
         public const string PushStrengthSetting = "paradise/physics/push_strength";
         public const string DefaultStaticRestitutionSetting = "paradise/physics/default_static_restitution";
+        public const string RailEnglishSetting = "paradise/physics/rail_english";
+        public const string RailSpinLossSetting = "paradise/physics/rail_spin_loss";
 
         public static void Export(ExportPaths paths)
         {
@@ -58,6 +60,8 @@ namespace ParadiseGodot.Export
                 Skin = (float)GetDouble(SkinSetting, defaults.Skin),
                 PushStrength = (float)GetDouble(PushStrengthSetting, defaults.PushStrength),
                 DefaultStaticRestitution = (float)GetDouble(DefaultStaticRestitutionSetting, defaults.DefaultStaticRestitution),
+                RailEnglish = (float)GetDouble(RailEnglishSetting, defaults.RailEnglish),
+                RailSpinLoss = (float)GetDouble(RailSpinLossSetting, defaults.RailSpinLoss),
             };
             dynamics.ValidateAndNormalize();
             return dynamics;

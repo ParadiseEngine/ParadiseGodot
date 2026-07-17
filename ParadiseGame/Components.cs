@@ -142,6 +142,11 @@ public partial struct DynamicBody
     /// simulated ball's value (one cushion surface type per scene).</summary>
     public float StaticRestitution;
 
+    /// <summary>Signed vertical-axis sidespin ("english"), set on the cue ball at strike and
+    /// carried through the stateless solver's <c>DynamicSphere.SpinY</c> span slot each tick.
+    /// Latent while rolling; bends the tangential rebound at a cushion contact and bleeds off.</summary>
+    public float SpinY;
+
     public DynamicBody(float radius, float mass,
         float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f)
     {
@@ -151,6 +156,7 @@ public partial struct DynamicBody
         LinearDamping = linearDamping;
         Restitution = restitution;
         StaticRestitution = staticRestitution;
+        SpinY = 0f;
     }
 }
 
@@ -206,11 +212,21 @@ public partial struct PhysicsTuning
     /// <summary>Scale applied to a character pusher's velocity when injected into a ball.</summary>
     public float PushStrength;
 
-    public PhysicsTuning(float minSpeed, float skin, float pushStrength)
+    /// <summary>Sidespin "english" strength: tangential rebound velocity (m/s) added per unit
+    /// cue spin at a cushion contact. 0 disables english (matches the pre-english bounce).</summary>
+    public float RailEnglish;
+
+    /// <summary>Fraction of a ball's sidespin retained after each cushion contact (0..1).</summary>
+    public float RailSpinLoss;
+
+    public PhysicsTuning(float minSpeed, float skin, float pushStrength,
+        float railEnglish = 1.5f, float railSpinLoss = 0.6f)
     {
         MinSpeed = minSpeed;
         Skin = skin;
         PushStrength = pushStrength;
+        RailEnglish = railEnglish;
+        RailSpinLoss = railSpinLoss;
     }
 
     public static PhysicsTuning Default => new(0.005f, 0.02f, 1.2f);

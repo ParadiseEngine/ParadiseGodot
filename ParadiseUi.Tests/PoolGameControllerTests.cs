@@ -112,6 +112,56 @@ public class PoolGameControllerTests
     }
 
     [Test]
+    public async Task english_is_carried_into_the_staged_strike()
+    {
+        var (runner, pool, _) = NewGame();
+        using (runner)
+        {
+            pool.English = 0.6f;
+            pool.Paused = true;
+            await Assert.That(pool.TryBeginAim(new Vector2(0, 0))).IsTrue();
+            pool.UpdateAim(new Vector2(3, 0));
+            pool.ReleaseAim();
+
+            await Assert.That(pool.StagedSpin.HasValue).IsTrue();
+            await Assert.That(MathF.Abs(pool.StagedSpin!.Value - 0.6f)).IsLessThan(1e-4f);
+        }
+    }
+
+    [Test]
+    public async Task english_is_clamped_to_unit_range()
+    {
+        var (runner, pool, _) = NewGame();
+        using (runner)
+        {
+            pool.English = 5f;
+            await Assert.That(pool.English).IsEqualTo(1f);
+            pool.English = -5f;
+            await Assert.That(pool.English).IsEqualTo(-1f);
+        }
+    }
+
+    [Test]
+    public async Task predicted_path_starts_at_the_cue_and_advances_along_the_strike()
+    {
+        var (runner, pool, cue) = NewGame();
+        using (runner)
+        {
+            // A leftward strike (aim point to +x → fires toward −x), no collision world: the
+            // predicted cue path should start at the cue origin and march in −x.
+            var points = new List<Vector3>();
+            var impulse = new Vector3(-4f, 0f, 0f);
+            var ok = runner.PredictCueBallPath(cue, impulse, spinY: 0f, points, maxSteps: 60);
+
+            await Assert.That(ok).IsTrue();
+            await Assert.That(points.Count).IsGreaterThan(1);
+            await Assert.That(points[0].Length()).IsLessThan(1e-3f);          // starts at the cue (origin)
+            await Assert.That(points[^1].X).IsLessThan(-0.05f);                // rolled toward −x
+            await Assert.That(MathF.Abs(points[^1].Z)).IsLessThan(1e-3f);      // straight (no english, no walls)
+        }
+    }
+
+    [Test]
     public async Task immediate_strike_fires_the_audio_hook_and_is_not_staged()
     {
         var struck = false;

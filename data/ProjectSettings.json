@@ -41,7 +41,9 @@
       "MinSpeed": 0.005,
       "Skin": 0.02,
       "PushStrength": 1.2,
-      "DefaultStaticRestitution": 0.4
+      "DefaultStaticRestitution": 0.4,
+      "RailEnglish": 1.5,
+      "RailSpinLoss": 0.6
     }
   },
   "Rendering": {

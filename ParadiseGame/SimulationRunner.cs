@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
 using System.Threading;
+using Paradise.Physics;
 using ParadiseGame.Audio;
 using ParadiseGame.Navigation;
 using ParadiseGame.Ui;
@@ -46,7 +47,7 @@ public sealed class SimulationRunner : IDisposable
     private readonly INavigationMesh _navigationMesh;
     private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
     private readonly ConcurrentQueue<MoveCommand> _input = new();
-    private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta)> _impulses = new();
+    private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta, float SpinY)> _impulses = new();
     private readonly RewindBuffer _rewind = new();
     private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
     private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
@@ -162,8 +163,11 @@ public sealed class SimulationRunner : IDisposable
     /// (zero = no input). Overrides click-to-move path following while non-zero.</summary>
     public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
 
-    /// <summary>Add a velocity delta to a dynamic ball on its next tick (the pool strike).</summary>
-    public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta) => _impulses.Enqueue((entity, velocityDelta));
+    /// <summary>Add a velocity delta to a dynamic ball on its next tick (the pool strike), and
+    /// set its sidespin ("english"). <paramref name="spinY"/> is assigned (not accumulated) so a
+    /// fresh strike fully replaces any leftover spin.</summary>
+    public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta, float spinY = 0f) =>
+        _impulses.Enqueue((entity, velocityDelta, spinY));
 
     /// <summary>Freeze the fixed-tick loop (rendering keeps interpolating the last published
     /// snapshots). While paused the rewind buffer can be scrubbed and
@@ -215,7 +219,9 @@ public sealed class SimulationRunner : IDisposable
             ref var transform = ref write.GetComponent<LocalTransform>(ball.Entity);
             transform.Position = ball.Position;
             transform.Rotation = ball.Rotation;
-            write.GetComponent<DynamicBody>(ball.Entity).Velocity = ball.Velocity;
+            ref var body = ref write.GetComponent<DynamicBody>(ball.Entity);
+            body.Velocity = ball.Velocity;
+            body.SpinY = ball.SpinY;
             write.GetComponent<BallGlow>(ball.Entity).Intensity = ball.Glow;
             // Restoring to a pre-sink frame resurrects the ball (positions are recorded every
             // tick, so the transform write above already moved it back onto the table).
@@ -230,6 +236,128 @@ public sealed class SimulationRunner : IDisposable
         return true;
     }
     private readonly List<RewoundBall> _restoreScratch = new();
+
+    // ---- Aim prediction (read-only forward sim of the current state) ----
+
+    // Reused rollout scratch; access is serialized under _lock with TickOnce's publish.
+    private DynamicSphere[] _predictSpheres = new DynamicSphere[8];
+    private Entity[] _predictEntities = new Entity[8];
+    private readonly List<RewoundBall> _predictRewind = new();
+
+    /// <summary>
+    /// Forward-simulate the CURRENT ball set with a tentative strike (<paramref name="aimImpulse"/>
+    /// added to the cue's velocity, <paramref name="spinY"/> set as its english) and fill
+    /// <paramref name="outPoints"/> with the cue ball's predicted world-space path — the aim
+    /// preview. Runs the EXACT same stateless <see cref="PlanarSphereDynamics"/> the sim ticks,
+    /// so the trail matches reality: cushion bounces, the first object-ball contact, and english.
+    /// Purely read-only — it copies component data out of the immutable latest snapshot and never
+    /// mutates any published world; safe to call from the host render thread. When
+    /// <paramref name="framesBack"/> &gt; 0 it seeds ball position/velocity/spin from that rewind
+    /// frame (the scrubbed present) so a paused-and-scrubbed preview matches the staged strike
+    /// applied on resume. Returns false when there is no cue or no snapshot yet.
+    /// </summary>
+    public bool PredictCueBallPath(Entity cue, Vector3 aimImpulse, float spinY,
+        List<Vector3> outPoints, int maxSteps, int framesBack = 0)
+    {
+        outPoints.Clear();
+        // Fetch the optional rewind seed first (RewindBuffer has its own lock) so we never nest it
+        // under _lock.
+        bool useRewind = framesBack > 0 && _rewind.TryGet(framesBack, _predictRewind);
+
+        lock (_lock)
+        {
+            if (_live.Count == 0) return false;
+            World world = _live[^1].World;
+            if (!world.IsAlive(cue) || !world.HasComponent<DynamicBody>(cue)) return false;
+
+            int n = _ballEntities.Count;
+            if (_predictSpheres.Length < n)
+            {
+                _predictSpheres = new DynamicSphere[n];
+                _predictEntities = new Entity[n];
+            }
+
+            // Gather live (non-sunk) balls, mirroring MovementSystem.StepBalls.
+            int live = 0, cueIndex = -1;
+            for (int i = 0; i < n; i++)
+            {
+                Entity e = _ballEntities[i];
+                if (!world.IsAlive(e) || !world.HasComponent<DynamicBody>(e)) continue;
+                if (world.GetComponent<PoolBall>(e).Sunk != 0) continue;
+
+                ref readonly DynamicBody body = ref world.GetComponent<DynamicBody>(e);
+                Vector3 pos = world.GetComponent<LocalTransform>(e).Position;
+                Vector3 vel = body.Velocity;
+                float spin = body.SpinY;
+                if (useRewind)
+                {
+                    foreach (RewoundBall rb in _predictRewind)
+                    {
+                        if (rb.Entity == e) { pos = rb.Position; vel = rb.Velocity; spin = rb.SpinY; break; }
+                    }
+                }
+                _predictSpheres[live] = new DynamicSphere
+                {
+                    Position = pos, Velocity = vel, Radius = body.Radius, Mass = body.Mass,
+                    LinearDamping = body.LinearDamping, Restitution = body.Restitution, SpinY = spin,
+                };
+                _predictEntities[live] = e;
+                if (e == cue) cueIndex = live;
+                live++;
+            }
+            if (cueIndex < 0) return false;
+
+            // Apply the tentative strike to the cue copy.
+            _predictSpheres[cueIndex].Velocity += aimImpulse;
+            _predictSpheres[cueIndex].SpinY = spinY;
+
+            // Batch-wide solver tuning from the first live ball — identical to StepBalls.
+            Entity first = _predictEntities[0];
+            PhysicsTuning tuning = world.GetComponent<PhysicsTuning>(first);
+            var settings = PlanarDynamicsSettings.Default with
+            {
+                StaticFilter = Physics.PhysicsLayers.DynamicBodyCast,
+                RequireSupport = true,
+                SupportFilter = Physics.PhysicsLayers.SupportRay,
+                SupportProbeDepth = Physics.PhysicsLayers.SupportProbeDepth,
+                MinSpeed = tuning.MinSpeed,
+                Skin = tuning.Skin,
+                PushStrength = tuning.PushStrength,
+                RailEnglish = tuning.RailEnglish,
+                RailSpinLoss = tuning.RailSpinLoss,
+                StaticRestitution = world.GetComponent<DynamicBody>(first).StaticRestitution,
+            };
+            CollisionWorldHandle statics = _collisionWorld?.Handle ?? default;
+            PoolBall cuePockets = world.GetComponent<PoolBall>(cue);
+
+            var span = new Span<DynamicSphere>(_predictSpheres, 0, live);
+            var dt = (float)FixedDeltaSeconds;
+            outPoints.Add(span[cueIndex].Position);
+            for (int step = 0; step < maxSteps; step++)
+            {
+                PlanarSphereDynamics.Step(span, ReadOnlySpan<KinematicCapsule>.Empty, statics, settings, dt);
+                Vector3 p = span[cueIndex].Position;
+                outPoints.Add(p);
+                Vector3 v = span[cueIndex].Velocity;
+                if (v.X * v.X + v.Z * v.Z < settings.MinSpeed * settings.MinSpeed) break; // came to rest
+                if (InPocket(cuePockets, p)) break; // would drop
+            }
+            return outPoints.Count > 1;
+        }
+    }
+
+    private static bool InPocket(in PoolBall pool, Vector3 p)
+    {
+        // Pockets are packed as (centerX, centerZ, radius², unused) — the same planar XZ test
+        // MovementSystem.CaptureInPocket uses.
+        for (int i = 0; i < pool.PocketCount; i++)
+        {
+            Vector4 pocket = pool.Pockets[i];
+            float dx = p.X - pocket.X, dz = p.Z - pocket.Y;
+            if (dx * dx + dz * dz < pocket.Z) return true;
+        }
+        return false;
+    }
 
     // ---- Threading ----
 
@@ -350,7 +478,9 @@ public sealed class SimulationRunner : IDisposable
         {
             if (write.IsAlive(impulse.Entity) && write.HasComponent<DynamicBody>(impulse.Entity))
             {
-                write.GetComponent<DynamicBody>(impulse.Entity).Velocity += impulse.VelocityDelta;
+                ref var body = ref write.GetComponent<DynamicBody>(impulse.Entity);
+                body.Velocity += impulse.VelocityDelta;
+                body.SpinY = impulse.SpinY;
             }
         }
 

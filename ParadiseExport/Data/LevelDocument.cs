@@ -173,6 +173,13 @@ namespace ParadiseExport.Data
         // Restitution on an obstacle-layer collider (cushion-less scenes).
         public float DefaultStaticRestitution { get; set; } = 0.4f;
 
+        // Sidespin ("english") strength: tangential rebound velocity (m/s) added to a ball per
+        // unit cue spin at a cushion contact. 0 disables english (pre-english bounce).
+        public float RailEnglish { get; set; } = 1.5f;
+
+        // Fraction of a ball's sidespin retained after each cushion contact (0..1).
+        public float RailSpinLoss { get; set; } = 0.6f;
+
         public void ValidateAndNormalize()
         {
             MinSpeed = float.IsFinite(MinSpeed) && MinSpeed >= 0f ? MinSpeed : 0.005f;
@@ -181,6 +188,8 @@ namespace ParadiseExport.Data
             DefaultStaticRestitution = float.IsFinite(DefaultStaticRestitution)
                 ? Math.Clamp(DefaultStaticRestitution, 0f, 1f)
                 : 0.4f;
+            RailEnglish = float.IsFinite(RailEnglish) && RailEnglish >= 0f ? RailEnglish : 1.5f;
+            RailSpinLoss = float.IsFinite(RailSpinLoss) ? Math.Clamp(RailSpinLoss, 0f, 1f) : 0.6f;
         }
     }
 
