@@ -122,6 +122,12 @@ namespace ParadiseGodot.Export
             data.SsaoIntensity = env.SsaoIntensity;
             data.SsaoPower = env.SsaoPower;
 
+            // Glow / bloom (Godot Environment.glow_*). The runtime's HDR composite bloom is the .NET
+            // analog; intensity/HDR-threshold map across (Godot's per-level glow curve isn't modelled).
+            data.GlowEnabled = env.GlowEnabled;
+            data.GlowIntensity = env.GlowIntensity;
+            data.GlowThreshold = env.GlowHdrThreshold;
+
             // Ambient: a Sky source with a procedural sky is a hemisphere lit by the sky's
             // top/horizon/ground colours; anything else is a flat ambient colour. AmbientMode is set
             // by the branch that actually runs (a Sky source with a non-procedural/null material

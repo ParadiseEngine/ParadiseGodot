@@ -65,7 +65,10 @@ namespace ParadiseGodot.Runtime
 
         private SimulationRunner? _runner;
         private Camera3D? _camera;
-        private readonly List<(Node3D Node, Entity Entity)> _agents = new();
+        // Scale is captured at spawn and re-applied every frame: the sim owns position + rotation
+        // but NOT scale, so we must not let the snapshot transform wipe the node's authored scale.
+        private readonly List<(Node3D Node, Entity Entity, Vector3 Scale)> _agents = new();
+        private readonly List<Entity> _poolBallEntities = new(); // balls only, for the sunk-count read
         private readonly List<(Sprite3D Sprite, Entity Entity)> _sprites = new();
         private readonly List<ParticleEmitterView> _emitters = new();
 
@@ -85,6 +88,7 @@ namespace ParadiseGodot.Runtime
         }
         private Entity _player;
         private bool _hasPlayer;
+        private PoolGameController? _pool; // shared cue-aim/strike/rewind + ImGui panel (when a CueBall exists)
         private double _renderSampleTime;
         private bool _faulted;
         private int _ballCount;
@@ -104,32 +108,61 @@ namespace ParadiseGodot.Runtime
                 return;
             }
 
-            // Static collision geometry for the sim's stateless CollisionWorld — harvested from the
-            // same navigation_source group the navmesh bakes from, so physics and pathfinding agree.
+            // Static collision geometry for the sim's stateless CollisionWorld — every StaticBody3D
+            // in the scene (the .NET host's `Rigidbody.BodyType == Static` harvest). Physics and the
+            // navmesh are SEPARATE concerns: the navmesh bakes only the walkable floor, but solid
+            // geometry the balls rest on / bounce off (the pool table bed + cushions) is static too
+            // and must join the collision world even though it is not a nav-walkable surface.
             Paradise.Physics.CollisionWorld? collisionWorld = BuildCollisionWorld(root);
             _runner = new SimulationRunner(DetourNavMeshLoader.LoadFromBytes(navBytes), collisionWorld);
             _camera = FindCamera(root);
 
+            // Global solver tuning + static-surface bounce, read live from the SAME paradise/physics/*
+            // project settings the .NET host exports — so our shared sim runs identical inputs in
+            // both hosts. Static restitution mirrors SceneAssembler.StaticSurfaceRestitution (the
+            // bounciest Obstacle-layer surface, e.g. the pool cushions).
+            PhysicsTuning tuning = ReadPhysicsTuning();
+            float staticRestitution = ReadStaticSurfaceRestitution(
+                root, GetPhysicsSetting("paradise/physics/default_static_restitution", 0.4f));
+
+            // Pocket capture regions (Area3D sphere triggers) → each ball gets a PoolBall via the
+            // shared PoolRack.BuildBall, so balls sink in Godot exactly as in the .NET host.
+            List<(SN.Vector3 Center, float Radius)> pockets = ExtractPockets(root);
+            int trayIndex = 0;
+
+            Entity? cueBall = null;
             foreach (Node3D node in EntityNodes(root))
             {
                 SN.Vector3 pos = ToSN(node.GlobalPosition);
                 SN.Quaternion rot = ToSN(node.GlobalBasis.GetRotationQuaternion());
+                Vector3 scale = node.GlobalBasis.Scale;
 
                 if (node.IsInGroup(PlayerGroup))
                 {
                     (float bodyRadius, float bodyHalfLength) = ReadPlayerCapsule(node);
                     _player = _runner.SpawnAgent(pos, rot, ReadAuthoredMoveSpeed(node), ArriveRadius, bodyRadius, bodyHalfLength);
                     _hasPlayer = true;
-                    _agents.Add((node, _player));
+                    _agents.Add((node, _player, scale));
                 }
                 else if (node.IsInGroup(BallGroup))
                 {
-                    // Parity gap: default physics params + inert PoolBall (no pocket capture) —
-                    // the bridge reads the live Godot scene, not the exported Rigidbody/trigger
-                    // data the .NET host gets through SceneAssembler.
-                    Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), BallMass);
-                    _agents.Add((node, ball)); // dynamic: interpolated like the player
+                    // Feed our sim the AUTHORED physics params (EntityExport Body* fields, read
+                    // dynamically since EntityExport is a tools-only type) exactly as the .NET host
+                    // does via SceneAssembler: same mass/damping/restitution + global tuning + the
+                    // pocket set → identical roll/bounce AND pocket capture in both hosts.
+                    (float mass, float damping, float restitution) = ReadBallBody(node);
+                    // The cue ball drives the pool controller (same "CueBall" id the .NET host uses).
+                    bool isCue = string.Equals(node.Name, "CueBall", StringComparison.OrdinalIgnoreCase);
+                    PoolBall poolBall = PoolRack.BuildBall(pockets, isCue, pos, trayIndex++);
+                    Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), mass,
+                        damping, restitution, staticRestitution, poolBall, tuning);
+                    _agents.Add((node, ball, scale)); // dynamic: interpolated like the player
+                    _poolBallEntities.Add(ball);
                     _ballCount++;
+                    if (isCue)
+                    {
+                        cueBall = ball;
+                    }
                 }
                 else
                 {
@@ -158,6 +191,14 @@ namespace ParadiseGodot.Runtime
                 }
             }
 
+            // Pool mini-game: the shared controller renders the identical aim line + panel as the
+            // .NET host. Aim methods run on this main thread (camera access); DrawPanel on the sim
+            // thread via ImGui. No audio hook (the bridge wires no AudioSink) → silent strike.
+            if (cueBall is { } cue && _camera is not null)
+            {
+                _pool = new PoolGameController(_runner, cue, new Camera3DProjection(_camera));
+            }
+
             SetupUi(); // UiInput must be composed before Start (the sim reads it each tick)
 
             _runner.Start();
@@ -184,6 +225,10 @@ namespace ParadiseGodot.Runtime
                 {
                     _imgui = new ImGuiUiCore((uint)size.X, (uint)size.Y);
                     _imgui.AddDraw(DrawDebugPanel);
+                    if (_pool is not null)
+                    {
+                        _imgui.AddDraw(_pool.DrawPanel); // shared "Pool" panel + aim line
+                    }
                 }
                 catch (Exception e) when (e is DllNotFoundException or TypeInitializationException)
                 {
@@ -321,10 +366,20 @@ namespace ParadiseGodot.Runtime
             switch (@event)
             {
                 case InputEventMouseMotion motion:
+                    // Aim update runs HERE on the main thread (camera access); the controller caches
+                    // the screen-space endpoints its sim-thread DrawPanel reads.
+                    _pool?.UpdateAim(new SN.Vector2(motion.Position.X, motion.Position.Y));
                     _runner.EnqueueUiEvent(UiEvent.PointerMove(motion.Position.X, motion.Position.Y));
                     break;
 
                 case InputEventMouseButton { Pressed: true } down when ToUiButton(down.ButtonIndex) is { } button:
+                    // The cue ball claims a left-click first (start aiming); if it does, the click is
+                    // consumed and does NOT fall through to the UI/click-move path (parity with Program).
+                    if (button == UiPointerButton.Left &&
+                        _pool?.TryBeginAim(new SN.Vector2(down.Position.X, down.Position.Y)) == true)
+                    {
+                        break;
+                    }
                     if (_camera is not null)
                     {
                         Vector3 origin = _camera.ProjectRayOrigin(down.Position);
@@ -341,6 +396,10 @@ namespace ParadiseGodot.Runtime
                     break;
 
                 case InputEventMouseButton { Pressed: false } up when ToUiButton(up.ButtonIndex) is { } button:
+                    if (button == UiPointerButton.Left)
+                    {
+                        _pool?.ReleaseAim(); // slingshot fire (or stage while paused)
+                    }
                     _runner.EnqueueUiEvent(UiEvent.PointerUp(up.Position.X, up.Position.Y, button));
                     break;
             }
@@ -392,8 +451,19 @@ namespace ParadiseGodot.Runtime
                 return;
             }
 
+            // Pocketed-ball count for the shared pool panel (the sim parks + flags sunk balls).
+            if (_pool is not null && _poolBallEntities.Count > 0)
+            {
+                int sunk = 0;
+                foreach (Entity ball in _poolBallEntities)
+                {
+                    if (worldB.IsAlive(ball) && worldB.GetComponent<PoolBall>(ball).Sunk != 0) sunk++;
+                }
+                _pool.SunkCount = sunk;
+            }
+
             alpha = Math.Clamp(alpha, 0f, 1f);
-            foreach ((Node3D node, Entity entity) in _agents)
+            foreach ((Node3D node, Entity entity, Vector3 scale) in _agents)
             {
                 if (!GodotObject.IsInstanceValid(node))
                 {
@@ -412,7 +482,9 @@ namespace ParadiseGodot.Runtime
 
                 SN.Vector3 pos = SN.Vector3.Lerp(ta.Position, tb.Position, alpha);
                 SN.Quaternion rot = SN.Quaternion.Slerp(ta.Rotation, tb.Rotation, alpha);
-                node.GlobalTransform = new Transform3D(new Basis(ToGodot(rot)), ToGodot(pos));
+                // Sim owns position + rotation only — re-apply the authored scale so the snapshot
+                // transform doesn't reset the node to unit scale (which ballooned the pool balls).
+                node.GlobalTransform = new Transform3D(new Basis(ToGodot(rot)).Scaled(scale), ToGodot(pos));
             }
 
             DriveSprites(worldA, worldB, alpha);
@@ -694,22 +766,40 @@ namespace ParadiseGodot.Runtime
             }
         }
 
-        // ---- Static collision harvesting (navigation_source group → Paradise.Physics) ----
+        /// <summary>Pocket capture regions: every Area3D sphere trigger → (world center, scaled
+        /// radius). The Godot-native analog of SceneAssembler.ExtractPockets (which keys on the
+        /// exported IsTrigger sphere colliders). Area3D is never a StaticBody3D, so pockets stay
+        /// out of the solid collision world.</summary>
+        private static List<(SN.Vector3 Center, float Radius)> ExtractPockets(Node root)
+        {
+            var pockets = new List<(SN.Vector3, float)>();
+            foreach (Area3D area in Descendants<Area3D>(root))
+            {
+                foreach (CollisionShape3D shapeNode in Descendants<CollisionShape3D>(area))
+                {
+                    if (shapeNode.Disabled || shapeNode.Shape is not SphereShape3D sphere) continue;
+                    SN.Vector3 scale = ToSN(shapeNode.GlobalBasis.Scale);
+                    pockets.Add((ToSN(shapeNode.GlobalPosition),
+                        ColliderScaleFold.SphereRadius(sphere.Radius, scale)));
+                }
+            }
+            return pockets;
+        }
 
-        private const string NavigationSourceGroup = "navigation_source";
+        // ---- Static collision harvesting (every StaticBody3D → Paradise.Physics) ----
 
         private static Paradise.Physics.CollisionWorld? BuildCollisionWorld(Node root)
         {
             var colliders = new List<Collider>();
             var transforms = new List<RigidTransform>();
 
+            // Every StaticBody3D — the Godot analog of the .NET host's `BodyType == Static` harvest.
+            // NOT filtered by the navigation_source group: that group marks nav-BAKE surfaces (the
+            // floor), but the pool table bed + cushions are solid StaticBody3D geometry too and must
+            // collide even though they are not walkable. Area3D pockets are triggers → not StaticBody3D
+            // → naturally excluded (matches the .NET IsTrigger skip).
             foreach (StaticBody3D body in Descendants<StaticBody3D>(root))
             {
-                if (!body.IsInGroup(NavigationSourceGroup))
-                {
-                    continue;
-                }
-
                 var filter = new CollisionFilter { BelongsTo = (uint)body.CollisionLayer, CollidesWith = ~0u };
                 foreach (CollisionShape3D shapeNode in Descendants<CollisionShape3D>(body))
                 {
@@ -750,7 +840,7 @@ namespace ParadiseGodot.Runtime
 
             if (colliders.Count == 0)
             {
-                GD.PushWarning("[EcsSceneBridge] No static colliders found in the 'navigation_source' group — movement collision disabled.");
+                GD.PushWarning("[EcsSceneBridge] No StaticBody3D colliders found — solid collision disabled.");
                 return null;
             }
 
@@ -788,18 +878,70 @@ namespace ParadiseGodot.Runtime
 
         private float ReadBallRadius(Node3D ballNode)
         {
-            foreach (MeshInstance3D meshInstance in Descendants<MeshInstance3D>(ballNode))
+            // Read the radius from the COLLISION shape (a SphereShape3D), folded by node scale —
+            // exactly what the .NET host does (SceneAssembler: collider.Radius * LocalScale, e.g.
+            // 0.5 * 0.4 = 0.2). The pool balls are an imported glb, NOT a SphereMesh, so the old
+            // mesh path fell through to the 0.35 fallback: at the ~0.4 rack spacing that made every
+            // ball overlap its neighbours, and the sim depenetrated them explosively at t=0 (the
+            // rack "split" apart) — a scatter the .NET host never showed because it uses 0.2.
+            foreach (CollisionShape3D shapeNode in Descendants<CollisionShape3D>(ballNode))
             {
-                if (meshInstance.Mesh is SphereMesh sphere)
+                if (shapeNode.Shape is SphereShape3D sphere)
                 {
-                    // Fold node scale like every other collider read (max horizontal axis).
-                    SN.Vector3 scale = ToSN(meshInstance.GlobalBasis.Scale);
+                    SN.Vector3 scale = ToSN(shapeNode.GlobalBasis.Scale);
                     return ColliderScaleFold.SphereRadius(sphere.Radius, scale);
                 }
             }
 
             return BallRadius;
         }
+
+        /// <summary>Authored dynamic-ball physics (EntityExport Body* fields, read dynamically).
+        /// Fallbacks match the EntityExport <c>[Export]</c> defaults, so an unset field behaves
+        /// exactly as the exporter would write it. Mirrors the .NET host's Rigidbody read.</summary>
+        private (float Mass, float Damping, float Restitution) ReadBallBody(Node3D ballNode) => (
+            MathF.Max(0.01f, GetFloat(ballNode, "BodyMass", BallMass)),
+            GetFloat(ballNode, "BodyLinearDamping", 0f),
+            GetFloat(ballNode, "BodyRestitution", 0.2f));
+
+        /// <summary>Global solver tuning from <c>paradise/physics/*</c> — the same project settings
+        /// the .NET host exports. Missing keys fall back to <see cref="PhysicsTuning.Default"/>.</summary>
+        private static PhysicsTuning ReadPhysicsTuning()
+        {
+            PhysicsTuning d = PhysicsTuning.Default;
+            return new PhysicsTuning(
+                GetPhysicsSetting("paradise/physics/min_speed", d.MinSpeed),
+                GetPhysicsSetting("paradise/physics/skin", d.Skin),
+                GetPhysicsSetting("paradise/physics/push_strength", d.PushStrength));
+        }
+
+        /// <summary>The bounciest Obstacle-layer static surface (the cushions/frames), else the
+        /// fallback. Shares the max/fallback reduction with the .NET host via
+        /// <see cref="StaticSurfaces.BounceRestitution"/>; this only gathers the surfaces from live
+        /// nodes (restitution is authored on the body's owning EntityExport).</summary>
+        private static float ReadStaticSurfaceRestitution(Node root, float fallback) =>
+            StaticSurfaces.BounceRestitution(GatherStaticSurfaces(root), fallback);
+
+        private static IEnumerable<StaticSurfaces.Surface> GatherStaticSurfaces(Node root)
+        {
+            foreach (StaticBody3D body in Descendants<StaticBody3D>(root))
+            {
+                if (body.GetParent() is Node owner)
+                {
+                    yield return new StaticSurfaces.Surface(
+                        GetFloat(owner, "BodyRestitution", 0f), (uint)body.CollisionLayer);
+                }
+            }
+        }
+
+        private static float GetFloat(Node node, string property, float fallback)
+        {
+            Variant value = node.Get(property);
+            return value.VariantType == Variant.Type.Float ? (float)value.AsDouble() : fallback;
+        }
+
+        private static float GetPhysicsSetting(string key, float fallback) =>
+            (float)ProjectSettings.GetSetting(key, fallback).AsDouble();
 
         private static IEnumerable<T> Descendants<T>(Node node) where T : Node
         {
@@ -840,5 +982,29 @@ namespace ParadiseGodot.Runtime
         private static SN.Quaternion ToSN(Quaternion q) => new(q.X, q.Y, q.Z, q.W);
         private static Vector3 ToGodot(SN.Vector3 v) => new(v.X, v.Y, v.Z);
         private static Quaternion ToGodot(SN.Quaternion q) => new(q.X, q.Y, q.Z, q.W);
+
+        /// <summary>The pool controller's per-host projection seam, over a Godot <see cref="Camera3D"/>.
+        /// Only ever called from the aim methods on the main thread (Godot objects aren't thread-safe).</summary>
+        private sealed class Camera3DProjection : ParadiseUi.IPoolCameraProjection
+        {
+            private readonly Camera3D _camera;
+            public Camera3DProjection(Camera3D camera) => _camera = camera;
+
+            public bool TryScreenPointToRay(SN.Vector2 screenPixel, out SN.Vector3 origin, out SN.Vector3 direction)
+            {
+                var pixel = new Vector2(screenPixel.X, screenPixel.Y);
+                origin = ToSN(_camera.ProjectRayOrigin(pixel));
+                direction = ToSN(_camera.ProjectRayNormal(pixel)); // already normalized by Godot
+                return true;
+            }
+
+            public SN.Vector2 WorldToScreen(SN.Vector3 world)
+            {
+                var w = ToGodot(world);
+                if (_camera.IsPositionBehind(w)) return SN.Vector2.Zero;
+                var s = _camera.UnprojectPosition(w);
+                return new SN.Vector2(s.X, s.Y);
+            }
+        }
     }
 }
