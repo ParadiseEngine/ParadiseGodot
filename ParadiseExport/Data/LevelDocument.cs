@@ -287,7 +287,8 @@ namespace ParadiseExport.Data
             DefaultStaticRestitution = float.IsFinite(DefaultStaticRestitution)
                 ? Math.Clamp(DefaultStaticRestitution, 0f, 1f)
                 : 0.4f;
-            GravityY = float.IsFinite(GravityY) ? GravityY : -9.81f;
+            // Must point DOWN — a positive value would silently invert gravity (balls fly up).
+            GravityY = float.IsFinite(GravityY) && GravityY <= 0f ? GravityY : -9.81f;
             StaticFriction = float.IsFinite(StaticFriction) && StaticFriction >= 0f ? StaticFriction : 0.2f;
             MinAngularSpeed = float.IsFinite(MinAngularSpeed) && MinAngularSpeed >= 0f ? MinAngularSpeed : 0.05f;
         }

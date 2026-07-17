@@ -110,9 +110,39 @@ public class DynamicBallTests
             await Assert.That(position.X).IsLessThanOrEqualTo(8f - 0.35f + 1e-2f);
         }
 
-        // Ended reflected (moving away) or nearly at rest — never driving into the obstacle.
+        // Not driving into the obstacle: reflected (moving away, ≤ 0) or nearly at rest. The
+        // bound is 0.1 m/s (not ~0) because under the 3D solver a rebounded ball keeps rolling
+        // with friction residual for a while; the strong guarantee is the never-penetrates check
+        // in the loop above.
         runner.TrySampleInterpolation(double.MaxValue, out var final, out _, out _);
         await Assert.That(final.GetComponent<DynamicBody>(ball).Velocity.X).IsLessThanOrEqualTo(0.1f);
+    }
+
+    [Test]
+    public async Task english_bends_the_ball_off_a_cushion_end_to_end()
+    {
+        // The headline spin feature through the FULL stack: EnqueueBallImpulse angular →
+        // DynamicBody.AngularVelocity → MovementSystem gather → engine friction at the cushion.
+        // Right english (ω.y) deflects the rebound in Z vs a spinless control on the same shot.
+        static CollisionWorld Table() => CollisionWorld.Build(
+            [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
+            [FloorPose, new RigidTransform(new Vector3(9f, 1.5f, 5f), Quaternion.Identity)]);
+
+        using var spun = new SimulationRunner(FlatGround(), Table());
+        Entity a = spun.SpawnBall(new Vector3(2f, 0.35f, 5f), Quaternion.Identity, radius: 0.35f,
+            linearDamping: 0f, friction: 0.6f);
+        spun.EnqueueBallImpulse(a, new Vector3(6f, 0f, 0f), new Vector3(0f, 30f, 0f)); // +X with strong english
+        Tick(spun, 150);
+        float spunZ = LatestPosition(spun, a).Z;
+
+        using var plain = new SimulationRunner(FlatGround(), Table());
+        Entity b = plain.SpawnBall(new Vector3(2f, 0.35f, 5f), Quaternion.Identity, radius: 0.35f,
+            linearDamping: 0f, friction: 0.6f);
+        plain.EnqueueBallImpulse(b, new Vector3(6f, 0f, 0f), Vector3.Zero);
+        Tick(plain, 150);
+        float plainZ = LatestPosition(plain, b).Z;
+
+        await Assert.That(MathF.Abs(spunZ - plainZ)).IsGreaterThan(0.1f); // english bent the rebound
     }
 
     [Test]
