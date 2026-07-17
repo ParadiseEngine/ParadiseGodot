@@ -95,6 +95,8 @@ namespace ParadiseExport.Data
         public RigidbodyComponentData? Rigidbody { get; set; }
         public EntityInteractableComponentData? Interactable { get; set; }
         public AgentComponentData? Agent { get; set; }
+        public SpriteAnimationComponentData? SpriteAnimation { get; set; }
+        public ParticleEmitterComponentData? ParticleEmitter { get; set; }
     }
 
     /// <summary>
@@ -146,6 +148,99 @@ namespace ParadiseExport.Data
     public sealed record EntityInteractableComponentData
     {
         public string? DisplayName { get; set; }
+    }
+
+    /// <summary>
+    /// Flipbook 2D animation on a world-space quad. <see cref="Sheet"/> is a spritesheet
+    /// texture path relative to <c>data/</c> with the runtime (KTX2) extension
+    /// (e.g. <c>sprites/torch.ktx2</c>) — the Godot editor renders the source image next to
+    /// it; the .NET runtime reads the KTX2 sidecar produced by the data-ingest pass. Frames
+    /// are laid out row-major, left-to-right then top-to-bottom; <see cref="FrameCount"/> 0
+    /// means the full <see cref="Columns"/>×<see cref="Rows"/> grid. The SIMULATION owns the
+    /// clock (frame index lives in the world snapshot) so both hosts show the same frame.
+    /// </summary>
+    [ParadiseComponent("a1d3f6b0-0000-4000-8000-000000000006")]
+    public sealed record SpriteAnimationComponentData
+    {
+        public string? Sheet { get; set; }
+        public int Columns { get; set; } = 1;
+        public int Rows { get; set; } = 1;
+        public int FrameCount { get; set; }
+        public float Fps { get; set; } = 10f;
+        public bool Loop { get; set; } = true;
+        /// <summary>World size of the quad (meters, X = width, Y = height).</summary>
+        public Vector2 QuadSize { get; set; } = Vector2.One;
+        /// <summary>Face the camera (Y-billboard is not modelled — full billboard or fixed).</summary>
+        public bool Billboard { get; set; } = true;
+
+        public void ValidateAndNormalize()
+        {
+            Columns = Math.Max(1, Columns);
+            Rows = Math.Max(1, Rows);
+            FrameCount = Math.Clamp(FrameCount <= 0 ? Columns * Rows : FrameCount, 1, Columns * Rows);
+            Fps = float.IsFinite(Fps) && Fps > 0f ? Fps : 10f;
+            QuadSize = new Vector2(
+                float.IsFinite(QuadSize.X) && QuadSize.X > 0f ? QuadSize.X : 1f,
+                float.IsFinite(QuadSize.Y) && QuadSize.Y > 0f ? QuadSize.Y : 1f);
+        }
+    }
+
+    /// <summary>
+    /// A deterministic particle emitter simulated by the shared runtime (seeded RNG, fixed
+    /// tick — particle state lives in world snapshots, so both hosts render identical
+    /// particles). <see cref="Kind"/> picks the render primitive: <c>Sprite</c> = camera-facing
+    /// quads flipbook-animated from <see cref="Sheet"/> (2D particles);
+    /// <c>Voxel</c> = solid cubes (3D particles), tinted by <see cref="Color"/>.
+    /// Particles emit in a cone of <see cref="SpreadDegrees"/> half-angle around the entity's
+    /// +Y axis and live in WORLD space (a moving emitter leaves a trail).
+    /// </summary>
+    [ParadiseComponent("a1d3f6b0-0000-4000-8000-000000000007")]
+    public sealed record ParticleEmitterComponentData
+    {
+        public ParticleRenderKind Kind { get; set; } = ParticleRenderKind.Sprite;
+        /// <summary>Live-particle cap; clamped to the runtime's per-emitter buffer (64).</summary>
+        public int MaxParticles { get; set; } = 64;
+        public float EmitRate { get; set; } = 8f;
+        public float LifetimeSeconds { get; set; } = 1.5f;
+        public float InitialSpeed { get; set; } = 2f;
+        public float SpreadDegrees { get; set; } = 25f;
+        /// <summary>Y acceleration (m/s²); negative pulls down.</summary>
+        public float Gravity { get; set; } = -9.8f;
+        /// <summary>Per-second linear damping applied to particle velocity.</summary>
+        public float Drag { get; set; }
+        /// <summary>World size at birth/death (quad edge for Sprite, cube edge for Voxel).</summary>
+        public float StartSize { get; set; } = 0.25f;
+        public float EndSize { get; set; } = 0.25f;
+        /// <summary>RNG seed — same seed, same particle stream in both hosts.</summary>
+        public uint Seed { get; set; } = 1;
+        /// <summary>Tint (Sprite: multiplies the sheet; Voxel: the cube albedo).</summary>
+        public Color32 Color { get; set; } = Color32.FromRgba(1f, 1f, 1f);
+
+        // Sprite kind only: flipbook sheet (same conventions as SpriteAnimationComponentData).
+        // Fps 0 stretches the flipbook once over each particle's lifetime.
+        public string? Sheet { get; set; }
+        public int Columns { get; set; } = 1;
+        public int Rows { get; set; } = 1;
+        public int FrameCount { get; set; }
+        public float Fps { get; set; }
+
+        public void ValidateAndNormalize()
+        {
+            MaxParticles = Math.Clamp(MaxParticles, 1, 64);
+            EmitRate = float.IsFinite(EmitRate) && EmitRate > 0f ? EmitRate : 8f;
+            LifetimeSeconds = float.IsFinite(LifetimeSeconds) && LifetimeSeconds > 0f ? LifetimeSeconds : 1.5f;
+            InitialSpeed = float.IsFinite(InitialSpeed) && InitialSpeed >= 0f ? InitialSpeed : 2f;
+            SpreadDegrees = float.IsFinite(SpreadDegrees) ? Math.Clamp(SpreadDegrees, 0f, 180f) : 25f;
+            Gravity = float.IsFinite(Gravity) ? Gravity : -9.8f;
+            Drag = float.IsFinite(Drag) && Drag >= 0f ? Drag : 0f;
+            StartSize = float.IsFinite(StartSize) && StartSize > 0f ? StartSize : 0.25f;
+            EndSize = float.IsFinite(EndSize) && EndSize > 0f ? EndSize : StartSize;
+            Seed = Seed == 0 ? 1u : Seed;
+            Columns = Math.Max(1, Columns);
+            Rows = Math.Max(1, Rows);
+            FrameCount = Math.Clamp(FrameCount <= 0 ? Columns * Rows : FrameCount, 1, Columns * Rows);
+            Fps = float.IsFinite(Fps) && Fps >= 0f ? Fps : 0f;
+        }
     }
 
     public sealed record PhysicsSettingsData
@@ -469,6 +564,13 @@ namespace ParadiseExport.Data
         Box,
         Sphere,
         Capsule,
+    }
+
+    // Render primitive of a particle emitter (serialized by name, like the physics enums).
+    public enum ParticleRenderKind
+    {
+        Sprite,
+        Voxel,
     }
 
     // Packed RGBA color (8 bits per channel). Float channel accessors feed the JSON

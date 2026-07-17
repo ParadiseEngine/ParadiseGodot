@@ -168,7 +168,14 @@ public static class SceneAssembler
         List<RuntimeInstance> Instances,
         Entity? Player,
         Entity? CueBall,
-        List<(Entity Entity, int InstanceIndex)> PoolBalls);
+        List<(Entity Entity, int InstanceIndex)> PoolBalls)
+    {
+        /// <summary>Flipbook sprite quads (sim-clocked); RuntimeLoop re-writes them each frame.</summary>
+        public List<SpriteQuadState> Sprites { get; init; } = new();
+
+        /// <summary>Particle emitter batches (sprite quads / voxel cubes) driven from snapshots.</summary>
+        public List<ParticleBatchState> ParticleBatches { get; init; } = new();
+    }
 
     /// <summary>Spawn sim entities and build render instances. Must run on the runner's owner
     /// thread BEFORE <c>runner.Start()</c> (world-pool thread affinity).</summary>
@@ -179,6 +186,8 @@ public static class SceneAssembler
         Entity? player = null;
         Entity? cueBall = null;
         var poolBalls = new List<(Entity, int)>();
+        var sprites = new List<SpriteQuadState>();
+        var particleBatches = new List<ParticleBatchState>();
         var pockets = ExtractPockets(level.Level);
         var dynamics = level.PhysicsDynamics;
         var staticRestitution = StaticSurfaceRestitution(level.Level, dynamics.DefaultStaticRestitution);
@@ -253,11 +262,45 @@ public static class SceneAssembler
             {
                 instances.Add(new RuntimeInstance(simEntity, render, skinned, entity.LocalScale.X));
             }
+
+            // Sprite animations and particle emitters spawn their own sim entities (independent
+            // features, matching EcsSceneBridge) with dynamic-primitive render states.
+            if (components.SpriteAnimation is { } spriteData)
+            {
+                var normalized = spriteData with { };
+                normalized.ValidateAndNormalize();
+                var spriteEntity = runner.SpawnSpriteAnimation(
+                    position, rotation, normalized.Fps, normalized.FrameCount, normalized.Loop);
+                sprites.Add(new SpriteQuadState(pbr, normalized, SheetBytes(level, normalized.Sheet), spriteEntity));
+            }
+
+            if (components.ParticleEmitter is { } emitterData)
+            {
+                var normalized = emitterData with { };
+                normalized.ValidateAndNormalize();
+                var emitterEntity = runner.SpawnParticleEmitter(position, rotation, new ParticleEmitter(
+                    normalized.EmitRate,
+                    normalized.LifetimeSeconds,
+                    normalized.InitialSpeed,
+                    float.DegreesToRadians(normalized.SpreadDegrees),
+                    normalized.Gravity,
+                    normalized.Drag,
+                    normalized.MaxParticles,
+                    normalized.Seed));
+                particleBatches.Add(new ParticleBatchState(
+                    pbr, normalized, SheetBytes(level, normalized.Sheet), emitterEntity));
+            }
         }
 
-        return new AssembledScene(instances, player, cueBall, poolBalls);
+        return new AssembledScene(instances, player, cueBall, poolBalls)
+        {
+            Sprites = sprites,
+            ParticleBatches = particleBatches,
+        };
     }
 
+    private static byte[]? SheetBytes(RuntimeLevel level, string? sheetField) =>
+        sheetField is not null && level.SpriteSheets.TryGetValue(sheetField, out var bytes) ? bytes : null;
 
     private static ColliderShapeData? FindShape(EntityComponentsData components, PhysicsShapeType type)
     {

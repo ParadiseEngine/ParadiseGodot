@@ -44,6 +44,55 @@ namespace ParadiseExport.Pipeline
             Failed,
         }
 
+        /// <summary>
+        /// Encode a STANDALONE source image (PNG/JPEG — a spritesheet) to a KTX2 sidecar next to
+        /// it, for the .NET runtime; the Godot editor keeps rendering the source image. Same
+        /// colour preset as GLB base-colour textures (UASTC, linear-tagged container — see
+        /// <see cref="BuildCreateArguments"/>). Idempotent by timestamp: an output at least as
+        /// new as its source returns <see cref="ConversionResult.NoConvertibleTextures"/>.
+        /// </summary>
+        public static ConversionResult ConvertImageFile(
+            string sourceFullPath,
+            string outputKtx2Path,
+            string? repoRoot = null,
+            Action<string>? log = null,
+            Action<string>? error = null)
+        {
+            if (!File.Exists(sourceFullPath))
+            {
+                error?.Invoke($"Source image not found: '{sourceFullPath}'.");
+                return ConversionResult.Failed;
+            }
+
+            if (File.Exists(outputKtx2Path) &&
+                File.GetLastWriteTimeUtc(outputKtx2Path) >= File.GetLastWriteTimeUtc(sourceFullPath))
+            {
+                return ConversionResult.NoConvertibleTextures;
+            }
+
+            string? ktxPath = FindKtx(repoRoot);
+            if (string.IsNullOrWhiteSpace(ktxPath))
+            {
+                error?.Invoke(
+                    $"ktx not found. Set {KtxPathEnvironmentVariable}, vendor KTX-Software v5 under third_party/tools/KTX-Software, or add ktx to PATH.");
+                return ConversionResult.ToolMissing;
+            }
+
+            string extension = Path.GetExtension(sourceFullPath).ToLowerInvariant() is ".jpg" or ".jpeg"
+                ? ".jpg"
+                : ".png";
+            if (!TryConvertImageBytes(
+                    ktxPath, File.ReadAllBytes(sourceFullPath), extension,
+                    TextureEncodingPreset.UastcColorSrgb, out byte[] ktx2Bytes, error))
+            {
+                return ConversionResult.Failed;
+            }
+
+            File.WriteAllBytes(outputKtx2Path, ktx2Bytes);
+            log?.Invoke($"KTX2 image: {Path.GetFileName(sourceFullPath)} → {Path.GetFileName(outputKtx2Path)} ({ktx2Bytes.Length} bytes)");
+            return ConversionResult.ConvertedAllTextures;
+        }
+
         public static ConversionResult ConvertEmbeddedTextures(
             string glbFullPath,
             string? repoRoot = null,

@@ -118,6 +118,36 @@ material under `data/materials/`. Mapping:
 - **Headless export** — `PARADISE_EXPORT_SCENE=res://scenes/x.tscn godot --headless --editor
   --path .` regenerates `data/` and exits (the CI/regeneration entry).
 
+## Sprite animation & particles (sim-driven)
+
+- **The SIMULATION owns all animation/particle state** — `SpriteAnimation` (flipbook clock →
+  `Frame`) and `ParticleEmitter` (seeded xorshift RNG + inline 64-slot particle pool) are ECS
+  components living in world snapshots, so both hosts render the identical frame/particles.
+  `SpriteAnimationSystem.SampleFrame`/`SampleParticleFrame` are the ONLY sampling rules; both
+  hosts call them over interpolated snapshot time. Particle slots are STABLE for a particle's
+  life (renderers interpolate slot-wise; an older age in the later snapshot marks slot reuse →
+  snap, don't sweep).
+- **Contract components** — `Components.SpriteAnimation` (sheet, columns/rows/frameCount, fps,
+  loop, quad size, billboard) and `Components.ParticleEmitter` (`Kind`: `Sprite` = flipbook
+  camera-facing quads, `Voxel` = solid cubes; rate/lifetime/speed/spread cone around entity +Y/
+  gravity/drag/size-over-life/seed/tint + the sprite-kind sheet). Both are optional (absent =
+  null — backward compatible with older documents); both normalize via `ValidateAndNormalize`
+  before writing. `MaxParticles` is capped at the runtime pool size (64).
+- **Spritesheets** — source images live under `res://data/sprites/`; the contract stores the
+  data-relative field with the RUNTIME extension (`sprites/torch.ktx2`). The ingest pass
+  (`DataGlbConverter.ConvertSpriteSheets`, part of Paradise/Convert data GLBs → KTX2 and the
+  import hook) encodes a KTX2 SIDECAR next to the source; Godot keeps rendering the source
+  image, only the .NET runtime reads the sidecar. Frames are row-major, left-to-right then
+  top-to-bottom.
+- **Authoring** — a `Sprite3D` child under an `EntityExport` exports the SpriteAnimation
+  component (grid/size/billboard from the node, clock from the `Sprite Animation` inspector
+  group); `Particle Emitter` group fields with `ParticleKind != None` export the emitter.
+- **Render halves** — Godot: the bridge writes `Sprite3D.Frame` and refills one
+  `MultiMeshInstance3D` per emitter (billboard-particles material, flipbook phase in
+  `INSTANCE_CUSTOM.z`; alpha BLEND — the engine shader has no cutout path). .NET: dynamic
+  primitives (`SpriteQuadState` / `ParticleBatchState`) rewritten per frame, sheet material =
+  standalone-KTX2 base color, `AlphaMode.Blend`.
+
 ## Runtime (ParadiseRuntime)
 
 `ParadiseRuntime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
