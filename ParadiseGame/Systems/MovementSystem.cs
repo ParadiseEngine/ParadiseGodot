@@ -17,9 +17,9 @@ namespace ParadiseGame;
 ///
 /// Collision comes from the read-only <see cref="PhysicsWorldRef"/> component (an unmanaged
 /// borrowed handle — the runner owns the <c>CollisionWorld</c>); an invalid handle means
-/// unobstructed planar movement. dt comes from the read-only <see cref="SimulationContext"/>,
+/// unobstructed movement. dt comes from the read-only <see cref="SimulationContext"/>,
 /// which under snapshot-read execution is the PREVIOUS tick's value — seed it at spawn.
-/// Planar contract: Y is never modified.
+/// Characters stay planar (Y locked); BALLS are full 3D (gravity/jumps move their Y).
 /// </summary>
 public ref partial struct MovementSystem : IWorldSystem
 {
@@ -39,15 +39,16 @@ public ref partial struct MovementSystem : IWorldSystem
     private const float GlowRollingDecay = 0.99f;
     private const float GlowStillDecay = 0.90f;
 
+    /// <summary>How far a pocketed ball falls (m) before it parks in the tray — the visible drop.</summary>
+    private const float PocketDropDepth = 0.7f;
+
     // Structural baseline only (filters, support policy). The tunable scalars — MinSpeed, Skin,
     // PushStrength, StaticRestitution — are overridden every step from authored data
     // (PhysicsTuning + DynamicBody components), never from these defaults.
-    private static readonly PlanarDynamicsSettings BallSettings = PlanarDynamicsSettings.Default with
+    private static readonly SphereDynamicsSettings BallSettings = SphereDynamicsSettings.Default with
     {
-        StaticFilter = PhysicsLayers.DynamicBodyCast,
-        RequireSupport = true, // balls stop/slide at slab edges instead of rolling into the void
-        SupportFilter = PhysicsLayers.SupportRay,
-        SupportProbeDepth = PhysicsLayers.SupportProbeDepth,
+        // 3D contacts vs BOTH floor (gravity rests balls on it) and obstacles (cushions).
+        StaticFilter = PhysicsLayers.BallContact,
     };
 
     public AgentsSegments Agents;
@@ -149,7 +150,7 @@ public ref partial struct MovementSystem : IWorldSystem
     }
 
     /// <summary>Gather live (non-sunk) balls + character pushers into unmanaged scratch spans,
-    /// run one stateless <see cref="PlanarSphereDynamics"/> step, scatter back with rolling
+    /// run one stateless <see cref="RigidSphereDynamics"/> step, scatter back with rolling
     /// rotation, then the pocket-capture pass. Global by nature (pairwise collisions) — the
     /// reason this is a world system. Sunk balls are parked and fully excluded.</summary>
     private unsafe void StepBalls()
@@ -168,6 +169,8 @@ public ref partial struct MovementSystem : IWorldSystem
         {
             return;
         }
+
+        DropSinkingBalls(ballCount, dt); // fall pockets forward even when no ball is live this tick
 
         int pusherCount = Agents.Length;
         DynamicSphere* sphereAlloc = null;
@@ -195,7 +198,8 @@ public ref partial struct MovementSystem : IWorldSystem
             int liveCount = 0;
             for (int i = 0; i < ballCount; i++)
             {
-                if (Balls.PoolBall[i].Sunk != 0)
+                // Sunk balls are frozen; sinking balls fall free of table contact (handled below).
+                if (Balls.PoolBall[i].Sunk != 0 || Balls.PoolBall[i].Sinking != 0)
                 {
                     continue;
                 }
@@ -204,11 +208,13 @@ public ref partial struct MovementSystem : IWorldSystem
                 {
                     Position = Balls.LocalTransform[i].Position,
                     Velocity = body.Velocity,
+                    AngularVelocity = body.AngularVelocity,
                     Radius = body.Radius,
                     Mass = body.Mass,
                     LinearDamping = body.LinearDamping,
+                    AngularDamping = body.AngularDamping,
                     Restitution = body.Restitution,
-                    SpinY = body.SpinY,
+                    Friction = body.Friction,
                 };
                 mapScratch[liveCount] = i;
                 liveCount++;
@@ -237,28 +243,27 @@ public ref partial struct MovementSystem : IWorldSystem
             // bounce are carried batch-wide by the first live ball — the same idiom as dt and
             // the collision handle above.
             ref readonly PhysicsTuning tuning = ref Balls.PhysicsTuning[map[0]];
-            PlanarDynamicsSettings settings = BallSettings with
+            SphereDynamicsSettings settings = BallSettings with
             {
+                Gravity = tuning.Gravity,
                 MinSpeed = tuning.MinSpeed,
+                MinAngularSpeed = tuning.MinAngularSpeed,
                 Skin = tuning.Skin,
                 PushStrength = tuning.PushStrength,
-                RailEnglish = tuning.RailEnglish,
-                RailSpinLoss = tuning.RailSpinLoss,
+                StaticFriction = tuning.StaticFriction,
                 StaticRestitution = Balls.DynamicBody[map[0]].StaticRestitution,
             };
-            PlanarSphereDynamics.Step(spheres, pushers, statics, settings, dt);
+            RigidSphereDynamics.Step(spheres, pushers, statics, settings, dt);
 
             for (int k = 0; k < liveCount; k++)
             {
                 ref readonly DynamicSphere sphere = ref spheres[k];
                 int i = map[k];
                 ref LocalTransform transform = ref Balls.LocalTransform[i];
-                Vector3 old = transform.Position;
-                transform.Position = new Vector3(sphere.Position.X, old.Y, sphere.Position.Z);
+                // Full 3D now: the solver owns Y too (gravity, rest-on-felt, jumps).
+                transform.Position = sphere.Position;
                 Balls.DynamicBody[i].Velocity = sphere.Velocity;
-                // Persist the spin the solver bled at any cushion contact this step (stateless
-                // engine: SpinY is owned here, round-tripped through the DynamicSphere span).
-                Balls.DynamicBody[i].SpinY = sphere.SpinY;
+                Balls.DynamicBody[i].AngularVelocity = sphere.AngularVelocity;
 
                 // Collision glow: spike with the pairwise contact impulse (normalized by an
                 // impulse that reads as a "solid hit"), then decay — slowly while the ball still
@@ -273,14 +278,14 @@ public ref partial struct MovementSystem : IWorldSystem
                     glow.Intensity = 0f;
                 }
 
-                // Rolling visual: for rolling-without-slipping on a Y-up plane, ω = (Up × v) / r.
-                // Cosmetic and game-side (the engine library stays transcendental-free); rotation
-                // lives in LocalTransform so the renderer's existing Slerp interpolates it.
-                float speed = ballSpeed;
-                if (speed > 1e-4f && sphere.Radius > 1e-4f)
+                // Integrate orientation from the REAL angular velocity the solver produced (world
+                // frame): q ← normalize(Δ · q). Replaces the old cosmetic ω=(Up×v)/r — rolling now
+                // emerges from friction, and this shows draw/follow/side spin honestly.
+                Vector3 w = sphere.AngularVelocity;
+                float wLen = w.Length();
+                if (wLen > 1e-5f)
                 {
-                    Vector3 axis = Vector3.Normalize(Vector3.Cross(Vector3.UnitY, sphere.Velocity));
-                    Quaternion delta = Quaternion.CreateFromAxisAngle(axis, speed * dt / sphere.Radius);
+                    Quaternion delta = Quaternion.CreateFromAxisAngle(w / wLen, wLen * dt);
                     transform.Rotation = Quaternion.Normalize(
                         Quaternion.Concatenate(transform.Rotation, delta));
                 }
@@ -297,14 +302,14 @@ public ref partial struct MovementSystem : IWorldSystem
     }
 
     /// <summary>Pocket capture for one live ball: when its center enters a pocket mouth (planar
-    /// XZ check), an object ball sinks — parked at its tray slot, velocity and glow killed,
-    /// excluded from future steps — while the cue ball scratches: instant respawn at the head
-    /// spot, never marked sunk. Y is untouched (planar contract). Rewind resurrects: Sunk is
-    /// recorded per tick and restored with the transform.</summary>
+    /// XZ check), an object ball begins SINKING — centered over the mouth, then dropped under
+    /// gravity by <see cref="DropSinkingBalls"/> into the tray — while the cue ball scratches:
+    /// instant respawn at the head spot, never marked sunk. Rewind resurrects: Sunk is recorded
+    /// per tick and restored with the transform.</summary>
     private void CaptureInPocket(int i)
     {
         ref PoolBall pool = ref Balls.PoolBall[i];
-        if (pool.PocketCount == 0)
+        if (pool.PocketCount == 0 || pool.Sinking != 0)
         {
             return;
         }
@@ -321,15 +326,63 @@ public ref partial struct MovementSystem : IWorldSystem
                 continue;
             }
 
-            Vector3 target = pool.IsCue != 0 ? pool.RespawnPosition : pool.ParkPosition;
-            transform.Position = new Vector3(target.X, position.Y, target.Z);
-            Balls.DynamicBody[i].Velocity = Vector3.Zero;
             Balls.BallGlow[i].Intensity = 0f;
-            if (pool.IsCue == 0)
+            if (pool.IsCue != 0)
             {
+                // Scratch: instant respawn at the head spot.
+                transform.Position = new Vector3(pool.RespawnPosition.X, position.Y, pool.RespawnPosition.Z);
+                Balls.DynamicBody[i].Velocity = Vector3.Zero;
+                Balls.DynamicBody[i].AngularVelocity = Vector3.Zero;
+                return;
+            }
+
+            // Object ball: begin the fall. Center over the mouth, drop under gravity (excluded
+            // from table contact from next tick) until SinkTargetY, keeping spin for the visual.
+            pool.Sinking = 1;
+            pool.SinkTargetY = position.Y - PocketDropDepth;
+            transform.Position = new Vector3(pocket.X, position.Y, pocket.Y);
+            ref DynamicBody body = ref Balls.DynamicBody[i];
+            body.Velocity = new Vector3(0f, MathF.Min(body.Velocity.Y, -0.5f), 0f);
+            return;
+        }
+    }
+
+    /// <summary>Advance every ball currently dropping into a pocket: gravity + spin, then park it
+    /// in the tray and mark it Sunk once it passes <see cref="PoolBall.SinkTargetY"/>. Runs every
+    /// tick (even when no ball is live) so a pocketing finishes.</summary>
+    private void DropSinkingBalls(int ballCount, float dt)
+    {
+        for (int i = 0; i < ballCount; i++)
+        {
+            ref PoolBall pool = ref Balls.PoolBall[i];
+            if (pool.Sinking == 0)
+            {
+                continue;
+            }
+
+            ref LocalTransform transform = ref Balls.LocalTransform[i];
+            ref DynamicBody body = ref Balls.DynamicBody[i];
+            body.Velocity.Y += Balls.PhysicsTuning[i].Gravity.Y * dt;
+            Vector3 position = transform.Position;
+            position.Y += body.Velocity.Y * dt;
+            transform.Position = position;
+
+            Vector3 w = body.AngularVelocity;
+            float wLen = w.Length();
+            if (wLen > 1e-5f)
+            {
+                transform.Rotation = Quaternion.Normalize(Quaternion.Concatenate(
+                    transform.Rotation, Quaternion.CreateFromAxisAngle(w / wLen, wLen * dt)));
+            }
+
+            if (position.Y <= pool.SinkTargetY)
+            {
+                transform.Position = pool.ParkPosition;
+                body.Velocity = Vector3.Zero;
+                body.AngularVelocity = Vector3.Zero;
+                pool.Sinking = 0;
                 pool.Sunk = 1;
             }
-            return;
         }
     }
 

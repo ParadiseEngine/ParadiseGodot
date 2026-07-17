@@ -268,12 +268,16 @@ namespace ParadiseExport.Data
         // Restitution on an obstacle-layer collider (cushion-less scenes).
         public float DefaultStaticRestitution { get; set; } = 0.4f;
 
-        // Sidespin ("english") strength: tangential rebound velocity (m/s) added to a ball per
-        // unit cue spin at a cushion contact. 0 disables english (pre-english bounce).
-        public float RailEnglish { get; set; } = 1.5f;
+        // Gravity acceleration (m/s²) applied to every ball; vertical (−Y). Balls now rest on the
+        // felt via contact, so this is what holds them down and drives draw/jump/masse.
+        public float GravityY { get; set; } = -9.81f;
 
-        // Fraction of a ball's sidespin retained after each cushion contact (0..1).
-        public float RailSpinLoss { get; set; } = 0.6f;
+        // Coulomb friction coefficient for ball ↔ static (cushion/cloth) contacts — the coupling
+        // that turns spin into path change (draw/follow/english/throw).
+        public float StaticFriction { get; set; } = 0.2f;
+
+        // Angular speeds below this settle to rest when a ball is supported (rad/s).
+        public float MinAngularSpeed { get; set; } = 0.05f;
 
         public void ValidateAndNormalize()
         {
@@ -283,8 +287,10 @@ namespace ParadiseExport.Data
             DefaultStaticRestitution = float.IsFinite(DefaultStaticRestitution)
                 ? Math.Clamp(DefaultStaticRestitution, 0f, 1f)
                 : 0.4f;
-            RailEnglish = float.IsFinite(RailEnglish) && RailEnglish >= 0f ? RailEnglish : 1.5f;
-            RailSpinLoss = float.IsFinite(RailSpinLoss) ? Math.Clamp(RailSpinLoss, 0f, 1f) : 0.6f;
+            // Must point DOWN — a positive value would silently invert gravity (balls fly up).
+            GravityY = float.IsFinite(GravityY) && GravityY <= 0f ? GravityY : -9.81f;
+            StaticFriction = float.IsFinite(StaticFriction) && StaticFriction >= 0f ? StaticFriction : 0.2f;
+            MinAngularSpeed = float.IsFinite(MinAngularSpeed) && MinAngularSpeed >= 0f ? MinAngularSpeed : 0.05f;
         }
     }
 

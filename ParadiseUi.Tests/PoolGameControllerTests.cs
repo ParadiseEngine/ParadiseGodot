@@ -117,27 +117,29 @@ public class PoolGameControllerTests
         var (runner, pool, _) = NewGame();
         using (runner)
         {
-            pool.English = 0.6f;
+            pool.SpotX = 0.6f; // right english → spin about +Y
             pool.Paused = true;
             await Assert.That(pool.TryBeginAim(new Vector2(0, 0))).IsTrue();
             pool.UpdateAim(new Vector2(3, 0));
             pool.ReleaseAim();
 
-            await Assert.That(pool.StagedSpin.HasValue).IsTrue();
-            await Assert.That(MathF.Abs(pool.StagedSpin!.Value - 0.6f)).IsLessThan(1e-4f);
+            await Assert.That(pool.StagedAngular.HasValue).IsTrue();
+            await Assert.That(pool.StagedAngular!.Value.Y).IsGreaterThan(1f); // english present as ω.y
         }
     }
 
     [Test]
-    public async Task english_is_clamped_to_unit_range()
+    public async Task cue_spot_is_clamped_to_unit_range()
     {
         var (runner, pool, _) = NewGame();
         using (runner)
         {
-            pool.English = 5f;
-            await Assert.That(pool.English).IsEqualTo(1f);
-            pool.English = -5f;
-            await Assert.That(pool.English).IsEqualTo(-1f);
+            pool.SpotX = 5f;
+            await Assert.That(pool.SpotX).IsEqualTo(1f);
+            pool.SpotY = -5f;
+            await Assert.That(pool.SpotY).IsEqualTo(-1f);
+            pool.Elevation = 5f;
+            await Assert.That(pool.Elevation).IsEqualTo(1f);
         }
     }
 
@@ -151,7 +153,7 @@ public class PoolGameControllerTests
             // predicted cue path should start at the cue origin and march in −x.
             var points = new List<Vector3>();
             var impulse = new Vector3(-4f, 0f, 0f);
-            var ok = runner.PredictCueBallPath(cue, impulse, spinY: 0f, points, maxSteps: 60);
+            var ok = runner.PredictCueBallPath(cue, impulse, System.Numerics.Vector3.Zero, points, maxSteps: 60);
 
             await Assert.That(ok).IsTrue();
             await Assert.That(points.Count).IsGreaterThan(1);

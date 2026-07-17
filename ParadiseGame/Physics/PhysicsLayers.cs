@@ -23,6 +23,10 @@ public static class PhysicsLayers
     /// floor the body rests on must never block horizontal motion.</summary>
     public static readonly CollisionFilter DynamicBodyCast = new() { BelongsTo = ~0u, CollidesWith = Obstacle };
 
+    /// <summary>Filter for 3D ball contacts under gravity: BOTH the floor (the felt the ball now
+    /// rests ON via contact, not an authored Y) and obstacles (cushions it bounces off).</summary>
+    public static readonly CollisionFilter BallContact = new() { BelongsTo = ~0u, CollidesWith = Floor | Obstacle };
+
     /// <summary>Filter for click-to-move ground picking rays.</summary>
     public static readonly CollisionFilter ClickRay = new() { BelongsTo = ~0u, CollidesWith = Floor | Obstacle };
 

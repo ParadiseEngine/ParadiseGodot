@@ -27,8 +27,9 @@ namespace ParadiseGodot.Export
         public const string SkinSetting = "paradise/physics/skin";
         public const string PushStrengthSetting = "paradise/physics/push_strength";
         public const string DefaultStaticRestitutionSetting = "paradise/physics/default_static_restitution";
-        public const string RailEnglishSetting = "paradise/physics/rail_english";
-        public const string RailSpinLossSetting = "paradise/physics/rail_spin_loss";
+        public const string GravityYSetting = "paradise/physics/gravity_y";
+        public const string StaticFrictionSetting = "paradise/physics/static_friction";
+        public const string MinAngularSpeedSetting = "paradise/physics/min_angular_speed";
 
         public static void Export(ExportPaths paths)
         {
@@ -60,8 +61,9 @@ namespace ParadiseGodot.Export
                 Skin = (float)GetDouble(SkinSetting, defaults.Skin),
                 PushStrength = (float)GetDouble(PushStrengthSetting, defaults.PushStrength),
                 DefaultStaticRestitution = (float)GetDouble(DefaultStaticRestitutionSetting, defaults.DefaultStaticRestitution),
-                RailEnglish = (float)GetDouble(RailEnglishSetting, defaults.RailEnglish),
-                RailSpinLoss = (float)GetDouble(RailSpinLossSetting, defaults.RailSpinLoss),
+                GravityY = (float)GetDouble(GravityYSetting, defaults.GravityY),
+                StaticFriction = (float)GetDouble(StaticFrictionSetting, defaults.StaticFriction),
+                MinAngularSpeed = (float)GetDouble(MinAngularSpeedSetting, defaults.MinAngularSpeed),
             };
             dynamics.ValidateAndNormalize();
             return dynamics;

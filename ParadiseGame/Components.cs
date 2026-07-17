@@ -112,9 +112,10 @@ public partial struct PhysicsWorldRef
 
 /// <summary>
 /// A dynamic physics body (sphere-only in this phase). ALL of its physics state lives here —
-/// the stateless resolver (<c>Paradise.Physics.PlanarSphereDynamics</c>) reads and writes
+/// the stateless resolver (<c>Paradise.Physics.RigidSphereDynamics</c>) reads and writes
 /// components each tick, so snapshots stay complete. Position is the sphere center
-/// (<see cref="LocalTransform"/>); Y is never modified (planar contract).
+/// (<see cref="LocalTransform"/>) in full 3D — gravity, resting on the felt, and jumps all
+/// move Y now.
 /// </summary>
 /// <summary>Collision feedback for a dynamic ball: <see cref="Intensity"/> spikes to 1 on a
 /// ball↔ball hit (scaled by contact impulse) and decays each tick — fast once the ball is
@@ -129,11 +130,21 @@ public partial struct BallGlow
 public partial struct DynamicBody
 {
     public Vector3 Velocity;
+
+    /// <summary>Full 3D angular velocity (rad/s). Sidespin ("english") is the Y component; a
+    /// horizontal-axis component is top/back-spin (follow/draw). The stateless solver couples it
+    /// to linear motion through Coulomb friction at contacts — draw, follow, throw, rolling and
+    /// english all emerge. The renderer/game integrates orientation from this each tick.</summary>
+    public Vector3 AngularVelocity;
+
     public float Radius;
     public float Mass;
 
     /// <summary>Per-second linear damping (felt roll); fed into the per-sphere dynamics.</summary>
     public float LinearDamping;
+
+    /// <summary>Per-second angular damping (spin/rolling resistance of the cloth).</summary>
+    public float AngularDamping;
 
     /// <summary>Ball ↔ ball bounce factor; pairs bounce with the average of both balls' values.</summary>
     public float Restitution;
@@ -142,21 +153,23 @@ public partial struct DynamicBody
     /// simulated ball's value (one cushion surface type per scene).</summary>
     public float StaticRestitution;
 
-    /// <summary>Signed vertical-axis sidespin ("english"), set on the cue ball at strike and
-    /// carried through the stateless solver's <c>DynamicSphere.SpinY</c> span slot each tick.
-    /// Latent while rolling; bends the tangential rebound at a cushion contact and bleeds off.</summary>
-    public float SpinY;
+    /// <summary>Coulomb friction coefficient μ for this ball's contacts (the only spin↔linear
+    /// coupling). Authored (BodyFriction); default 0.3.</summary>
+    public float Friction;
 
     public DynamicBody(float radius, float mass,
-        float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f)
+        float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f,
+        float friction = 0.3f, float angularDamping = 0.4f)
     {
         Velocity = Vector3.Zero;
+        AngularVelocity = Vector3.Zero;
         Radius = radius;
         Mass = mass;
         LinearDamping = linearDamping;
+        AngularDamping = angularDamping;
         Restitution = restitution;
         StaticRestitution = staticRestitution;
-        SpinY = 0f;
+        Friction = friction;
     }
 }
 
@@ -176,7 +189,7 @@ public partial struct PoolBall
     public PocketBuffer Pockets;
     public int PocketCount;
 
-    /// <summary>Where this ball rests once sunk (its tray slot); Y is ignored (planar contract).</summary>
+    /// <summary>Where this ball rests once sunk (its tray slot).</summary>
     public Vector3 ParkPosition;
 
     /// <summary>Where the cue ball reappears after a scratch (the head spot).</summary>
@@ -184,6 +197,14 @@ public partial struct PoolBall
 
     public byte IsCue;
     public byte Sunk;
+
+    /// <summary>1 while the ball is dropping into a pocket (centered over the mouth, falling under
+    /// gravity, excluded from table contact) — before it reaches <see cref="SinkTargetY"/> and is
+    /// parked/marked Sunk. Gives a real visible fall rather than an instant teleport.</summary>
+    public byte Sinking;
+
+    /// <summary>Y the sinking ball falls to before it parks (the pocket bottom).</summary>
+    public float SinkTargetY;
 }
 
 /// <summary>Fixed-capacity inline buffer of pocket definitions (unmanaged, blittable).</summary>
@@ -299,7 +320,7 @@ public struct ParticleBuffer
 [Component]
 public partial struct PhysicsTuning
 {
-    /// <summary>Speeds below this snap to rest (m/s).</summary>
+    /// <summary>Linear speeds below this settle to rest when supported (m/s).</summary>
     public float MinSpeed;
 
     /// <summary>Clearance kept between balls and static surfaces (meters).</summary>
@@ -308,22 +329,25 @@ public partial struct PhysicsTuning
     /// <summary>Scale applied to a character pusher's velocity when injected into a ball.</summary>
     public float PushStrength;
 
-    /// <summary>Sidespin "english" strength: tangential rebound velocity (m/s) added per unit
-    /// cue spin at a cushion contact. 0 disables english (matches the pre-english bounce).</summary>
-    public float RailEnglish;
+    /// <summary>Gravity acceleration (m/s²) applied to every ball each step (points −Y).</summary>
+    public Vector3 Gravity;
 
-    /// <summary>Fraction of a ball's sidespin retained after each cushion contact (0..1).</summary>
-    public float RailSpinLoss;
+    /// <summary>Coulomb friction coefficient for ball ↔ static (cushion/cloth) contacts.</summary>
+    public float StaticFriction;
+
+    /// <summary>Angular speeds below this settle to rest when supported (rad/s).</summary>
+    public float MinAngularSpeed;
 
     public PhysicsTuning(float minSpeed, float skin, float pushStrength,
-        float railEnglish = 1.5f, float railSpinLoss = 0.6f)
+        Vector3 gravity = default, float staticFriction = 0.2f, float minAngularSpeed = 0.05f)
     {
         MinSpeed = minSpeed;
         Skin = skin;
         PushStrength = pushStrength;
-        RailEnglish = railEnglish;
-        RailSpinLoss = railSpinLoss;
+        Gravity = gravity == default ? new Vector3(0f, -9.81f, 0f) : gravity;
+        StaticFriction = staticFriction;
+        MinAngularSpeed = minAngularSpeed;
     }
 
-    public static PhysicsTuning Default => new(0.005f, 0.02f, 1.2f);
+    public static PhysicsTuning Default => new(0.01f, 0.02f, 1.2f);
 }

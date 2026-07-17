@@ -192,7 +192,7 @@ public static class SceneAssembler
         var dynamics = level.PhysicsDynamics;
         var staticRestitution = StaticSurfaceRestitution(level.Level, dynamics.DefaultStaticRestitution);
         var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength,
-            dynamics.RailEnglish, dynamics.RailSpinLoss);
+            new Vector3(0f, dynamics.GravityY, 0f), dynamics.StaticFriction, dynamics.MinAngularSpeed);
         var trayIndex = 0;
 
         foreach (var entity in level.Level.Entities)
@@ -247,7 +247,8 @@ public static class SceneAssembler
                     components.Rigidbody.Restitution,
                     staticRestitution,
                     PoolRack.BuildBall(pockets, isCue, position, trayIndex++),
-                    tuning);
+                    tuning,
+                    friction: components.Rigidbody.Friction);
                 simEntity = ball;
                 if (render is not null)
                 {

@@ -46,18 +46,18 @@ public class PoolGameTests
     [Test]
     public async Task strike_sets_spin_but_a_plain_impulse_leaves_it_untouched()
     {
-        using var runner = new SimulationRunner(FlatGround()); // no cushions → english never bleeds
-        var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
+        using var runner = new SimulationRunner(FlatGround()); // no statics → no contact/damping churn
+        var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f, angularDamping: 0f);
 
-        runner.EnqueueBallImpulse(cue, new Vector3(2f, 0f, 0f), spinY: 1f); // a strike sets english
+        runner.EnqueueBallImpulse(cue, new Vector3(2f, 0f, 0f), new Vector3(0f, 1f, 0f)); // a strike sets spin
         runner.TickOnce();
         runner.TrySampleInterpolation(double.MaxValue, out var afterStrike, out _, out _);
-        await Assert.That(afterStrike.GetComponent<DynamicBody>(cue).SpinY).IsEqualTo(1f);
+        await Assert.That(afterStrike.GetComponent<DynamicBody>(cue).AngularVelocity.Y).IsEqualTo(1f);
 
         runner.EnqueueBallImpulse(cue, new Vector3(0f, 0f, 1f)); // a plain nudge (null spin) must not clobber it
         runner.TickOnce();
         runner.TrySampleInterpolation(double.MaxValue, out var afterNudge, out _, out _);
-        await Assert.That(afterNudge.GetComponent<DynamicBody>(cue).SpinY).IsEqualTo(1f);
+        await Assert.That(afterNudge.GetComponent<DynamicBody>(cue).AngularVelocity.Y).IsEqualTo(1f);
     }
 
     [Test]

@@ -70,26 +70,9 @@ public class EdgeContainmentTests
         await Assert.That(final.Z).IsGreaterThan(8f);              // kept sliding along it
     }
 
-    [Test]
-    public async Task ball_stops_at_the_slab_edge()
-    {
-        CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
-        using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity ball = runner.SpawnBall(new Vector3(3f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
-
-        runner.TrySampleInterpolation(double.MaxValue, out var world, out _, out _);
-        world.GetComponent<DynamicBody>(ball).Velocity = new Vector3(-10f, 0f, 0f);
-
-        for (int i = 0; i < 300; i++)
-        {
-            runner.TickOnce();
-            if (i % 10 != 0) continue;
-            await Assert.That(LatestPosition(runner, ball).X).IsGreaterThanOrEqualTo(-1e-3f);
-        }
-
-        runner.TrySampleInterpolation(double.MaxValue, out var final, out _, out _);
-        await Assert.That(final.GetComponent<DynamicBody>(ball).Velocity).IsEqualTo(Vector3.Zero);
-    }
+    // NOTE: the old "ball stops at the slab edge" test was removed — under gravity a ball that
+    // rolls off an edge now FALLS (real 3D), it is no longer clamped to the walkable slab. Ground
+    // containment remains only for CHARACTERS (the two player tests above).
 
     [Test]
     public async Task ball_rolls_visually_while_moving()
