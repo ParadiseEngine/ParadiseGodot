@@ -47,7 +47,10 @@ public sealed class GameSimulation : IDisposable
 
         var schedule = SystemSchedule.Create(World)
             .AddWorld<MovementSystem>()
+            .AddWorld<SpriteAnimationSystem>()
+            .AddWorld<ParticleSystem>()
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
+        SimulationTick.WarmSystemQueries(World);
         _schedule = schedule;
         _runSchedule = schedule.Run;
     }

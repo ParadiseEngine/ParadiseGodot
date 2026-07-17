@@ -115,6 +115,33 @@ public class DynamicBallTests
     }
 
     [Test]
+    public async Task sidespin_bends_the_ball_off_a_cushion()
+    {
+        // Obstacle −X face at x = 8. Fire the ball STRAIGHT at it (+X, no Z). The rail tangent
+        // for that face's normal (−X) is +Z, so right english (SpinY > 0) deflects the rebound
+        // toward +Z while a spinless control rebounds straight back down the centerline. End to
+        // end: EnqueueBallImpulse spin → DynamicBody.SpinY → MovementSystem → engine english.
+        static CollisionWorld Table() => CollisionWorld.Build(
+            [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
+            [FloorPose, new RigidTransform(new Vector3(9f, 1.5f, 5f), Quaternion.Identity)]);
+
+        using var spun = new SimulationRunner(FlatGround(), Table());
+        Entity a = spun.SpawnBall(new Vector3(2f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f, linearDamping: 0f);
+        spun.EnqueueBallImpulse(a, new Vector3(6f, 0f, 0f), spinY: 1f);
+        Tick(spun, 150);
+        float spunZ = LatestPosition(spun, a).Z;
+
+        using var straight = new SimulationRunner(FlatGround(), Table());
+        Entity b = straight.SpawnBall(new Vector3(2f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f, linearDamping: 0f);
+        straight.EnqueueBallImpulse(b, new Vector3(6f, 0f, 0f), spinY: 0f);
+        Tick(straight, 150);
+        float straightZ = LatestPosition(straight, b).Z;
+
+        await Assert.That(MathF.Abs(straightZ - 5f)).IsLessThan(0.05f); // control stayed on the centerline
+        await Assert.That(spunZ - straightZ).IsGreaterThan(0.3f);       // english pushed the rebound +Z
+    }
+
+    [Test]
     public async Task balls_collide_and_transfer_momentum()
     {
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);

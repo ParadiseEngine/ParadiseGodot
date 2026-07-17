@@ -122,6 +122,12 @@ namespace ParadiseGodot.Export
             data.SsaoIntensity = env.SsaoIntensity;
             data.SsaoPower = env.SsaoPower;
 
+            // Glow / bloom (Godot Environment.glow_*). The runtime's HDR composite bloom is the .NET
+            // analog; intensity/HDR-threshold map across (Godot's per-level glow curve isn't modelled).
+            data.GlowEnabled = env.GlowEnabled;
+            data.GlowIntensity = env.GlowIntensity;
+            data.GlowThreshold = env.GlowHdrThreshold;
+
             // Ambient: a Sky source with a procedural sky is a hemisphere lit by the sky's
             // top/horizon/ground colours; anything else is a flat ambient colour. AmbientMode is set
             // by the branch that actually runs (a Sky source with a non-procedural/null material
@@ -576,7 +582,120 @@ namespace ParadiseGodot.Export
                 };
             }
 
+            if (FindSpriteChild(entity) is { } sprite)
+            {
+                components.SpriteAnimation = BuildSpriteAnimation(entity, sprite, paths);
+            }
+
+            if (entity.ParticleKind != ParticleEmitterExportKind.None)
+            {
+                components.ParticleEmitter = BuildParticleEmitter(entity, paths);
+            }
+
             return components;
+        }
+
+        // First Sprite3D under the entity (same ownership rule as ResolveMeshField: never a
+        // nested EntityExport's node). Present sprite = exported SpriteAnimation component.
+        private static Sprite3D? FindSpriteChild(EntityExport entity)
+        {
+            foreach (Node descendant in ModelDescendants(entity))
+            {
+                if (descendant is Sprite3D sprite)
+                {
+                    return sprite;
+                }
+            }
+
+            return null;
+        }
+
+        private static SpriteAnimationComponentData BuildSpriteAnimation(
+            EntityExport entity, Sprite3D sprite, ExportPaths paths)
+        {
+            // Geometry comes from the authored Sprite3D (the node Godot renders natively);
+            // the playback clock comes from the EntityExport fields. Frame pixels × pixel_size
+            // is Godot's own world size for the quad.
+            float frameWidth = sprite.Texture is { } texture ? texture.GetWidth() / (float)System.Math.Max(1, sprite.Hframes) : 0f;
+            float frameHeight = sprite.Texture is { } tex2 ? tex2.GetHeight() / (float)System.Math.Max(1, sprite.Vframes) : 0f;
+            var data = new SpriteAnimationComponentData
+            {
+                Sheet = ResolveSheetField(entity, sprite.Texture?.ResourcePath, paths),
+                Columns = sprite.Hframes,
+                Rows = sprite.Vframes,
+                FrameCount = entity.SpriteFrameCount,
+                Fps = entity.SpriteFps,
+                Loop = entity.SpriteLoop,
+                QuadSize = new SN.Vector2(frameWidth * sprite.PixelSize, frameHeight * sprite.PixelSize),
+                Billboard = sprite.Billboard != BaseMaterial3D.BillboardModeEnum.Disabled,
+            };
+            data.ValidateAndNormalize();
+            return data;
+        }
+
+        private static ParticleEmitterComponentData BuildParticleEmitter(EntityExport entity, ExportPaths paths)
+        {
+            Color color = entity.ParticleColor;
+            var data = new ParticleEmitterComponentData
+            {
+                Kind = entity.ParticleKind == ParticleEmitterExportKind.Voxel
+                    ? ParticleRenderKind.Voxel
+                    : ParticleRenderKind.Sprite,
+                MaxParticles = entity.ParticleMaxCount,
+                EmitRate = entity.ParticleEmitRate,
+                LifetimeSeconds = entity.ParticleLifetime,
+                InitialSpeed = entity.ParticleSpeed,
+                SpreadDegrees = entity.ParticleSpreadDegrees,
+                Gravity = entity.ParticleGravity,
+                Drag = entity.ParticleDrag,
+                StartSize = entity.ParticleStartSize,
+                EndSize = entity.ParticleEndSize,
+                Seed = unchecked((uint)entity.ParticleSeed),
+                Color = Color32.FromRgba(color.R, color.G, color.B, color.A),
+                Sheet = entity.ParticleKind == ParticleEmitterExportKind.Sprite
+                    ? ResolveSheetField(entity, entity.ParticleSheet, paths)
+                    : null,
+                Columns = entity.ParticleSheetColumns,
+                Rows = entity.ParticleSheetRows,
+                FrameCount = entity.ParticleSheetFrameCount,
+                Fps = entity.ParticleSheetFps,
+            };
+            data.ValidateAndNormalize();
+            return data;
+        }
+
+        // A spritesheet contract field: the source image resolved under data/sprites/, stored
+        // with the runtime (.ktx2) extension — the sidecar the data-ingest pass encodes next to
+        // the source (DataGlbConverter.ConvertSpriteSheets). Null (with a warning) when the
+        // image is a sub-resource (no standalone runtime file) or lives outside data/sprites/ —
+        // the resolver deliberately accepts EXACTLY the set the sidecar pass covers, so an
+        // exported sheet field always has a generator.
+        private static string? ResolveSheetField(EntityExport entity, string? texturePath, ExportPaths paths)
+        {
+            if (string.IsNullOrWhiteSpace(texturePath))
+            {
+                return null;
+            }
+
+            if (texturePath.Contains("::", System.StringComparison.Ordinal))
+            {
+                GD.PushWarning(
+                    $"[ParadiseExport] Entity '{entity.Name}' uses a sub-resource spritesheet ('{texturePath}') — " +
+                    "the runtime needs a standalone image under res://data/sprites/. The sheet is not exported.");
+                return null;
+            }
+
+            string? field = paths.DataRelativeMeshField(texturePath);
+            if (field is null || !field.StartsWith("sprites/", System.StringComparison.Ordinal))
+            {
+                GD.PushWarning(
+                    $"[ParadiseExport] Entity '{entity.Name}' references spritesheet '{texturePath}' outside " +
+                    "res://data/sprites/ — the KTX2 sidecar pass only covers that directory, so the .NET runtime " +
+                    "could never load it. Move the image under data/sprites/. The sheet is not exported.");
+                return null;
+            }
+
+            return System.IO.Path.ChangeExtension(field, ".ktx2");
         }
 
         // No RigidBody3D detection (EntityExport is a plain Node3D): the authored IsDynamicBody

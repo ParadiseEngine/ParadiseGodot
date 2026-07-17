@@ -16,7 +16,13 @@ public sealed record RuntimeLevel(
     Dictionary<string, GltfAsset> MeshAssets,
     INavigationMesh NavigationMesh,
     RenderSettingsData RenderSettings,
-    PhysicsDynamicsSettingsData PhysicsDynamics);
+    PhysicsDynamicsSettingsData PhysicsDynamics)
+{
+    /// <summary>Spritesheet KTX2 sidecars keyed by contract sheet field
+    /// (e.g. <c>sprites/torch.ktx2</c>); a referenced sheet whose sidecar is missing on disk
+    /// is absent here (the sprite renders untextured, with a load-time warning).</summary>
+    public Dictionary<string, byte[]> SpriteSheets { get; init; } = new(StringComparer.Ordinal);
+}
 
 /// <summary>Reads the engine-neutral export (scene JSON + materials + meshes + navmesh) into
 /// memory. Pure I/O + parsing — no GPU, no simulation; fully unit-testable.</summary>
@@ -35,6 +41,7 @@ public static class LevelLoader
 
         var materials = new Dictionary<string, LevelMaterialData>(StringComparer.Ordinal);
         var meshAssets = new Dictionary<string, GltfAsset>(StringComparer.Ordinal);
+        var spriteSheets = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         foreach (var entity in level.Entities)
         {
             foreach (var slot in entity.Materials)
@@ -45,6 +52,8 @@ public static class LevelLoader
             {
                 LoadMesh(dataDir, meshField, meshAssets);
             }
+            LoadSpriteSheet(dataDir, entity.Components.SpriteAnimation?.Sheet, spriteSheets);
+            LoadSpriteSheet(dataDir, entity.Components.ParticleEmitter?.Sheet, spriteSheets);
         }
 
         var navMeshFile = level.NavMeshFile
@@ -60,7 +69,10 @@ public static class LevelLoader
         physicsDynamics.ValidateAndNormalize();
 
         return new RuntimeLevel(
-            dataDir, level, materials, meshAssets, navMesh, projectSettings.Rendering, physicsDynamics);
+            dataDir, level, materials, meshAssets, navMesh, projectSettings.Rendering, physicsDynamics)
+        {
+            SpriteSheets = spriteSheets,
+        };
     }
 
     private static void LoadMaterial(string dataDir, string field, Dictionary<string, LevelMaterialData> materials)
@@ -68,6 +80,21 @@ public static class LevelLoader
         if (materials.ContainsKey(field)) return;
         var path = Path.Combine(dataDir, field.Replace('/', Path.DirectorySeparatorChar));
         materials[field] = ExportJsonReader.ReadMaterial(File.ReadAllText(path));
+    }
+
+    private static void LoadSpriteSheet(string dataDir, string? field, Dictionary<string, byte[]> spriteSheets)
+    {
+        if (field is null || spriteSheets.ContainsKey(field)) return;
+        var path = Path.Combine(dataDir, field.Replace('/', Path.DirectorySeparatorChar));
+        if (!File.Exists(path))
+        {
+            Console.Error.WriteLine(
+                $"[LevelLoader] Spritesheet '{field}' has no KTX2 sidecar under data/ — run the " +
+                "editor's Paradise/Convert data GLBs → KTX2 pass (or PARADISE_CONVERT_DATA_GLBS=1). " +
+                "Rendering the sprite untextured.");
+            return;
+        }
+        spriteSheets[field] = File.ReadAllBytes(path);
     }
 
     private static void LoadMesh(string dataDir, string field, Dictionary<string, GltfAsset> meshAssets)

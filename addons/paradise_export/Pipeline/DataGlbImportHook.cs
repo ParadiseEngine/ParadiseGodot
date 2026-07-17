@@ -30,12 +30,22 @@ namespace ParadiseGodot.Pipeline
             try
             {
                 var reimport = new List<string>();
+                bool anySpriteSheet = false;
                 foreach (string resPath in resources)
                 {
                     if (IsDataGlb(resPath) && DataGlbConverter.Convert(resPath, out bool rewritten) && rewritten)
                     {
                         reimport.Add(resPath);
                     }
+
+                    anySpriteSheet |= IsDataSpriteImage(resPath);
+                }
+
+                if (anySpriteSheet)
+                {
+                    // Sheets get a KTX2 SIDECAR (the source image is untouched), so no reimport
+                    // is needed — the editor keeps rendering the source; only .NET reads the sidecar.
+                    DataGlbConverter.ConvertSpriteSheets();
                 }
 
                 if (reimport.Count > 0)
@@ -56,6 +66,13 @@ namespace ParadiseGodot.Pipeline
             resPath.StartsWith("res://data/", StringComparison.Ordinal) &&
             (resPath.EndsWith(".glb", StringComparison.OrdinalIgnoreCase) ||
              resPath.EndsWith(".gltf", StringComparison.OrdinalIgnoreCase));
+
+        private static bool IsDataSpriteImage(string resPath) =>
+            !string.IsNullOrEmpty(resPath) &&
+            resPath.StartsWith("res://data/sprites/", StringComparison.Ordinal) &&
+            (resPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+             resPath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+             resPath.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
     }
 }
 #endif

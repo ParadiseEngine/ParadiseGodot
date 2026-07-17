@@ -141,21 +141,25 @@ public static class SceneAssembler
 
     /// <summary>The scene's cushion bounce: the liveliest (max) authored Restitution across
     /// static entities that own solid Obstacle-layer colliders — the surfaces balls actually
-    /// bounce off. Falls back to the project-settings default when the scene authors none.</summary>
-    public static float StaticSurfaceRestitution(LevelData level, float fallback = 0.4f)
+    /// bounce off. Falls back to the project-settings default when the scene authors none.
+    /// The max/fallback reduction is shared with the Godot bridge via <see cref="StaticSurfaces"/>;
+    /// this method only gathers the surfaces from the exported contract.</summary>
+    public static float StaticSurfaceRestitution(LevelData level, float fallback = 0.4f) =>
+        StaticSurfaces.BounceRestitution(GatherStaticSurfaces(level), fallback);
+
+    private static IEnumerable<StaticSurfaces.Surface> GatherStaticSurfaces(LevelData level)
     {
-        float max = -1f;
         foreach (var entity in level.Entities)
         {
             if (entity.Components.Rigidbody is not { BodyType: PhysicsBodyType.Static } rigidbody) continue;
             foreach (var shape in entity.Components.Collider?.Colliders ?? [])
             {
-                if (shape.IsTrigger || (1u << shape.Layer) != PhysicsLayers.Obstacle) continue;
-                max = MathF.Max(max, rigidbody.Restitution);
-                break;
+                if (shape.IsTrigger) continue;
+                // shape.Layer is a Unity-style layer INDEX; the contract-to-mask shift matches
+                // AppendCollider so BounceRestitution's Obstacle test agrees across hosts.
+                yield return new StaticSurfaces.Surface(rigidbody.Restitution, 1u << shape.Layer);
             }
         }
-        return max >= 0f ? max : fallback;
     }
 
     // -------- simulation spawns + render instances --------
@@ -164,7 +168,14 @@ public static class SceneAssembler
         List<RuntimeInstance> Instances,
         Entity? Player,
         Entity? CueBall,
-        List<(Entity Entity, int InstanceIndex)> PoolBalls);
+        List<(Entity Entity, int InstanceIndex)> PoolBalls)
+    {
+        /// <summary>Flipbook sprite quads (sim-clocked); RuntimeLoop re-writes them each frame.</summary>
+        public List<SpriteQuadState> Sprites { get; init; } = new();
+
+        /// <summary>Particle emitter batches (sprite quads / voxel cubes) driven from snapshots.</summary>
+        public List<ParticleBatchState> ParticleBatches { get; init; } = new();
+    }
 
     /// <summary>Spawn sim entities and build render instances. Must run on the runner's owner
     /// thread BEFORE <c>runner.Start()</c> (world-pool thread affinity).</summary>
@@ -175,10 +186,13 @@ public static class SceneAssembler
         Entity? player = null;
         Entity? cueBall = null;
         var poolBalls = new List<(Entity, int)>();
+        var sprites = new List<SpriteQuadState>();
+        var particleBatches = new List<ParticleBatchState>();
         var pockets = ExtractPockets(level.Level);
         var dynamics = level.PhysicsDynamics;
         var staticRestitution = StaticSurfaceRestitution(level.Level, dynamics.DefaultStaticRestitution);
-        var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength);
+        var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength,
+            dynamics.RailEnglish, dynamics.RailSpinLoss);
         var trayIndex = 0;
 
         foreach (var entity in level.Level.Entities)
@@ -232,7 +246,7 @@ public static class SceneAssembler
                     components.Rigidbody.LinearDamping,
                     components.Rigidbody.Restitution,
                     staticRestitution,
-                    BuildPoolBall(pockets, isCue, position, trayIndex++),
+                    PoolRack.BuildBall(pockets, isCue, position, trayIndex++),
                     tuning);
                 simEntity = ball;
                 if (render is not null)
@@ -249,40 +263,45 @@ public static class SceneAssembler
             {
                 instances.Add(new RuntimeInstance(simEntity, render, skinned, entity.LocalScale.X));
             }
+
+            // Sprite animations and particle emitters spawn their own sim entities (independent
+            // features, matching EcsSceneBridge) with dynamic-primitive render states.
+            if (components.SpriteAnimation is { } spriteData)
+            {
+                var normalized = spriteData with { };
+                normalized.ValidateAndNormalize();
+                var spriteEntity = runner.SpawnSpriteAnimation(
+                    position, rotation, normalized.Fps, normalized.FrameCount, normalized.Loop);
+                sprites.Add(new SpriteQuadState(pbr, normalized, SheetBytes(level, normalized.Sheet), spriteEntity));
+            }
+
+            if (components.ParticleEmitter is { } emitterData)
+            {
+                var normalized = emitterData with { };
+                normalized.ValidateAndNormalize();
+                var emitterEntity = runner.SpawnParticleEmitter(position, rotation, new ParticleEmitter(
+                    normalized.EmitRate,
+                    normalized.LifetimeSeconds,
+                    normalized.InitialSpeed,
+                    float.DegreesToRadians(normalized.SpreadDegrees),
+                    normalized.Gravity,
+                    normalized.Drag,
+                    normalized.MaxParticles,
+                    normalized.Seed));
+                particleBatches.Add(new ParticleBatchState(
+                    pbr, normalized, SheetBytes(level, normalized.Sheet), emitterEntity));
+            }
         }
 
-        return new AssembledScene(instances, player, cueBall, poolBalls);
-    }
-
-    /// <summary>Per-ball pool config: the pocket set plus this ball's tray slot (a deterministic
-    /// row along +Z of the pocket field, ordered by spawn index) and, for the cue, its authored
-    /// position as the scratch respawn spot. No pockets in the scene → inert default.</summary>
-    private static PoolBall BuildPoolBall(
-        List<(Vector3 Center, float Radius)> pockets, bool isCue, Vector3 authoredPosition, int trayIndex)
-    {
-        if (pockets.Count == 0) return default;
-
-        float maxZ = float.MinValue, minX = float.MaxValue;
-        foreach (var (center, _) in pockets)
+        return new AssembledScene(instances, player, cueBall, poolBalls)
         {
-            maxZ = MathF.Max(maxZ, center.Z);
-            minX = MathF.Min(minX, center.X);
-        }
-
-        var pool = new PoolBall
-        {
-            PocketCount = Math.Min(pockets.Count, PoolBall.MaxPockets),
-            ParkPosition = new Vector3(minX + trayIndex * 0.45f, authoredPosition.Y, maxZ + 0.75f),
-            RespawnPosition = authoredPosition,
-            IsCue = isCue ? (byte)1 : (byte)0,
+            Sprites = sprites,
+            ParticleBatches = particleBatches,
         };
-        for (var i = 0; i < pool.PocketCount; i++)
-        {
-            var (center, radius) = pockets[i];
-            pool.Pockets[i] = new Vector4(center.X, center.Z, radius * radius, 0f);
-        }
-        return pool;
     }
+
+    private static byte[]? SheetBytes(RuntimeLevel level, string? sheetField) =>
+        sheetField is not null && level.SpriteSheets.TryGetValue(sheetField, out var bytes) ? bytes : null;
 
     private static ColliderShapeData? FindShape(EntityComponentsData components, PhysicsShapeType type)
     {
@@ -362,6 +381,12 @@ public static class SceneAssembler
             Intensity = environment.SsaoIntensity,
             Power = environment.SsaoPower,
         };
+        scene.Bloom = new PbrBloom
+        {
+            Enabled = environment.GlowEnabled,
+            Threshold = environment.GlowThreshold,
+            Intensity = environment.GlowIntensity,
+        };
 
         foreach (var light in state.Lights)
         {
@@ -428,6 +453,14 @@ public static class SceneAssembler
         material.BaseColorImage >= 0 || material.MetallicRoughnessImage >= 0 ||
         material.NormalImage >= 0 || material.OcclusionImage >= 0 || material.EmissiveImage >= 0;
 
+    /// <summary>Whether a slot override should inherit the GLB material's textures (glTF
+    /// factor × texture) rather than render solid. Matches Godot's <c>surface_material_override</c>
+    /// semantics: an override that references a texture tints the GLB's; an override with NO
+    /// texture (<see cref="LevelMaterialData.BaseColorTexture"/> null) FULLY REPLACES the surface
+    /// (solid factor), so it must not silently pull the GLB's embedded texture back in.</summary>
+    public static bool ShouldInheritTextures(LevelMaterialData data, in GltfMaterialData glb) =>
+        HasAnyTexture(in glb) && data.BaseColorTexture is not null;
+
     /// <summary>A slot-override material: the override JSON's FACTORS over the GLB material's
     /// TEXTURES (glTF factor × texture — Godot parity for surface_material_override with
     /// textured materials).</summary>
@@ -451,7 +484,9 @@ public static class SceneAssembler
         BaseColorFactor: new Vector4(data.BaseColorFactor.R, data.BaseColorFactor.G, data.BaseColorFactor.B, data.BaseColorFactor.A),
         MetallicFactor: data.MetallicFactor,
         RoughnessFactor: data.RoughnessFactor,
-        EmissiveFactor: new Vector3(data.EmissiveFactor.R, data.EmissiveFactor.G, data.EmissiveFactor.B),
+        // HDR emissive: EmissiveFactor is [0,1] (Color32-clamped), so the unclamped EmissiveStrength
+        // multiplier here is what lets lava exceed white and bloom.
+        EmissiveFactor: new Vector3(data.EmissiveFactor.R, data.EmissiveFactor.G, data.EmissiveFactor.B) * data.EmissiveStrength,
         NormalScale: data.NormalScale,
         OcclusionStrength: data.OcclusionStrength,
         TransmissionFactor: data.TransmissionFactor,
@@ -468,7 +503,31 @@ public static class SceneAssembler
         NormalImage: -1,
         OcclusionImage: -1,
         EmissiveImage: -1,
-        BaseColorUvTransform: GltfUvTransform.Identity);
+        BaseColorUvTransform: GltfUvTransform.Identity)
+    {
+        ProcKind = ProceduralKindId(data.MaterialKind),
+        ProcNoiseScale = data.NoiseScale,
+        ProcFlowSpeed = data.FlowSpeed,
+        ProcEmissiveStrength = data.EmissiveStrength,
+        ProcColorA = new Vector3(data.ColorA.R, data.ColorA.G, data.ColorA.B),
+        ProcColorB = new Vector3(data.ColorB.R, data.ColorB.G, data.ColorB.B),
+    };
+
+    /// <summary>Map an authored procedural material-kind name to the runtime shader's recipe id
+    /// (see pbr.slang <c>evalProcedural</c>). Unknown/empty = 0 (a normal PBR material).</summary>
+    public static int ProceduralKindId(string? kind) => kind switch
+    {
+        "lava" => 1,
+        "marble" => 2,
+        "jade" => 3,
+        "ice" => 4,
+        "molten_metal" => 5,
+        "obsidian" => 6,
+        "gem" => 7,
+        "amber" => 8,
+        "nebula" => 9,
+        _ => 0,
+    };
 
     // -------- geometry/material caches --------
 
@@ -588,7 +647,8 @@ public static class SceneAssembler
             // surface_material_override with textured materials). The cache key includes the
             // texture source so the same override JSON over differently-textured primitives
             // yields distinct GPU materials.
-            var inherit = glbMaterialIndex >= 0 && HasAnyTexture(asset.Materials[glbMaterialIndex]);
+            var inherit = glbMaterialIndex >= 0
+                && ShouldInheritTextures(level.Materials[field], in asset.Materials[glbMaterialIndex]);
             var key = inherit ? (asset, glbMaterialIndex, field) : ((GltfAsset?)null, -1, field);
             if (_levelMaterialIds.TryGetValue(key, out var id)) return id;
 

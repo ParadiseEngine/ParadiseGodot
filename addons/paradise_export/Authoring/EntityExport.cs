@@ -5,6 +5,15 @@ using ParadiseExport.Authoring;
 
 namespace ParadiseGodot.Authoring
 {
+    /// <summary>Authoring-side particle render kind; None = no emitter exported. The exported
+    /// contract enum (<c>ParticleRenderKind</c>) has no None — absence is the null component.</summary>
+    public enum ParticleEmitterExportKind
+    {
+        None,
+        Sprite,
+        Voxel,
+    }
+
     /// <summary>
     /// Marks a Godot node as an exportable Paradise entity — the Godot equivalent of
     /// ParadiseUnityEditor's <c>EntityAuthoring</c>. Engine-neutral by design: <see cref="Kind"/>
@@ -48,6 +57,43 @@ namespace ParadiseGodot.Authoring
         [ExportGroup("Collider Export")]
         [Export] public Godot.Collections.Array<NodePath> PhysicsColliders { get; set; } = new();
         [Export] public Godot.Collections.Array<NodePath> InteractionColliders { get; set; } = new();
+
+        [ExportGroup("Sprite Animation")]
+        // Flipbook playback for a Sprite3D child. The Sprite3D supplies the sheet texture, the
+        // hframes/vframes grid, the quad size (pixel_size × frame pixels) and the billboard
+        // mode; these fields add the CLOCK the node doesn't model (the simulation owns sprite
+        // time so both hosts show the same frame). Present Sprite3D child = exported component.
+        [Export] public float SpriteFps { get; set; } = 10f;
+        [Export] public bool SpriteLoop { get; set; } = true;
+        // 0 = the full hframes × vframes grid.
+        [Export] public int SpriteFrameCount { get; set; }
+
+        [ExportGroup("Particle Emitter")]
+        // Deterministic sim-side particles (Kind != None exports the component): Sprite =
+        // flipbook camera-facing quads (2D particles), Voxel = solid cubes (3D particles).
+        // Emission is a SpreadDegrees cone around this node's +Y; particles live in world space.
+        [Export] public ParticleEmitterExportKind ParticleKind { get; set; } = ParticleEmitterExportKind.None;
+        [Export] public float ParticleEmitRate { get; set; } = 8f;
+        [Export] public float ParticleLifetime { get; set; } = 1.5f;
+        [Export] public float ParticleSpeed { get; set; } = 2f;
+        [Export] public float ParticleSpreadDegrees { get; set; } = 25f;
+        [Export] public float ParticleGravity { get; set; } = -9.8f;
+        [Export] public float ParticleDrag { get; set; }
+        [Export] public float ParticleStartSize { get; set; } = 0.25f;
+        [Export] public float ParticleEndSize { get; set; } = 0.25f;
+        [Export] public int ParticleMaxCount { get; set; } = 64;
+        // Any nonzero value is valid; negatives wrap to large unsigned seeds at export
+        // (the contract stores a uint), which is harmless but surprising — prefer positives.
+        [Export] public int ParticleSeed { get; set; } = 1;
+        [Export] public Color ParticleColor { get; set; } = Colors.White;
+        // Sprite kind only: the flipbook sheet (an image under res://data/, e.g. data/sprites/).
+        [Export(PropertyHint.File, "*.png,*.jpg,*.jpeg")] public string ParticleSheet { get; set; } = "";
+        [Export] public int ParticleSheetColumns { get; set; } = 1;
+        [Export] public int ParticleSheetRows { get; set; } = 1;
+        // 0 = the full grid.
+        [Export] public int ParticleSheetFrameCount { get; set; }
+        // 0 = stretch the flipbook once over each particle's lifetime.
+        [Export] public float ParticleSheetFps { get; set; }
 
         [ExportGroup("Agent (movement)")]
         private bool _isAgent;

@@ -142,6 +142,11 @@ public partial struct DynamicBody
     /// simulated ball's value (one cushion surface type per scene).</summary>
     public float StaticRestitution;
 
+    /// <summary>Signed vertical-axis sidespin ("english"), set on the cue ball at strike and
+    /// carried through the stateless solver's <c>DynamicSphere.SpinY</c> span slot each tick.
+    /// Latent while rolling; bends the tangential rebound at a cushion contact and bleeds off.</summary>
+    public float SpinY;
+
     public DynamicBody(float radius, float mass,
         float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f)
     {
@@ -151,6 +156,7 @@ public partial struct DynamicBody
         LinearDamping = linearDamping;
         Restitution = restitution;
         StaticRestitution = staticRestitution;
+        SpinY = 0f;
     }
 }
 
@@ -188,6 +194,102 @@ public struct PocketBuffer
 }
 
 /// <summary>
+/// Flipbook 2D-animation clock. The SIMULATION owns sprite time so both hosts (Godot and the
+/// .NET renderer) read the same <see cref="Frame"/> out of the world snapshot — the sprite
+/// equivalent of ball transforms. <see cref="SpriteAnimationSystem"/> is the sole writer.
+/// Sheet layout / quad geometry are presentation data and stay in the export contract.
+/// </summary>
+[Component]
+public partial struct SpriteAnimation
+{
+    /// <summary>Frames per second (&gt; 0).</summary>
+    public float Fps;
+
+    /// <summary>Total flipbook frames (&gt;= 1).</summary>
+    public int FrameCount;
+
+    /// <summary>1 = wrap around; 0 = hold the last frame.</summary>
+    public byte Loop;
+
+    /// <summary>Seconds since spawn (advanced each fixed tick).</summary>
+    public float Time;
+
+    /// <summary>Current frame index — derived from <see cref="Time"/>, stored so renderers
+    /// read it straight from the snapshot without duplicating the sampling rule.</summary>
+    public int Frame;
+
+    public SpriteAnimation(float fps, int frameCount, bool loop)
+    {
+        Fps = fps > 0f && float.IsFinite(fps) ? fps : 10f;
+        FrameCount = Math.Max(1, frameCount);
+        Loop = loop ? (byte)1 : (byte)0;
+        Time = 0f;
+        Frame = 0;
+    }
+}
+
+/// <summary>One simulated particle. Lives in WORLD space inside its emitter's inline buffer;
+/// <see cref="Lifetime"/> &lt;= 0 marks a free slot (slots are STABLE across ticks — a live
+/// particle never moves buffers, so renderers can interpolate slot-wise between snapshots).</summary>
+public struct Particle
+{
+    public Vector3 Position;
+    public Vector3 Velocity;
+    public float Age;
+    public float Lifetime;
+}
+
+/// <summary>
+/// A deterministic CPU particle emitter: config + ALL runtime state (seeded xorshift RNG,
+/// spawn accumulator, the inline particle pool), so world snapshots carry complete particle
+/// state and both hosts render identical particles. <see cref="ParticleSystem"/> is the sole
+/// writer. Emission is a cone of <see cref="SpreadRadians"/> half-angle around the entity's
+/// +Y axis; particles integrate gravity + drag in world space. Render kind (sprite quad vs
+/// voxel cube), sheet and tint are presentation data and stay in the export contract.
+/// </summary>
+[Component]
+public partial struct ParticleEmitter
+{
+    public const int MaxParticles = 64;
+
+    // -- authored config --
+    public float EmitRate;
+    public float LifetimeSeconds;
+    public float InitialSpeed;
+    public float SpreadRadians;
+    public float Gravity;
+    public float Drag;
+    public int Capacity;
+
+    // -- runtime state --
+    public uint RngState;
+    public float SpawnCarry;
+    public ParticleBuffer Particles;
+
+    public ParticleEmitter(
+        float emitRate, float lifetimeSeconds, float initialSpeed, float spreadRadians,
+        float gravity, float drag, int capacity, uint seed)
+    {
+        EmitRate = emitRate > 0f && float.IsFinite(emitRate) ? emitRate : 8f;
+        LifetimeSeconds = lifetimeSeconds > 0f && float.IsFinite(lifetimeSeconds) ? lifetimeSeconds : 1.5f;
+        InitialSpeed = initialSpeed >= 0f && float.IsFinite(initialSpeed) ? initialSpeed : 2f;
+        SpreadRadians = float.IsFinite(spreadRadians) ? Math.Clamp(spreadRadians, 0f, MathF.PI) : 0.436f;
+        Gravity = float.IsFinite(gravity) ? gravity : -9.8f;
+        Drag = drag >= 0f && float.IsFinite(drag) ? drag : 0f;
+        Capacity = Math.Clamp(capacity, 1, MaxParticles);
+        RngState = seed == 0 ? 1u : seed; // xorshift must never be seeded 0 (fixed point)
+        SpawnCarry = 0f;
+    }
+}
+
+/// <summary>Fixed-capacity inline particle pool (unmanaged, blittable — snapshot-complete).</summary>
+[InlineArray(ParticleEmitter.MaxParticles)]
+public struct ParticleBuffer
+{
+    private Particle _element0;
+}
+
+/// <summary>
 /// Global dynamics-solver tuning for ball physics, carried per ball like
 /// <see cref="SimulationContext"/> (Paradise.ECS has no singleton store) and applied batch-wide
 /// from the first simulated ball. Authored in editor project settings
@@ -206,11 +308,21 @@ public partial struct PhysicsTuning
     /// <summary>Scale applied to a character pusher's velocity when injected into a ball.</summary>
     public float PushStrength;
 
-    public PhysicsTuning(float minSpeed, float skin, float pushStrength)
+    /// <summary>Sidespin "english" strength: tangential rebound velocity (m/s) added per unit
+    /// cue spin at a cushion contact. 0 disables english (matches the pre-english bounce).</summary>
+    public float RailEnglish;
+
+    /// <summary>Fraction of a ball's sidespin retained after each cushion contact (0..1).</summary>
+    public float RailSpinLoss;
+
+    public PhysicsTuning(float minSpeed, float skin, float pushStrength,
+        float railEnglish = 1.5f, float railSpinLoss = 0.6f)
     {
         MinSpeed = minSpeed;
         Skin = skin;
         PushStrength = pushStrength;
+        RailEnglish = railEnglish;
+        RailSpinLoss = railSpinLoss;
     }
 
     public static PhysicsTuning Default => new(0.005f, 0.02f, 1.2f);
