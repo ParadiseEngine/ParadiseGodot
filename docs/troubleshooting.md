@@ -43,7 +43,9 @@
 
 **"No runtime host found"**
 : Install the preview tool `dotnet tool install --global Paradise.Sample.Runtime`, or set
-  Paradise/Settings… > runtime host to your host executable / `.csproj`.
+  Paradise/Settings… > runtime host to your host executable / `.csproj`. Use a `res://` or
+  relative path for a host that lives inside the project — it resolves against the project
+  root and is saved to project.godot, so it works on every device that clones the repo.
 
 **Button launches but no window / it dies immediately**
 : Output goes to `<tmp>/paradise_play_dotnet.log` (GUI-launched processes have no console).
