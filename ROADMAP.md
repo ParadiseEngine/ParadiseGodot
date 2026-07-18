@@ -31,56 +31,49 @@ Next: productize that plugin into a publishable addon (phases below).
 
 ### In Progress — Addon publishing
 
-- [ ] **Phase 1 — Harden the addon as a product**
-  - [ ] Rename `addons/paradise_export/` → `addons/paradise/`; real plugin metadata; version
-        0.3.x aligned with the engine packages (addon minor tracks the engine/data-contract
-        minor it targets)
-  - [ ] Config via Godot `ProjectSettings` (`paradise/...` keys) surfaced in the settings
-        dialog; `PARADISE_*` env vars demoted to headless/CI overrides
-  - [ ] "Play .NET" launcher resolves the runtime host from settings (no hardcoded
-        `Paradise.Sample.Runtime` path)
-  - [ ] External-tool validation UX: verify ktx path on enable/before batch ops; export
-        degrades gracefully (skip KTX2 + warning) instead of failing mid-pipeline
-  - [ ] "Project Setup" action: adds the pinned `Paradise.Export` PackageReference to the
-        user's csproj, creates the `data/` layout, writes default settings
+- [x] **Phase 1 — Harden the addon as a product**
+  - [x] Rename `addons/paradise_export/` → `addons/paradise/`; real plugin metadata; version
+        0.3.0 (addon minor tracks the engine/data-contract minor it targets)
+  - [x] Config via `ParadisePaths` + settings dialog (`paradise/export/data_dir`,
+        `paradise/play/runtime_host`); `PARADISE_*` env vars remain headless/CI overrides
+  - [x] "Play .NET" launcher resolves the runtime host from settings → repo sample project →
+        installed `paradise-runtime` tool (no hardcoded path)
+  - [x] ktx pre-flight warning before batch conversions; export degrades gracefully
+  - [x] "Project Setup" action: pinned `Paradise.Export` PackageReference into the user's
+        csproj, `data/` layout, default settings; load-time version-mismatch warning
 
-- [ ] **Phase 2 — Packaging & distribution**
-  - [ ] Release artifact: zip of `addons/paradise/**` only (+ LICENSE, third-party notices)
-  - [ ] Channels: GitHub Releases on `addon-v*` tags (canonical) + Godot Asset Library
-        (Tools category; .NET requirement stated; updates via asset-library API)
-  - [ ] Compatibility statement + in-plugin check (Godot 4.7+ .NET, net10.0, supported
-        `Paradise.Export` version range)
-  - [ ] Runtime host as a dotnet tool (`paradise-runtime`) so "Play .NET" works in fresh
-        projects; published from this repo's `Paradise.Sample.Runtime`
-  - [ ] Starter template project (pre-wired csproj, empty `data/`, one exported scene) as a
-        second release artifact
+- [x] **Phase 2 — Packaging & distribution**
+  - [x] Addon zip (`scripts/package_addon.sh`) + self-contained starter zip
+        (`scripts/package_starter.sh`, addon baked in), both attached to releases
+  - [x] `paradise-runtime` dotnet tool (`Paradise.Sample.Runtime` PackAsTool) + OIDC publish
+        workflow (`runtime-v*` tag); verified by local install + headless render
+  - [x] Compatibility check in-plugin; statement in README/docs
+  - [!] Godot Asset Library listing — initial submission is a manual one-time step
+        (runbook: `docs/publishing.md`); CI updates automated once
+        `ASSETLIB_ASSET_ID`/`ASSETLIB_TOKEN` are configured
 
-- [ ] **Phase 3 — CI/CD (this repo's first CI)**
-  - [ ] PR gate: build `ParadiseGodot.slnx`, run all test suites, headless Godot import +
-        scene-export smoke validated by the contract tests
-  - [ ] Addon packaging job on every PR + dependency allowlist check (addon sources may only
-        reference Godot + `Paradise.Export`)
-  - [ ] Release workflow: `addon-v*` tag → zip + GitHub release (+ asset-library update)
+- [x] **Phase 3 — CI/CD**
+  - [x] `ci.yml`: solution build + 3 test suites; addon zip artifact + dependency allowlist;
+        headless Godot 4.7 import + scene-export smoke gated by the runtime contract tests
+  - [x] `addon-release.yml`: `addon-v*` tag → version check, zips, GitHub release,
+        optional asset-library update
 
-- [ ] **Phase 4 — Documentation**
-  - [ ] Install & 10-minute quickstart (install addon → Project Setup → tag `EntityExport` →
-        save → `paradise-runtime` renders it)
-  - [ ] Authoring guide: entity metadata/GUIDs, collision-layer contract, primitives vs source
-        GLBs, KTX2 sidecar pipeline, navmesh baking
-  - [ ] Contract reference: exported JSON/GLB/navmesh formats, right-handed Y-up −Z-forward
-        convention, versioning
-  - [ ] Troubleshooting: ktx/Blender install per OS, common export warnings
+- [x] **Phase 4 — Documentation**
+  - [x] `README.md`, `docs/quickstart.md`, `docs/authoring.md`, `docs/contract.md`,
+        `docs/troubleshooting.md`, `docs/publishing.md`
 
-### Planned — Post-v1 (Phase 5)
-
-- [ ] Play-mode preview framework: generalize the bridges (`EcsSceneBridge`,
-      `ImGuiCanvasRenderer`, `NoesisTextureOverlay`) into an optional addon module with an
-      extension point for the user's own simulation
-- [ ] In-editor contract validator (missing mesh refs, absent KTX2 sidecars, stale navmesh,
-      non-identity scene root)
-- [ ] Contract migration tooling once the first breaking data-format change lands (until then:
-      version stamp + compatibility check only)
-- [ ] Multi-Godot-version support as 4.x evolves
+- [~] **Phase 5 — Post-v1**
+  - [x] In-editor contract validator (**Paradise/Validate Export**): missing mesh refs,
+        absent KTX2 sidecars via GLB image-uri scan, stale export/navmesh, non-identity root
+  - [x] Version policy: contract = `Paradise.Export` major.minor; addon pins
+        `SupportedExportVersion`, warns on mismatch (documented in `docs/contract.md`)
+  - [ ] Play-mode preview framework: generalize the bridges (`EcsSceneBridge`,
+        `ImGuiCanvasRenderer`, `NoesisTextureOverlay`) into an optional addon module.
+        **Blocked on publishing the UI cores** (`Paradise.Sample.Ui`-equivalent) as packages —
+        the addon's dependency allowlist (Godot + `Paradise.Export` only) is deliberate, so
+        play-mode needs its own module with its own declared deps
+  - [ ] Contract migration tooling once the first breaking data-format change lands
+  - [ ] Multi-Godot-version support as 4.x evolves
 
 ## Technical Debt
 

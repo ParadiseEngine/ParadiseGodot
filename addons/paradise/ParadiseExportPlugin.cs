@@ -17,6 +17,7 @@ namespace ParadiseGodot
         private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
         private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
         private const string ConvertDataGlbsMenuItem = "Paradise/Convert data GLBs → KTX2";
+        private const string ValidateMenuItem = "Paradise/Validate Export";
         private const string ProjectSetupMenuItem = "Paradise/Project Setup";
         private const string SettingsMenuItem = "Paradise/Settings…";
 
@@ -35,6 +36,7 @@ namespace ParadiseGodot
             AddToolMenuItem(GeneratePrimitivesMenuItem, Callable.From(OnGeneratePrimitives));
             AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
             AddToolMenuItem(ConvertDataGlbsMenuItem, Callable.From(OnConvertDataGlbs));
+            AddToolMenuItem(ValidateMenuItem, Callable.From(ExportValidator.ValidateActiveScene));
             AddToolMenuItem(ProjectSetupMenuItem, Callable.From(ProjectSetup.Run));
             AddToolMenuItem(SettingsMenuItem, Callable.From(OnOpenSettings));
             // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
@@ -73,6 +75,7 @@ namespace ParadiseGodot
             RemoveToolMenuItem(GeneratePrimitivesMenuItem);
             RemoveToolMenuItem(ConvertModelsMenuItem);
             RemoveToolMenuItem(ConvertDataGlbsMenuItem);
+            RemoveToolMenuItem(ValidateMenuItem);
             RemoveToolMenuItem(ProjectSetupMenuItem);
             RemoveToolMenuItem(SettingsMenuItem);
             SceneSaved -= OnSceneSaved;
