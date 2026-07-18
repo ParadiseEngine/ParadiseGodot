@@ -15,11 +15,9 @@ obj/
 # GLBs the scene references (data/Models/**/*.glb — geometry only), and their EXTERNAL texture
 # sidecars (data/Models/**/*.ktx2, <glbstem>_<i>.ktx2, from Paradise/Convert data GLBs → KTX2).
 # A GLB and its .ktx2 sidecars must be committed together (relative image URIs). These back
-# ParadiseExport.Tests / ParadiseRuntime(.Tests) and the engine's real-producer GLB cross-checks.
+# ParadiseExport.Tests / Paradise.Sample.Runtime(.Tests) and the engine's real-producer GLB cross-checks.
 # NOT tracked: Godot import sidecars (*.import, *.uid) and any extracted texture PNGs — regenerated
-# on import. Also tracked (force-added): data/cultivation/config.json - the AUTHORED (not
-# exported) cultivation config set - config.json + names.json + dialogue.json + text.json -
-# AUTHORED gameplay tunables and Chinese content, read by both hosts at runtime.
+# on import.
 /data/
 
 # JetBrains IDE
@@ -31,3 +29,6 @@ obj/
 # Render-parity harness output (tools/render_parity.py)
 /.parity
 imgui.ini
+
+# Claude Code worktrees (local-only)
+/.claude/worktrees/

@@ -10,7 +10,7 @@ namespace ParadiseExport.Serialization
     /// <summary>
     /// The read half of the contract: deserializes exported documents with the same
     /// source-generated metadata + converters <see cref="ExportJsonWriter"/> writes with, so the
-    /// round trip is exact. Consumed by runtimes (ParadiseRuntime) that load <c>data/</c> —
+    /// round trip is exact. Consumed by runtimes (Paradise.Sample.Runtime) that load <c>data/</c> —
     /// reflection-free, AOT-clean.
     /// </summary>
     public static class ExportJsonReader

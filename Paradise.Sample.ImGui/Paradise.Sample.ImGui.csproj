@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Minimal Dear ImGui integration sample, shared by both hosts (the Godot play-mode bridge
+    in runtime/ImGuiSampleBridge.cs and `Paradise.Sample.Runtime "game imgui" mode`). Demonstrates
+    the two-half UI architecture: ImGuiSampleRunner ticks the ImGui frame on a 60 Hz sim
+    thread (events in, draw snapshots out via Paradise.Sample.Ui's ImGuiUiCore); the host's
+    render half only replays snapshots. No game logic — widgets + the stock ImGui demo window.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Paradise.Sample.ImGui</RootNamespace>
+    <!-- Loaded into Godot's collectible AssemblyLoadContext, like Paradise.Sample.Game. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- UiEvent/IUiInput live in Paradise.Sample.Game.Ui; ImGuiUiCore in Paradise.Sample.Ui
+         (which brings ImGui.NET transitively via the Paradise.Ui.ImGui package). -->
+    <ProjectReference Include="..\Paradise.Sample.Game\Paradise.Sample.Game.csproj" />
+    <ProjectReference Include="..\Paradise.Sample.Ui\Paradise.Sample.Ui.csproj" />
+  </ItemGroup>
+
+</Project>

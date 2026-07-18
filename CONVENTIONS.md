@@ -49,7 +49,7 @@ dimensions** (`ColliderScaleFold`), matching the Unity tool. The fold is the col
 **relative to its entity root** — the root's own scale still lives in the entity `WorldMatrix`,
 so a data consumer must fold it into the dimensions with the same rules and take the pose
 rotation from a proper decomposition, never from the raw (scale-bearing) matrix basis
-(`SceneAssembler.AppendCollider` / `DecomposePose` in ParadiseRuntime is the reference):
+(`SceneAssembler.AppendCollider` / `DecomposePose` in Paradise.Sample.Runtime is the reference):
 
 | Shape | Folded dimension |
 |---|---|
@@ -148,9 +148,9 @@ material under `data/materials/`. Mapping:
   primitives (`SpriteQuadState` / `ParticleBatchState`) rewritten per frame, sheet material =
   standalone-KTX2 base color, `AlphaMode.Blend`.
 
-## Runtime (ParadiseRuntime)
+## Runtime (Paradise.Sample.Runtime)
 
-`ParadiseRuntime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
+`Paradise.Sample.Runtime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
 exported `data/` (scene JSON via `ExportJsonReader`, GLBs via the engine's
 `Paradise.Assets.Gltf`, navmesh via Detour), rebuilds the CollisionWorld from the static
 entities' colliders, spawns the SAME `SimulationRunner` sim (Agent →
@@ -161,7 +161,7 @@ and ray-casts `PhysicsLayers.ClickRay`. Contract matrices are column-vector layo
 `SceneAssembler.ToModelMatrix` transposes to System.Numerics row-vector convention. The
 camera projection mode is NOT in the contract (schema v3 candidate): the runtime defaults to
 perspective 75° (Godot's default) with `--ortho`/`--fov` overrides.
-`dotnet run --project ParadiseRuntime -- --scene data/scenes/sample.json [--headless N]`.
+`dotnet run --project Paradise.Sample.Runtime -- --scene data/scenes/sample.json [--headless N]`.
 
 ## NavMesh (Phase 4)
 
@@ -191,7 +191,7 @@ complete (bank-heist's "physics state is ECS state" principle).
   `navigation_source` group the navmesh bakes from (Box/Sphere/Capsule, scale folded per
   `ColliderScaleFold`), so physics and pathfinding agree on the world.
 - **Layers** — Godot `collision_layer` maps to `CollisionFilter.BelongsTo`: bit 1 = Floor,
-  bit 2 = Obstacle (`ParadiseGame/Physics/PhysicsLayers`). Character movement casts collide
+  bit 2 = Obstacle (`Paradise.Sample.Game/Physics/PhysicsLayers`). Character movement casts collide
   with **Obstacle only** — the capsule rests exactly on the floor, which must never block
   horizontal motion. Click rays hit Floor | Obstacle.
 - **Planar contract** — physics NEVER modifies Y. `MovementSystem` casts the character
@@ -256,7 +256,7 @@ complete (bank-heist's "physics state is ECS state" principle).
 
 ## Snapshot-read execution (systems run fully parallel)
 
-`ParadiseGame` opts into two assembly attributes that together define the system memory
+`Paradise.Sample.Game` opts into two assembly attributes that together define the system memory
 model (`AssemblyInfo.cs`):
 
 - **`[assembly: SingleWriter]`** — every component has at most ONE writer system (PECS3008

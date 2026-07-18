@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 using Paradise.Ui.ImGui;
-using ParadiseUi;
+using Paradise.Sample.Ui;
 
 namespace ParadiseGodot.Runtime.Ui;
 

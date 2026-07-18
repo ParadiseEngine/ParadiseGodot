@@ -4,7 +4,7 @@
 Mixamo-style pipelines (bank-heist) ship animations as separate GLBs whose channels target a
 skeleton with the same bone NAMES as the character files. Both of this project's consumers
 want the clip inside the character GLB itself — Godot's importer surfaces it on the imported
-scene's AnimationPlayer (played via the regular Godot animation system), and ParadiseRuntime's
+scene's AnimationPlayer (played via the regular Godot animation system), and Paradise.Sample.Runtime's
 GltfAnimationRig samples it when the entity contract names it — so this bakes the channels in:
 sampler keyframe data is copied into the target's binary chunk and every channel is retargeted
 to the character's node of the same name. Channels whose bone has no counterpart are skipped

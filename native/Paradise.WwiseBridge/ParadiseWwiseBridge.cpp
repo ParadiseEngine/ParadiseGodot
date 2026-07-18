@@ -1,6 +1,6 @@
 // Vendored from bank-heist's BankHeist.WwiseBridge (native/BankHeist.WwiseBridge/
 // BankHeistWwiseBridge.cpp) so this repo can rebuild the bridge against a local Wwise SDK.
-// The exported C ABI (bh_wwise_*) is kept verbatim: ParadiseRuntime's WwiseAudio targets it,
+// The exported C ABI (bh_wwise_*) is kept verbatim: Paradise.Sample.Runtime's WwiseAudio targets it,
 // and any bridge built from either repo is drop-in compatible. Build with
 // scripts/build-wwise-bridge-macos.sh (PARADISE_WWISE_SDK points at the Wwise SDK root).
 #include <AK/SoundEngine/Common/AkMemoryMgrModule.h>

@@ -13,36 +13,35 @@
   <ItemGroup>
     <Compile Remove="ParadiseExport/**/*.cs" />
     <Compile Remove="ParadiseExport.Tests/**/*.cs" />
-    <!-- The shared ParadiseGame.* libs are their own projects; keep their sources out of this
+    <!-- The shared Paradise.Sample.Game.* libs are their own projects; keep their sources out of this
          assembly's recursive **/*.cs glob. -->
-    <Compile Remove="ParadiseGame/**/*.cs" />
-    <Compile Remove="ParadiseGame.Tests/**/*.cs" />
-    <Compile Remove="ParadiseGame.Navigation.Detour/**/*.cs" />
-    <!-- ParadiseRuntime is the standalone SDL/engine-renderer host; keep its sources (and its
+    <Compile Remove="Paradise.Sample.Game/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Game.Tests/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Game.Navigation.Detour/**/*.cs" />
+    <!-- Paradise.Sample.Runtime is the standalone SDL/engine-renderer host; keep its sources (and its
          obj/ generated AssemblyInfo — CS0579 duplicates otherwise) out of this glob. -->
-    <Compile Remove="ParadiseRuntime/**/*.cs" />
-    <Compile Remove="ParadiseRuntime.Tests/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Runtime/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Runtime.Tests/**/*.cs" />
     <!-- ParadiseEngine is a local-only symlink for reference (see .gitignore);
          keep its sources out of this assembly's recursive **/*.cs glob. -->
     <Compile Remove="ParadiseEngine/**/*.cs" />
     <Compile Remove="NoesisSpike/**/*.cs" />
-    <Compile Remove="ParadiseUi/**/*.cs" />
-    <Compile Remove="ParadiseUi.Tests/**/*.cs" />
-    <!-- The cultivation game core is its own project (shared with ParadiseRuntime). -->
-    <Compile Remove="ParadiseCultivation/**/*.cs" />
-    <Compile Remove="ParadiseCultivation.Tests/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Ui/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Ui.Tests/**/*.cs" />
+    <!-- The ImGui sample core is its own project (shared with Paradise.Sample.Runtime). -->
+    <Compile Remove="Paradise.Sample.ImGui/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="ParadiseExport/ParadiseExport.csproj" />
-    <ProjectReference Include="ParadiseGame/ParadiseGame.csproj" />
-    <ProjectReference Include="ParadiseGame.Navigation.Detour/ParadiseGame.Navigation.Detour.csproj" />
+    <ProjectReference Include="Paradise.Sample.Game/Paradise.Sample.Game.csproj" />
+    <ProjectReference Include="Paradise.Sample.Game.Navigation.Detour/Paradise.Sample.Game.Navigation.Detour.csproj" />
     <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
          render device (headless Dawn + readback in the Godot host). Real sibling path for the
          engine project (NOT the in-tree symlink, which breaks restore). -->
-    <ProjectReference Include="ParadiseUi/ParadiseUi.csproj" />
-    <ProjectReference Include="ParadiseCultivation/ParadiseCultivation.csproj" />
-    <ProjectReference Include="..\ParadiseEngine\src\Paradise.Ui.Noesis\Paradise.Ui.Noesis.csproj" />
+    <ProjectReference Include="Paradise.Sample.Ui/Paradise.Sample.Ui.csproj" />
+    <ProjectReference Include="Paradise.Sample.ImGui/Paradise.Sample.ImGui.csproj" />
+    <PackageReference Include="Paradise.Ui.Noesis" Version="0.2.0" />
   </ItemGroup>
 
 </Project>

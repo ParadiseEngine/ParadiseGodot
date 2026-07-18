@@ -11,7 +11,7 @@ LIB_DIR="$SDK_CONFIG_ROOT/lib"
 # NOTE: WWISE_CONFIG defaults to Release while OUT_DIR defaults to the Debug runtime output —
 # a deliberate dev convenience (Release bridge, Debug runtime). Override either, or point
 # PARADISE_WWISE_BRIDGE at the dylib directly for -c Release runs.
-OUT_DIR="${PARADISE_WWISE_BRIDGE_OUT_DIR:-$REPO_ROOT/ParadiseRuntime/bin/Debug/net10.0}"
+OUT_DIR="${PARADISE_WWISE_BRIDGE_OUT_DIR:-$REPO_ROOT/Paradise.Sample.Runtime/bin/Debug/net10.0}"
 OUT_PATH="$OUT_DIR/libBankHeist.WwiseBridge.dylib"
 SAMPLE_DLL_ROOT="$SDK_ROOT/samples/DynamicLibraries/AkSoundEngineDLL"
 SAMPLE_SOUNDENGINE_ROOT="$SDK_ROOT/samples/SoundEngine"

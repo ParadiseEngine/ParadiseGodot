@@ -18,7 +18,7 @@ baked LINEAR clip on the source's key grid, appended to the target GLB (same-nam
 replaced, so re-running is idempotent).
 
 Both consumers pick the clip up from the GLB: Godot's importer (native AnimationPlayer) and
-ParadiseRuntime's GltfAnimationRig.
+Paradise.Sample.Runtime's GltfAnimationRig.
 
 Usage:
   python3 tools/retarget_gltf_animation.py --clip Idle_GLB.glb --into data/Models/elf.glb --name Idle
