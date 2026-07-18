@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Paradise.Assets.Gltf;
 
-namespace ParadiseExport.Tests;
+namespace Paradise.Sample.Runtime.Tests;
 
 /// <summary>The real-producer cross-check: the committed source GLBs each entity REFERENCES
 /// (<c>data/Models/*.glb</c> characters/plants, <c>data/primitives/*.glb</c> shared primitives)
@@ -13,7 +13,7 @@ public class ExportedMeshGlbTests
 {
     private static string RepoRoot()
     {
-        // bin/Debug/net10.0 → ParadiseExport.Tests → repo root.
+        // bin/Debug/net10.0 → Paradise.Export.Tests → repo root.
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "data", "scenes", "sample.json")))
         {

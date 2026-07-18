@@ -1,7 +1,7 @@
 using System.Numerics;
 using Paradise.Physics;
 using Paradise.Rendering.Pbr;
-using ParadiseExport.Data;
+using Paradise.Export.Data;
 using Paradise.Sample.Game.Physics;
 
 namespace Paradise.Sample.Runtime.Tests;

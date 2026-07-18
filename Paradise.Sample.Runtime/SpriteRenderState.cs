@@ -1,7 +1,7 @@
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Rendering.Pbr;
-using ParadiseExport.Data;
+using Paradise.Export.Data;
 using Paradise.Sample.Game;
 
 namespace Paradise.Sample.Runtime;

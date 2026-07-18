@@ -1,7 +1,7 @@
 using System.Numerics;
 using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
-using ParadiseExport.Data;
+using Paradise.Export.Data;
 using Paradise.Sample.Game;
 using Paradise.Sample.Game.Navigation.Detour;
 

@@ -2,9 +2,9 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using ParadiseExport.Data;
-using ParadiseExport.Paths;
-using ParadiseExport.Serialization;
+using Paradise.Export.Data;
+using Paradise.Export.Paths;
+using Paradise.Export.Serialization;
 
 namespace ParadiseGodot.Export
 {
@@ -63,7 +63,7 @@ namespace ParadiseGodot.Export
                 if (_fieldSource.TryGetValue(field, out string? existing) && existing != source)
                 {
                     GD.PushWarning(
-                        $"[ParadiseExport] Material name collision: '{source}' and '{existing}' both map to '{field}'; keeping the first.");
+                        $"[Paradise.Export] Material name collision: '{source}' and '{existing}' both map to '{field}'; keeping the first.");
                 }
             }
             else

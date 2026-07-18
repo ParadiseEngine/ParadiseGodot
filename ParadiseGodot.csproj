@@ -8,11 +8,7 @@
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
-  <!-- ParadiseExport is its own project; keep its sources out of the Godot assembly's
-       recursive **/*.cs glob so they aren't compiled twice. -->
   <ItemGroup>
-    <Compile Remove="ParadiseExport/**/*.cs" />
-    <Compile Remove="ParadiseExport.Tests/**/*.cs" />
     <!-- The shared Paradise.Sample.Game.* libs are their own projects; keep their sources out of this
          assembly's recursive **/*.cs glob. -->
     <Compile Remove="Paradise.Sample.Game/**/*.cs" />
@@ -33,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="ParadiseExport/ParadiseExport.csproj" />
+    <PackageReference Include="Paradise.Export" Version="0.3.0" />
     <ProjectReference Include="Paradise.Sample.Game/Paradise.Sample.Game.csproj" />
     <ProjectReference Include="Paradise.Sample.Game.Navigation.Detour/Paradise.Sample.Game.Navigation.Detour.csproj" />
     <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
@@ -41,7 +37,7 @@
          engine project (NOT the in-tree symlink, which breaks restore). -->
     <ProjectReference Include="Paradise.Sample.Ui/Paradise.Sample.Ui.csproj" />
     <ProjectReference Include="Paradise.Sample.ImGui/Paradise.Sample.ImGui.csproj" />
-    <PackageReference Include="Paradise.Ui.Noesis" Version="0.2.0" />
+    <PackageReference Include="Paradise.Ui.Noesis" Version="0.3.0" />
   </ItemGroup>
 
 </Project>

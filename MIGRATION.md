@@ -1,5 +1,11 @@
 # Migration Plan — ParadiseUnityEditor → ParadiseGodotEditor
 
+> **2026-07-18 update:** the engine-neutral export core described below as a local
+> `Paradise.Export/` project now lives in the ParadiseEngine monorepo
+> (`src/Paradise.Export`) and is consumed here as the `Paradise.Export` NuGet package,
+> so any editor host (Godot, Unity, …) can share it. The Godot-bound half
+> (`addons/paradise_export/`) stays in this repo. Path references below are historical.
+
 Migrating the authoring + export toolset from `~/proj/ParadiseUnityEditor` (Unity 6000.3,
 ~6,700 LOC) to this Godot 4.7 project.
 
@@ -24,7 +30,7 @@ Engine runtime (`~/proj/ParadiseEngine`). **The export contract is fixed** — o
 Two assemblies, mirroring Unity's engine-neutral / engine-bound split:
 
 ```
-ParadiseExport/            ← class library, NO Godot reference. Unit-testable standalone.
+Paradise.Export/            ← class library, NO Godot reference. Unit-testable standalone.
   Data/LevelDocument.cs         ← VERBATIM from Unity Runtime/Data
   Data/ParadiseComponentAttribute.cs
   Serialization/                ← ExportJsonWriter, ISceneDocumentWriter, JsonSceneDocumentWriter (verbatim)
@@ -85,7 +91,7 @@ addons/paradise_export/         ← Godot EditorPlugin (references Core + Godot)
 Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract before bulk porting.
 
 ### Phase 0 — Enable .NET + scaffold
-- Enable the Mono/.NET build; create C# solution; add `ParadiseExport` class library + `addons/paradise_export` plugin (`plugin.cfg`, `[Tool] EditorPlugin`).
+- Enable the Mono/.NET build; create C# solution; add `Paradise.Export` class library + `addons/paradise_export` plugin (`plugin.cfg`, `[Tool] EditorPlugin`).
 - Add NuGet: `Newtonsoft.Json`, `DotRecast.*` (Core/Detour/Detour.Io).
 - **Exit:** plugin loads; a `Paradise/Export` tool-menu item logs; `dotnet build` of Core is green.
 
@@ -128,7 +134,7 @@ Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract befo
 ## Validation strategy
 
 - **Golden baselines:** commit Unity-exported `data/` for a small fixture scene; CI diffs Godot output against it (float tolerance ~1e-4; matrices/quaternions normalized before compare).
-- **Core unit tests:** `dotnet test` on `ParadiseExport` — JSON round-trip, color packing, matrix column-major order, DotRecast writer — no Godot needed.
+- **Core unit tests:** `dotnet test` on `Paradise.Export` — JSON round-trip, color packing, matrix column-major order, DotRecast writer — no Godot needed.
 - **Handedness first:** Phase 1 exists specifically to catch coordinate/handedness mismatches before any bulk port.
 
 ## Risks & gotchas

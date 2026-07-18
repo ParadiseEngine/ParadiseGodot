@@ -7,7 +7,5 @@
   <Project Path="Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj" />
   <Project Path="Paradise.Sample.Ui.Tests/Paradise.Sample.Ui.Tests.csproj" />
   <Project Path="Paradise.Sample.Ui/Paradise.Sample.Ui.csproj" />
-  <Project Path="ParadiseExport.Tests/ParadiseExport.Tests.csproj" />
-  <Project Path="ParadiseExport/ParadiseExport.csproj" />
   <Project Path="ParadiseGodot.csproj" />
 </Solution>

@@ -1,6 +1,6 @@
 using Paradise.Assets.Gltf;
-using ParadiseExport.Data;
-using ParadiseExport.Serialization;
+using Paradise.Export.Data;
+using Paradise.Export.Serialization;
 using Paradise.Sample.Game.Navigation;
 using Paradise.Sample.Game.Navigation.Detour;
 

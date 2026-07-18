@@ -1,6 +1,6 @@
 using System.Linq;
 using Paradise.Assets.Gltf;
-using ParadiseExport.Data;
+using Paradise.Export.Data;
 
 namespace Paradise.Sample.Runtime.Tests;
 

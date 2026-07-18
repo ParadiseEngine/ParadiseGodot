@@ -1,6 +1,6 @@
 using System.Numerics;
 using Paradise.Rendering.Pbr;
-using ParadiseExport.Data;
+using Paradise.Export.Data;
 
 namespace Paradise.Sample.Runtime;
 

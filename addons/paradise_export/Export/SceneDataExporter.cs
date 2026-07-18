@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using ParadiseExport.Data;
-using ParadiseExport.Geometry;
-using ParadiseExport.NavMesh;
-using ParadiseExport.Paths;
-using ParadiseExport.Serialization;
+using Paradise.Export.Data;
+using Paradise.Export.Geometry;
+using Paradise.Export.NavMesh;
+using Paradise.Export.Paths;
+using Paradise.Export.Serialization;
 using ParadiseGodot.Authoring;
 using SN = System.Numerics;
 
@@ -30,7 +30,7 @@ namespace ParadiseGodot.Export
             Node? root = editorInterface.GetEditedSceneRoot();
             if (root is null)
             {
-                GD.PushWarning("[ParadiseExport] No edited scene to export.");
+                GD.PushWarning("[Paradise.Export] No edited scene to export.");
                 return null;
             }
 
@@ -74,7 +74,7 @@ namespace ParadiseGodot.Export
             ExportNavMesh(root, sceneName, paths, document);
             string outputPath = paths.GetLevelDataOutputPath(sceneName);
             Writer.Write(outputPath, document);
-            GD.Print($"[ParadiseExport] Exported scene data: {outputPath}");
+            GD.Print($"[Paradise.Export] Exported scene data: {outputPath}");
             return outputPath;
         }
 
@@ -417,13 +417,13 @@ namespace ParadiseGodot.Export
 
                 string navMeshPath = paths.GetNavMeshOutputPath(sceneName);
                 NavMeshBinaryWriter.Write(navMeshPath, vertices, triangles,
-                    message => GD.PushWarning($"[ParadiseExport] {message}"));
+                    message => GD.PushWarning($"[Paradise.Export] {message}"));
                 document.NavMeshFile = paths.GetNavMeshFileField(sceneName);
-                GD.Print($"[ParadiseExport] Exported navmesh: {navMeshPath}");
+                GD.Print($"[Paradise.Export] Exported navmesh: {navMeshPath}");
             }
             catch (System.Exception ex)
             {
-                GD.PushWarning($"[ParadiseExport] NavMesh export skipped: {ex.Message}");
+                GD.PushWarning($"[Paradise.Export] NavMesh export skipped: {ex.Message}");
             }
         }
 
@@ -532,7 +532,7 @@ namespace ParadiseGodot.Export
             if (field is null)
             {
                 GD.PushWarning(
-                    $"[ParadiseExport] Entity '{entity.Name}' references model '{source}' outside res://data/ — " +
+                    $"[Paradise.Export] Entity '{entity.Name}' references model '{source}' outside res://data/ — " +
                     "the runtime resolves meshes under data/, so it will not render. Move the asset under data/.");
             }
 
@@ -680,7 +680,7 @@ namespace ParadiseGodot.Export
             if (texturePath.Contains("::", System.StringComparison.Ordinal))
             {
                 GD.PushWarning(
-                    $"[ParadiseExport] Entity '{entity.Name}' uses a sub-resource spritesheet ('{texturePath}') — " +
+                    $"[Paradise.Export] Entity '{entity.Name}' uses a sub-resource spritesheet ('{texturePath}') — " +
                     "the runtime needs a standalone image under res://data/sprites/. The sheet is not exported.");
                 return null;
             }
@@ -689,7 +689,7 @@ namespace ParadiseGodot.Export
             if (field is null || !field.StartsWith("sprites/", System.StringComparison.Ordinal))
             {
                 GD.PushWarning(
-                    $"[ParadiseExport] Entity '{entity.Name}' references spritesheet '{texturePath}' outside " +
+                    $"[Paradise.Export] Entity '{entity.Name}' references spritesheet '{texturePath}' outside " +
                     "res://data/sprites/ — the KTX2 sidecar pass only covers that directory, so the .NET runtime " +
                     "could never load it. Move the image under data/sprites/. The sheet is not exported.");
                 return null;
@@ -801,7 +801,7 @@ namespace ParadiseGodot.Export
                         // runtime would see only the lowest bit while the Godot bridge keeps all.
                         // Be loud instead of silently lossy.
                         GD.PushWarning(
-                            $"[ParadiseExport] Body '{body.GetPath()}' is on multiple collision layers " +
+                            $"[Paradise.Export] Body '{body.GetPath()}' is on multiple collision layers " +
                             $"(mask {mask}); the export contract keeps only the lowest (index {CollisionLayerContract.MaskToLayerIndex(mask)}).");
                     }
 
