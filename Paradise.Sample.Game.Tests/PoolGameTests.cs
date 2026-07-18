@@ -19,6 +19,21 @@ public class PoolGameTests
         return new DetourNavigationMesh(verts, tris);
     }
 
+    /// <summary>Deadline-poll for threaded-loop conditions. CI runners stall sim threads far
+    /// beyond any tuned sleep; the pause tests assert ordering, never latency.</summary>
+    private static void WaitUntil(Func<bool> condition, string what, int timeoutMs = 5000)
+    {
+        var elapsed = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition())
+        {
+            if (elapsed.ElapsedMilliseconds > timeoutMs)
+            {
+                throw new TimeoutException($"Timed out waiting for {what}.");
+            }
+            Thread.Sleep(10);
+        }
+    }
+
     private static Vector3 PositionOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
@@ -181,15 +196,18 @@ public class PoolGameTests
             var ui = new RecordingUi();
             runner.UiInput = ui;
             runner.Start();
-            Thread.Sleep(150);
+            // Deadline-polling, not fixed sleeps — CI runners can stall the sim thread far
+            // beyond any tuned window; the assertions are about ordering, not latency.
+            WaitUntil(() => ui.Ticks.Count > 0, "first UI tick");
             runner.Paused = true;
-            Thread.Sleep(80);
+            Thread.Sleep(80); // let an in-flight tick drain
             ticksBefore = ui.Ticks.Count;
             var handledBefore = ui.Handled.Count;
             runner.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEvent.PointerMove(10, 10));
             runner.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEvent.PointerUp(10, 10, Paradise.Sample.Game.Ui.UiPointerButton.Left));
-            Thread.Sleep(200);
+            WaitUntil(() => ui.Handled.Count >= handledBefore + 2, "paused UI events to drain");
             handledWhilePaused = ui.Handled.Count - handledBefore;
+            WaitUntil(() => ui.Ticks.Count > ticksBefore, "UI time to keep flowing while paused");
             ticksAfterWait = ui.Ticks.Count;
             runner.Stop();
         }
@@ -219,16 +237,26 @@ public class PoolGameTests
             runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
 
             runner.Start();
-            Thread.Sleep(200);
+            WaitUntil(() => runner.RewindFrameCount > 0, "sim to start ticking");
             runner.Paused = true;
-            Thread.Sleep(100); // let an in-flight tick drain
+            // Quiesce: an in-flight tick may still land after Paused flips — wait until the
+            // frame count holds still for a full window before sampling the frozen state.
+            int settled = runner.RewindFrameCount;
+            var quiesce = System.Diagnostics.Stopwatch.StartNew();
+            while (quiesce.ElapsedMilliseconds < 5000)
+            {
+                Thread.Sleep(100);
+                int now = runner.RewindFrameCount;
+                if (now == settled) break;
+                settled = now;
+            }
             frozen = PositionOf(runner, cue);
             frozenFrames = runner.RewindFrameCount;
-            Thread.Sleep(250);
+            Thread.Sleep(250); // the paused loop must not advance across a real-time window
             afterPause = PositionOf(runner, cue);
             afterPauseFrames = runner.RewindFrameCount;
             runner.Paused = false;
-            Thread.Sleep(200);
+            WaitUntil(() => runner.RewindFrameCount > frozenFrames, "sim to resume after unpause");
             afterResumeFrames = runner.RewindFrameCount;
             runner.Stop();
         }
