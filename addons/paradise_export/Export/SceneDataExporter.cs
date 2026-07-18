@@ -785,7 +785,7 @@ namespace ParadiseGodot.Export
 
         // Godot stores collision layers as a bitmask on the owning body; the engine-neutral
         // contract carries a Unity-style single layer INDEX (consumers do 1u << Layer — see
-        // ParadiseRuntime.SceneAssembler.AppendCollider). Map the nearest CollisionObject3D
+        // Paradise.Sample.Runtime.SceneAssembler.AppendCollider). Map the nearest CollisionObject3D
         // ancestor's mask to the index of its lowest set bit; an unlayered body maps to 0.
         // (Godot's default collision_layer is 1 → index 0; obstacle mask 2 → index 1.)
         private static int ResolveLayerIndex(Node shape)

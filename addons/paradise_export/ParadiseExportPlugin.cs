@@ -41,7 +41,7 @@ namespace ParadiseGodot
             _playDotnetButton = new Button
             {
                 Text = "Play .NET",
-                TooltipText = "Launch the active scene's exported data in the standalone .NET runtime (ParadiseRuntime: SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it.",
+                TooltipText = "Launch the active scene's exported data in the standalone .NET runtime (Paradise.Sample.Runtime: SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it.",
                 Flat = true,
             };
             _playDotnetButton.Pressed += OnPlayDotnet;
@@ -114,7 +114,7 @@ namespace ParadiseGodot
                 }
 
                 string runtimeProject = System.IO.Path.Combine(
-                    ProjectSettings.GlobalizePath("res://"), "ParadiseRuntime");
+                    ProjectSettings.GlobalizePath("res://"), "Paradise.Sample.Runtime");
                 string dotnet = ResolveDotnetPath();
                 string logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "paradise_play_dotnet.log");
                 // User-configured runtime arguments (Paradise/Settings…, default --imgui).

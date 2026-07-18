@@ -18,7 +18,7 @@ namespace ParadiseExport.NavMesh
     /// Ported from ParadiseUnityEditor's NavMeshExporter — the quantization/adjacency logic is
     /// engine-neutral and coordinate-agnostic. The contract is right-handed (Godot-native), so inputs
     /// are the baked vertices/winding verbatim, with no handedness mirror (see CONVENTIONS.md). The
-    /// same builder is reused at runtime by ParadiseGame.Navigation.Detour to query the mesh in-memory.
+    /// same builder is reused at runtime by Paradise.Sample.Game.Navigation.Detour to query the mesh in-memory.
     /// </summary>
     public static class NavMeshBinaryWriter
     {

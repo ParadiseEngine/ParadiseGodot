@@ -4,16 +4,16 @@ using Godot;
 using Paradise.ECS;
 using Paradise.Physics;
 using ParadiseExport.Geometry;
-using ParadiseGame;
-using ParadiseGame.Physics;
-using ParadiseGame.Navigation.Detour;
-using ParadiseGame.Ui;
+using Paradise.Sample.Game;
+using Paradise.Sample.Game.Physics;
+using Paradise.Sample.Game.Navigation.Detour;
+using Paradise.Sample.Game.Ui;
 using ParadiseGodot.Runtime.Ui;
-using ParadiseUi;
+using Paradise.Sample.Ui;
 using SN = System.Numerics;
-// The source-generated `World` alias only exists inside ParadiseGame (per-assembly generator
+// The source-generated `World` alias only exists inside Paradise.Sample.Game (per-assembly generator
 // output); this assembly names the closed generic type explicitly.
-using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, ParadiseGame.GameConfig>;
+using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Game.GameConfig>;
 
 namespace ParadiseGodot.Runtime
 {
@@ -989,7 +989,7 @@ namespace ParadiseGodot.Runtime
 
         /// <summary>The pool controller's per-host projection seam, over a Godot <see cref="Camera3D"/>.
         /// Only ever called from the aim methods on the main thread (Godot objects aren't thread-safe).</summary>
-        private sealed class Camera3DProjection : ParadiseUi.IPoolCameraProjection
+        private sealed class Camera3DProjection : Paradise.Sample.Ui.IPoolCameraProjection
         {
             private readonly Camera3D _camera;
             public Camera3DProjection(Camera3D camera) => _camera = camera;

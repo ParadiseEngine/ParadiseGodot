@@ -21,7 +21,7 @@ namespace ParadiseGodot
         private const string BlenderSetting = "paradise/tools/blender_path";
         private const string PlayDotnetArgsSetting = "paradise/play/dotnet_args";
 
-        /// <summary>Extra ParadiseRuntime CLI arguments the "Play .NET" button appends after
+        /// <summary>Extra Paradise.Sample.Runtime CLI arguments the "Play .NET" button appends after
         /// <c>--scene</c>. Only the initial default — an intentionally emptied setting stays empty.</summary>
         public const string DefaultPlayDotnetArgs = "--imgui";
 
@@ -60,7 +60,7 @@ namespace ParadiseGodot
             (_blenderEdit, _blenderStatus) = AddToolRow(layout, "Blender",
                 "FBX → GLB conversion (Paradise/Convert Models).");
             _playArgsEdit = AddTextRow(layout, "Play .NET args",
-                "Extra ParadiseRuntime CLI arguments appended by the toolbar \"Play .NET\" button " +
+                "Extra Paradise.Sample.Runtime CLI arguments appended by the toolbar \"Play .NET\" button " +
                 "(after --scene), e.g. --imgui --audio banks --fov 60. Double quotes group an " +
                 "argument with spaces.");
 

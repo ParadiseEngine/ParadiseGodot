@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Render-parity gate: renders the sample scene in BOTH hosts and fails on regression.
 
-Renders data/scenes/sample.json with the .NET runtime (ParadiseRuntime, headless
+Renders data/scenes/sample.json with the .NET runtime (Paradise.Sample.Runtime, headless
 screenshot) and scenes/sample.tscn with Godot (temporary capture autoload), then
 compares full-frame and per-region mean-absolute pixel differences against the
 thresholds below. Exit code 0 = within thresholds, 1 = regression, 2 = setup error.
@@ -124,7 +124,7 @@ def run(cmd: list[str], **kwargs) -> subprocess.CompletedProcess:
 
 
 def build() -> None:
-    for project in ("ParadiseRuntime/ParadiseRuntime.csproj", "ParadiseGodot.csproj"):
+    for project in ("Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj", "ParadiseGodot.csproj"):
         proc = run(["dotnet", "build", project, "-v", "q", "--nologo"])
         if proc.returncode != 0:
             print(f"parity: build failed for {project}:\n{proc.stdout}\n{proc.stderr}", file=sys.stderr)
@@ -132,9 +132,9 @@ def build() -> None:
 
 
 def render_dotnet(out_bmp: Path) -> None:
-    dlls = sorted((REPO / "ParadiseRuntime" / "bin").rglob("ParadiseRuntime.dll"))
+    dlls = sorted((REPO / "Paradise.Sample.Runtime" / "bin").rglob("Paradise.Sample.Runtime.dll"))
     if not dlls:
-        print("parity: ParadiseRuntime.dll not found — build first", file=sys.stderr)
+        print("parity: Paradise.Sample.Runtime.dll not found — build first", file=sys.stderr)
         sys.exit(2)
     proc = run(["dotnet", str(dlls[-1]), "--scene", "data/scenes/sample.json",
                 "--screenshot", str(out_bmp), "--anim-time", str(ANIM_TIME)])

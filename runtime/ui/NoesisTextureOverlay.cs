@@ -1,7 +1,7 @@
 using System;
 using Godot;
 using Paradise.Ui.Noesis;
-using ParadiseUi;
+using Paradise.Sample.Ui;
 using WebGpuSharp;
 
 namespace ParadiseGodot.Runtime.Ui;
