@@ -34,12 +34,16 @@ jobs:
       - name: Package addon zip
         run: bash scripts/package_addon.sh "paradise-addon-${GITHUB_REF_NAME#addon-}.zip"
 
+      - name: Package starter project zip
+        run: bash scripts/package_starter.sh "paradise-starter-${GITHUB_REF_NAME#addon-}.zip"
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "$GITHUB_REF_NAME" \
             "paradise-addon-${GITHUB_REF_NAME#addon-}.zip" \
+            "paradise-starter-${GITHUB_REF_NAME#addon-}.zip" \
             --title "Paradise Engine Tools ${GITHUB_REF_NAME#addon-}" \
             --generate-notes
 

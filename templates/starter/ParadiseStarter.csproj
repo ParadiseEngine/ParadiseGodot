@@ -1,0 +1,16 @@
+<Project Sdk="Godot.NET.Sdk/4.7.0">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <RootNamespace>ParadiseStarter</RootNamespace>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The engine-neutral export core the Paradise addon compiles against. Keep the version
+         in the range the installed addon supports (Paradise/Project Setup pins it). -->
+    <PackageReference Include="Paradise.Export" Version="0.3.0" />
+  </ItemGroup>
+
+</Project>

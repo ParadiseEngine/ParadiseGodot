@@ -15,6 +15,24 @@
     <PublishAot>true</PublishAot>
   </PropertyGroup>
 
+  <!-- Installable as a global dotnet tool so the addon's "Play .NET" button works in projects
+       that don't clone this repo: `dotnet tool install (global) <PackageId>` then the addon
+       resolves ~/.dotnet/tools/paradise-runtime. Framework-dependent (tools cannot AOT). -->
+  <PropertyGroup>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>paradise-runtime</ToolCommandName>
+    <PackageId>Paradise.Sample.Runtime</PackageId>
+    <Title>Paradise runtime host (paradise-runtime)</Title>
+    <Authors>ParadiseEngine</Authors>
+    <Copyright>ParadiseEngine</Copyright>
+    <Description>Standalone Paradise Engine runtime host as a dotnet tool: loads a scene exported by the Godot addon (engine-neutral data contract) and runs it in an SDL window with the engine PBR renderer and the sample simulation. Command: paradise-runtime --scene data/scenes/[scene].json</Description>
+    <PackageProjectUrl>https://github.com/ParadiseEngine/ParadiseGodot</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ParadiseEngine/ParadiseGodot</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>paradise-engine;godot;runtime;game-dev;dotnet-tool</PackageTags>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Paradise.Sample.Game\Paradise.Sample.Game.csproj" />
     <ProjectReference Include="..\Paradise.Sample.ImGui\Paradise.Sample.ImGui.csproj" />

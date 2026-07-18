@@ -1,0 +1,69 @@
+name: Publish runtime tool
+
+# Tag `runtime-vX.Y.Z` to publish the paradise-runtime dotnet tool to nuget.org.
+# Uses NuGet trusted publishing (OIDC) like the engine repo's package workflow — the
+# one-time nuget.org trusted-publishing policy for THIS repository must exist first
+# (see docs/publishing.md).
+
+on:
+  push:
+    tags:
+      - "runtime-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Tool version to publish, for example 0.3.0"
+        required: true
+        type: string
+
+env:
+  DOTNET_NOLOGO: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#runtime-v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must look like 0.3.0 or 0.3.1-beta.1"
+            exit 1
+          fi
+          echo "TOOL_VERSION=$version" >> "$GITHUB_ENV"
+
+      - name: Pack
+        run: >
+          dotnet pack Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj
+          -c Release
+          -o artifacts/nuget
+          -p:ContinuousIntegrationBuild=true
+          -p:Version=${{ env.TOOL_VERSION }}
+
+      - name: NuGet login (OIDC -> temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ vars.NUGET_USER || github.repository_owner }}
+
+      - name: Publish to NuGet
+        run: >
+          dotnet nuget push "artifacts/nuget/*.nupkg"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
+          --source "https://api.nuget.org/v3/index.json"
+          --skip-duplicate
