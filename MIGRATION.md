@@ -4,7 +4,7 @@
 > `Paradise.Export/` project now lives in the ParadiseEngine monorepo
 > (`src/Paradise.Export`) and is consumed here as the `Paradise.Export` NuGet package,
 > so any editor host (Godot, Unity, …) can share it. The Godot-bound half
-> (`addons/paradise_export/`) stays in this repo. Path references below are historical.
+> (`addons/paradise/`) stays in this repo. Path references below are historical.
 
 Migrating the authoring + export toolset from `~/proj/ParadiseUnityEditor` (Unity 6000.3,
 ~6,700 LOC) to this Godot 4.7 project.
@@ -39,7 +39,7 @@ Paradise.Export/            ← class library, NO Godot reference. Unit-testable
   NavMesh/DotRecastWriter.cs    ← DotRecast serialization (verbatim core)
   Paths/SceneExportPaths.cs     ← res:// path mapping (light rewrite)
 
-addons/paradise_export/         ← Godot EditorPlugin (references Core + Godot)
+addons/paradise/         ← Godot EditorPlugin (references Core + Godot)
   plugin.cfg, ParadisePlugin.cs ← [Tool] EditorPlugin: menus, signals, automation
   Authoring/EntityExport.cs     ← [Tool] Node3D — the EntityAuthoring equivalent
   Export/SceneDataExporter.cs   ← Godot scene walk → LevelData
@@ -91,7 +91,7 @@ addons/paradise_export/         ← Godot EditorPlugin (references Core + Godot)
 Each phase has a concrete exit criterion. Phases 0–1 de-risk the contract before bulk porting.
 
 ### Phase 0 — Enable .NET + scaffold
-- Enable the Mono/.NET build; create C# solution; add `Paradise.Export` class library + `addons/paradise_export` plugin (`plugin.cfg`, `[Tool] EditorPlugin`).
+- Enable the Mono/.NET build; create C# solution; add `Paradise.Export` class library + `addons/paradise` plugin (`plugin.cfg`, `[Tool] EditorPlugin`).
 - Add NuGet: `Newtonsoft.Json`, `DotRecast.*` (Core/Detour/Detour.Io).
 - **Exit:** plugin loads; a `Paradise/Export` tool-menu item logs; `dotnet build` of Core is green.
 

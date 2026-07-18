@@ -20,6 +20,7 @@ namespace ParadiseGodot
         private const string KtxSetting = "paradise/tools/ktx_path";
         private const string BlenderSetting = "paradise/tools/blender_path";
         private const string PlayDotnetArgsSetting = "paradise/play/dotnet_args";
+        private const string RuntimeHostSetting = "paradise/play/runtime_host";
 
         /// <summary>Extra Paradise.Sample.Runtime CLI arguments the "Play .NET" button appends after
         /// <c>--scene</c>. Only the initial default — an intentionally emptied setting stays empty.</summary>
@@ -34,7 +35,10 @@ namespace ParadiseGodot
         private readonly Label _ktxStatus;
         private readonly LineEdit _blenderEdit;
         private readonly Label _blenderStatus;
+        private readonly LineEdit _runtimeHostEdit;
+        private readonly Label _runtimeHostStatus;
         private readonly LineEdit _playArgsEdit;
+        private readonly LineEdit _dataDirEdit;
         private readonly LineEdit _minSpeedEdit;
         private readonly LineEdit _skinEdit;
         private readonly LineEdit _pushStrengthEdit;
@@ -59,10 +63,22 @@ namespace ParadiseGodot
                 "KTX-Software v5 `ktx` CLI (`ktx create` KTX2 encoder). Used by scene export for GLB-embedded textures.");
             (_blenderEdit, _blenderStatus) = AddToolRow(layout, "Blender",
                 "FBX → GLB conversion (Paradise/Convert Models).");
+            (_runtimeHostEdit, _runtimeHostStatus) = AddToolRow(layout, "runtime host",
+                "The standalone .NET runtime the \"Play .NET\" button launches. A .csproj path runs " +
+                "`dotnet run --project`; anything else runs directly. Empty = auto: this project's " +
+                "Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.");
             _playArgsEdit = AddTextRow(layout, "Play .NET args",
-                "Extra Paradise.Sample.Runtime CLI arguments appended by the toolbar \"Play .NET\" button " +
+                "Extra runtime-host CLI arguments appended by the toolbar \"Play .NET\" button " +
                 "(after --scene), e.g. --imgui --audio banks --fov 60. Double quotes group an " +
                 "argument with spaces.");
+
+            layout.AddChild(new Label
+            {
+                Text = "Project (saved to project.godot)",
+            });
+            _dataDirEdit = AddTextRow(layout, "Data directory",
+                $"res:// directory the engine-neutral contract is exported to (default {ParadisePaths.DefaultDataDir}). " +
+                "The asset pipeline (KTX2 hooks, primitives) and the runtime host read the same tree.");
 
             layout.AddChild(new Label
             {
@@ -114,6 +130,10 @@ namespace ParadiseGodot
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             return settings.HasSetting(name) ? settings.GetSetting(name).AsString().Trim() : "";
         }
+
+        /// <summary>The configured runtime-host path ("" = auto-resolve). Machine-level
+        /// (EditorSettings) — host install locations differ per machine.</summary>
+        public static string RuntimeHostPath() => ReadSetting(RuntimeHostSetting);
 
         /// <summary>The "Play .NET" extra arguments, tokenized for a process argv.
         /// <see cref="DefaultPlayDotnetArgs"/> until the user first saves the setting.</summary>
@@ -226,10 +246,12 @@ namespace ParadiseGodot
         {
             _ktxEdit.Text = ReadSetting(KtxSetting);
             _blenderEdit.Text = ReadSetting(BlenderSetting);
+            _runtimeHostEdit.Text = ReadSetting(RuntimeHostSetting);
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             _playArgsEdit.Text = settings.HasSetting(PlayDotnetArgsSetting)
                 ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
                 : DefaultPlayDotnetArgs;
+            _dataDirEdit.Text = ParadisePaths.DataDir;
 
             var defaults = new PhysicsDynamicsSettingsData();
             _minSpeedEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.MinSpeedSetting, defaults.MinSpeed);
@@ -248,8 +270,10 @@ namespace ParadiseGodot
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             settings.SetSetting(KtxSetting, _ktxEdit.Text.Trim());
             settings.SetSetting(BlenderSetting, _blenderEdit.Text.Trim());
+            settings.SetSetting(RuntimeHostSetting, _runtimeHostEdit.Text.Trim());
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
             ApplySavedSettings();
+            SaveDataDirectory();
             SaveProjectPhysics();
         }
 
@@ -269,8 +293,7 @@ namespace ParadiseGodot
             WriteProjectFloat(Export.ProjectSettingsExporter.StaticFrictionSetting, _staticFrictionEdit.Text, defaults.StaticFriction);
             WriteProjectFloat(Export.ProjectSettingsExporter.MinAngularSpeedSetting, _minAngularSpeedEdit.Text, defaults.MinAngularSpeed);
             ProjectSettings.Save();
-            Export.ProjectSettingsExporter.Export(
-                new Paradise.Export.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data")));
+            Export.ProjectSettingsExporter.Export(ParadisePaths.ExportPaths());
         }
 
         private static string ReadProjectFloat(string name, float fallback)
@@ -291,10 +314,28 @@ namespace ParadiseGodot
             ProjectSettings.SetSetting(name, value);
         }
 
+        // Empty text falls back to the conventional default rather than persisting "".
+        private void SaveDataDirectory()
+        {
+            string dir = _dataDirEdit.Text.Trim().TrimEnd('/');
+            if (dir.Length == 0)
+            {
+                dir = ParadisePaths.DefaultDataDir;
+            }
+            else if (!dir.StartsWith("res://", System.StringComparison.Ordinal))
+            {
+                GD.PushWarning($"[Paradise] Data directory must be a res:// path — keeping '{ParadisePaths.DataDir}'.");
+                return;
+            }
+            ProjectSettings.SetSetting(ParadisePaths.DataDirSetting, dir);
+        }
+
         private void RefreshStatus()
         {
             Describe(_ktxEdit, _ktxStatus, "ktx", () => KtxCreate.FindKtx());
             Describe(_blenderEdit, _blenderStatus, "Blender", BlenderFbxGlb.FindBlender);
+            Describe(_runtimeHostEdit, _runtimeHostStatus, "runtime host",
+                () => ParadiseExportPlugin.ResolveRuntimeHostCommand() is { } host ? string.Join(' ', host) : null);
         }
 
         private static void Describe(LineEdit edit, Label status, string toolName, System.Func<string?> autoDetect)

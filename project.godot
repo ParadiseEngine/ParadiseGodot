@@ -30,7 +30,7 @@ project/assembly_name="ParadiseGodot"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/paradise_export/plugin.cfg")
+enabled=PackedStringArray("res://addons/paradise/plugin.cfg")
 
 [navigation]
 

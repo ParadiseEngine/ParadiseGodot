@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cbf3nx0sn7cpw"]
 
-[ext_resource type="Script" uid="uid://cujxyk6bhcl3t" path="res://addons/paradise_export/Authoring/EntityExport.cs" id="1_entity"]
+[ext_resource type="Script" uid="uid://cujxyk6bhcl3t" path="res://addons/paradise/Authoring/EntityExport.cs" id="1_entity"]
 [ext_resource type="Script" uid="uid://ce28xongxoxp5" path="res://runtime/EcsSceneBridge.cs" id="2_ecsbridge"]
 [ext_resource type="PackedScene" uid="uid://dti73rhd7aoo3" path="res://data/Models/knight.glb" id="3_knight"]
 [ext_resource type="PackedScene" uid="uid://djl1gm4qkodbf" path="res://data/Models/elf.glb" id="4_elf"]
