@@ -30,7 +30,7 @@ namespace ParadiseGodot.Pipeline
                 }
             }
 
-            GD.Print($"[ParadiseExport] Model prefab generation complete: {generated} written.");
+            GD.Print($"[Paradise.Export] Model prefab generation complete: {generated} written.");
             return generated;
         }
 
@@ -46,7 +46,7 @@ namespace ParadiseGodot.Pipeline
             PackedScene? modelScene = ResourceLoader.Load<PackedScene>(modelResPath);
             if (modelScene is null || modelScene.Instantiate() is not Node modelInstance)
             {
-                GD.PushWarning($"[ParadiseExport] Could not load model '{modelResPath}'.");
+                GD.PushWarning($"[Paradise.Export] Could not load model '{modelResPath}'.");
                 return false;
             }
 
@@ -70,11 +70,11 @@ namespace ParadiseGodot.Pipeline
                 Error saveResult = ResourceSaver.Save(packed, prefabPath);
                 if (saveResult != Error.Ok)
                 {
-                    GD.PushWarning($"[ParadiseExport] Failed to save prefab '{prefabPath}': {saveResult}");
+                    GD.PushWarning($"[Paradise.Export] Failed to save prefab '{prefabPath}': {saveResult}");
                     return false;
                 }
 
-                GD.Print($"[ParadiseExport] Generated prefab: {prefabPath}");
+                GD.Print($"[Paradise.Export] Generated prefab: {prefabPath}");
                 return true;
             }
             finally

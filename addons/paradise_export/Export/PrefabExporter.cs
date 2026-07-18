@@ -2,9 +2,9 @@
 using System;
 using System.Collections.Generic;
 using Godot;
-using ParadiseExport.Data;
-using ParadiseExport.Paths;
-using ParadiseExport.Serialization;
+using Paradise.Export.Data;
+using Paradise.Export.Paths;
+using Paradise.Export.Serialization;
 using ParadiseGodot.Authoring;
 using SN = System.Numerics;
 
@@ -68,7 +68,7 @@ namespace ParadiseGodot.Export
             PackedScene? packed = ResourceLoader.Load<PackedScene>(prefabAssetPath);
             if (packed is null || packed.Instantiate() is not Node root)
             {
-                GD.PushWarning($"[ParadiseExport] Could not load prefab '{prefabAssetPath}' for template export.");
+                GD.PushWarning($"[Paradise.Export] Could not load prefab '{prefabAssetPath}' for template export.");
                 return;
             }
 
@@ -87,7 +87,7 @@ namespace ParadiseGodot.Export
 
                 string field = ExportPaths.PrefabFileField(prefabAssetPath);
                 ExportJsonWriter.WriteJsonDocument(_paths.GetPrefabDataOutputPath(field), template);
-                GD.Print($"[ParadiseExport] Exported prefab template: {field}");
+                GD.Print($"[Paradise.Export] Exported prefab template: {field}");
             }
             finally
             {

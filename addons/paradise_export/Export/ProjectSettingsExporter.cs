@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
-using ParadiseExport.Data;
-using ParadiseExport.Paths;
-using ParadiseExport.Serialization;
+using Paradise.Export.Data;
+using Paradise.Export.Paths;
+using Paradise.Export.Serialization;
 
 namespace ParadiseGodot.Export
 {
@@ -45,7 +45,7 @@ namespace ParadiseGodot.Export
 
             string outputPath = paths.GetProjectSettingsOutputPath();
             ExportJsonWriter.WriteJsonDocument(outputPath, settings);
-            GD.Print($"[ParadiseExport] Exported project settings: {outputPath}");
+            GD.Print($"[Paradise.Export] Exported project settings: {outputPath}");
         }
 
         // 32 layers, each colliding with every layer (-1 = all bits set).

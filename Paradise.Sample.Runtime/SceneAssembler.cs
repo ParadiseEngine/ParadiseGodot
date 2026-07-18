@@ -4,8 +4,8 @@ using Paradise.ECS;
 using Paradise.Physics;
 using Paradise.Rendering;
 using Paradise.Rendering.Pbr;
-using ParadiseExport.Data;
-using ParadiseExport.Geometry;
+using Paradise.Export.Data;
+using Paradise.Export.Geometry;
 using Paradise.Sample.Game;
 using Paradise.Sample.Game.Physics;
 

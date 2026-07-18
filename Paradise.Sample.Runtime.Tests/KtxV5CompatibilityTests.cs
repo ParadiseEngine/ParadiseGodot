@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using Paradise.Assets.Textures;
-using ParadiseExport.Pipeline;
+using Paradise.Export.Pipeline;
 
 namespace Paradise.Sample.Runtime.Tests;
 
@@ -9,7 +9,7 @@ namespace Paradise.Sample.Runtime.Tests;
 /// with the vendored v5 CLI, then transcode the produced KTX2 back to RGBA32.</summary>
 public class KtxV5CompatibilityTests
 {
-    // 8x8 transparent RGBA PNG (same fixture as ParadiseExport.Tests.PipelineTests).
+    // 8x8 transparent RGBA PNG (same fixture as Paradise.Export.Tests.PipelineTests).
     private const string TinyPngBase64 =
         "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAADUlEQVR4nGNgGAUgAAABCAABgukLHQAAAABJRU5ErkJggg==";
 

@@ -2,14 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Numerics;
-using ParadiseExport.NavMesh;
+using Paradise.Export.NavMesh;
 using Paradise.Sample.Game.Navigation;
 using Paradise.Sample.Game.Navigation.Detour;
 
 namespace Paradise.Sample.Game.Tests;
 
 // Proves the engine-independent nav path: a navmesh written to a DotRecast MeshSet .bin (the same
-// format ParadiseExport emits to data/scenes/<Scene>.navmesh.bin) can be loaded back and
+// format Paradise.Export emits to data/scenes/<Scene>.navmesh.bin) can be loaded back and
 // queried with no Godot involved. This is how BOTH Godot and the engine runtime consume the navmesh.
 public class DetourNavMeshLoaderTests
 {

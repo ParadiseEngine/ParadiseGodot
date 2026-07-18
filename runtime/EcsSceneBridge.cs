@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Godot;
 using Paradise.ECS;
 using Paradise.Physics;
-using ParadiseExport.Geometry;
+using Paradise.Export.Geometry;
 using Paradise.Sample.Game;
 using Paradise.Sample.Game.Physics;
 using Paradise.Sample.Game.Navigation.Detour;

@@ -1,12 +1,12 @@
 #if TOOLS
 using Godot;
-using ParadiseExport;
+using Paradise.Export;
 
 namespace ParadiseGodot
 {
     /// <summary>
     /// Phase 0 editor plugin scaffold. Registers a Project &gt; Tools menu item and confirms the
-    /// engine-neutral <c>ParadiseExport</c> library is wired in. Export logic arrives in
+    /// engine-neutral <c>Paradise.Export</c> library is wired in. Export logic arrives in
     /// later phases — see MIGRATION.md.
     /// </summary>
     [Tool]
@@ -48,7 +48,7 @@ namespace ParadiseGodot
             AddControlToContainer(CustomControlContainer.Toolbar, _playDotnetButton);
             // Automation: re-export scene data whenever the edited scene is saved.
             SceneSaved += OnSceneSaved;
-            GD.Print($"[ParadiseExport] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
+            GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
 
             // Headless/CI hook: run one or more migration tasks then quit. Any combination of:
             //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
@@ -98,17 +98,17 @@ namespace ParadiseGodot
                 Node? root = EditorInterface.Singleton.GetEditedSceneRoot();
                 if (root is null)
                 {
-                    GD.PushWarning("[ParadiseExport] No edited scene to play.");
+                    GD.PushWarning("[Paradise.Export] No edited scene to play.");
                     return;
                 }
 
                 string sceneName = Export.SceneDataExporter.ResolveSceneName(root);
-                string sceneJson = new ParadiseExport.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data"))
+                string sceneJson = new Paradise.Export.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data"))
                     .GetLevelDataOutputPath(sceneName);
                 if (!System.IO.File.Exists(sceneJson))
                 {
                     GD.PushError(
-                        $"[ParadiseExport] '{sceneJson}' does not exist — save the scene (auto-export) " +
+                        $"[Paradise.Export] '{sceneJson}' does not exist — save the scene (auto-export) " +
                         "or run Project > Tools > Paradise/Export Active Scene first.");
                     return;
                 }
@@ -142,15 +142,15 @@ namespace ParadiseGodot
 
                 if (pid <= 0)
                 {
-                    GD.PushError($"[ParadiseExport] Failed to launch '{dotnet}' — is the .NET SDK installed?");
+                    GD.PushError($"[Paradise.Export] Failed to launch '{dotnet}' — is the .NET SDK installed?");
                     return;
                 }
 
-                GD.Print($"[ParadiseExport] Launched .NET runtime (pid {pid}): {sceneJson} — output: {logPath}");
+                GD.Print($"[Paradise.Export] Launched .NET runtime (pid {pid}): {sceneJson} — output: {logPath}");
             }
             catch (System.Exception ex)
             {
-                GD.PushError($"[ParadiseExport] Play .NET failed: {ex.Message}");
+                GD.PushError($"[Paradise.Export] Play .NET failed: {ex.Message}");
             }
         }
 
@@ -191,7 +191,7 @@ namespace ParadiseGodot
             }
             catch (System.Exception ex)
             {
-                GD.PushError($"[ParadiseExport] Auto re-export on save failed: {ex.Message}");
+                GD.PushError($"[Paradise.Export] Auto re-export on save failed: {ex.Message}");
             }
         }
 
@@ -240,7 +240,7 @@ namespace ParadiseGodot
             }
             catch (System.Exception ex)
             {
-                GD.PushError($"[ParadiseExport] Headless task failed: {ex}");
+                GD.PushError($"[Paradise.Export] Headless task failed: {ex}");
                 exitCode = 1;
             }
 
@@ -257,7 +257,7 @@ namespace ParadiseGodot
             try
             {
                 string? output = Export.SceneDataExporter.ExportRoot(root);
-                GD.Print($"[ParadiseExport] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
+                GD.Print($"[Paradise.Export] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
                 return output is not null;
             }
             finally

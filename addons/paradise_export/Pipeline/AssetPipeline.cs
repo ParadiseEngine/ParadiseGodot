@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using ParadiseExport.Pipeline;
+using Paradise.Export.Pipeline;
 
 namespace ParadiseGodot.Pipeline
 {
@@ -28,7 +28,7 @@ namespace ParadiseGodot.Pipeline
                 string glbFull = ProjectSettings.GlobalizePath(GlbPathFor(fbxRes));
 
                 BlenderFbxGlb.Result blender = BlenderFbxGlb.Convert(
-                    fbxFull, glbFull, force: false, msg => GD.Print($"[ParadiseExport] {msg}"), msg => GD.PushError($"[ParadiseExport] {msg}"));
+                    fbxFull, glbFull, force: false, msg => GD.Print($"[Paradise.Export] {msg}"), msg => GD.PushError($"[Paradise.Export] {msg}"));
 
                 if (blender is not (BlenderFbxGlb.Result.Converted or BlenderFbxGlb.Result.UpToDate))
                 {
@@ -40,8 +40,8 @@ namespace ParadiseGodot.Pipeline
                     glbFull,
                     repoRoot,
                     Path.GetDirectoryName(glbFull),
-                    msg => GD.Print($"[ParadiseExport] {msg}"),
-                    msg => GD.PushError($"[ParadiseExport] {msg}"));
+                    msg => GD.Print($"[Paradise.Export] {msg}"),
+                    msg => GD.PushError($"[Paradise.Export] {msg}"));
 
                 if (ktx2 == KtxCreate.ConversionResult.ConvertedAllTextures)
                 {
@@ -49,7 +49,7 @@ namespace ParadiseGodot.Pipeline
                 }
             }
 
-            GD.Print($"[ParadiseExport] Model pipeline complete: {fbxCount} FBX, {glbCount} GLB, {ktx2Count} KTX2-converted.");
+            GD.Print($"[Paradise.Export] Model pipeline complete: {fbxCount} FBX, {glbCount} GLB, {ktx2Count} KTX2-converted.");
             // Surface the freshly written .glb/.ktx2 files in the editor's FileSystem dock.
             EditorInterface.Singleton.GetResourceFilesystem().Scan();
         }

@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using ParadiseExport.Pipeline;
+using Paradise.Export.Pipeline;
 
 namespace ParadiseGodot.Pipeline
 {
@@ -43,7 +43,7 @@ namespace ParadiseGodot.Pipeline
 
             converted += ConvertSpriteSheets();
 
-            GD.Print($"[ParadiseExport] data/ GLB KTX2 pass: {converted} converted.");
+            GD.Print($"[Paradise.Export] data/ GLB KTX2 pass: {converted} converted.");
             return converted;
         }
 
@@ -64,8 +64,8 @@ namespace ParadiseGodot.Pipeline
                     full,
                     Path.ChangeExtension(full, ".ktx2"),
                     repoRoot: ProjectSettings.GlobalizePath("res://"),
-                    log: msg => GD.Print($"[ParadiseExport] {msg}"),
-                    error: msg => GD.PushError($"[ParadiseExport] {msg}"));
+                    log: msg => GD.Print($"[Paradise.Export] {msg}"),
+                    error: msg => GD.PushError($"[Paradise.Export] {msg}"));
                 switch (result)
                 {
                     case KtxCreate.ConversionResult.ConvertedAllTextures:
@@ -73,7 +73,7 @@ namespace ParadiseGodot.Pipeline
                         break;
                     case KtxCreate.ConversionResult.ToolMissing:
                         GD.PushWarning(
-                            $"[ParadiseExport] ktx (KTX-Software v5) not found — '{resPath}' has no KTX2 sidecar. " +
+                            $"[Paradise.Export] ktx (KTX-Software v5) not found — '{resPath}' has no KTX2 sidecar. " +
                             "The Godot editor renders the source image, but the .NET runtime needs the sidecar; set " +
                             "PARADISE_KTX_PATH or install KTX-Software, then re-run Paradise/Convert data GLBs → KTX2.");
                         return converted; // one warning is enough — the tool is missing for all of them
@@ -126,8 +126,8 @@ namespace ParadiseGodot.Pipeline
             KtxCreate.ConversionResult result = KtxCreate.ExternalizeTextures(
                 full,
                 repoRoot: ProjectSettings.GlobalizePath("res://"),
-                log: msg => GD.Print($"[ParadiseExport] {msg}"),
-                error: msg => GD.PushError($"[ParadiseExport] {msg}"));
+                log: msg => GD.Print($"[Paradise.Export] {msg}"),
+                error: msg => GD.PushError($"[Paradise.Export] {msg}"));
 
             switch (result)
             {
@@ -138,12 +138,12 @@ namespace ParadiseGodot.Pipeline
                     return true; // already KTX2 / untextured — nothing to do (idempotent)
                 case KtxCreate.ConversionResult.ToolMissing:
                     GD.PushWarning(
-                        $"[ParadiseExport] ktx (KTX-Software v5) not found — '{resPath}' keeps its PNG/JPEG " +
+                        $"[Paradise.Export] ktx (KTX-Software v5) not found — '{resPath}' keeps its PNG/JPEG " +
                         "textures. It renders in the editor, but the .NET runtime needs KTX2; set " +
                         "PARADISE_KTX_PATH or install KTX-Software, then re-run Paradise/Convert data GLBs → KTX2.");
                     return false;
                 default:
-                    GD.PushError($"[ParadiseExport] KTX2 conversion failed for '{resPath}'.");
+                    GD.PushError($"[Paradise.Export] KTX2 conversion failed for '{resPath}'.");
                     return false;
             }
         }

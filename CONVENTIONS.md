@@ -1,7 +1,7 @@
 # Export Contract Conventions (pinned)
 
 These are the conventions the Godot export tools **must** reproduce, enforced by
-`ParadiseExport.Tests`.
+`Paradise.Export.Tests`.
 
 ## Handedness — the contract is right-handed (Godot / glTF standard)
 
@@ -324,7 +324,7 @@ proves it needs the flags, in which case a `.tscn` parser would be required.
 ## Asset pipeline (Phase 6)
 
 Both external CLIs are kept (per the migration decision); their orchestration ports near-verbatim
-to engine-neutral Core (`ParadiseExport.Pipeline`), with only the trigger changing from Unity's
+to engine-neutral Core (`Paradise.Export.Pipeline`), with only the trigger changing from Unity's
 `AssetPostprocessor` to a Godot menu (`Paradise/Convert Models (FBX→GLB→KTX2)`).
 
 - **`BlenderFbxGlb`** — headless Blender (`--background --factory-startup`, embedded Python,

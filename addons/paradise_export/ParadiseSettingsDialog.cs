@@ -1,8 +1,8 @@
 #if TOOLS
 using System.IO;
 using Godot;
-using ParadiseExport.Data;
-using ParadiseExport.Pipeline;
+using Paradise.Export.Data;
+using Paradise.Export.Pipeline;
 
 namespace ParadiseGodot
 {
@@ -270,7 +270,7 @@ namespace ParadiseGodot
             WriteProjectFloat(Export.ProjectSettingsExporter.MinAngularSpeedSetting, _minAngularSpeedEdit.Text, defaults.MinAngularSpeed);
             ProjectSettings.Save();
             Export.ProjectSettingsExporter.Export(
-                new ParadiseExport.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data")));
+                new Paradise.Export.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data")));
         }
 
         private static string ReadProjectFloat(string name, float fallback)

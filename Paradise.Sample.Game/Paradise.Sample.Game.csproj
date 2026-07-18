@@ -19,8 +19,8 @@
 
   <ItemGroup>
     <!-- Published engine packages; Paradise.ECS ships its source generator as an analyzer. -->
-    <PackageReference Include="Paradise.ECS" Version="0.2.0" />
-    <PackageReference Include="Paradise.Physics" Version="0.2.0" />
+    <PackageReference Include="Paradise.ECS" Version="0.3.0" />
+    <PackageReference Include="Paradise.Physics" Version="0.3.0" />
   </ItemGroup>
 
   <ItemGroup>
