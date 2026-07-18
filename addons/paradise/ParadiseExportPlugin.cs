@@ -172,12 +172,13 @@ namespace ParadiseGodot
         private static string ShellQuote(string value) => $"'{value.Replace("'", "'\\''")}'";
 
         /// <summary>Resolve the runtime host as an argv prefix (element 0 = executable). Order:
-        /// the Paradise/Settings… "runtime host" path (a .csproj means `dotnet run --project`),
+        /// the Paradise/Settings… "runtime host" path (a .csproj means `dotnet run --project`;
+        /// machine-level EditorSettings override first, then the committed project setting),
         /// then this project's own Paradise.Sample.Runtime (the dev-workbench case), then the
         /// globally installed `paradise-runtime` dotnet tool. Null when nothing is found.</summary>
         internal static string[]? ResolveRuntimeHostCommand()
         {
-            string configured = ParadiseSettingsDialog.RuntimeHostPath();
+            string configured = ResolveHostPath(ParadiseSettingsDialog.RuntimeHostPath());
             if (configured.Length > 0)
             {
                 return configured.EndsWith(".csproj", System.StringComparison.OrdinalIgnoreCase)
@@ -197,6 +198,25 @@ namespace ParadiseGodot
                 System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
                 ".dotnet", "tools", toolName);
             return System.IO.File.Exists(toolPath) ? [toolPath] : null;
+        }
+
+        /// <summary>Normalize a configured host path to an absolute one. `res://` and plain
+        /// relative paths resolve against the project root — the committed project setting must
+        /// stay device-portable, and the launched process's CWD is not guaranteed to be the
+        /// project directory. Empty stays empty.</summary>
+        internal static string ResolveHostPath(string configured)
+        {
+            if (configured.Length == 0)
+            {
+                return configured;
+            }
+            if (configured.StartsWith("res://", System.StringComparison.Ordinal))
+            {
+                return ProjectSettings.GlobalizePath(configured);
+            }
+            return System.IO.Path.IsPathRooted(configured)
+                ? configured
+                : System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), configured));
         }
 
         private static string ResolveDotnetPath()

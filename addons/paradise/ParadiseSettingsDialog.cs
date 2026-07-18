@@ -63,10 +63,6 @@ namespace ParadiseGodot
                 "KTX-Software v5 `ktx` CLI (`ktx create` KTX2 encoder). Used by scene export for GLB-embedded textures.");
             (_blenderEdit, _blenderStatus) = AddToolRow(layout, "Blender",
                 "FBX → GLB conversion (Paradise/Convert Models).");
-            (_runtimeHostEdit, _runtimeHostStatus) = AddToolRow(layout, "runtime host",
-                "The standalone .NET runtime the \"Play .NET\" button launches. A .csproj path runs " +
-                "`dotnet run --project`; anything else runs directly. Empty = auto: this project's " +
-                "Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.");
             _playArgsEdit = AddTextRow(layout, "Play .NET args",
                 "Extra runtime-host CLI arguments appended by the toolbar \"Play .NET\" button " +
                 "(after --scene), e.g. --imgui --audio banks --fov 60. Double quotes group an " +
@@ -79,6 +75,13 @@ namespace ParadiseGodot
             _dataDirEdit = AddTextRow(layout, "Data directory",
                 $"res:// directory the engine-neutral contract is exported to (default {ParadisePaths.DefaultDataDir}). " +
                 "The asset pipeline (KTX2 hooks, primitives) and the runtime host read the same tree.");
+            (_runtimeHostEdit, _runtimeHostStatus) = AddToolRow(layout, "runtime host",
+                "The standalone .NET runtime the \"Play .NET\" button launches. A .csproj path runs " +
+                "`dotnet run --project`; anything else runs directly. res:// and relative paths " +
+                "resolve against the project root, so a host that lives in this repo stays portable " +
+                "across devices (committed to project.godot). Empty = auto: this project's " +
+                "Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool. A " +
+                "machine-level EditorSettings 'paradise/play/runtime_host' overrides this if set.");
 
             layout.AddChild(new Label
             {
@@ -131,9 +134,20 @@ namespace ParadiseGodot
             return settings.HasSetting(name) ? settings.GetSetting(name).AsString().Trim() : "";
         }
 
-        /// <summary>The configured runtime-host path ("" = auto-resolve). Machine-level
-        /// (EditorSettings) — host install locations differ per machine.</summary>
-        public static string RuntimeHostPath() => ReadSetting(RuntimeHostSetting);
+        /// <summary>The configured runtime-host path ("" = auto-resolve). The machine-level
+        /// EditorSettings value (personal override) wins over the committed project setting
+        /// (the portable default for projects that ship their own host).</summary>
+        public static string RuntimeHostPath()
+        {
+            string machine = ReadSetting(RuntimeHostSetting);
+            if (machine.Length > 0)
+            {
+                return machine;
+            }
+            return ProjectSettings.HasSetting(RuntimeHostSetting)
+                ? ProjectSettings.GetSetting(RuntimeHostSetting).AsString().Trim()
+                : "";
+        }
 
         /// <summary>The "Play .NET" extra arguments, tokenized for a process argv.
         /// <see cref="DefaultPlayDotnetArgs"/> until the user first saves the setting.</summary>
@@ -246,7 +260,9 @@ namespace ParadiseGodot
         {
             _ktxEdit.Text = ReadSetting(KtxSetting);
             _blenderEdit.Text = ReadSetting(BlenderSetting);
-            _runtimeHostEdit.Text = ReadSetting(RuntimeHostSetting);
+            _runtimeHostEdit.Text = ProjectSettings.HasSetting(RuntimeHostSetting)
+                ? ProjectSettings.GetSetting(RuntimeHostSetting).AsString()
+                : "";
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             _playArgsEdit.Text = settings.HasSetting(PlayDotnetArgsSetting)
                 ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
@@ -270,8 +286,8 @@ namespace ParadiseGodot
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             settings.SetSetting(KtxSetting, _ktxEdit.Text.Trim());
             settings.SetSetting(BlenderSetting, _blenderEdit.Text.Trim());
-            settings.SetSetting(RuntimeHostSetting, _runtimeHostEdit.Text.Trim());
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
+            ProjectSettings.SetSetting(RuntimeHostSetting, _runtimeHostEdit.Text.Trim());
             ApplySavedSettings();
             SaveDataDirectory();
             SaveProjectPhysics();
@@ -334,8 +350,28 @@ namespace ParadiseGodot
         {
             Describe(_ktxEdit, _ktxStatus, "ktx", () => KtxCreate.FindKtx());
             Describe(_blenderEdit, _blenderStatus, "Blender", BlenderFbxGlb.FindBlender);
-            Describe(_runtimeHostEdit, _runtimeHostStatus, "runtime host",
-                () => ParadiseExportPlugin.ResolveRuntimeHostCommand() is { } host ? string.Join(' ', host) : null);
+            DescribeRuntimeHost();
+        }
+
+        private void DescribeRuntimeHost()
+        {
+            string text = _runtimeHostEdit.Text.Trim();
+            bool ok;
+            if (text.Length == 0)
+            {
+                string[]? host = ParadiseExportPlugin.ResolveRuntimeHostCommand();
+                ok = host is not null;
+                _runtimeHostStatus.Text = ok
+                    ? $"Auto-detected: {string.Join(' ', host!)}"
+                    : "No runtime host found — set a path here, or install the paradise-runtime dotnet tool.";
+            }
+            else
+            {
+                string resolved = ParadiseExportPlugin.ResolveHostPath(text);
+                ok = File.Exists(resolved);
+                _runtimeHostStatus.Text = ok ? $"OK: {resolved}" : $"File does not exist: {resolved}";
+            }
+            _runtimeHostStatus.Modulate = ok ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.4f);
         }
 
         private static void Describe(LineEdit edit, Label status, string toolName, System.Func<string?> autoDetect)
