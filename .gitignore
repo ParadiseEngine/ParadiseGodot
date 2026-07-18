@@ -32,3 +32,6 @@ imgui.ini
 
 # Claude Code worktrees (local-only)
 /.claude/worktrees/
+
+# macOS
+.DS_Store

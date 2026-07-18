@@ -17,6 +17,8 @@ namespace ParadiseGodot
         private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
         private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
         private const string ConvertDataGlbsMenuItem = "Paradise/Convert data GLBs → KTX2";
+        private const string ValidateMenuItem = "Paradise/Validate Export";
+        private const string ProjectSetupMenuItem = "Paradise/Project Setup";
         private const string SettingsMenuItem = "Paradise/Settings…";
 
         private Button? _playDotnetButton;
@@ -34,6 +36,8 @@ namespace ParadiseGodot
             AddToolMenuItem(GeneratePrimitivesMenuItem, Callable.From(OnGeneratePrimitives));
             AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
             AddToolMenuItem(ConvertDataGlbsMenuItem, Callable.From(OnConvertDataGlbs));
+            AddToolMenuItem(ValidateMenuItem, Callable.From(ExportValidator.ValidateActiveScene));
+            AddToolMenuItem(ProjectSetupMenuItem, Callable.From(ProjectSetup.Run));
             AddToolMenuItem(SettingsMenuItem, Callable.From(OnOpenSettings));
             // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
             // dropped into data/ is runtime-ready with no manual step.
@@ -41,7 +45,7 @@ namespace ParadiseGodot
             _playDotnetButton = new Button
             {
                 Text = "Play .NET",
-                TooltipText = "Launch the active scene's exported data in the standalone .NET runtime (Paradise.Sample.Runtime: SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it.",
+                TooltipText = "Launch the active scene's exported data in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
                 Flat = true,
             };
             _playDotnetButton.Pressed += OnPlayDotnet;
@@ -49,6 +53,7 @@ namespace ParadiseGodot
             // Automation: re-export scene data whenever the edited scene is saved.
             SceneSaved += OnSceneSaved;
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
+            ProjectSetup.CheckExportVersion();
 
             // Headless/CI hook: run one or more migration tasks then quit. Any combination of:
             //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
@@ -70,6 +75,8 @@ namespace ParadiseGodot
             RemoveToolMenuItem(GeneratePrimitivesMenuItem);
             RemoveToolMenuItem(ConvertModelsMenuItem);
             RemoveToolMenuItem(ConvertDataGlbsMenuItem);
+            RemoveToolMenuItem(ValidateMenuItem);
+            RemoveToolMenuItem(ProjectSetupMenuItem);
             RemoveToolMenuItem(SettingsMenuItem);
             SceneSaved -= OnSceneSaved;
             EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported -= _dataGlbHook.OnResourcesReimported;
@@ -103,8 +110,7 @@ namespace ParadiseGodot
                 }
 
                 string sceneName = Export.SceneDataExporter.ResolveSceneName(root);
-                string sceneJson = new Paradise.Export.Paths.ExportPaths(ProjectSettings.GlobalizePath("res://data"))
-                    .GetLevelDataOutputPath(sceneName);
+                string sceneJson = ParadisePaths.ExportPaths().GetLevelDataOutputPath(sceneName);
                 if (!System.IO.File.Exists(sceneJson))
                 {
                     GD.PushError(
@@ -113,17 +119,25 @@ namespace ParadiseGodot
                     return;
                 }
 
-                string runtimeProject = System.IO.Path.Combine(
-                    ProjectSettings.GlobalizePath("res://"), "Paradise.Sample.Runtime");
-                string dotnet = ResolveDotnetPath();
+                string[]? host = ResolveRuntimeHostCommand();
+                if (host is null)
+                {
+                    GD.PushError(
+                        "[Paradise.Export] No runtime host found. Set one in Paradise/Settings… " +
+                        "(a paradise-runtime executable or a host .csproj), or install the tool: " +
+                        "`dotnet tool install --global paradise-runtime`.");
+                    return;
+                }
+
                 string logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "paradise_play_dotnet.log");
                 // User-configured runtime arguments (Paradise/Settings…, default --imgui).
                 string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
+                string[] argv = [.. host[1..], "--scene", sceneJson, .. extraArgs];
 
                 long pid;
                 if (System.OperatingSystem.IsWindows())
                 {
-                    pid = OS.CreateProcess(dotnet, ["run", "--project", runtimeProject, "--", "--scene", sceneJson, .. extraArgs]);
+                    pid = OS.CreateProcess(host[0], argv);
                 }
                 else
                 {
@@ -131,18 +145,17 @@ namespace ParadiseGodot
                     // child's output (build errors would vanish — log them to a file instead),
                     // and the editor's PATH lacks the dotnet directory, which build targets
                     // invoking `dotnet` (child processes) need.
-                    string dotnetDir = System.IO.Path.GetDirectoryName(dotnet) ?? "/usr/local/share/dotnet";
-                    string extra = string.Concat(
-                        System.Linq.Enumerable.Select(extraArgs, a => $" {ShellQuote(a)}"));
+                    string dotnetDir = System.IO.Path.GetDirectoryName(ResolveDotnetPath()) ?? "/usr/local/share/dotnet";
+                    string args = string.Concat(System.Linq.Enumerable.Select(argv, a => $" {ShellQuote(a)}"));
                     string command =
                         $"export PATH=\"{dotnetDir}:$PATH\"; " +
-                        $"exec \"{dotnet}\" run --project \"{runtimeProject}\" -- --scene \"{sceneJson}\"{extra} > \"{logPath}\" 2>&1";
+                        $"exec {ShellQuote(host[0])}{args} > \"{logPath}\" 2>&1";
                     pid = OS.CreateProcess("/bin/sh", ["-c", command]);
                 }
 
                 if (pid <= 0)
                 {
-                    GD.PushError($"[Paradise.Export] Failed to launch '{dotnet}' — is the .NET SDK installed?");
+                    GD.PushError($"[Paradise.Export] Failed to launch '{host[0]}' — is the .NET SDK installed?");
                     return;
                 }
 
@@ -157,6 +170,34 @@ namespace ParadiseGodot
         // POSIX single-quote wrapping: every token becomes one word verbatim, whatever it
         // contains ('...' with embedded quotes spliced as '\'' ).
         private static string ShellQuote(string value) => $"'{value.Replace("'", "'\\''")}'";
+
+        /// <summary>Resolve the runtime host as an argv prefix (element 0 = executable). Order:
+        /// the Paradise/Settings… "runtime host" path (a .csproj means `dotnet run --project`),
+        /// then this project's own Paradise.Sample.Runtime (the dev-workbench case), then the
+        /// globally installed `paradise-runtime` dotnet tool. Null when nothing is found.</summary>
+        internal static string[]? ResolveRuntimeHostCommand()
+        {
+            string configured = ParadiseSettingsDialog.RuntimeHostPath();
+            if (configured.Length > 0)
+            {
+                return configured.EndsWith(".csproj", System.StringComparison.OrdinalIgnoreCase)
+                    ? [ResolveDotnetPath(), "run", "--project", configured, "--"]
+                    : [configured];
+            }
+
+            string sampleProject = System.IO.Path.Combine(
+                ProjectSettings.GlobalizePath("res://"), "Paradise.Sample.Runtime", "Paradise.Sample.Runtime.csproj");
+            if (System.IO.File.Exists(sampleProject))
+            {
+                return [ResolveDotnetPath(), "run", "--project", sampleProject, "--"];
+            }
+
+            string toolName = System.OperatingSystem.IsWindows() ? "paradise-runtime.exe" : "paradise-runtime";
+            string toolPath = System.IO.Path.Combine(
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+                ".dotnet", "tools", toolName);
+            return System.IO.File.Exists(toolPath) ? [toolPath] : null;
+        }
 
         private static string ResolveDotnetPath()
         {
@@ -207,12 +248,26 @@ namespace ParadiseGodot
 
         private void OnConvertModels()
         {
+            WarnIfKtxMissing("model conversion");
             Pipeline.AssetPipeline.ConvertAllModels();
         }
 
         private void OnConvertDataGlbs()
         {
+            WarnIfKtxMissing("data GLB conversion");
             Pipeline.DataGlbConverter.ConvertAll();
+        }
+
+        // Pre-flight: batch conversions run per-file and would otherwise emit one error per GLB;
+        // a single up-front warning with the fix beats a wall of failures.
+        private static void WarnIfKtxMissing(string operation)
+        {
+            if (Paradise.Export.Pipeline.KtxCreate.FindKtx() is null)
+            {
+                GD.PushWarning(
+                    $"[Paradise.Export] ktx CLI not found — {operation} will skip KTX2 encoding. " +
+                    "Install KTX-Software and set the path in Paradise/Settings….");
+            }
         }
 
         // Headless orchestrator: run whichever migration tasks the env selects, in a fixed order

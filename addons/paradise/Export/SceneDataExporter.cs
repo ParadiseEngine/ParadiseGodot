@@ -43,7 +43,7 @@ namespace ParadiseGodot.Export
         public static string? ExportRoot(Node root)
         {
             string sceneName = ResolveSceneName(root);
-            var paths = new ExportPaths(ProjectSettings.GlobalizePath("res://data"));
+            var paths = ParadisePaths.ExportPaths();
             var document = new LevelData();
             var materials = new MaterialExporter();
             var prefabs = new PrefabExporter(materials, paths);
@@ -532,8 +532,8 @@ namespace ParadiseGodot.Export
             if (field is null)
             {
                 GD.PushWarning(
-                    $"[Paradise.Export] Entity '{entity.Name}' references model '{source}' outside res://data/ — " +
-                    "the runtime resolves meshes under data/, so it will not render. Move the asset under data/.");
+                    $"[Paradise.Export] Entity '{entity.Name}' references model '{source}' outside {ParadisePaths.DataDirPrefix} — " +
+                    "the runtime resolves meshes under the data directory, so it will not render. Move the asset there.");
             }
 
             return field;
@@ -681,7 +681,7 @@ namespace ParadiseGodot.Export
             {
                 GD.PushWarning(
                     $"[Paradise.Export] Entity '{entity.Name}' uses a sub-resource spritesheet ('{texturePath}') — " +
-                    "the runtime needs a standalone image under res://data/sprites/. The sheet is not exported.");
+                    $"the runtime needs a standalone image under {ParadisePaths.SpritesDir}/. The sheet is not exported.");
                 return null;
             }
 
@@ -690,8 +690,8 @@ namespace ParadiseGodot.Export
             {
                 GD.PushWarning(
                     $"[Paradise.Export] Entity '{entity.Name}' references spritesheet '{texturePath}' outside " +
-                    "res://data/sprites/ — the KTX2 sidecar pass only covers that directory, so the .NET runtime " +
-                    "could never load it. Move the image under data/sprites/. The sheet is not exported.");
+                    $"{ParadisePaths.SpritesDir}/ — the KTX2 sidecar pass only covers that directory, so the .NET runtime " +
+                    "could never load it. Move the image under the sprites directory. The sheet is not exported.");
                 return null;
             }
 

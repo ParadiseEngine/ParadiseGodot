@@ -19,7 +19,7 @@ namespace ParadiseGodot.Pipeline
     /// </summary>
     internal static class DataGlbConverter
     {
-        private const string DataDir = "res://data";
+        private static string DataDir => ParadisePaths.DataDir;
 
         /// <summary>Convert every <c>.glb</c>/<c>.gltf</c> under <c>res://data/</c>. Returns the
         /// number of GLBs that were rewritten to KTX2.</summary>
@@ -47,7 +47,7 @@ namespace ParadiseGodot.Pipeline
             return converted;
         }
 
-        private const string SpritesDir = "res://data/sprites";
+        private static string SpritesDir => ParadisePaths.SpritesDir;
 
         /// <summary>Encode a KTX2 sidecar next to every spritesheet image under
         /// <c>res://data/sprites/</c> (the sheet convention the SpriteAnimation/ParticleEmitter

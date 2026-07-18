@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  DOTNET_NOLOGO: true
+  GODOT_VERSION: 4.7-stable
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore ParadiseGodot.slnx
+
+      - name: Build
+        run: dotnet build ParadiseGodot.slnx --no-restore
+
+      - name: Test
+        run: |
+          for project in Paradise.Sample.Game.Tests Paradise.Sample.Ui.Tests Paradise.Sample.Runtime.Tests; do
+            dotnet test --project "$project/$project.csproj" --no-build --output normal
+          done
+
+  addon-package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Addon dependency allowlist
+        run: bash scripts/check_addon_deps.sh
+
+      - name: Package addon zip
+        run: bash scripts/package_addon.sh paradise-addon.zip
+
+      - name: Upload addon artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: paradise-addon
+          path: paradise-addon.zip
+
+  # The gate that protects addon users: import the project with a real headless Godot
+  # editor, run the scene export through the plugin, and require (a) the export to succeed
+  # and (b) the runtime contract tests to pass against the freshly exported data/.
+  export-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache Godot
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/godot
+          key: godot-${{ env.GODOT_VERSION }}-mono-linux-x86_64
+
+      - name: Download Godot (.NET build)
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/godot
+          curl -sSL -o ~/godot/godot.zip \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_mono_linux_x86_64.zip"
+          unzip -q ~/godot/godot.zip -d ~/godot
+
+      - name: Resolve Godot binary
+        run: echo "GODOT_BIN=$(find ~/godot -name 'Godot_v*_mono_linux.x86_64' -type f | head -1)" >> "$GITHUB_ENV"
+
+      - name: Build C# assemblies
+        run: dotnet build ParadiseGodot.csproj
+
+      - name: Import project
+        run: $GODOT_BIN --headless --import --path . || true  # first import surfaces non-fatal warnings
+
+      - name: Headless scene export
+        run: PARADISE_EXPORT_SCENE=res://scenes/sample.tscn $GODOT_BIN --headless --editor --path .
+
+      - name: Show export drift (informational)
+        run: git diff --stat -- data/ || true
+
+      - name: Contract tests against fresh export
+        run: |
+          dotnet build Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj
+          dotnet test --project Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj --no-build --output normal

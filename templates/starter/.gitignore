@@ -1,0 +1,15 @@
+# Godot
+.godot/
+*.import
+*.uid
+
+# .NET
+.mono/
+bin/
+obj/
+
+# Exported engine-neutral data (build output; regenerated on scene save)
+/data/
+
+# OS
+.DS_Store

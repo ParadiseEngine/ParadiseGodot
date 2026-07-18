@@ -18,7 +18,7 @@ namespace ParadiseGodot.Pipeline
     /// </summary>
     internal static class PrimitiveGlbGenerator
     {
-        private const string OutputDir = "res://data/primitives";
+        private static string OutputDir => ParadisePaths.PrimitivesDir;
 
         public static void GenerateAll()
         {
@@ -34,7 +34,7 @@ namespace ParadiseGodot.Pipeline
             // NOT rasterize without a GPU); each ball tints it via its own material-slot override.
             Generate("sphere_ball", new SphereMesh { Radius = 0.5f, Height = 1.0f, Material = BuildBallGradientMaterial() });
             EditorInterface.Singleton.GetResourceFilesystem().Scan();
-            GD.Print("[Paradise.Export] Generated primitive GLBs in res://data/primitives/.");
+            GD.Print($"[Paradise.Export] Generated primitive GLBs in {OutputDir}/.");
         }
 
         // The ball gradient: 8 alternating white/dark vertical bands (constant interpolation),

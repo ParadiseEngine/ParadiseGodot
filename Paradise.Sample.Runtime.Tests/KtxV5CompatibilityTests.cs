@@ -13,6 +13,28 @@ public class KtxV5CompatibilityTests
     private const string TinyPngBase64 =
         "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAADUlEQVR4nGNgGAUgAAABCAABgukLHQAAAABJRU5ErkJggg==";
 
+    private static bool KtxToolRuns(string ktxPath)
+    {
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(ktxPath, "--version")
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            });
+            if (process is null)
+            {
+                return false;
+            }
+            process.WaitForExit(10_000);
+            return process.HasExited && process.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private static string? FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
@@ -27,9 +49,13 @@ public class KtxV5CompatibilityTests
     public async Task v5_encoded_ktx2_transcodes_with_the_engine_transcoder()
     {
         string? repoRoot = FindRepoRoot();
-        if (repoRoot is null || KtxCreate.FindKtx(repoRoot) is null)
+        string? ktxPath = repoRoot is null ? null : KtxCreate.FindKtx(repoRoot);
+        // FindKtx is not platform-aware: on Linux CI it happily returns the vendored
+        // Darwin-arm64 binary, which then fails with "Exec format error". Probe with
+        // `ktx --version` so the skip guard means "runnable here", not merely "present".
+        if (ktxPath is null || !KtxToolRuns(ktxPath))
         {
-            Skip.Test("ktx (KTX-Software v5) not available — vendored tool missing on this platform.");
+            Skip.Test("ktx (KTX-Software v5) not runnable on this platform — vendored tool missing or wrong architecture.");
         }
 
         byte[] png = Convert.FromBase64String(TinyPngBase64);

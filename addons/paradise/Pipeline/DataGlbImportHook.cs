@@ -63,13 +63,13 @@ namespace ParadiseGodot.Pipeline
 
         private static bool IsDataGlb(string resPath) =>
             !string.IsNullOrEmpty(resPath) &&
-            resPath.StartsWith("res://data/", StringComparison.Ordinal) &&
+            resPath.StartsWith(ParadisePaths.DataDirPrefix, StringComparison.Ordinal) &&
             (resPath.EndsWith(".glb", StringComparison.OrdinalIgnoreCase) ||
              resPath.EndsWith(".gltf", StringComparison.OrdinalIgnoreCase));
 
         private static bool IsDataSpriteImage(string resPath) =>
             !string.IsNullOrEmpty(resPath) &&
-            resPath.StartsWith("res://data/sprites/", StringComparison.Ordinal) &&
+            resPath.StartsWith(ParadisePaths.SpritesDir + "/", StringComparison.Ordinal) &&
             (resPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
              resPath.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
              resPath.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase));
