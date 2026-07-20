@@ -65,6 +65,8 @@ public sealed record UiTextConfig
     public required string InjuredLine { get; init; }
     /// <summary>{0} current world-event name (status panel; shown only on event months).</summary>
     public required string EventLine { get; init; }
+    /// <summary>{0} the first unmet guidance goal's hint (status panel main-line pointer).</summary>
+    public required string GuidanceLine { get; init; }
     /// <summary>{0} bonus percent (already formatted, e.g. 20%).</summary>
     public required string OnVeinLine { get; init; }
     /// <summary>{0} days remaining.</summary>

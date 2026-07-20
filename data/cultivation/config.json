@@ -398,6 +398,19 @@
     "dualCultivationBonus": 0.4,
     "leaveAffectionPenalty": -300
   },
+  // The onboarding guidance ladder: the status panel shows the FIRST unmet goal's hint —
+  // the main line a new player follows (completion derives from current state, never saved).
+  "guidance": {
+    "goals": [
+      { "kind": "realm", "value": 1, "hint": "勤修苦练，凝气筑基——道途由此始。" },
+      { "kind": "sect", "value": 0, "hint": "道基已成，寻一宗门拜师：常与掌门谈玄论道以博青睐，门中有功法庇护与月俸。" },
+      { "kind": "realm", "value": 2, "hint": "结成金丹者寿三百。宗门任务与坊市丹药皆可借力，秘境传闻亦不可不听。" },
+      { "kind": "realm", "value": 4, "hint": "破婴化神，方窥大道门径。灵脉之地修行事半功倍。" },
+      { "kind": "companion", "value": 0, "hint": "高处不胜寒。觅一知心道侣（两心皆至倾心），同修共道，携手同游。" },
+      { "kind": "realm", "value": 9, "hint": "炼虚合体，大乘渡劫——一步一重天，直指真仙之境。" },
+      { "kind": "ascend", "value": 0, "hint": "功行已至绝顶。渡最后一重天劫，白日飞升，此世功德圆满。" }
+    ]
+  },
   // The endgame: one fortune-weighted tribulation roll at 真仙圆满 with a full points bar.
   // Success wins the run; failure burns half the bar and injures — climb again.
   "ascension": {

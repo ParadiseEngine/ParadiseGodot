@@ -34,6 +34,7 @@
     "stonesHerbsLine": "灵石：{0}   灵草：{1}",
     "injuredLine": "负伤：修炼减半，还需将养{0}月",
     "eventLine": "此月异象：{0}",
+    "guidanceLine": "指引：{0}",
     "onVeinLine": "身处灵脉：修炼 +{0}",
     "timeFlowsLine": "光阴流转……尚余{0}日",
     "actionsTitle": "行动",

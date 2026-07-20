@@ -88,6 +88,30 @@ public static class CultivationRules
         cultivator.SubStage == config.SubStages.Length - 1 &&
         cultivator.CultivationPoints >= config.Realms[cultivator.RealmIndex].PointsPerSubStage;
 
+    /// <summary>The first UNMET guidance goal's index, or -1 when the whole main line is
+    /// walked. Pure over current state — nothing stored, loads always agree.</summary>
+    public static int NextGuidanceGoal(
+        CultivationConfig config, GamePhase phase, in Cultivator cultivator, in PlayerData player)
+    {
+        var goals = config.Guidance.Goals;
+        for (var i = 0; i < goals.Length; i++)
+        {
+            var met = goals[i].Kind switch
+            {
+                GuidanceKind.Realm => cultivator.RealmIndex >= goals[i].Value,
+                GuidanceKind.Sect => player.SectSiteIndex >= 0,
+                GuidanceKind.Companion => player.CompanionNpcId >= 0,
+                GuidanceKind.Ascend => phase == GamePhase.Ascended,
+                _ => true,
+            };
+            if (!met)
+            {
+                return i;
+            }
+        }
+        return -1;
+    }
+
     /// <summary>Eligible for the final tribulation: the last realm's Perfected peak with a
     /// full points bar (the <see cref="BreakthroughReady"/> analog for the ladder's top).</summary>
     public static bool AscensionReady(CultivationConfig config, in Cultivator cultivator) =>

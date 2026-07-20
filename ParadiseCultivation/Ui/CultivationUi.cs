@@ -574,6 +574,17 @@ public sealed class CultivationUi
             ImGui.TextColored(new Vector4(0.5f, 0.9f, 1f, 1f), F(T.OnVeinLine, CultivationRules.Percent(Config, veinBonus)));
         }
 
+        // The main-line pointer: the first unmet guidance goal, so the next step is
+        // always visible (completion derives from state — loads and reloads agree).
+        var goalIndex = CultivationRules.NextGuidanceGoal(Config, _runner.Phase, in cultivator, in player);
+        if (goalIndex >= 0)
+        {
+            ImGui.Separator();
+            ImGui.PushStyleColor(ImGuiCol.Text, new Vector4(0.7f, 0.85f, 1f, 1f));
+            ImGui.TextWrapped(F(T.GuidanceLine, Config.Guidance.Goals[goalIndex].Hint));
+            ImGui.PopStyleColor();
+        }
+
         if (_runner.Busy)
         {
             var (remaining, total) = _runner.PendingProgress;

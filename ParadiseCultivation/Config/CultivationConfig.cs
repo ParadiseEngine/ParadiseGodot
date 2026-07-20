@@ -50,6 +50,7 @@ public sealed record CultivationConfig
     public required SectConfig Sect { get; init; }
     public required CompanionConfig Companion { get; init; }
     public required AscensionConfig Ascension { get; init; }
+    public required GuidanceConfig Guidance { get; init; }
     public required SecretRealmConfig SecretRealm { get; init; }
     public required WorldEventsConfig WorldEvents { get; init; }
     public required WorldLifeConfig WorldLife { get; init; }
@@ -270,6 +271,36 @@ public sealed record AscensionConfig
     public required int FailureInjuryMonths { get; init; }
     /// <summary>Game days a FAILED tribulation consumes (success ends the run outright).</summary>
     public required int TrialDays { get; init; }
+}
+
+/// <summary>What a guidance goal watches (evaluated against CURRENT state — completion is
+/// derived, never stored, so old saves and reloads always show the right next step).</summary>
+public enum GuidanceKind
+{
+    /// <summary>Reach realm index <see cref="GuidanceGoalConfig.Value"/>.</summary>
+    Realm,
+    /// <summary>Belong to any sect.</summary>
+    Sect,
+    /// <summary>Have a dao companion.</summary>
+    Companion,
+    /// <summary>Ascend (the run's win state).</summary>
+    Ascend,
+}
+
+/// <summary>The onboarding guidance ladder: an ordered list of goals; the status panel shows
+/// the FIRST unmet one's hint, so a new player always knows the next step of the main line
+/// (the design doc's "onboarding guidance beat", made persistent).</summary>
+public sealed record GuidanceConfig
+{
+    public required GuidanceGoalConfig[] Goals { get; init; }
+}
+
+public sealed record GuidanceGoalConfig
+{
+    public required GuidanceKind Kind { get; init; }
+    /// <summary>Meaning depends on <see cref="Kind"/> (realm index; unused otherwise).</summary>
+    public required int Value { get; init; }
+    public required string Hint { get; init; }
 }
 
 /// <summary>Dao companions: the top of the affection ladder made mechanical — a mutual bond
