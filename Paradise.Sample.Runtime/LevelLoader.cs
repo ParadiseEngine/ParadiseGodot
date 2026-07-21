@@ -1,20 +1,17 @@
 using Paradise.Assets.Gltf;
 using Paradise.Export.Data;
 using Paradise.Export.Serialization;
-using Paradise.Sample.Game.Navigation;
-using Paradise.Sample.Game.Navigation.Detour;
 
 namespace Paradise.Sample.Runtime;
 
 /// <summary>Everything loaded from <c>data/</c> for one scene: the level document, resolved
-/// material overrides, decoded GLB assets (keyed by contract field), the navmesh, and the
-/// project render + physics settings.</summary>
+/// material overrides, decoded GLB assets (keyed by contract field), and the project render +
+/// physics settings.</summary>
 public sealed record RuntimeLevel(
     string DataDir,
     LevelData Level,
     Dictionary<string, LevelMaterialData> Materials,
     Dictionary<string, GltfAsset> MeshAssets,
-    INavigationMesh NavigationMesh,
     RenderSettingsData RenderSettings,
     PhysicsDynamicsSettingsData PhysicsDynamics)
 {
@@ -56,11 +53,6 @@ public static class LevelLoader
             LoadSpriteSheet(dataDir, entity.Components.ParticleEmitter?.Sheet, spriteSheets);
         }
 
-        var navMeshFile = level.NavMeshFile
-            ?? throw new InvalidDataException("Level document has no NavMeshFile — the runtime needs a navmesh.");
-        var navMesh = DetourNavMeshLoader.LoadFromBytes(
-            File.ReadAllBytes(Path.Combine(dataDir, "scenes", navMeshFile)));
-
         var settingsPath = Path.Combine(dataDir, "ProjectSettings.json");
         var projectSettings = File.Exists(settingsPath)
             ? ExportJsonReader.ReadProjectSettings(File.ReadAllText(settingsPath))
@@ -69,7 +61,7 @@ public static class LevelLoader
         physicsDynamics.ValidateAndNormalize();
 
         return new RuntimeLevel(
-            dataDir, level, materials, meshAssets, navMesh, projectSettings.Rendering, physicsDynamics)
+            dataDir, level, materials, meshAssets, projectSettings.Rendering, physicsDynamics)
         {
             SpriteSheets = spriteSheets,
         };

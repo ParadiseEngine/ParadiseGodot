@@ -4,16 +4,15 @@ using Godot;
 using Paradise.ECS;
 using Paradise.Physics;
 using Paradise.Export.Geometry;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Physics;
-using Paradise.Sample.Game.Navigation.Detour;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Physics;
+using Paradise.Sample.Pool.Ui;
 using ParadiseGodot.Runtime.Ui;
 using Paradise.Sample.Ui;
 using SN = System.Numerics;
-// The source-generated `World` alias only exists inside Paradise.Sample.Game (per-assembly generator
+// The source-generated `World` alias only exists inside Paradise.Sample.Pool (per-assembly generator
 // output); this assembly names the closed generic type explicitly.
-using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Game.GameConfig>;
+using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Pool.GameConfig>;
 
 namespace ParadiseGodot.Runtime
 {
@@ -21,36 +20,21 @@ namespace ParadiseGodot.Runtime
     /// Runtime bridge between the threaded simulation and Godot. At <c>_Ready</c> it turns the live scene's
     /// marked entities into ECS entities in a <see cref="SimulationRunner"/> and starts the sim thread
     /// (fixed 60 Hz). Godot renders on its own thread by <b>interpolating between the two latest immutable
-    /// world snapshots</b> in <c>_Process</c> — smooth regardless of the render frame rate. Click the ground
-    /// to move the player agent; the click is queued to the sim thread.
+    /// world snapshots</b> in <c>_Process</c> — smooth regardless of the render frame rate. Left-click drag
+    /// aims and strikes the cue ball; pointer events are queued to the sim thread.
     ///
     /// Entities are identified by the runtime-safe <c>paradise_entity_guid</c> node metadata (the editor-only
-    /// EntityExport script is absent at runtime); the player by group membership. Right-handed throughout.
+    /// EntityExport script is absent at runtime). Right-handed throughout.
     /// Node writes happen only on Godot's main thread (<c>_Process</c>); the sim never touches Godot.
     /// </summary>
     public partial class EcsSceneBridge : Node3D
     {
         [Export] public string EntityGuidMeta { get; set; } = "paradise_entity_guid";
-        [Export] public string PlayerGroup { get; set; } = "paradise_player";
         [Export] public string BallGroup { get; set; } = "paradise_ball";
-        [Export(PropertyHint.File, "*.bin")] public string NavMeshFile { get; set; } = "";
-        [Export] public float ArriveRadius { get; set; } = 0.25f;
-
-        // Used only when the player node carries no authored EntityExport.MoveSpeed — the
-        // entity's value is the single source of truth, shared with the export contract.
-        private const float FallbackMoveSpeed = 3.5f;
-
-        // Fallback character capsule dims when the player node has no CapsuleShape3D to read.
-        [Export] public float CharacterRadius { get; set; } = 0.4f;
-        [Export] public float CharacterHeight { get; set; } = 1.8f;
 
         // Fallback dynamic-ball params when a ball node has no SphereMesh to read.
         [Export] public float BallRadius { get; set; } = 0.35f;
         [Export] public float BallMass { get; set; } = 1f;
-
-        // For headless / no-input smoke runs: if set, the player is sent here on _Ready.
-        [Export] public bool AutoDemo { get; set; }
-        [Export] public Vector3 AutoDemoTarget { get; set; }
 
         [ExportGroup("UI")]
         // Dear ImGui debug panel (sim-thread immediate mode, rendered as canvas items).
@@ -86,8 +70,6 @@ namespace ParadiseGodot.Runtime
             public required int FrameCount;
             public required float Fps;
         }
-        private Entity _player;
-        private bool _hasPlayer;
         private PoolGameController? _pool; // shared cue-aim/strike/rewind + ImGui panel (when a CueBall exists)
         private double _renderSampleTime;
         private bool _faulted;
@@ -100,21 +82,11 @@ namespace ParadiseGodot.Runtime
         {
             Node root = Owner ?? GetParent() ?? this;
 
-            string navPath = ResolveNavMeshPath(root);
-            byte[] navBytes = Godot.FileAccess.GetFileAsBytes(navPath);
-            if (navBytes.Length == 0)
-            {
-                GD.PushWarning($"[EcsSceneBridge] NavMesh '{navPath}' not found or empty (re-save the scene to export it) — agent movement disabled.");
-                return;
-            }
-
             // Static collision geometry for the sim's stateless CollisionWorld — every StaticBody3D
-            // in the scene (the .NET host's `Rigidbody.BodyType == Static` harvest). Physics and the
-            // navmesh are SEPARATE concerns: the navmesh bakes only the walkable floor, but solid
-            // geometry the balls rest on / bounce off (the pool table bed + cushions) is static too
-            // and must join the collision world even though it is not a nav-walkable surface.
+            // in the scene (the .NET host's `Rigidbody.BodyType == Static` harvest): the solid
+            // geometry the balls rest on / bounce off (the pool table bed + cushions).
             Paradise.Physics.CollisionWorld? collisionWorld = BuildCollisionWorld(root);
-            _runner = new SimulationRunner(DetourNavMeshLoader.LoadFromBytes(navBytes), collisionWorld);
+            _runner = new SimulationRunner(collisionWorld);
             _camera = FindCamera(root);
 
             // Global solver tuning + static-surface bounce, read live from the SAME paradise/physics/*
@@ -137,14 +109,7 @@ namespace ParadiseGodot.Runtime
                 SN.Quaternion rot = ToSN(node.GlobalBasis.GetRotationQuaternion());
                 Vector3 scale = node.GlobalBasis.Scale;
 
-                if (node.IsInGroup(PlayerGroup))
-                {
-                    (float bodyRadius, float bodyHalfLength) = ReadPlayerCapsule(node);
-                    _player = _runner.SpawnAgent(pos, rot, ReadAuthoredMoveSpeed(node), ArriveRadius, bodyRadius, bodyHalfLength);
-                    _hasPlayer = true;
-                    _agents.Add((node, _player, scale));
-                }
-                else if (node.IsInGroup(BallGroup))
+                if (node.IsInGroup(BallGroup))
                 {
                     // Feed our sim the AUTHORED physics params (EntityExport Body* fields, read
                     // dynamically since EntityExport is a tools-only type) exactly as the .NET host
@@ -153,7 +118,7 @@ namespace ParadiseGodot.Runtime
                     (float mass, float damping, float restitution) = ReadBallBody(node);
                     // The cue ball drives the pool controller (same "CueBall" id the .NET host uses).
                     bool isCue = string.Equals(node.Name, "CueBall", StringComparison.OrdinalIgnoreCase);
-                    PoolBall poolBall = PoolRack.BuildBall(pockets, isCue, pos, trayIndex++);
+                    PocketConfig poolBall = PoolRack.BuildBall(pockets, isCue, pos, trayIndex++);
                     Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), mass,
                         damping, restitution, staticRestitution, poolBall, tuning,
                         friction: GetFloat(node, "BodyFriction", 0.3f));
@@ -203,14 +168,9 @@ namespace ParadiseGodot.Runtime
             SetupUi(); // UiInput must be composed before Start (the sim reads it each tick)
 
             _runner.Start();
-            GD.Print($"[EcsSceneBridge] Simulation thread started — {_agents.Count} agent(s). Click the ground to move.");
+            GD.Print($"[EcsSceneBridge] Simulation thread started — {_agents.Count} dynamic entit(ies).");
 
             AddUiOverlayNodes();
-
-            if (AutoDemo && _hasPlayer)
-            {
-                _runner.EnqueueMoveTo(_player, ToSN(AutoDemoTarget));
-            }
         }
 
         /// <summary>Build the sim-thread UI halves (shared cores) and hand the composed input
@@ -262,7 +222,6 @@ namespace ParadiseGodot.Runtime
                 (null, { } noesis) => noesis.Input,
                 _ => null,
             };
-            _runner.UiUnhandledPointerDown = OnUiUnhandledPointerDown;
         }
 
         /// <summary>Add the render halves as overlay nodes: ImGui canvas items above the
@@ -329,34 +288,10 @@ namespace ParadiseGodot.Runtime
             ImGuiNET.ImGui.End();
         }
 
-        /// <summary>SIM THREAD — unconsumed pointer-downs fall through to click-to-move.
-        /// CollisionWorld is immutable (thread-safe queries) and EnqueueMoveTo is a
-        /// ConcurrentQueue push, so no marshaling back to the main thread is needed.</summary>
-        private void OnUiUnhandledPointerDown(UiEvent uiEvent)
-        {
-            if (!_hasPlayer || uiEvent.Button != UiPointerButton.Left ||
-                _runner?.CollisionWorld is not { } collision)
-            {
-                return;
-            }
-
-            var input = new RaycastInput
-            {
-                Start = uiEvent.WorldRayOrigin,
-                End = uiEvent.WorldRayOrigin + uiEvent.WorldRayDirection * 1000f,
-                Filter = PhysicsLayers.ClickRay,
-            };
-            if (collision.CastRay(input, out RaycastHit hit))
-            {
-                _runner.EnqueueMoveTo(_player, hit.Position);
-            }
-        }
-
         /// <summary>Mouse events become <see cref="UiEvent"/>s drained on the sim thread: UI
-        /// gets first claim (ImGui panels, then Noesis), and unconsumed pointer-downs fall
-        /// through to click-to-move via <see cref="OnUiUnhandledPointerDown"/>. Pointer-downs
-        /// carry the camera pick ray so the sim needs no camera state — Godot's physics server
-        /// is Dummy, so picking runs against the sim's own immutable CollisionWorld.</summary>
+        /// gets first claim (ImGui panels, then Noesis). Pointer-downs carry the camera pick ray
+        /// so the sim needs no camera state — Godot's physics server is Dummy, so picking runs
+        /// against the sim's own immutable CollisionWorld.</summary>
         public override void _UnhandledInput(InputEvent @event)
         {
             if (_runner is null)
@@ -428,12 +363,6 @@ namespace ParadiseGodot.Runtime
                 return;
             }
 
-            // Direct WASD control (camera-relative) — sent to the sim thread; zero when no keys held.
-            if (_hasPlayer)
-            {
-                _runner.SetMoveInput(_player, ToSN(ReadWasdDirection()));
-            }
-
             if (!_runner.HasSnapshots)
             {
                 return;
@@ -458,7 +387,7 @@ namespace ParadiseGodot.Runtime
                 int sunk = 0;
                 foreach (Entity ball in _poolBallEntities)
                 {
-                    if (worldB.IsAlive(ball) && worldB.GetComponent<PoolBall>(ball).Sunk != 0) sunk++;
+                    if (worldB.IsAlive(ball) && worldB.GetComponent<BallSunk>(ball).Value != 0) sunk++;
                 }
                 _pool.SunkCount = sunk;
             }
@@ -478,11 +407,13 @@ namespace ParadiseGodot.Runtime
                     continue;
                 }
 
-                LocalTransform ta = aliveA ? worldA.GetComponent<LocalTransform>(entity) : worldB.GetComponent<LocalTransform>(entity);
-                LocalTransform tb = aliveB ? worldB.GetComponent<LocalTransform>(entity) : ta;
+                var wa = aliveA ? worldA : worldB;
+                var wb = aliveB ? worldB : wa;
 
-                SN.Vector3 pos = SN.Vector3.Lerp(ta.Position, tb.Position, alpha);
-                SN.Quaternion rot = SN.Quaternion.Slerp(ta.Rotation, tb.Rotation, alpha);
+                SN.Vector3 pos = SN.Vector3.Lerp(
+                    wa.GetComponent<Position>(entity).Value, wb.GetComponent<Position>(entity).Value, alpha);
+                SN.Quaternion rot = SN.Quaternion.Slerp(
+                    wa.GetComponent<Rotation>(entity).Value, wb.GetComponent<Rotation>(entity).Value, alpha);
                 // Sim owns position + rotation only — re-apply the authored scale so the snapshot
                 // transform doesn't reset the node to unit scale (which ballooned the pool balls).
                 node.GlobalTransform = new Transform3D(new Basis(ToGodot(rot)).Scaled(scale), ToGodot(pos));
@@ -508,22 +439,22 @@ namespace ParadiseGodot.Runtime
         private void SetupParticleEmitter(Node3D node, SN.Vector3 pos, SN.Quaternion rot)
         {
             bool spriteKind = ReadInt(node, "ParticleKind", 0) != 2;
-            int capacity = Math.Clamp(ReadInt(node, "ParticleMaxCount", 64), 1, ParticleEmitter.MaxParticles);
+            int capacity = Math.Clamp(ReadInt(node, "ParticleMaxCount", 64), 1, ParticleState.MaxParticles);
             int columns = Math.Max(1, ReadInt(node, "ParticleSheetColumns", 1));
             int rows = Math.Max(1, ReadInt(node, "ParticleSheetRows", 1));
             int authoredFrames = ReadInt(node, "ParticleSheetFrameCount", 0);
             int frameCount = Math.Clamp(authoredFrames <= 0 ? columns * rows : authoredFrames, 1, columns * rows);
             Color color = ReadColor(node, "ParticleColor", Colors.White);
 
-            Entity entity = _runner!.SpawnParticleEmitter(pos, rot, new ParticleEmitter(
+            Entity entity = _runner!.SpawnParticleEmitter(pos, rot, new ParticleConfig(
                 ReadFloat(node, "ParticleEmitRate", 8f),
                 ReadFloat(node, "ParticleLifetime", 1.5f),
                 ReadFloat(node, "ParticleSpeed", 2f),
                 Mathf.DegToRad(ReadFloat(node, "ParticleSpreadDegrees", 25f)),
                 ReadFloat(node, "ParticleGravity", -9.8f),
                 ReadFloat(node, "ParticleDrag", 0f),
-                capacity,
-                unchecked((uint)ReadInt(node, "ParticleSeed", 1))));
+                capacity),
+                unchecked((uint)ReadInt(node, "ParticleSeed", 1)));
 
             Material material;
             PrimitiveMesh mesh;
@@ -601,11 +532,12 @@ namespace ParadiseGodot.Runtime
                     continue;
                 }
 
-                SpriteAnimation b = worldB.GetComponent<SpriteAnimation>(entity);
+                float bTime = worldB.GetComponent<SpriteTime>(entity).Value;
+                SpriteConfig cfg = worldB.GetComponent<SpriteConfig>(entity);
                 float time = worldA.IsAlive(entity)
-                    ? float.Lerp(worldA.GetComponent<SpriteAnimation>(entity).Time, b.Time, alpha)
-                    : b.Time;
-                sprite.Frame = SpriteAnimationSystem.SampleFrame(time, b.Fps, b.FrameCount, b.Loop != 0);
+                    ? float.Lerp(worldA.GetComponent<SpriteTime>(entity).Value, bTime, alpha)
+                    : bTime;
+                sprite.Frame = SpriteAnimationSystem.SampleFrame(time, cfg.Fps, cfg.FrameCount, cfg.Loop != 0);
             }
         }
 
@@ -621,10 +553,10 @@ namespace ParadiseGodot.Runtime
                     continue;
                 }
 
-                ParticleEmitter a = worldA.IsAlive(view.Entity)
-                    ? worldA.GetComponent<ParticleEmitter>(view.Entity)
-                    : worldB.GetComponent<ParticleEmitter>(view.Entity);
-                ParticleEmitter b = worldB.GetComponent<ParticleEmitter>(view.Entity);
+                ParticleState a = worldA.IsAlive(view.Entity)
+                    ? worldA.GetComponent<ParticleState>(view.Entity)
+                    : worldB.GetComponent<ParticleState>(view.Entity);
+                ParticleState b = worldB.GetComponent<ParticleState>(view.Entity);
                 MultiMesh multimesh = view.Node.Multimesh;
 
                 int visible = 0;
@@ -712,43 +644,6 @@ namespace ParadiseGodot.Runtime
         {
             Variant value = node.Get(property);
             return value.VariantType == Variant.Type.String ? value.AsString() : fallback;
-        }
-
-        // WASD → a horizontal world-space direction relative to the camera's facing.
-        private Vector3 ReadWasdDirection()
-        {
-            if (_camera is null)
-            {
-                return Vector3.Zero;
-            }
-
-            float forwardBack = (Input.IsPhysicalKeyPressed(Key.W) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.S) ? 1f : 0f);
-            float leftRight = (Input.IsPhysicalKeyPressed(Key.D) ? 1f : 0f) - (Input.IsPhysicalKeyPressed(Key.A) ? 1f : 0f);
-            if (forwardBack == 0f && leftRight == 0f)
-            {
-                return Vector3.Zero;
-            }
-
-            Vector3 forward = -_camera.GlobalBasis.Z;
-            forward.Y = 0f;
-            Vector3 right = _camera.GlobalBasis.X;
-            right.Y = 0f;
-            Vector3 dir = forward.Normalized() * forwardBack + right.Normalized() * leftRight;
-            return dir.LengthSquared() > 0f ? dir.Normalized() : Vector3.Zero;
-        }
-
-        private string ResolveNavMeshPath(Node root)
-        {
-            if (!string.IsNullOrEmpty(NavMeshFile))
-            {
-                return NavMeshFile;
-            }
-
-            string scenePath = root.SceneFilePath;
-            string sceneName = string.IsNullOrEmpty(scenePath)
-                ? root.Name
-                : System.IO.Path.GetFileNameWithoutExtension(scenePath);
-            return $"res://data/scenes/{sceneName}.navmesh.bin";
         }
 
         private IEnumerable<Node3D> EntityNodes(Node root)
@@ -848,33 +743,6 @@ namespace ParadiseGodot.Runtime
             return Paradise.Physics.CollisionWorld.Build(
                 System.Runtime.InteropServices.CollectionsMarshal.AsSpan(colliders),
                 System.Runtime.InteropServices.CollectionsMarshal.AsSpan(transforms));
-        }
-
-        // The authored EntityExport.MoveSpeed — read dynamically because EntityExport is a
-        // TOOLS-only type this runtime bridge must not reference at compile time.
-        private static float ReadAuthoredMoveSpeed(Node3D playerNode)
-        {
-            Variant value = playerNode.Get("MoveSpeed");
-            float speed = value.VariantType == Variant.Type.Float ? (float)value.AsDouble() : 0f;
-            return float.IsFinite(speed) && speed > 0f ? speed : FallbackMoveSpeed;
-        }
-
-        private (float Radius, float HalfLength) ReadPlayerCapsule(Node3D playerNode)
-        {
-            foreach (CollisionShape3D shapeNode in Descendants<CollisionShape3D>(playerNode))
-            {
-                if (shapeNode.Shape is CapsuleShape3D capsule)
-                {
-                    // Fold node scale exactly like BuildCollisionWorld does for statics, so a
-                    // scaled player node keeps physics dims in sync with its visual capsule.
-                    SN.Vector3 scale = ToSN(shapeNode.GlobalBasis.Scale);
-                    float radius = ColliderScaleFold.CapsuleRadius(capsule.Radius, scale);
-                    float height = ColliderScaleFold.CapsuleHeight(capsule.Height, scale);
-                    return (radius, MathF.Max(0f, height * 0.5f - radius));
-                }
-            }
-
-            return (CharacterRadius, MathF.Max(0f, CharacterHeight * 0.5f - CharacterRadius));
         }
 
         private float ReadBallRadius(Node3D ballNode)

@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Navigation;
+using Paradise.Sample.Pool;
 using Paradise.Sample.Ui;
 
 namespace Paradise.Sample.Ui.Tests;
@@ -14,12 +13,6 @@ namespace Paradise.Sample.Ui.Tests;
 /// (no snapshots ticked), so aim ground points are relative to (0,0,0).</summary>
 public class PoolGameControllerTests
 {
-    // Navmesh is never exercised (no agents) — a stub keeps Paradise.Sample.Ui.Tests off the Detour package.
-    private sealed class NoNavMesh : INavigationMesh
-    {
-        public IReadOnlyList<Vector3> FindPath(Vector3 from, Vector3 to) => Array.Empty<Vector3>();
-    }
-
     /// <summary>A ray straight down from (pixel.X, 5, pixel.Y) hits the y=0 plane at
     /// (pixel.X, 0, pixel.Y) — so a screen pixel maps directly to a ground point. World→screen
     /// projects onto the X/Z plane. Aiming at pixel (0,0) lands exactly on the cue at the origin.</summary>
@@ -37,7 +30,7 @@ public class PoolGameControllerTests
 
     private static (SimulationRunner runner, PoolGameController pool, Entity cue) NewGame(Action? onStrike = null)
     {
-        var runner = new SimulationRunner(new NoNavMesh());
+        var runner = new SimulationRunner();
         var cue = runner.SpawnBall(new Vector3(0, 0, 0), Quaternion.Identity, radius: 0.35f);
         var pool = new PoolGameController(runner, cue, new FakeCamera(), onStrike);
         return (runner, pool, cue);

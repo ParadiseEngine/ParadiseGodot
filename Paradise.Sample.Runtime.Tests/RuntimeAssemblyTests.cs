@@ -2,7 +2,7 @@ using System.Numerics;
 using Paradise.Physics;
 using Paradise.Rendering.Pbr;
 using Paradise.Export.Data;
-using Paradise.Sample.Game.Physics;
+using Paradise.Sample.Pool.Physics;
 
 namespace Paradise.Sample.Runtime.Tests;
 
@@ -32,7 +32,6 @@ public class RuntimeAssemblyTests
         // Source-GLB references (no per-entity bake): cube (Ground+2 obstacles+2 crates),
         // sphere (3 balls), capsule (guard) + 11 unique character/plant GLBs = 14 distinct.
         await Assert.That(level.MeshAssets.Count).IsEqualTo(16);
-        await Assert.That(level.NavigationMesh).IsNotNull();
         // Every referenced material slot resolved.
         foreach (var entity in level.Level.Entities)
         {

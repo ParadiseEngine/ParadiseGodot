@@ -1,6 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using Paradise.Sample.Game.Audio;
+using Paradise.Sample.Pool.Audio;
 
 namespace Paradise.Sample.Runtime;
 

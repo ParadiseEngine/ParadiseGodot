@@ -1,7 +1,7 @@
 using System.Numerics;
 using Paradise.Physics;
 using Paradise.Export.Data;
-using Paradise.Sample.Game.Physics;
+using Paradise.Sample.Pool.Physics;
 
 namespace Paradise.Sample.Runtime.Tests;
 
@@ -29,7 +29,6 @@ public class PoolSceneTests
     {
         var level = LoadPool();
         await Assert.That(level.Level.Entities.Count).IsEqualTo(45);
-        await Assert.That(level.NavigationMesh).IsNotNull();
         foreach (var entity in level.Level.Entities)
         {
             foreach (var slot in entity.Materials)

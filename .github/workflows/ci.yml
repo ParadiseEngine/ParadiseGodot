@@ -33,7 +33,7 @@ jobs:
 
       - name: Test
         run: |
-          for project in Paradise.Sample.Game.Tests Paradise.Sample.Ui.Tests Paradise.Sample.Runtime.Tests; do
+          for project in Paradise.Sample.Pool.Tests Paradise.Sample.Ui.Tests Paradise.Sample.Runtime.Tests; do
             dotnet test --project "$project/$project.csproj" --no-build --output normal
           done
 

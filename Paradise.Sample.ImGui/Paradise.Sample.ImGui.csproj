@@ -13,14 +13,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <RootNamespace>Paradise.Sample.ImGui</RootNamespace>
-    <!-- Loaded into Godot's collectible AssemblyLoadContext, like Paradise.Sample.Game. -->
+    <!-- Loaded into Godot's collectible AssemblyLoadContext, like Paradise.Sample.Pool. -->
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- UiEvent/IUiInput live in Paradise.Sample.Game.Ui; ImGuiUiCore in Paradise.Sample.Ui
+    <!-- UiEvent/IUiInput live in Paradise.Sample.Pool.Ui; ImGuiUiCore in Paradise.Sample.Ui
          (which brings ImGui.NET transitively via the Paradise.Ui.ImGui package). -->
-    <ProjectReference Include="..\Paradise.Sample.Game\Paradise.Sample.Game.csproj" />
+    <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
     <ProjectReference Include="..\Paradise.Sample.Ui\Paradise.Sample.Ui.csproj" />
   </ItemGroup>
 

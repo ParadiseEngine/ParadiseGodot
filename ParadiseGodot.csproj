@@ -9,11 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- The shared Paradise.Sample.Game.* libs are their own projects; keep their sources out of this
+    <!-- The shared Paradise.Sample.Pool.* libs are their own projects; keep their sources out of this
          assembly's recursive **/*.cs glob. -->
-    <Compile Remove="Paradise.Sample.Game/**/*.cs" />
-    <Compile Remove="Paradise.Sample.Game.Tests/**/*.cs" />
-    <Compile Remove="Paradise.Sample.Game.Navigation.Detour/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Pool/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Pool.Tests/**/*.cs" />
     <!-- Paradise.Sample.Runtime is the standalone SDL/engine-renderer host; keep its sources (and its
          obj/ generated AssemblyInfo — CS0579 duplicates otherwise) out of this glob. -->
     <Compile Remove="Paradise.Sample.Runtime/**/*.cs" />
@@ -29,15 +28,14 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Paradise.Export" Version="0.3.0" />
-    <ProjectReference Include="Paradise.Sample.Game/Paradise.Sample.Game.csproj" />
-    <ProjectReference Include="Paradise.Sample.Game.Navigation.Detour/Paradise.Sample.Game.Navigation.Detour.csproj" />
+    <PackageReference Include="Paradise.Export" Version="0.5.2" />
+    <ProjectReference Include="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
     <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
          render device (headless Dawn + readback in the Godot host). Real sibling path for the
          engine project (NOT the in-tree symlink, which breaks restore). -->
     <ProjectReference Include="Paradise.Sample.Ui/Paradise.Sample.Ui.csproj" />
     <ProjectReference Include="Paradise.Sample.ImGui/Paradise.Sample.ImGui.csproj" />
-    <PackageReference Include="Paradise.Ui.Noesis" Version="0.3.0" />
+    <PackageReference Include="Paradise.Ui.Noesis" Version="0.5.2" />
   </ItemGroup>
 
 </Project>

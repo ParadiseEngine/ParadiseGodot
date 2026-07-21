@@ -4,14 +4,14 @@ using Paradise.Physics;
 using Paradise.Rendering;
 using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Physics;
-using Paradise.Sample.Game.Audio;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Physics;
+using Paradise.Sample.Pool.Audio;
+using Paradise.Sample.Pool.Ui;
 using Paradise.Sample.Ui;
-// The source-generated `World` alias only exists inside Paradise.Sample.Game (per-assembly generator
+// The source-generated `World` alias only exists inside Paradise.Sample.Pool (per-assembly generator
 // output); this assembly names the closed generic type explicitly.
-using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Game.GameConfig>;
+using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Pool.GameConfig>;
 
 namespace Paradise.Sample.Runtime;
 
@@ -22,13 +22,10 @@ namespace Paradise.Sample.Runtime;
 public sealed class RuntimeLoop : IDisposable
 {
     private const double RenderDelaySeconds = 2.0 / 60.0;
-    // Move-confirmation sound; the default exists in the Wwise SampleProject banks. The click
-    // plays from a dedicated positioned source at the clicked point, so 3D-authored events
-    // (e.g. Play_Footsteps with the Positioning banks) pan and attenuate spatially.
+    // Cue-strike sound; the default exists in the Wwise SampleProject banks. Played from a
+    // dedicated positioned source so 3D-authored events pan and attenuate spatially.
     private static readonly string ClickAudioEvent =
         Environment.GetEnvironmentVariable("PARADISE_WWISE_CLICK_EVENT") ?? "Play_Hello";
-    // One reused id is fine for a demo cue (a rapid re-click repositions the still-playing
-    // instance); real positional SFX should rotate through an id pool for overlapping voices.
     private const ulong ClickAudioSource = 101;
     private const double MaxRenderSampleLagSeconds = 4.0 / 60.0;
 
@@ -39,7 +36,6 @@ public sealed class RuntimeLoop : IDisposable
     private readonly List<RuntimeInstance> _instances;
     private readonly List<SpriteQuadState> _sprites;
     private readonly List<ParticleBatchState> _particleBatches;
-    private readonly Entity? _player;
     private readonly CollisionWorld? _collisionWorld;
     private readonly IAudioSystem? _audio;
 
@@ -73,7 +69,7 @@ public sealed class RuntimeLoop : IDisposable
         _height = Math.Max(1, height);
 
         _collisionWorld = SceneAssembler.BuildCollisionWorld(level.Level);
-        _runner = new SimulationRunner(level.NavigationMesh, _collisionWorld);
+        _runner = new SimulationRunner(_collisionWorld);
         if (audio is not null)
         {
             _runner.Audio = audio.Sink;
@@ -81,9 +77,6 @@ public sealed class RuntimeLoop : IDisposable
         if (uiInput is not null)
         {
             _runner.UiInput = uiInput;
-            // Clicks the UI passes through land here ON THE SIM THREAD with the pick ray the
-            // render thread attached — same job as TryClickMove, minus the unprojection.
-            _runner.UiUnhandledPointerDown = OnUiUnhandledPointerDown;
         }
         _pbr = new PbrRenderer(
             renderer, _width, _height,
@@ -94,7 +87,6 @@ public sealed class RuntimeLoop : IDisposable
         _instances = assembled.Instances;
         _sprites = assembled.Sprites;
         _particleBatches = assembled.ParticleBatches;
-        _player = assembled.Player;
         _cueBall = assembled.CueBall;
         foreach (var instance in _instances)
         {
@@ -214,42 +206,10 @@ public sealed class RuntimeLoop : IDisposable
     }
 
     public CollisionWorld? CollisionWorld => _collisionWorld;
-    public bool HasPlayer => _player is not null;
     public int InstanceCount => _instances.Count;
 
     /// <summary>Start the 60 Hz simulation thread (spawns already happened on this thread).</summary>
     public void Start() => _runner.Start();
-
-    public void SetMoveInput(Vector3 planarDirection)
-    {
-        if (_player is { } player) _runner.SetMoveInput(player, planarDirection);
-    }
-
-    /// <summary>Click-to-move: unproject the pixel, ray-cast the static world on the click
-    /// filter, path the player to the hit point. The EcsSceneBridge flow minus Godot.</summary>
-    public bool TryClickMove(Vector2 screenPixel)
-    {
-        if (_player is not { } player || _collisionWorld is null) return false;
-
-        var camera = _camera.Build(_width / (float)_height);
-        var viewProjection = PbrMath.ViewProjection(camera.View, camera.Projection);
-        if (!PbrMath.TryScreenPointToRay(screenPixel, new Vector2(_width, _height), viewProjection, out var origin, out var direction))
-            return false;
-
-        var input = new RaycastInput
-        {
-            Start = origin,
-            End = origin + direction * 1000f,
-            Filter = PhysicsLayers.ClickRay,
-        };
-        if (!_collisionWorld.CastRay(input, out var hit)) return false;
-
-        _runner.EnqueueMoveTo(player, hit.Position);
-        PostClickSound(hit.Position);
-        return true;
-    }
-
-    public (Vector3 Forward, Vector3 Right) PlanarBasis() => _camera.PlanarBasis();
 
     /// <summary>Queue a UI pointer/resize event for the sim thread. Pointer-downs get a world
     /// pick ray attached (computed here, on the render thread, where the camera lives) so the
@@ -278,29 +238,6 @@ public sealed class RuntimeLoop : IDisposable
             default:
                 _runner.EnqueueUiEvent(UiEvent.PointerMove(pixel.X, pixel.Y));
                 break;
-        }
-    }
-
-    private void PostClickSound(Vector3 worldPosition)
-    {
-        if (_audio is null) return;
-        _audio.Sink.SetSourcePosition(ClickAudioSource, worldPosition);
-        _audio.Sink.PostEvent(ClickAudioEvent, ClickAudioSource);
-    }
-
-    private void OnUiUnhandledPointerDown(UiEvent uiEvent)
-    {
-        if (_player is not { } player || _collisionWorld is null || uiEvent.Button != UiPointerButton.Left) return;
-        var input = new RaycastInput
-        {
-            Start = uiEvent.WorldRayOrigin,
-            End = uiEvent.WorldRayOrigin + uiEvent.WorldRayDirection * 1000f,
-            Filter = PhysicsLayers.ClickRay,
-        };
-        if (_collisionWorld.CastRay(input, out var hit))
-        {
-            _runner.EnqueueMoveTo(player, hit.Position);
-            PostClickSound(hit.Position);
         }
     }
 
@@ -333,10 +270,10 @@ public sealed class RuntimeLoop : IDisposable
                 {
                     if (instance.SimEntity is not { } entity) continue;
                     if (!worldA.IsAlive(entity) || !worldB.IsAlive(entity)) continue;
-                    var a = worldA.GetComponent<LocalTransform>(entity);
-                    var b = worldB.GetComponent<LocalTransform>(entity);
-                    var position = Vector3.Lerp(a.Position, b.Position, alpha);
-                    var rotation = Quaternion.Slerp(a.Rotation, b.Rotation, alpha);
+                    var position = Vector3.Lerp(
+                        worldA.GetComponent<Position>(entity).Value, worldB.GetComponent<Position>(entity).Value, alpha);
+                    var rotation = Quaternion.Slerp(
+                        worldA.GetComponent<Rotation>(entity).Value, worldB.GetComponent<Rotation>(entity).Value, alpha);
                     instance.Render.Model =
                         Matrix4x4.CreateScale(instance.SimScale)
                         * Matrix4x4.CreateFromQuaternion(rotation)
@@ -384,14 +321,14 @@ public sealed class RuntimeLoop : IDisposable
                 else
                 {
                     if (glowWorldA is null || !glowWorldA.IsAlive(entity) || !glowWorldB.IsAlive(entity)) continue;
-                    var a = glowWorldA.GetComponent<LocalTransform>(entity).Position;
-                    var b = glowWorldB.GetComponent<LocalTransform>(entity).Position;
+                    var a = glowWorldA.GetComponent<Position>(entity).Value;
+                    var b = glowWorldB.GetComponent<Position>(entity).Value;
                     position = Vector3.Lerp(a, b, glowAlpha);
                     glow = float.Lerp(
                         glowWorldA.GetComponent<BallGlow>(entity).Intensity,
                         glowWorldB.GetComponent<BallGlow>(entity).Intensity,
                         glowAlpha);
-                    if (glowWorldB.GetComponent<PoolBall>(entity).Sunk != 0) sunk++;
+                    if (glowWorldB.GetComponent<BallSunk>(entity).Value != 0) sunk++;
                 }
 
                 _scene.Lights[lightIndex] = _scene.Lights[lightIndex] with
@@ -454,15 +391,13 @@ public sealed class RuntimeLoop : IDisposable
         foreach (var sprite in _sprites)
         {
             if (!worldA.IsAlive(sprite.Entity) || !worldB.IsAlive(sprite.Entity)) continue;
-            var a = worldA.GetComponent<LocalTransform>(sprite.Entity);
-            var b = worldB.GetComponent<LocalTransform>(sprite.Entity);
             var time = float.Lerp(
-                worldA.GetComponent<SpriteAnimation>(sprite.Entity).Time,
-                worldB.GetComponent<SpriteAnimation>(sprite.Entity).Time,
+                worldA.GetComponent<SpriteTime>(sprite.Entity).Value,
+                worldB.GetComponent<SpriteTime>(sprite.Entity).Value,
                 alpha);
             sprite.Update(_pbr,
-                Vector3.Lerp(a.Position, b.Position, alpha),
-                Quaternion.Slerp(a.Rotation, b.Rotation, alpha),
+                Vector3.Lerp(worldA.GetComponent<Position>(sprite.Entity).Value, worldB.GetComponent<Position>(sprite.Entity).Value, alpha),
+                Quaternion.Slerp(worldA.GetComponent<Rotation>(sprite.Entity).Value, worldB.GetComponent<Rotation>(sprite.Entity).Value, alpha),
                 time, cameraRight, cameraUp);
         }
 
@@ -470,8 +405,9 @@ public sealed class RuntimeLoop : IDisposable
         {
             if (!worldA.IsAlive(batch.Entity) || !worldB.IsAlive(batch.Entity)) continue;
             batch.Update(_pbr,
-                worldA.GetComponent<ParticleEmitter>(batch.Entity),
-                worldB.GetComponent<ParticleEmitter>(batch.Entity),
+                worldA.GetComponent<ParticleState>(batch.Entity),
+                worldB.GetComponent<ParticleState>(batch.Entity),
+                worldB.GetComponent<ParticleConfig>(batch.Entity).Capacity,
                 alpha, cameraRight, cameraUp);
         }
     }

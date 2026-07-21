@@ -6,8 +6,8 @@ using Paradise.Rendering;
 using Paradise.Rendering.Pbr;
 using Paradise.Export.Data;
 using Paradise.Export.Geometry;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Physics;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Physics;
 
 namespace Paradise.Sample.Runtime;
 
@@ -21,12 +21,10 @@ public sealed record RuntimeInstance(
 
 /// <summary>Builds the runtime world from a loaded level: the static CollisionWorld (from data,
 /// not Godot nodes — the JSON-sourced analog of EcsSceneBridge.BuildCollisionWorld), the
-/// simulation spawns (Agent → SpawnAgent, Rigidbody.Dynamic + sphere → SpawnBall), and the PBR
-/// render instances with slot-wise material overrides.</summary>
+/// simulation spawns (Rigidbody.Dynamic + sphere → SpawnBall), and the PBR render instances with
+/// slot-wise material overrides.</summary>
 public static class SceneAssembler
 {
-    private const float DefaultArriveRadius = 0.25f; // AgentComponentData carries no arrive radius (schema v3 candidate)
-
     /// <summary>Contract matrices are column-vector layout; transpose yields the
     /// System.Numerics row-vector model matrix everything downstream uses.</summary>
     public static Matrix4x4 ToModelMatrix(Matrix4x4? contractMatrix) =>
@@ -166,7 +164,6 @@ public static class SceneAssembler
 
     public sealed record AssembledScene(
         List<RuntimeInstance> Instances,
-        Entity? Player,
         Entity? CueBall,
         List<(Entity Entity, int InstanceIndex)> PoolBalls)
     {
@@ -183,7 +180,6 @@ public static class SceneAssembler
     {
         var geometry = new GeometryCache(pbr);
         var instances = new List<RuntimeInstance>();
-        Entity? player = null;
         Entity? cueBall = null;
         var poolBalls = new List<(Entity, int)>();
         var sprites = new List<SpriteQuadState>();
@@ -221,19 +217,7 @@ public static class SceneAssembler
             Entity? simEntity = null;
             var (position, rotation) = DecomposePose(model);
             var components = entity.Components;
-            if (components.Agent is { } agent)
-            {
-                var capsule = FindShape(components, PhysicsShapeType.Capsule);
-                var radius = capsule?.Radius ?? 0.4f;
-                var halfLength = capsule is { } c ? MathF.Max(0f, c.Height * 0.5f - c.Radius) : 0.5f;
-                var spawned = runner.SpawnAgent(
-                    position, rotation,
-                    agent.MoveSpeed, DefaultArriveRadius,
-                    radius, halfLength);
-                simEntity = spawned;
-                player ??= spawned; // first agent is the player (bridge convention)
-            }
-            else if (components.Rigidbody?.BodyType == PhysicsBodyType.Dynamic)
+            if (components.Rigidbody?.BodyType == PhysicsBodyType.Dynamic)
             {
                 var sphere = FindShape(components, PhysicsShapeType.Sphere);
                 // Godot scales collision shapes by node scale; the contract stores the UNSCALED
@@ -280,21 +264,21 @@ public static class SceneAssembler
             {
                 var normalized = emitterData with { };
                 normalized.ValidateAndNormalize();
-                var emitterEntity = runner.SpawnParticleEmitter(position, rotation, new ParticleEmitter(
+                var emitterEntity = runner.SpawnParticleEmitter(position, rotation, new ParticleConfig(
                     normalized.EmitRate,
                     normalized.LifetimeSeconds,
                     normalized.InitialSpeed,
                     float.DegreesToRadians(normalized.SpreadDegrees),
                     normalized.Gravity,
                     normalized.Drag,
-                    normalized.MaxParticles,
-                    normalized.Seed));
+                    normalized.MaxParticles),
+                    normalized.Seed);
                 particleBatches.Add(new ParticleBatchState(
                     pbr, normalized, SheetBytes(level, normalized.Sheet), emitterEntity));
             }
         }
 
-        return new AssembledScene(instances, player, cueBall, poolBalls)
+        return new AssembledScene(instances, cueBall, poolBalls)
         {
             Sprites = sprites,
             ParticleBatches = particleBatches,

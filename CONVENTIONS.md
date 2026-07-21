@@ -152,32 +152,14 @@ material under `data/materials/`. Mapping:
 
 `Paradise.Sample.Runtime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
 exported `data/` (scene JSON via `ExportJsonReader`, GLBs via the engine's
-`Paradise.Assets.Gltf`, navmesh via Detour), rebuilds the CollisionWorld from the static
-entities' colliders, spawns the SAME `SimulationRunner` sim (Agent →
-`SpawnAgent`, first agent = player; `Rigidbody.Dynamic` → `SpawnBall`), and PBR-renders
-snapshots interpolated at the bridge's constants (delay 2/60, max lag 4/60, Lerp/Slerp).
-WASD is camera-relative planar; left-click unprojects through `PbrMath.TryScreenPointToRay`
-and ray-casts `PhysicsLayers.ClickRay`. Contract matrices are column-vector layout —
-`SceneAssembler.ToModelMatrix` transposes to System.Numerics row-vector convention. The
+`Paradise.Assets.Gltf`), rebuilds the CollisionWorld from the static
+entities' colliders, spawns the SAME `SimulationRunner` sim (`Rigidbody.Dynamic` → `SpawnBall`),
+and PBR-renders snapshots interpolated at the bridge's constants (delay 2/60, max lag 4/60,
+Lerp/Slerp). Left-click drags to aim/strike the cue ball. Contract matrices are column-vector
+layout — `SceneAssembler.ToModelMatrix` transposes to System.Numerics row-vector convention. The
 camera projection mode is NOT in the contract (schema v3 candidate): the runtime defaults to
 perspective 75° (Godot's default) with `--ortho`/`--fov` overrides.
 `dotnet run --project Paradise.Sample.Runtime -- --scene data/scenes/sample.json [--headless N]`.
-
-## NavMesh (Phase 4)
-
-The scene navmesh is baked from **static collision geometry** (`NavigationServer3D` +
-`NavigationMeshSourceGeometryData3D`, `ParsedGeometryType.StaticColliders`) and written as the
-runtime's DotRecast **MeshSet** binary to `data/scenes/<Scene>.navmesh.bin`; the document's
-`NavMeshFile` records the filename.
-
-- **Agent exclusion** — parsing only static colliders naturally drops moving agents
-  (CharacterBody3D / RigidBody3D), the Godot-idiomatic equivalent of Unity's
-  `EntityAuthoring.IsAgent` filter.
-- **Handedness + winding** — the contract is right-handed (Godot-native), so baked vertices and
-  triangle winding are written **verbatim** (no Z-mirror, no winding reversal).
-- **Quantization** — `NavMeshBinaryWriter` (ported verbatim) uses cell size/height 0.1, agent
-  height 1.8, radius 0, max climb 0.3, 3 verts/poly; bake cell sizes match. Adjacency is rebuilt
-  from shared edges (index pairs, then world-position pairs for seams).
 
 ## Physics — stateless collision (runtime)
 
@@ -187,53 +169,33 @@ pure-C# stateless query library modeled on Unity Physics (DOTS): no caches, no i
 order-deterministic. All simulation state stays in ECS components, so world snapshots remain
 complete (bank-heist's "physics state is ECS state" principle).
 
-- **Geometry source** — the bridge harvests `StaticBody3D` colliders from the same
-  `navigation_source` group the navmesh bakes from (Box/Sphere/Capsule, scale folded per
-  `ColliderScaleFold`), so physics and pathfinding agree on the world.
+- **Geometry source** — the bridge harvests every `StaticBody3D` collider in the scene
+  (Box/Sphere/Capsule, scale folded per `ColliderScaleFold`): the pool table bed, cushions, and
+  frame rails the balls rest on and bounce off.
 - **Layers** — Godot `collision_layer` maps to `CollisionFilter.BelongsTo`: bit 1 = Floor,
-  bit 2 = Obstacle (`Paradise.Sample.Game/Physics/PhysicsLayers`). Character movement casts collide
-  with **Obstacle only** — the capsule rests exactly on the floor, which must never block
-  horizontal motion. Click rays hit Floor | Obstacle.
-- **Planar contract** — physics NEVER modifies Y. `MovementSystem` casts the character
-  capsule (origin = capsule **center**, matching scene authoring) along the horizontal intent and
-  slides along flattened wall normals (≤4 iterations, 0.02 m skin). Gravity/steps/slopes are a
-  future phase.
-- **Tick order** (bank-heist steering→resolve): zero `MoveIntent` → plan clicked paths → WASD
-  `DirectMover` (clears the path + writes intent, so it overrides path following the same tick)
-  → `MovementSystem` (steer → slide → ball dynamics, writing every final transform) → publish
-  snapshot.
+  bit 2 = Obstacle (`Paradise.Sample.Pool/Physics/PhysicsLayers`). Ball contacts collide with
+  **Floor | Obstacle** — the felt the ball rests on (via gravity + contact) and the cushions it
+  bounces off.
 - **`MovementSystem` is the sole owner of the final `LocalTransform`** — one generated
-  `IWorldSystem` (whole-query segment access, one `Execute` per tick) merging navmesh steering,
-  capsule cast-and-slide + ground containment, and the global ball dynamics step in fixed order.
-  Collision reaches the generated system through the read-only `PhysicsWorldRef` component: an
-  unmanaged `CollisionWorldHandle` borrowed from the runner-owned `CollisionWorld`
-  (default/invalid handle = unobstructed movement — casts miss and `PlanarGroundSupport.Clamp`
-  accepts the full move; the slide step's `Handle.IsValid` guard just skips pointless casts).
-- **Spawn contract** — the `Agents`/`Balls` queryables REQUIRE `PhysicsWorldRef` and
-  `SimulationContext` (and `Agents` requires `NavPath`/`MoveIntent`/`NavAgent`/`CharacterBody`).
-  An entity missing any required component silently doesn't match the query: `MovementSystem`
-  never sees it and it simply never moves, with no error anywhere. ALWAYS spawn through
-  `SimulationRunner.SpawnAgent`/`SpawnBall` (or copy their builder chains verbatim, seeding
-  `DeltaSeconds` and the collision handle) — a dt of 0 likewise makes the system skip the
-  entity.
-- **Navmesh is pathfinding-only** — `INavigationMesh.MoveAlongSurface` was removed; the bake's
-  agent-radius erosion still matters so planned paths keep corners clear of walls
-  (`BakedNavMeshClearanceTests`).
+  `IWorldSystem` (whole-query segment access, one `Execute` per tick) running the global ball
+  dynamics step. Collision reaches the generated system through the read-only `PhysicsWorldRef`
+  component: an unmanaged `CollisionWorldHandle` borrowed from the runner-owned `CollisionWorld`
+  (default/invalid handle = unobstructed integration — casts miss and the ball integrates freely).
+- **Spawn contract** — the `Balls` queryable REQUIRES `PhysicsWorldRef` and `SimulationContext`
+  (plus the ball dynamics/config components). An entity missing any required component silently
+  doesn't match the query: `MovementSystem` never sees it and it simply never moves, with no
+  error anywhere. ALWAYS spawn through `SimulationRunner.SpawnBall` (or copy its builder chain
+  verbatim, seeding `DeltaSeconds` and the collision handle) — a dt of 0 likewise makes the
+  system skip the entity.
 - The Godot physics server stays **Dummy** (2D and 3D): the sim owns physics; Godot must not run
-  a second solver. Click picking raycasts the sim's `CollisionWorld` instead of
-  `DirectSpaceState`.
-- **Dynamics (phase 2a)** — sphere-only dynamic bodies (`DynamicBody { Velocity, Radius, Mass }`
-  component; position = sphere center in `LocalTransform`). The resolver is the engine's
-  stateless `Paradise.Physics.PlanarSphereDynamics` (bank-heist pipeline: kinematic character
-  push → damp/integrate with cast-and-bounce vs statics → pairwise sphere impulses → static
-  depenetration pass); the game's `MovementSystem.StepBalls` only marshals components ↔
-  unmanaged scratch spans (stackalloc ≤64 bodies, else `NativeMemory` — the tick never touches
-  the GC heap) and runs right after the per-agent steer/slide passes. Characters are infinite-mass pushers
-  (`PushStrength` carry-along, never displaced by balls). Planar contract holds: Y untouched,
-  floor excluded from dynamic casts. Balls (scene group `paradise_ball`) are **not** in
-  `navigation_source` — they affect neither the navmesh bake nor the static CollisionWorld, so
-  planned paths route through them and the player shoves them aside. Character movement's slide
-  loop also lives in the engine now (`PlanarCapsuleSlide`).
+  a second solver. Picking raycasts the sim's `CollisionWorld` instead of `DirectSpaceState`.
+- **Dynamics** — sphere-only dynamic bodies (position = sphere center in `LocalTransform`). The
+  resolver is the engine's stateless `Paradise.Physics.RigidSphereDynamics` (damp/integrate with
+  cast-and-bounce vs statics → pairwise sphere impulses → static depenetration pass, full 3D under
+  gravity); the game's `MovementSystem.StepBalls` only marshals components ↔ unmanaged scratch
+  spans (stackalloc ≤64 bodies, else `NativeMemory` — the tick never touches the GC heap) and
+  passes an empty kinematic-pusher span (no characters). Balls rest on the felt via gravity +
+  contact (Y is live).
 - **`CollisionWorld` storage is `Paradise.BLOB` in unmanaged memory (adopted with the BVH
   broadphase).** The world is one `NativeBlobAssetReference` blob root (NativeMemory-backed — no
   GC-heap pinning) — `{ BlobArray<Collider>, BlobArray<RigidTransform>, BlobArray<Aabb>,
@@ -245,18 +207,13 @@ complete (bank-heist's "physics state is ECS state" principle).
   `data/scenes/<Scene>.collision.bin` export asset** (zero-parse load, golden-testable, replaces
   runtime scene harvesting). Referencing blobs from ECS components still needs an unmanaged
   pointer-backed `BlobAssetReference` handle in Paradise.BLOB first.
-- **Ground-support containment** — movers can't leave the walkable slab: character moves and
-  ball push/integrate moves are clamped so a downward probe (`PhysicsLayers.SupportRay`, floor
-  layer only, 10 m depth) from the new position still hits ground; per-axis fallback slides
-  movers along open edges (`Paradise.Physics.PlanarGroundSupport`). Balls kill the rejected
-  velocity component and rest at the rim.
 - **Rolling visuals** — game-side (engine stays transcendental-free): `MovementSystem`
   integrates ω = (Up × v)/r into `LocalTransform.Rotation` on write-back; the renderer's
   existing Slerp interpolation picks it up. Cosmetic only — sphere collision ignores rotation.
 
 ## Snapshot-read execution (systems run fully parallel)
 
-`Paradise.Sample.Game` opts into two assembly attributes that together define the system memory
+`Paradise.Sample.Pool` opts into two assembly attributes that together define the system memory
 model (`AssemblyInfo.cs`):
 
 - **`[assembly: SingleWriter]`** — every component has at most ONE writer system (PECS3008
@@ -272,9 +229,8 @@ Consequences and rules:
   explicit `[After]`) + `ParallelWaveScheduler` — with the two attributes, all systems collapse
   into ONE fully parallel wave, deterministically (outcome independent of interleaving).
 - **Read-only views are one tick stale by design.** Intra-tick chains must flow through writable
-  fields of the same component — which is exactly why steering, slide, and ball dynamics were
-  merged into one `MovementSystem`: intents are produced and consumed inside a single `Execute`,
-  so the merged design needs no cross-system latency at all.
+  fields of the same component — `MovementSystem` resolves the whole ball dynamics step inside a
+  single `Execute`, so it needs no cross-system latency at all.
 - **Managed pre-pass writes to the write world are invisible to read-only system fields** (they
   bind to the current world). This is why spawn builders seed `SimulationContext.DeltaSeconds`
   AND `PhysicsWorldRef` — without them the first tick reads dt = 0 / an invalid handle. A dt of
@@ -290,6 +246,47 @@ Consequences and rules:
   `SnapshotDagScheduler` + `ParallelWaveScheduler` — the runner's semantics, minus the thread and
   snapshot pool. Both drivers therefore need `SimulationContext.DeltaSeconds` and
   `PhysicsWorldRef` seeded at spawn.
+
+## Single-variable components
+
+`Paradise.Sample.Pool` follows the immortal-cultivation discipline: **one variable per component**
+(a single `Value` field), aggregated at use sites by `[Queryable]`. Writer-first splitting — each
+MUTATED variable becomes its own component, so single-writer ownership (PECS3008) is enforced
+per-variable and false write conflicts stay rare. `Components.cs` is the reference; the split
+mirrors `MovementSystem`'s access (`Balls.Position[i].Value`, `Balls.Velocity[i].Value`, …).
+
+THREE sanctioned exceptions keep a whole struct:
+1. **read-only baked config bags** — an atomic snapshot of authored data, never partially written
+   (`BallPhysicsConfig`, `SpriteConfig`, `ParticleConfig`, `PhysicsTuning`);
+2. **inline-buffer / runtime-state bags** — an unmanaged inline array must live inside one component
+   (`PocketConfig`, `ParticleState`);
+3. nothing else.
+
+The physics solver is untouched by the split: `MovementSystem.StepBalls` marshals the ball's
+single-var + config components field-by-field into the external `RigidSphereDynamics`'s `DynamicSphere`.
+
+## SystemEvents — the deferred fan-out bus
+
+Cross-system "X happened → N reactors" signals ride the engine's `SystemEvents` bus (Paradise.ECS
+0.5.x), not per-entity flags. A **system** producer injects a `SystemEventWriter` and `Append`s an
+unmanaged event (`GameEvents.cs`); a **managed** producer calls `world.Events.Emit<T>` (0.5.2 — sim-
+thread only, outside the wave); an owner-reactor consumes via an injected `SystemEventReader`
+(`Inbox.Read<T>()`). Events are off-entity, one-frame-deferred (produced frame N → read N+1),
+merged deterministically in schedule order, and snapshot-carried (`World.CopyFrom`). The pool sample
+demonstrates all three roles: `MovementSystem` `Append`s `BallPocketed` on a pocket; `ScoreSystem`
+(the sole writer of `Score`) reacts; `SimulationRunner.RequestReset` `Emit`s `GameReset`. Events fan
+out to READERS; any shared mutation they trigger keeps ONE owner.
+
+## UI — MVVM over the sim
+
+The `Paradise.Sample.ImGui` sample follows immortal-cultivation's MVVM split: a **ViewModel**
+(`Paradise.Sample.Ui/PoolViewModel.cs`, no `ImGuiNET`) projects sim-snapshot state into display data
+and exposes command methods that drive the sim through its command/event seam; a **View**
+(`Paradise.Sample.ImGui/PoolView.cs`) is a thin immediate-mode ImGui renderer over one ViewModel,
+holding only presentation state; a **composition root** (`SampleUi`) owns the `SimulationRunner` and
+wires the pair. Both run on the sim thread (the immediate-mode contract); the UI never mutates sim
+state except through the ViewModel's commands. This sits on the existing `ImGuiUiCore` draw-snapshot
+two-half (the sim thread owns the ImGui frame; the render half only replays snapshots).
 
 ## Prefabs (Phase 5)
 

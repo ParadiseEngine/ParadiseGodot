@@ -2,7 +2,7 @@ using Paradise.Rendering;
 using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
 using Paradise.Sample.ImGui;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool.Ui;
 using static SDL.SDL3;
 using SDL;
 
@@ -38,7 +38,8 @@ internal static class ImGuiSampleHost
         try
         {
             using var renderer = WebGpuRenderer.CreateHeadless(Width, Height);
-            var (_, pbr, scene) = Compose(runner, renderer);
+            var (_, pbr, scene, sample) = Compose(runner, renderer);
+            using var _sample = sample;
             runner.Start();
             for (var i = 0; i < frameCount; i++)
             {
@@ -93,7 +94,8 @@ internal static class ImGuiSampleHost
 
             var surfaceDesc = SdlSurface.BuildDescriptor(window, out metalView);
             renderer = new WebGpuRenderer(in surfaceDesc);
-            var (_, pbr, scene) = Compose(runner, renderer, surfaceDesc.Width, surfaceDesc.Height);
+            var (_, pbr, scene, sample) = Compose(runner, renderer, surfaceDesc.Width, surfaceDesc.Height);
+            using var _sample = sample;
 
             int logicalW, logicalH;
             SDL_GetWindowSize(window, &logicalW, &logicalH);
@@ -185,11 +187,13 @@ internal static class ImGuiSampleHost
         }
     }
 
-    private static (ImGuiUi ImGui, PbrRenderer Pbr, PbrScene Scene) Compose(
+    private static (ImGuiUi ImGui, PbrRenderer Pbr, PbrScene Scene, SampleUi Sample) Compose(
         ImGuiSampleRunner runner, WebGpuRenderer renderer, uint width = Width, uint height = Height)
     {
         var imgui = new ImGuiUi(width, height);
-        imgui.AddDraw(new ImGuiSampleUi(runner).Draw);
+        var sample = new SampleUi();       // MVVM composition root: owns the snapshot sim
+        runner.OnSimTick = sample.Tick;    // step the sim on the sim thread each frame
+        imgui.AddDraw(sample.Draw);        // the thin ImGui View over the ViewModel
         imgui.Attach(renderer);
         renderer.OverlayPass = imgui.RecordOverlay;
         runner.UiInput = imgui.Input; // the sim thread owns the ImGui frame from here on
@@ -204,7 +208,7 @@ internal static class ImGuiSampleHost
             },
             ClearColor = new ColorRgba(0.075f, 0.08f, 0.1f, 1f),
         };
-        return (imgui, pbr, scene);
+        return (imgui, pbr, scene, sample);
     }
 
     private static UiPointerButton? ToButton(byte sdlButton) => sdlButton switch

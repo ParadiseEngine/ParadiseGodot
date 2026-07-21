@@ -2,7 +2,7 @@ using System.Numerics;
 using Paradise.ECS;
 using Paradise.Rendering.Pbr;
 using Paradise.Export.Data;
-using Paradise.Sample.Game;
+using Paradise.Sample.Pool;
 
 namespace Paradise.Sample.Runtime;
 
@@ -93,11 +93,11 @@ public sealed class ParticleBatchState
     }
 
     public void Update(
-        PbrRenderer pbr, in ParticleEmitter worldA, in ParticleEmitter worldB, float alpha,
+        PbrRenderer pbr, in ParticleState worldA, in ParticleState worldB, int capacity, float alpha,
         in Vector3 cameraRight, in Vector3 cameraUp)
     {
         var count = 0;
-        for (var slot = 0; slot < _capacity && slot < worldB.Capacity; slot++)
+        for (var slot = 0; slot < _capacity && slot < capacity; slot++)
         {
             var current = worldB.Particles[slot];
             if (current.Lifetime <= 0f)

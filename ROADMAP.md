@@ -12,10 +12,12 @@ stays the flagship sample project and development workbench for the addon.
 
 ## Current Status
 
-The engine is fully consumed as published NuGet packages (`Paradise.*` 0.2.0 + `Paradise.Export`
-0.3.0). Game code lives under `Paradise.Sample.*`; the export tooling is a working `EditorPlugin`
-at `addons/paradise_export/` whose only compile-time dependency is the `Paradise.Export` package.
-Next: productize that plugin into a publishable addon (phases below).
+The engine is fully consumed as published NuGet packages (`Paradise.*` **0.5.2**, unified). Game code
+lives under `Paradise.Sample.*` — the sample game core is `Paradise.Sample.Pool` (a pool physics
+game), realigned to the immortal-cultivation data-oriented architecture (single-variable components,
+owner systems, the `SystemEvents` deferred bus + managed `Emit`, and an MVVM ImGui sample). The
+export tooling is a working `EditorPlugin` at `addons/paradise_export/` whose only compile-time
+dependency is the `Paradise.Export` package. Next: productize that plugin into a publishable addon.
 
 ## Milestones
 
@@ -28,6 +30,10 @@ Next: productize that plugin into a publishable addon (phases below).
 - [x] Export core shared across editors — moved to the engine repo as `Paradise.Export`
   (engine [#117](https://github.com/ParadiseEngine/ParadiseEngine/pull/117), v0.3.0;
   consumed in [#73](https://github.com/ParadiseEngine/ParadiseGodot/pull/73))
+- [x] Rename `Paradise.Sample.Game*` → `Paradise.Sample.Pool*`; realign the sample family to the
+  immortal-cultivation architecture — engine bump 0.3.0 → 0.5.2, single-variable components, the
+  `SystemEvents` bus (pocketing→score reactor + managed reset), and the ImGui sample as MVVM over
+  the sim. See CONVENTIONS.md ("Single-variable components", "SystemEvents", "UI — MVVM").
 
 ### In Progress — Addon publishing
 
@@ -77,8 +83,8 @@ Next: productize that plugin into a publishable addon (phases below).
 
 ## Technical Debt
 
-- Engine package versions split across 0.2.0 (original 16) and 0.3.0 (`Paradise.Export`);
-  unify to 0.3.0 in one PR when convenient (`Paradise.Export` has no 0.2.0 on nuget.org)
+- ~~Engine package versions split across 0.2.0 and 0.3.0; unify~~ — DONE: the whole family is on
+  `Paradise.*` 0.5.2 (unified in the Sample.Pool realignment).
 - `Paradise.Ui.Noesis` requires a NoesisGUI license; addon/docs must state this where relevant
 
 ## Notes

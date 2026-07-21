@@ -2,17 +2,16 @@ using System.Diagnostics;
 using System.Numerics;
 using Paradise.Rendering;
 using Paradise.Rendering.WebGPU;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool.Ui;
 using static SDL.SDL3;
 using SDL;
 
 namespace Paradise.Sample.Runtime;
 
 /// <summary>The standalone Paradise runtime: loads an exported scene from <c>data/</c>, runs
-/// the real 60 Hz game simulation (Paradise.Sample.Game's SimulationRunner + MovementSystem), and
-/// PBR-renders interpolated snapshots in an SDL window. WASD moves the player
-/// camera-relative; left-click paths via the navmesh. <c>--headless N</c> renders N frames
-/// offscreen for CI.
+/// the real 60 Hz game simulation (Paradise.Sample.Pool's SimulationRunner + MovementSystem), and
+/// PBR-renders interpolated snapshots in an SDL window. Left-click drags to aim/strike the cue
+/// ball. <c>--headless N</c> renders N frames offscreen for CI.
 ///
 /// Usage: Paradise.Sample.Runtime --scene data/scenes/sample.json [--headless N] [--ortho] [--fov N]
 ///
@@ -137,7 +136,7 @@ internal static class Program
             }
             Console.WriteLine(
                 $"[Paradise.Sample.Runtime] Headless: rendered {frameCount} frames, {loop.InstanceCount} instances, " +
-                $"player={(loop.HasPlayer ? "yes" : "no")}, collision={(loop.CollisionWorld is not null ? "yes" : "no")}.");
+                $"collision={(loop.CollisionWorld is not null ? "yes" : "no")}.");
 
             if (screenshotPath is not null)
             {
@@ -164,7 +163,7 @@ internal static class Program
         return systems.ToArray();
     }
 
-    private static Paradise.Sample.Game.Ui.IUiInput? ComposeUiInput(IUiSystem[] systems) => systems.Length switch
+    private static Paradise.Sample.Pool.Ui.IUiInput? ComposeUiInput(IUiSystem[] systems) => systems.Length switch
     {
         0 => null,
         1 => systems[0].Input,
@@ -202,7 +201,6 @@ internal static class Program
             {
                 ImGuiNET.ImGui.Begin("Paradise");
                 ImGuiNET.ImGui.Text($"instances: {loop.InstanceCount}");
-                ImGuiNET.ImGui.Text($"player: {(loop.HasPlayer ? "yes" : "no")}");
                 ImGuiNET.ImGui.Checkbox("ImGui demo window", ref showDemo);
                 ImGuiNET.ImGui.End();
                 if (showDemo) ImGuiNET.ImGui.ShowDemoWindow(ref showDemo);
@@ -273,7 +271,7 @@ internal static class Program
             SDL_GetWindowSize(window, &logicalW, &logicalH);
             var uiScale = logicalW > 0 ? surfaceDesc.Width / (float)logicalW : 1f;
             loop.Start();
-            Console.WriteLine("[Paradise.Sample.Runtime] WASD moves the player (camera-relative); left-click to path-move.");
+            Console.WriteLine("[Paradise.Sample.Runtime] Left-click drag to aim and strike the cue ball.");
 
             var clock = Stopwatch.StartNew();
             var last = clock.Elapsed.TotalSeconds;
@@ -308,7 +306,7 @@ internal static class Program
                                 if (pw > 0 && ph > 0)
                                 {
                                     uiScale = lw > 0 ? pw / (float)lw : 1f;
-                                    loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.Resize, new Vector2(pw, ph));
+                                    loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.Resize, new Vector2(pw, ph));
                                 }
                             }
                         }
@@ -318,7 +316,7 @@ internal static class Program
                         loop.UpdateAim(new Vector2(ev.motion.x, ev.motion.y) * uiScale);
                         if (ui is not null || imgui is not null)
                         {
-                            loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
+                            loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
                         }
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
@@ -327,29 +325,21 @@ internal static class Program
                         loop.ReleaseAim();
                         if (ui is not null || imgui is not null)
                         {
-                            loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                            loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
                         }
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN &&
                              ev.button.button == SDL_BUTTON_LEFT)
                     {
-                        // The cue ball claims the click first (start aiming); then UI (panel
-                        // clicks route through the sim); unconsumed clicks fall to click-to-move.
-                        if (!loop.TryBeginAim(new Vector2(ev.button.x, ev.button.y) * uiScale))
+                        // The cue ball claims the click first (start aiming); otherwise the click
+                        // routes to the UI (panel clicks go through the sim).
+                        if (!loop.TryBeginAim(new Vector2(ev.button.x, ev.button.y) * uiScale) &&
+                            (ui is not null || imgui is not null))
                         {
-                            if (ui is not null || imgui is not null)
-                            {
-                                loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
-                            }
-                            else
-                            {
-                                loop.TryClickMove(new Vector2(ev.button.x, ev.button.y));
-                            }
+                            loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
                         }
                     }
                 }
-
-                loop.SetMoveInput(ReadWasdDirection(loop));
 
                 var now = clock.Elapsed.TotalSeconds;
                 loop.RenderFrame(now - last);
@@ -365,26 +355,5 @@ internal static class Program
             if (window != null) SDL_DestroyWindow(window);
             SDL_Quit();
         }
-    }
-
-    /// <summary>Camera-relative planar WASD (the EcsSceneBridge.ReadWasdDirection port).</summary>
-    private static unsafe Vector3 ReadWasdDirection(RuntimeLoop loop)
-    {
-        int keyCount;
-        var keys = SDL_GetKeyboardState(&keyCount);
-        var (forward, right) = loop.PlanarBasis();
-        var direction = Vector3.Zero;
-        if (IsDown(keys, keyCount, SDL_Scancode.SDL_SCANCODE_W)) direction += forward;
-        if (IsDown(keys, keyCount, SDL_Scancode.SDL_SCANCODE_S)) direction -= forward;
-        if (IsDown(keys, keyCount, SDL_Scancode.SDL_SCANCODE_A)) direction -= right;
-        if (IsDown(keys, keyCount, SDL_Scancode.SDL_SCANCODE_D)) direction += right;
-        var length = direction.Length();
-        return length > 1e-4f ? direction / length : Vector3.Zero;
-    }
-
-    private static unsafe bool IsDown(SDLBool* keys, int keyCount, SDL_Scancode scancode)
-    {
-        var index = (int)scancode;
-        return index < keyCount && keys[index];
     }
 }
