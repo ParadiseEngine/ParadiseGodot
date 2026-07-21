@@ -1,5 +1,4 @@
 <Solution>
-  <Project Path="Paradise.Sample.Pool.Navigation.Detour/Paradise.Sample.Pool.Navigation.Detour.csproj" />
   <Project Path="Paradise.Sample.Pool.Tests/Paradise.Sample.Pool.Tests.csproj" />
   <Project Path="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
   <Project Path="Paradise.Sample.ImGui/Paradise.Sample.ImGui.csproj" />

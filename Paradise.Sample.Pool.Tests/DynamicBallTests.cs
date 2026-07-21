@@ -4,7 +4,6 @@ using Paradise.ECS;
 using Paradise.Physics;
 using Paradise.Sample.Pool;
 using Paradise.Sample.Pool.Physics;
-using Paradise.Sample.Pool.Navigation.Detour;
 using CollisionWorld = Paradise.Physics.CollisionWorld;
 
 namespace Paradise.Sample.Pool.Tests;
@@ -21,13 +20,6 @@ public class DynamicBallTests
     private static Collider ObstacleBox(Vector3 halfExtents) => Collider.CreateBox(
         halfExtents, new CollisionFilter { BelongsTo = PhysicsLayers.Obstacle, CollidesWith = ~0u });
 
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(20, 0, 0), new(20, 0, 20), new(0, 0, 20) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 }; // +Y winding
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     private static void Tick(SimulationRunner runner, int count)
     {
         for (int i = 0; i < count; i++)
@@ -43,42 +35,19 @@ public class DynamicBallTests
     }
 
     [Test]
-    public async Task character_pushes_ball_forward()
-    {
-        CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
-        using var runner = new SimulationRunner(FlatGround(), collision);
-        Entity player = runner.SpawnAgent(new Vector3(2f, 0.9f, 5f), Quaternion.Identity, 3.5f, 0.25f);
-        Entity ball = runner.SpawnBall(new Vector3(4f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
-
-        runner.SetMoveInput(player, new Vector3(1f, 0f, 0f)); // walk into the ball
-        Tick(runner, 120);
-        runner.SetMoveInput(player, Vector3.Zero);
-        Tick(runner, 120); // let everything settle
-
-        Vector3 ballPos = LatestPosition(runner, ball);
-        Vector3 playerPos = LatestPosition(runner, player);
-
-        await Assert.That(ballPos.X).IsGreaterThan(4.5f); // shoved along the push direction
-        float dx = ballPos.X - playerPos.X;
-        float dz = ballPos.Z - playerPos.Z;
-        float centerDistance = MathF.Sqrt(dx * dx + dz * dz);
-        await Assert.That(centerDistance).IsGreaterThanOrEqualTo(0.4f + 0.35f - 0.05f); // non-overlapping at rest
-    }
-
-    [Test]
     public async Task global_tuning_min_speed_settles_slow_supported_balls_sooner()
     {
         // The rest threshold is authored data (PhysicsTuning), applied only to a SUPPORTED ball.
         // A ball resting on the floor and nudged to 0.4 m/s rolls under the default MinSpeed but
         // is snapped to rest immediately under MinSpeed 0.5.
-        using var runner = new SimulationRunner(FlatGround(), CollisionWorld.Build([FloorBox], [FloorPose]));
+        using var runner = new SimulationRunner(CollisionWorld.Build([FloorBox], [FloorPose]));
         Entity ball = runner.SpawnBall(new Vector3(4f, 0.35f, 4f), Quaternion.Identity, radius: 0.35f,
             linearDamping: 0f, angularDamping: 0f);
         runner.EnqueueBallImpulse(ball, new Vector3(0.4f, 0f, 0f));
         Tick(runner, 60);
         float rolled = LatestPosition(runner, ball).X;
 
-        using var sticky = new SimulationRunner(FlatGround(), CollisionWorld.Build([FloorBox], [FloorPose]));
+        using var sticky = new SimulationRunner(CollisionWorld.Build([FloorBox], [FloorPose]));
         Entity snapped = sticky.SpawnBall(new Vector3(4f, 0.35f, 4f), Quaternion.Identity, radius: 0.35f,
             linearDamping: 0f, angularDamping: 0f, tuning: PhysicsTuning.Default with { MinSpeed = 0.5f });
         sticky.EnqueueBallImpulse(snapped, new Vector3(0.4f, 0f, 0f));
@@ -95,7 +64,7 @@ public class DynamicBallTests
         CollisionWorld collision = CollisionWorld.Build(
             [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
             [FloorPose, new RigidTransform(new Vector3(9f, 1.5f, 5f), Quaternion.Identity)]);
-        using var runner = new SimulationRunner(FlatGround(), collision);
+        using var runner = new SimulationRunner(collision);
         Entity ball = runner.SpawnBall(new Vector3(2f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
 
         // Launch the ball at the obstacle by seeding velocity on the initial snapshot.
@@ -128,14 +97,14 @@ public class DynamicBallTests
             [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
             [FloorPose, new RigidTransform(new Vector3(9f, 1.5f, 5f), Quaternion.Identity)]);
 
-        using var spun = new SimulationRunner(FlatGround(), Table());
+        using var spun = new SimulationRunner(Table());
         Entity a = spun.SpawnBall(new Vector3(2f, 0.35f, 5f), Quaternion.Identity, radius: 0.35f,
             linearDamping: 0f, friction: 0.6f);
         spun.EnqueueBallImpulse(a, new Vector3(6f, 0f, 0f), new Vector3(0f, 30f, 0f)); // +X with strong english
         Tick(spun, 150);
         float spunZ = LatestPosition(spun, a).Z;
 
-        using var plain = new SimulationRunner(FlatGround(), Table());
+        using var plain = new SimulationRunner(Table());
         Entity b = plain.SpawnBall(new Vector3(2f, 0.35f, 5f), Quaternion.Identity, radius: 0.35f,
             linearDamping: 0f, friction: 0.6f);
         plain.EnqueueBallImpulse(b, new Vector3(6f, 0f, 0f), Vector3.Zero);
@@ -149,7 +118,7 @@ public class DynamicBallTests
     public async Task balls_collide_and_transfer_momentum()
     {
         CollisionWorld collision = CollisionWorld.Build([FloorBox], [FloorPose]);
-        using var runner = new SimulationRunner(FlatGround(), collision);
+        using var runner = new SimulationRunner(collision);
         Entity ballA = runner.SpawnBall(new Vector3(4f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
         Entity ballB = runner.SpawnBall(new Vector3(6f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
 
@@ -183,21 +152,8 @@ public class DynamicBallTests
             CollisionWorld collision = CollisionWorld.Build(
                 [FloorBox, ObstacleBox(new Vector3(1f, 1.5f, 1f))],
                 [FloorPose, new RigidTransform(new Vector3(9f, 1.5f, 5f), Quaternion.Identity)]);
-            var (verts, tris) = (new List<Vector3> { new(0, 0, 0), new(20, 0, 0), new(20, 0, 20), new(0, 0, 20) },
-                                 new List<int> { 0, 2, 1, 0, 3, 2 });
-            using var sim = new GameSimulation(new DetourNavigationMesh(verts, tris), collision);
+            using var sim = new GameSimulation(collision);
 
-            Entity player = sim.World.CreateEntity(EntityBuilder.Create()
-                .Add(new Position { Value = new Vector3(2f, 0.9f, 5f) })
-                .Add(new Rotation { Value = Quaternion.Identity })
-                .Add(new NavAgent(3.5f, 0.25f))
-                .Add(new NavWaypoints())
-                .Add(new NavCursor())
-                .Add(new HasPath())
-                .Add(new MoveIntent())
-                .Add(new CharacterBody(0.4f, 0.5f))
-                .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
-                .Add(new PhysicsWorldRef { Handle = collision.Handle }));
             Entity ballA = sim.World.CreateEntity(EntityBuilder.Create()
                 .Add(new Position { Value = new Vector3(4f, 0.85f, 5f) })
                 .Add(new Rotation { Value = Quaternion.Identity })
@@ -234,7 +190,7 @@ public class DynamicBallTests
             }
 
             var sink = new List<int>();
-            foreach (Entity e in new[] { player, ballA, ballB })
+            foreach (Entity e in new[] { ballA, ballB })
             {
                 Vector3 p = sim.World.GetComponent<Position>(e).Value;
                 sink.Add(BitConverter.SingleToInt32Bits(p.X));

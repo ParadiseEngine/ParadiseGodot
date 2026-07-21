@@ -9,23 +9,14 @@ namespace Paradise.Sample.Pool;
 /// <summary>
 /// The single owner of every simulated entity's final <see cref="Position"/>/<see cref="Rotation"/>:
 /// one generated world system (whole-query segment access, one <see cref="Execute"/> per tick) that
-/// runs, in fixed order — (1) navmesh steering per agent (waypoint advance, intent, facing),
-/// (2) capsule cast-and-slide + ground containment per agent, (3) the global ball dynamics step
-/// (character pushes, ball↔static, ball↔ball) with rolling rotation. Merging steering and integration
-/// here means intents are consumed the same tick they are produced, and no other system ever writes a
-/// transform (<c>[SingleWriter]</c> enforced).
+/// runs the global ball dynamics step (ball↔static, ball↔ball) with rolling rotation. No other system
+/// ever writes a transform (<c>[SingleWriter]</c> enforced).
 ///
-/// Under snapshot-read execution the read-only fields it reads (dt, physics handle, agent/ball config)
-/// are the PREVIOUS tick's values — seed them at spawn. Characters stay planar (Y locked); BALLS are
-/// full 3D (gravity/jumps move their Y).
+/// Under snapshot-read execution the read-only fields it reads (dt, physics handle, ball config)
+/// are the PREVIOUS tick's values — seed them at spawn. BALLS are full 3D (gravity moves their Y).
 /// </summary>
 public ref partial struct MovementSystem : IWorldSystem
 {
-    /// <summary>Clearance kept between the capsule and any surface (meters).</summary>
-    public const float Skin = 0.02f;
-
-    private const float MinMoveSq = 1e-10f;
-
     private const int MaxStackBodies = 64;
 
     private const float GlowFullImpulse = 2f;
@@ -41,7 +32,6 @@ public ref partial struct MovementSystem : IWorldSystem
         StaticFilter = PhysicsLayers.BallContact,
     };
 
-    public AgentsSegments Agents;
     public BallsSegments Balls;
 
     /// <summary>Deferred <c>SystemEvents</c> writer (engine 0.5.2): a <see cref="BallPocketed"/> is
@@ -52,97 +42,11 @@ public ref partial struct MovementSystem : IWorldSystem
 
     public void Execute()
     {
-        for (int i = 0; i < Agents.Length; i++)
-        {
-            float dt = Agents.SimulationContext[i].DeltaSeconds;
-            if (dt <= 0f)
-            {
-                continue;
-            }
-
-            Steer(i, dt);
-            Slide(i, dt);
-        }
-
         StepBalls();
     }
 
-    /// <summary>Path following: writes <see cref="MoveIntent"/> and facing; never the position.</summary>
-    private void Steer(int i, float dt)
-    {
-        if (Agents.HasPath[i].Value == 0 || Agents.NavWaypoints[i].Count == 0)
-        {
-            return;
-        }
-
-        ref readonly NavWaypoints waypoints = ref Agents.NavWaypoints[i];
-        ref int cursor = ref Agents.NavCursor[i].Value;
-        ref readonly NavAgent agent = ref Agents.NavAgent[i];
-        Vector3 position = Agents.Position[i].Value;
-        float arriveSq = agent.ArriveRadius * agent.ArriveRadius;
-
-        // Skip any waypoints already within the arrive radius (handles the path's start corner).
-        while (cursor < waypoints.Count && HorizontalDistanceSq(position, waypoints.Waypoints[cursor]) <= arriveSq)
-        {
-            cursor++;
-        }
-
-        if (cursor >= waypoints.Count)
-        {
-            Agents.HasPath[i].Value = 0;
-            return;
-        }
-
-        Vector3 target = waypoints.Waypoints[cursor];
-        Vector3 direction = new(target.X - position.X, 0f, target.Z - position.Z);
-        float distance = direction.Length();
-        if (distance <= 1e-5f)
-        {
-            return;
-        }
-
-        direction /= distance;
-        // Steer toward the waypoint without overshooting it this tick; the slide step below moves it.
-        float speed = MathF.Min(agent.MoveSpeed, distance / dt);
-        Agents.MoveIntent[i].DesiredVelocity = direction * speed;
-
-        // Face the movement direction instantly (cosmetic). Model forward is −Z (right-handed).
-        float yaw = MathF.Atan2(-direction.X, -direction.Z);
-        Agents.Rotation[i].Value = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
-    }
-
-    /// <summary>Capsule cast-and-slide against static geometry, then ground containment.</summary>
-    private void Slide(int i, float dt)
-    {
-        Vector3 desired = Agents.MoveIntent[i].DesiredVelocity;
-        var displacement = new Vector3(desired.X, 0f, desired.Z) * dt;
-        if (displacement.LengthSquared() <= MinMoveSq)
-        {
-            return;
-        }
-
-        ref Vector3 transform = ref Agents.Position[i].Value;
-        Vector3 start = transform;
-        CollisionWorldHandle statics = Agents.PhysicsWorldRef[i].Handle;
-        Vector3 position;
-        if (!statics.IsValid)
-        {
-            position = start + displacement;
-        }
-        else
-        {
-            ref readonly CharacterBody body = ref Agents.CharacterBody[i];
-            position = PlanarCapsuleSlide.Move(statics, PhysicsLayers.CharacterCast,
-                body.Radius, body.HalfLength, start, displacement, Skin);
-            position = PlanarGroundSupport.Clamp(statics, PhysicsLayers.SupportRay,
-                start, position, PhysicsLayers.SupportProbeDepth);
-        }
-
-        transform = new Vector3(position.X, start.Y, position.Z);
-    }
-
-    /// <summary>Gather live (non-sunk) balls + character pushers into unmanaged scratch spans, run one
-    /// stateless <see cref="RigidSphereDynamics"/> step, scatter back with rolling rotation, then the
+    /// <summary>Gather live (non-sunk) balls into an unmanaged scratch span, run one stateless
+    /// <see cref="RigidSphereDynamics"/> step, scatter back with rolling rotation, then the
     /// pocket-capture pass. Global by nature (pairwise collisions) — the reason this is a world system.</summary>
     private unsafe void StepBalls()
     {
@@ -160,9 +64,7 @@ public ref partial struct MovementSystem : IWorldSystem
 
         DropSinkingBalls(ballCount, dt); // fall pockets forward even when no ball is live this tick
 
-        int pusherCount = Agents.Length;
         DynamicSphere* sphereAlloc = null;
-        KinematicCapsule* pusherAlloc = null;
         int* mapAlloc = null;
         try
         {
@@ -176,11 +78,6 @@ public ref partial struct MovementSystem : IWorldSystem
                 : new Span<int>(
                     mapAlloc = (int*)NativeMemory.Alloc((nuint)ballCount, sizeof(int)),
                     ballCount))[..ballCount];
-            Span<KinematicCapsule> pushers = (pusherCount <= MaxStackBodies
-                ? stackalloc KinematicCapsule[MaxStackBodies]
-                : new Span<KinematicCapsule>(
-                    pusherAlloc = (KinematicCapsule*)NativeMemory.Alloc((nuint)pusherCount, (nuint)sizeof(KinematicCapsule)),
-                    pusherCount))[..pusherCount];
 
             int liveCount = 0;
             for (int i = 0; i < ballCount; i++)
@@ -213,18 +110,6 @@ public ref partial struct MovementSystem : IWorldSystem
             Span<DynamicSphere> spheres = sphereScratch[..liveCount];
             Span<int> map = mapScratch[..liveCount];
 
-            // Pushers use this tick's post-slide positions and intents (agents ran above).
-            for (int p = 0; p < pusherCount; p++)
-            {
-                pushers[p] = new KinematicCapsule
-                {
-                    Position = Agents.Position[p].Value,
-                    Velocity = Agents.MoveIntent[p].DesiredVelocity,
-                    Radius = Agents.CharacterBody[p].Radius,
-                    HalfLength = Agents.CharacterBody[p].HalfLength,
-                };
-            }
-
             CollisionWorldHandle statics = Balls.PhysicsWorldRef[map[0]].Handle;
             ref readonly PhysicsTuning tuning = ref Balls.PhysicsTuning[map[0]];
             SphereDynamicsSettings settings = BallSettings with
@@ -237,7 +122,7 @@ public ref partial struct MovementSystem : IWorldSystem
                 StaticFriction = tuning.StaticFriction,
                 StaticRestitution = Balls.BallPhysicsConfig[map[0]].StaticRestitution,
             };
-            RigidSphereDynamics.Step(spheres, pushers, statics, settings, dt);
+            RigidSphereDynamics.Step(spheres, ReadOnlySpan<KinematicCapsule>.Empty, statics, settings, dt);
 
             for (int k = 0; k < liveCount; k++)
             {
@@ -276,7 +161,6 @@ public ref partial struct MovementSystem : IWorldSystem
         finally
         {
             if (sphereAlloc != null) NativeMemory.Free(sphereAlloc);
-            if (pusherAlloc != null) NativeMemory.Free(pusherAlloc);
             if (mapAlloc != null) NativeMemory.Free(mapAlloc);
         }
     }
@@ -363,12 +247,5 @@ public ref partial struct MovementSystem : IWorldSystem
                 Balls.BallSunk[i].Value = 1;
             }
         }
-    }
-
-    private static float HorizontalDistanceSq(Vector3 a, Vector3 b)
-    {
-        float dx = a.X - b.X;
-        float dz = a.Z - b.Z;
-        return dx * dx + dz * dz;
     }
 }

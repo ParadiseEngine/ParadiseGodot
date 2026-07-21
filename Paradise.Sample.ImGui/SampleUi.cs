@@ -26,7 +26,7 @@ public sealed class SampleUi : IDisposable
 
     public SampleUi()
     {
-        _runner = new SimulationRunner(new NoNavMesh());
+        _runner = new SimulationRunner();
 
         // Planar tuning: solver gravity stays on the authored default axis, but scoring is a planar
         // (XZ) pocket capture, so balls score by sliding regardless — and the ImGui sample renders no

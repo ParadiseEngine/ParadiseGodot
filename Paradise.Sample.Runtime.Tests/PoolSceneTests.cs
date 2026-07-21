@@ -29,7 +29,6 @@ public class PoolSceneTests
     {
         var level = LoadPool();
         await Assert.That(level.Level.Entities.Count).IsEqualTo(45);
-        await Assert.That(level.NavigationMesh).IsNotNull();
         foreach (var entity in level.Level.Entities)
         {
             foreach (var slot in entity.Materials)

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -12,13 +11,6 @@ namespace Paradise.Sample.Pool.Tests;
 /// different strike.</summary>
 public class PoolGameTests
 {
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(30, 0, 0), new(30, 0, 30), new(0, 0, 30) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     /// <summary>Deadline-poll for threaded-loop conditions. CI runners stall sim threads far
     /// beyond any tuned sleep; the pause tests assert ordering, never latency.</summary>
     private static void WaitUntil(Func<bool> condition, string what, int timeoutMs = 5000)
@@ -49,7 +41,7 @@ public class PoolGameTests
     [Test]
     public async Task strike_impulse_moves_the_cue_ball()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
 
         runner.EnqueueBallImpulse(cue, new Vector3(3f, 0f, 0f));
@@ -61,7 +53,7 @@ public class PoolGameTests
     [Test]
     public async Task strike_sets_spin_but_a_plain_impulse_leaves_it_untouched()
     {
-        using var runner = new SimulationRunner(FlatGround()); // no statics → no contact/damping churn
+        using var runner = new SimulationRunner(); // no statics → no contact/damping churn
         var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f, angularDamping: 0f);
 
         runner.EnqueueBallImpulse(cue, new Vector3(2f, 0f, 0f), new Vector3(0f, 1f, 0f)); // a strike sets spin
@@ -78,7 +70,7 @@ public class PoolGameTests
     [Test]
     public async Task collision_lights_the_glow_and_it_dies_with_the_motion()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
         var target = runner.SpawnBall(new Vector3(7, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
 
@@ -101,7 +93,7 @@ public class PoolGameTests
     [Test]
     public async Task rewind_restores_a_past_frame_and_a_new_strike_diverges_the_future()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
 
         // Original timeline: strike +X, run 120 ticks, remember where the cue ended up.
@@ -141,7 +133,7 @@ public class PoolGameTests
         // dry, but RestoreFromRewind bailed without pruning — a paused resume could silently
         // skip the rewind while the caller believed it applied. The restore must reclaim
         // exactly like a tick, and report false only when every world is genuinely pinned.
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
         runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
         for (var i = 0; i < 60; i++) runner.TickOnce();
@@ -191,7 +183,7 @@ public class PoolGameTests
         // Regression: pausing froze TickOnce AND the UI drain with it, so the pause panel
         // could never be interacted with again. Pause must freeze the world, not the UI.
         int handledWhilePaused, ticksBefore, ticksAfterWait;
-        using (var runner = new SimulationRunner(FlatGround()))
+        using (var runner = new SimulationRunner())
         {
             var ui = new RecordingUi();
             runner.UiInput = ui;
@@ -231,7 +223,7 @@ public class PoolGameTests
         // thread-affine to the constructing thread, and awaits hop the continuation.
         Vector3 frozen, afterPause;
         int frozenFrames, afterPauseFrames, afterResumeFrames;
-        using (var runner = new SimulationRunner(FlatGround()))
+        using (var runner = new SimulationRunner())
         {
             var cue = runner.SpawnBall(new Vector3(5, 0.85f, 5), Quaternion.Identity, radius: 0.35f);
             runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
@@ -281,7 +273,7 @@ public class PoolGameTests
 
     private static float MaxHorizontalDrift(float radius)
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var balls = new List<Entity>();
         foreach (var p in RackTriad) balls.Add(runner.SpawnBall(p, Quaternion.Identity, radius));
         for (var i = 0; i < 60; i++) runner.TickOnce();

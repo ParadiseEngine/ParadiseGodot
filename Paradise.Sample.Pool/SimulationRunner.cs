@@ -6,13 +6,9 @@ using System.Numerics;
 using System.Threading;
 using Paradise.Physics;
 using Paradise.Sample.Pool.Audio;
-using Paradise.Sample.Pool.Navigation;
 using Paradise.Sample.Pool.Ui;
 
 namespace Paradise.Sample.Pool;
-
-/// <summary>A queued "move this entity to here" input from the presentation thread.</summary>
-public readonly record struct MoveCommand(Entity Entity, Vector3 Target);
 
 /// <summary>
 /// Runs the simulation on its own thread as a sequence of IMMUTABLE ECS-world snapshots, following the
@@ -44,13 +40,10 @@ public sealed class SimulationRunner : IDisposable
     }
 
     private readonly SharedWorld _shared;
-    private readonly INavigationMesh _navigationMesh;
     private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
-    private readonly ConcurrentQueue<MoveCommand> _input = new();
     private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta, Vector3? Angular)> _impulses = new();
     private readonly RewindBuffer _rewind = new();
     private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
-    private readonly ConcurrentDictionary<Entity, Vector3> _moveInput = new();
     private readonly object _lock = new();
     private readonly Stopwatch _clock = new();
 
@@ -70,9 +63,8 @@ public sealed class SimulationRunner : IDisposable
     private volatile Exception? _threadException;
     private bool _disposed;
 
-    public SimulationRunner(INavigationMesh navigationMesh, Paradise.Physics.CollisionWorld? collisionWorld = null)
+    public SimulationRunner(Paradise.Physics.CollisionWorld? collisionWorld = null)
     {
-        _navigationMesh = navigationMesh ?? throw new ArgumentNullException(nameof(navigationMesh));
         _collisionWorld = collisionWorld;
         _shared = SharedWorldFactory.Create();
         // Pre-create the whole world pool on THIS (owner) thread. SharedWorld.CreateWorld/Dispose are the
@@ -115,22 +107,6 @@ public sealed class SimulationRunner : IDisposable
         Current.CreateEntity(EntityBuilder.Create()
             .Add(new Position { Value = position })
             .Add(new Rotation { Value = rotation }));
-
-    public Entity SpawnAgent(Vector3 position, Quaternion rotation, float moveSpeed, float arriveRadius,
-        float bodyRadius = 0.4f, float bodyHalfLength = 0.5f) =>
-        Current.CreateEntity(EntityBuilder.Create()
-            .Add(new Position { Value = position })
-            .Add(new Rotation { Value = rotation })
-            .Add(new NavAgent(moveSpeed, arriveRadius))
-            .Add(new NavWaypoints())
-            .Add(new NavCursor())
-            .Add(new HasPath())
-            .Add(new MoveIntent())
-            .Add(new CharacterBody(bodyRadius, bodyHalfLength))
-            // Seeded: under snapshot reads, systems see the CURRENT world's SimulationContext
-            // (written last tick); seeding removes the one-tick dt warmup on the very first tick.
-            .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
-            .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
 
     /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.
     /// <paramref name="pocket"/> carries the optional pool-game config (pockets, tray slot,
@@ -183,8 +159,6 @@ public sealed class SimulationRunner : IDisposable
             .Add(ParticleConfig.SeedState(seed))
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds }));
 
-    public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
-
     /// <summary>The optional sim-thread UI half. Set before <see cref="Start"/>; every tick the
     /// runner drains queued UI events into it and advances its time — so hover/focus/animations
     /// run in lockstep with game state. The renderer half of the same UI system runs on the
@@ -192,7 +166,7 @@ public sealed class SimulationRunner : IDisposable
     public IUiInput? UiInput { get; set; }
 
     /// <summary>Invoked ON THE SIM THREAD for pointer-downs the UI did not consume and that
-    /// carry a world-space pick ray — the game-side "clicked the world" hook (click-to-move).</summary>
+    /// carry a world-space pick ray — the game-side "clicked the world" hook.</summary>
     public Action<UiEvent>? UiUnhandledPointerDown { get; set; }
 
     /// <summary>Queue a UI event from the platform/render thread; drained on the sim thread
@@ -205,10 +179,6 @@ public sealed class SimulationRunner : IDisposable
     /// thread and the runner advances its time each fixed tick. The system's pump half runs
     /// on the render thread.</summary>
     public IAudioSink? Audio { get; set; }
-
-    /// <summary>Set an agent's current direct-move (WASD) direction; applied every tick until changed
-    /// (zero = no input). Overrides click-to-move path following while non-zero.</summary>
-    public void SetMoveInput(Entity entity, Vector3 direction) => _moveInput[entity] = direction;
 
     /// <summary>Add a velocity delta to a dynamic ball on its next tick (the pool strike). When
     /// <paramref name="angularVelocity"/> is given it is ASSIGNED (not accumulated) as the ball's
@@ -523,30 +493,12 @@ public sealed class SimulationRunner : IDisposable
 
         PumpUi();
 
-        while (_input.TryDequeue(out MoveCommand cmd))
-        {
-            if (write.IsAlive(cmd.Entity))
-            {
-                NavigationPlanner.PlanMoveTo(write, cmd.Entity, cmd.Target, _navigationMesh);
-            }
-        }
-
         while (_impulses.TryDequeue(out var impulse))
         {
             if (write.IsAlive(impulse.Entity) && write.HasComponent<Velocity>(impulse.Entity))
             {
                 write.GetComponent<Velocity>(impulse.Entity).Value += impulse.VelocityDelta;
                 if (impulse.Angular is { } w) write.GetComponent<AngularVelocity>(impulse.Entity).Value = w; // a strike sets spin; a plain nudge leaves it
-            }
-        }
-
-        // Direct (WASD) input — applied before the schedule; it overrides path following because
-        // Apply clears HasPath (steering skips) and writes the intent MovementSystem integrates.
-        foreach (var kv in _moveInput)
-        {
-            if (write.IsAlive(kv.Key))
-            {
-                DirectMover.Apply(write, kv.Key, kv.Value);
             }
         }
 
@@ -559,9 +511,9 @@ public sealed class SimulationRunner : IDisposable
             write.Events.Emit(new GameReset());
         }
 
-        // MovementSystem (steering + character slide + ball dynamics — the sole transform
-        // writer) runs inside the schedule. Systems' read-only fields bind to `current` (the
-        // immutable previous-tick snapshot) — snapshot-read mode.
+        // MovementSystem (ball dynamics — the sole transform writer) runs inside the schedule.
+        // Systems' read-only fields bind to `current` (the immutable previous-tick snapshot) —
+        // snapshot-read mode.
         _runByWorld[write](current);
 
         _rewind.Record(write, _ballEntities);

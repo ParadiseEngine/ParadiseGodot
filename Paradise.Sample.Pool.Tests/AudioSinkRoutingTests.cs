@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.Sample.Pool;
 using Paradise.Sample.Pool.Audio;
-using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -11,13 +10,6 @@ namespace Paradise.Sample.Pool.Tests;
 /// null sink is a clean no-op.</summary>
 public class AudioSinkRoutingTests
 {
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(20, 0, 0), new(20, 0, 20), new(0, 0, 20) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     private sealed class RecordingSink : IAudioSink
     {
         public readonly List<double> Ticks = new();
@@ -37,7 +29,7 @@ public class AudioSinkRoutingTests
     [Test]
     public async Task audio_ticks_once_per_fixed_tick_with_canonical_time()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var sink = new RecordingSink();
         runner.Audio = sink;
 
@@ -53,7 +45,7 @@ public class AudioSinkRoutingTests
     [Test]
     public async Task no_sink_ticks_cleanly()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         runner.TickOnce(); // must not throw with Audio unset
         await Assert.That(runner.HasSnapshots).IsTrue();
     }

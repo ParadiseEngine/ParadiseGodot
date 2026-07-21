@@ -22,7 +22,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
-    <ProjectReference Include="..\Paradise.Sample.Pool.Navigation.Detour\Paradise.Sample.Pool.Navigation.Detour.csproj" />
   </ItemGroup>
 
 </Project>

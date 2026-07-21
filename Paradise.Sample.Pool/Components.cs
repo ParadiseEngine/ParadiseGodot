@@ -13,9 +13,9 @@ namespace Paradise.Sample.Pool;
 //
 // THREE sanctioned exceptions keep a whole struct (same as immortal-cultivation):
 //   (1) read-only BAKED CONFIG bags — an atomic snapshot of authored data, never partially written
-//       (NavAgent, CharacterBody, BallPhysicsConfig, SpriteConfig, ParticleConfig, PhysicsTuning);
+//       (BallPhysicsConfig, SpriteConfig, ParticleConfig, PhysicsTuning);
 //   (2) INLINE-BUFFER / runtime-state bags — an unmanaged inline array must live inside one component
-//       (NavWaypoints, PocketConfig, ParticleState);
+//       (PocketConfig, ParticleState);
 //   (3) nothing else.
 // Everything mutated as a plain scalar/vector is one variable per component.
 // ---------------------------------------------------------------------------------------------------
@@ -43,77 +43,6 @@ public partial struct Position
 public partial struct Rotation
 {
     public Quaternion Value;
-}
-
-// --- navmesh steering -------------------------------------------------------------------------------
-
-/// <summary>Steering config for a navmesh agent (m/s, m). CONFIG BAG — read-only, authored at spawn.</summary>
-[Component]
-public partial struct NavAgent
-{
-    public float MoveSpeed;
-    public float ArriveRadius;
-
-    public NavAgent(float moveSpeed, float arriveRadius)
-    {
-        MoveSpeed = moveSpeed;
-        ArriveRadius = arriveRadius;
-    }
-}
-
-/// <summary>The navmesh path's waypoints. INLINE-BUFFER BAG — filled atomically by
-/// <see cref="Navigation.NavigationPlanner"/> (managed) and read by <see cref="MovementSystem"/>.</summary>
-[Component]
-public partial struct NavWaypoints
-{
-    public const int MaxWaypoints = 32;
-
-    public WaypointBuffer Waypoints;
-    public int Count;
-}
-
-/// <summary>Fixed-capacity inline buffer of waypoints (C# 12 InlineArray — unmanaged, blittable).</summary>
-[InlineArray(NavWaypoints.MaxWaypoints)]
-public struct WaypointBuffer
-{
-    private Vector3 _element0;
-}
-
-/// <summary>Cursor into <see cref="NavWaypoints"/> (sole writer: MovementSystem's steer). One variable.</summary>
-[Component]
-public partial struct NavCursor
-{
-    public int Value;
-}
-
-/// <summary>1 while a path is being followed; cleared by MovementSystem on arrival, set by the planner.
-/// One variable (MovementSystem is the sole SYSTEM-writer; the planner writes untracked/managed).</summary>
-[Component]
-public partial struct HasPath
-{
-    public byte Value;
-}
-
-/// <summary>This tick's desired velocity (m/s, horizontal) — the steering INTENT, produced by steering
-/// (or direct input) and consumed by <see cref="MovementSystem"/>. Zeroed each tick. One variable.</summary>
-[Component]
-public partial struct MoveIntent
-{
-    public Vector3 DesiredVelocity;
-}
-
-/// <summary>Character collision capsule (Y-aligned, origin at center). CONFIG BAG — read-only.</summary>
-[Component]
-public partial struct CharacterBody
-{
-    public float Radius;
-    public float HalfLength;
-
-    public CharacterBody(float radius, float halfLength)
-    {
-        Radius = radius;
-        HalfLength = halfLength;
-    }
 }
 
 /// <summary>Borrowed handle to the session's static <c>CollisionWorld</c>, carried as a component so

@@ -37,7 +37,6 @@
     <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
     <ProjectReference Include="..\Paradise.Sample.ImGui\Paradise.Sample.ImGui.csproj" />
     <ProjectReference Include="..\Paradise.Sample.Ui\Paradise.Sample.Ui.csproj" />
-    <ProjectReference Include="..\Paradise.Sample.Pool.Navigation.Detour\Paradise.Sample.Pool.Navigation.Detour.csproj" />
     <PackageReference Include="Paradise.Export" Version="0.5.2" />
   </ItemGroup>
 

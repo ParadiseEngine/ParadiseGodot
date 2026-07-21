@@ -13,7 +13,6 @@
          assembly's recursive **/*.cs glob. -->
     <Compile Remove="Paradise.Sample.Pool/**/*.cs" />
     <Compile Remove="Paradise.Sample.Pool.Tests/**/*.cs" />
-    <Compile Remove="Paradise.Sample.Pool.Navigation.Detour/**/*.cs" />
     <!-- Paradise.Sample.Runtime is the standalone SDL/engine-renderer host; keep its sources (and its
          obj/ generated AssemblyInfo — CS0579 duplicates otherwise) out of this glob. -->
     <Compile Remove="Paradise.Sample.Runtime/**/*.cs" />
@@ -31,7 +30,6 @@
   <ItemGroup>
     <PackageReference Include="Paradise.Export" Version="0.5.2" />
     <ProjectReference Include="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
-    <ProjectReference Include="Paradise.Sample.Pool.Navigation.Detour/Paradise.Sample.Pool.Navigation.Detour.csproj" />
     <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
          render device (headless Dawn + readback in the Godot host). Real sibling path for the
          engine project (NOT the in-tree symlink, which breaks restore). -->

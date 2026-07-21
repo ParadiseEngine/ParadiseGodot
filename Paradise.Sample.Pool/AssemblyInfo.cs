@@ -11,5 +11,5 @@
 // the runner executes all systems in one fully parallel wave (SnapshotDagScheduler +
 // ParallelWaveScheduler). Consequences: read-only views are one tick stale by design, and
 // managed pre-pass writes to the write world are visible to systems only through WRITABLE
-// fields — which is why SpawnAgent seeds SimulationContext.DeltaSeconds.
+// fields — which is why SpawnBall seeds SimulationContext.DeltaSeconds.
 [assembly: Paradise.ECS.SnapshotReadSystems]

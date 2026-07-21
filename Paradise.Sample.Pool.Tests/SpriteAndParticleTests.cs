@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -12,13 +11,6 @@ namespace Paradise.Sample.Pool.Tests;
 /// function of the seed (two runners with the same seed agree bit-for-bit).</summary>
 public class SpriteAndParticleTests
 {
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(30, 0, 0), new(30, 0, 30), new(0, 0, 30) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     private static int FrameOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
@@ -46,7 +38,7 @@ public class SpriteAndParticleTests
     [Test]
     public async Task sprite_frame_advances_at_the_authored_fps_and_loops()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         // 10 fps, 4 frames → a frame every 6 ticks, a full cycle every 24.
         var sprite = runner.SpawnSpriteAnimation(new Vector3(5, 1, 5), Quaternion.Identity,
             fps: 10f, frameCount: 4, loop: true);
@@ -61,7 +53,7 @@ public class SpriteAndParticleTests
     [Test]
     public async Task non_looping_sprite_holds_the_last_frame()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var sprite = runner.SpawnSpriteAnimation(new Vector3(5, 1, 5), Quaternion.Identity,
             fps: 30f, frameCount: 3, loop: false);
 
@@ -88,7 +80,7 @@ public class SpriteAndParticleTests
     [Test]
     public async Task emitter_spawns_at_the_authored_rate_and_particles_age_out()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         // 60/s at 60 Hz = 1 per tick; 0.5 s lifetime → steady state ≈ 30 live.
         var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), Quaternion.Identity, Fountain(), 7u);
 
@@ -104,7 +96,7 @@ public class SpriteAndParticleTests
     [Test]
     public async Task full_pool_drops_overflow_and_reuses_freed_slots()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         // 600/s into 8 slots with 0.2 s lifetime: pool saturates, then churns via freed slots.
         var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), Quaternion.Identity,
             Fountain(rate: 600f, lifetime: 0.2f, capacity: 8), 7u);
@@ -121,7 +113,7 @@ public class SpriteAndParticleTests
     [Test]
     public async Task gravity_pulls_particles_down()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         // Straight-up cone (zero spread), no drag: velocity.Y must strictly fall tick over tick.
         var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), Quaternion.Identity,
             new ParticleConfig(emitRate: 1f, lifetimeSeconds: 5f, initialSpeed: 1f,
@@ -143,7 +135,7 @@ public class SpriteAndParticleTests
     {
         static ParticleState AfterTicks(uint seed, int ticks, out int liveCount)
         {
-            using var runner = new SimulationRunner(FlatGround());
+            using var runner = new SimulationRunner();
             var entity = runner.SpawnParticleEmitter(
                 new Vector3(5, 1, 5), Quaternion.Identity, Fountain(), seed);
             for (var i = 0; i < ticks; i++) runner.TickOnce();
@@ -173,7 +165,7 @@ public class SpriteAndParticleTests
     [Test]
     public async Task emitter_rotation_tilts_the_emission_cone()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         // Emitter rotated 90° about Z: +Y maps to −X, so particles fly toward −X, not up.
         var tilted = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2f);
         var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), tilted,

@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -12,13 +11,6 @@ namespace Paradise.Sample.Pool.Tests;
 /// <see cref="ScoreSystem"/> is the sole writer of <see cref="Score"/>, folding both one frame later.</summary>
 public class ScoreReactorTests
 {
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(30, 0, 0), new(30, 0, 30), new(0, 0, 30) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     /// <summary>One pocket at (x, z) with capture radius 0.3, park/respawn as given.</summary>
     private static PocketConfig OnePocket(float x, float z, Vector3 park, Vector3 respawn = default, bool isCue = false)
     {
@@ -36,7 +28,7 @@ public class ScoreReactorTests
     [Test]
     public async Task pocketing_an_object_ball_raises_the_score()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
             pocket: OnePocket(7f, 5f, park: new Vector3(1f, 0.85f, 1f)));
 
@@ -52,7 +44,7 @@ public class ScoreReactorTests
     [Test]
     public async Task a_cue_ball_scratch_does_not_raise_the_score()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var cue = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
             pocket: OnePocket(7f, 5f, park: default, respawn: new Vector3(3f, 0.85f, 3f), isCue: true));
 
@@ -66,7 +58,7 @@ public class ScoreReactorTests
     [Test]
     public async Task request_reset_returns_the_score_to_zero()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
             pocket: OnePocket(7f, 5f, park: new Vector3(1f, 0.85f, 1f)));
 

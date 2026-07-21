@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Navigation;
 using Paradise.Sample.Ui;
 
 namespace Paradise.Sample.Ui.Tests;
@@ -16,12 +15,6 @@ namespace Paradise.Sample.Ui.Tests;
 /// managed GameReset (via <see cref="PoolViewModel.Reset"/>) zeroes it again.</summary>
 public class PoolViewModelTests
 {
-    // No navmesh agents in this sample — a stub keeps the tests off the Detour package.
-    private sealed class NoNavMesh : INavigationMesh
-    {
-        public IReadOnlyList<Vector3> FindPath(Vector3 from, Vector3 to) => Array.Empty<Vector3>();
-    }
-
     private static PhysicsTuning Planar => new(0.01f, 0.02f, 1.2f, gravity: Vector3.Zero);
 
     private static PocketConfig PocketAt(Vector2 center, Vector3 ballPos)
@@ -39,7 +32,7 @@ public class PoolViewModelTests
 
     private static (SimulationRunner runner, PoolViewModel vm, Entity cue, Entity obj) NewGame()
     {
-        var runner = new SimulationRunner(new NoNavMesh());
+        var runner = new SimulationRunner();
         var cue = runner.SpawnBall(new Vector3(0, 0, 1), Quaternion.Identity, radius: 0.12f, tuning: Planar);
         var obj = runner.SpawnBall(new Vector3(0, 0, 0), Quaternion.Identity, radius: 0.12f,
             linearDamping: 0.3f, pocket: PocketAt(new Vector2(0, -1), new Vector3(0, 0, 0)), tuning: Planar);
@@ -78,7 +71,7 @@ public class PoolViewModelTests
     {
         // Break() impulses the cue toward −Z; here the object ball sits between the cue and its
         // pocket, so the cue's momentum carries the object ball into the pocket.
-        var runner = new SimulationRunner(new NoNavMesh());
+        var runner = new SimulationRunner();
         using (runner)
         {
             var cue = runner.SpawnBall(new Vector3(0, 0, 0.24f), Quaternion.Identity, radius: 0.12f,

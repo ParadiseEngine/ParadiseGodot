@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -12,13 +11,6 @@ namespace Paradise.Sample.Pool.Tests;
 /// ball, and per-ball damping/restitution actually shape the motion.</summary>
 public class PoolPocketTests
 {
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(30, 0, 0), new(30, 0, 30), new(0, 0, 30) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     private static Vector3 PositionOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
@@ -48,7 +40,7 @@ public class PoolPocketTests
     [Test]
     public async Task ball_rolling_over_a_pocket_sinks_and_parks()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var park = new Vector3(1f, 0.85f, 1f);
         var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
             pocket: OnePocket(7f, 5f, park));
@@ -70,7 +62,7 @@ public class PoolPocketTests
     [Test]
     public async Task cue_ball_scratch_respawns_at_the_head_spot()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var headSpot = new Vector3(3f, 0.85f, 3f);
         var cue = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
             pocket: OnePocket(7f, 5f, park: default, respawn: headSpot, isCue: true));
@@ -92,7 +84,7 @@ public class PoolPocketTests
     [Test]
     public async Task rewind_resurrects_a_sunk_ball()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
             pocket: OnePocket(7f, 5f, park: new Vector3(1f, 0.85f, 1f)));
 
@@ -118,7 +110,7 @@ public class PoolPocketTests
     [Test]
     public async Task parked_ball_is_excluded_from_dynamics()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var park = new Vector3(10f, 0.85f, 10f);
         var sunk = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
             pocket: OnePocket(7f, 5f, park));
@@ -141,7 +133,7 @@ public class PoolPocketTests
     [Test]
     public async Task per_ball_damping_shapes_the_roll()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var felt = runner.SpawnBall(new Vector3(2f, 0.85f, 4f), Quaternion.Identity, radius: 0.35f,
             linearDamping: 0.6f);
         var carpet = runner.SpawnBall(new Vector3(2f, 0.85f, 12f), Quaternion.Identity, radius: 0.35f,
@@ -165,7 +157,7 @@ public class PoolPocketTests
         // more exit speed, so it travels farther before damping stops it.
         float TargetTravel(float restitution)
         {
-            using var runner = new SimulationRunner(FlatGround());
+            using var runner = new SimulationRunner();
             var cue = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
                 restitution: restitution);
             var target = runner.SpawnBall(new Vector3(7f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
@@ -185,7 +177,7 @@ public class PoolPocketTests
     {
         // The shared factory BOTH hosts feed into SpawnBall (.NET SceneAssembler + the Godot
         // bridge's ExtractPockets). Proves the pocket set + tray layout produce a working capture.
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var pockets = new List<(Vector3 Center, float Radius)> { (new Vector3(7f, 0f, 5f), 0.3f) };
         var authored = new Vector3(5f, 0.85f, 5f);
         var poolBall = PoolRack.BuildBall(pockets, isCue: false, authoredPosition: authored, trayIndex: 2);

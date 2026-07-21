@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.Numerics;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Navigation.Detour;
 using Paradise.Sample.Pool.Ui;
 
 namespace Paradise.Sample.Pool.Tests;
@@ -12,13 +11,6 @@ namespace Paradise.Sample.Pool.Tests;
 /// a world ray fire <see cref="SimulationRunner.UiUnhandledPointerDown"/>.</summary>
 public class UiInputRoutingTests
 {
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(20, 0, 0), new(20, 0, 20), new(0, 0, 20) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     private sealed class RecordingUi : IUiInput
     {
         public readonly List<UiEvent> Handled = new();
@@ -37,7 +29,7 @@ public class UiInputRoutingTests
     [Test]
     public async Task events_drain_in_order_and_ui_time_is_canonical()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var ui = new RecordingUi();
         runner.UiInput = ui;
 
@@ -57,7 +49,7 @@ public class UiInputRoutingTests
     [Test]
     public async Task consumed_pointer_down_never_reaches_game_logic()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var ui = new RecordingUi { ConsumePointerDown = true };
         var worldClicks = new List<UiEvent>();
         runner.UiInput = ui;
@@ -73,7 +65,7 @@ public class UiInputRoutingTests
     [Test]
     public async Task unconsumed_pointer_down_with_ray_falls_through_to_the_world()
     {
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var ui = new RecordingUi { ConsumePointerDown = false };
         var worldClicks = new List<UiEvent>();
         runner.UiInput = ui;
@@ -89,21 +81,22 @@ public class UiInputRoutingTests
     }
 
     [Test]
-    public async Task world_click_routed_through_ui_moves_the_agent_same_tick()
+    public async Task world_click_routed_through_ui_drives_a_world_action_same_tick()
     {
-        using var runner = new SimulationRunner(FlatGround());
-        var agent = runner.SpawnAgent(new Vector3(2, 0, 2), Quaternion.Identity, moveSpeed: 6f, arriveRadius: 0.25f);
+        using var runner = new SimulationRunner();
+        var tuning = new PhysicsTuning(0.01f, 0.02f, 1.2f, gravity: Vector3.Zero);
+        var ball = runner.SpawnBall(new Vector3(2, 0, 2), Quaternion.Identity, radius: 0.35f,
+            linearDamping: 0f, angularDamping: 0f, tuning: tuning);
         var ui = new RecordingUi { ConsumePointerDown = false };
         runner.UiInput = ui;
-        // The RuntimeLoop pattern: unconsumed world clicks enqueue a move for the player.
-        runner.UiUnhandledPointerDown = e => runner.EnqueueMoveTo(agent, new Vector3(18, 0, 18));
+        // The host pattern: an unconsumed world click drives a world action (here, a cue strike).
+        runner.UiUnhandledPointerDown = e => runner.EnqueueBallImpulse(ball, new Vector3(3f, 0f, 0f));
 
         runner.EnqueueUiEvent(UiEvent.PointerDown(5, 5, UiPointerButton.Left, new Vector3(18, 5, 18), -Vector3.UnitY));
-        for (var i = 0; i < 400; i++) runner.TickOnce();
+        for (var i = 0; i < 60; i++) runner.TickOnce();
 
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        var pos = latest.GetComponent<Position>(agent).Value;
-        await Assert.That(Vector2.Distance(new Vector2(pos.X, pos.Z), new Vector2(18, 18)))
-            .IsLessThan(0.6f);
+        var pos = latest.GetComponent<Position>(ball).Value;
+        await Assert.That(pos.X).IsGreaterThan(2f); // the routed impulse rolled the ball +X
     }
 }

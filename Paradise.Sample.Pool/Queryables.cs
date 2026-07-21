@@ -13,29 +13,6 @@ namespace Paradise.Sample.Pool;
 [With<SimulationContext>]
 public readonly ref partial struct SimulationContexts;
 
-/// <summary>All entities with steering intent — zeroed each tick before the systems run.</summary>
-[Queryable]
-[With<MoveIntent>]
-public readonly ref partial struct MoveIntents;
-
-/// <summary>
-/// Player/NPC agents for the unified <see cref="MovementSystem"/>: transform + steering state
-/// (writable) and movement config (read-only, snapshot-bound). The waypoint buffer is read-only
-/// (the planner fills it). Agents also act as the kinematic pushers for ball dynamics.
-/// </summary>
-[Queryable]
-[With<Position>]
-[With<Rotation>]
-[With<NavCursor>]
-[With<HasPath>]
-[With<MoveIntent>]
-[With<NavWaypoints>]
-[With<NavAgent>(IsReadOnly = true)]
-[With<CharacterBody>(IsReadOnly = true)]
-[With<SimulationContext>(IsReadOnly = true)]
-[With<PhysicsWorldRef>(IsReadOnly = true)]
-public readonly ref partial struct Agents;
-
 /// <summary>Flipbook sprite clocks for <see cref="SpriteAnimationSystem"/>: the mutated time/frame
 /// singles plus the read-only layout config.</summary>
 [Queryable]

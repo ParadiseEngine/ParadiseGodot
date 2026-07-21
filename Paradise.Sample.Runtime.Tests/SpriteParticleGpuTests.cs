@@ -3,7 +3,6 @@ using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
 using Paradise.Export.Data;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Runtime.Tests;
 
@@ -13,13 +12,6 @@ namespace Paradise.Sample.Runtime.Tests;
 /// tripwire, same policy as TexturedRenderingGpuTests).</summary>
 public class SpriteParticleGpuTests
 {
-    private static DetourNavigationMesh FlatGround()
-    {
-        var verts = new List<Vector3> { new(0, 0, 0), new(30, 0, 0), new(30, 0, 30), new(0, 0, 30) };
-        var tris = new List<int> { 0, 2, 1, 0, 3, 2 };
-        return new DetourNavigationMesh(verts, tris);
-    }
-
     [Test]
     public async Task sprite_quads_and_particle_batches_draw_in_a_headless_frame()
     {
@@ -39,7 +31,7 @@ public class SpriteParticleGpuTests
             return;
         }
 
-        using var runner = new SimulationRunner(FlatGround());
+        using var runner = new SimulationRunner();
         var spriteEntity = runner.SpawnSpriteAnimation(
             new Vector3(5, 1, 5), Quaternion.Identity, fps: 10f, frameCount: 4, loop: true);
         var spriteEmitter = runner.SpawnParticleEmitter(new Vector3(4, 1, 5), Quaternion.Identity,
