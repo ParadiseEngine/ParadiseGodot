@@ -291,6 +291,47 @@ Consequences and rules:
   snapshot pool. Both drivers therefore need `SimulationContext.DeltaSeconds` and
   `PhysicsWorldRef` seeded at spawn.
 
+## Single-variable components
+
+`Paradise.Sample.Pool` follows the immortal-cultivation discipline: **one variable per component**
+(a single `Value` field), aggregated at use sites by `[Queryable]`. Writer-first splitting — each
+MUTATED variable becomes its own component, so single-writer ownership (PECS3008) is enforced
+per-variable and false write conflicts stay rare. `Components.cs` is the reference; the split
+mirrors `MovementSystem`'s access (`Balls.Position[i].Value`, `Balls.Velocity[i].Value`, …).
+
+THREE sanctioned exceptions keep a whole struct:
+1. **read-only baked config bags** — an atomic snapshot of authored data, never partially written
+   (`NavAgent`, `CharacterBody`, `BallPhysicsConfig`, `SpriteConfig`, `ParticleConfig`, `PhysicsTuning`);
+2. **inline-buffer / runtime-state bags** — an unmanaged inline array must live inside one component
+   (`NavWaypoints`, `PocketConfig`, `ParticleState`);
+3. nothing else.
+
+The physics solver is untouched by the split: `MovementSystem.StepBalls` marshals the ball's
+single-var + config components field-by-field into the external `RigidSphereDynamics`'s `DynamicSphere`.
+
+## SystemEvents — the deferred fan-out bus
+
+Cross-system "X happened → N reactors" signals ride the engine's `SystemEvents` bus (Paradise.ECS
+0.5.x), not per-entity flags. A **system** producer injects a `SystemEventWriter` and `Append`s an
+unmanaged event (`GameEvents.cs`); a **managed** producer calls `world.Events.Emit<T>` (0.5.2 — sim-
+thread only, outside the wave); an owner-reactor consumes via an injected `SystemEventReader`
+(`Inbox.Read<T>()`). Events are off-entity, one-frame-deferred (produced frame N → read N+1),
+merged deterministically in schedule order, and snapshot-carried (`World.CopyFrom`). The pool sample
+demonstrates all three roles: `MovementSystem` `Append`s `BallPocketed` on a pocket; `ScoreSystem`
+(the sole writer of `Score`) reacts; `SimulationRunner.RequestReset` `Emit`s `GameReset`. Events fan
+out to READERS; any shared mutation they trigger keeps ONE owner.
+
+## UI — MVVM over the sim
+
+The `Paradise.Sample.ImGui` sample follows immortal-cultivation's MVVM split: a **ViewModel**
+(`Paradise.Sample.Ui/PoolViewModel.cs`, no `ImGuiNET`) projects sim-snapshot state into display data
+and exposes command methods that drive the sim through its command/event seam; a **View**
+(`Paradise.Sample.ImGui/PoolView.cs`) is a thin immediate-mode ImGui renderer over one ViewModel,
+holding only presentation state; a **composition root** (`SampleUi`) owns the `SimulationRunner` and
+wires the pair. Both run on the sim thread (the immediate-mode contract); the UI never mutates sim
+state except through the ViewModel's commands. This sits on the existing `ImGuiUiCore` draw-snapshot
+two-half (the sim thread owns the ImGui frame; the render half only replays snapshots).
+
 ## Prefabs (Phase 5)
 
 Godot's prefab model is **PackedScene instancing**. A node instanced from a scene carries
