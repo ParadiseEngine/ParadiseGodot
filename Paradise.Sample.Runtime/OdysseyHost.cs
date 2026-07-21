@@ -43,6 +43,10 @@ internal static class OdysseyHost
         public required PbrScene Scene;
         public required List<RenderNode> Nodes;
         public required OdysseyViewModel ViewModel;
+        // Last sampled ship transform — the chase camera is rebuilt from this EVERY frame (even one that
+        // samples no fresh snapshot), so scene.Camera is never left a degenerate/zero matrix.
+        public Vector3 LastShipPos = new(0f, 0f, 20f);
+        public Quaternion LastShipRot = Quaternion.Identity;
     }
 
     public static int Run(int? headlessFrames, string? screenshotPath)
@@ -239,51 +243,53 @@ internal static class OdysseyHost
     /// camera, and submit. Throws nothing — the caller polls <see cref="OdysseyRunner.ThreadException"/>.</summary>
     private static void Frame(OdysseyRunner runner, Composed c, ref double sampleTime, double frameDelta, float aspect)
     {
-        if (runner.HasSnapshots)
+        if (runner.HasSnapshots &&
+            runner.TrySampleInterpolation(NextSampleTime(runner, ref sampleTime, frameDelta), out var a, out var b, out var alpha))
         {
-            var target = Math.Min(runner.Now - RenderDelaySeconds, runner.LatestSnapshotTime);
-            sampleTime = sampleTime <= 0.0 ? target : Math.Min(sampleTime + frameDelta, target);
-            if (target - sampleTime > MaxRenderSampleLagSeconds)
+            alpha = Math.Clamp(alpha, 0f, 1f);
+            Entity ship = runner.Ship;
+            foreach (var node in c.Nodes)
             {
-                sampleTime = target;
-            }
-
-            if (runner.TrySampleInterpolation(sampleTime, out var a, out var b, out var alpha))
-            {
-                alpha = Math.Clamp(alpha, 0f, 1f);
-                Vector3 shipPos = Vector3.Zero;
-                Quaternion shipRot = Quaternion.Identity;
-                Entity ship = runner.Ship;
-                foreach (var node in c.Nodes)
-                {
-                    Entity e = node.Entity;
-                    if (!a.IsAlive(e) || !b.IsAlive(e)) continue;
-                    var pos = Vector3.Lerp(
-                        a.GetComponent<Position>(e).Value, b.GetComponent<Position>(e).Value, alpha);
-                    var rot = Quaternion.Slerp(
-                        a.GetComponent<Rotation>(e).Value, b.GetComponent<Rotation>(e).Value, alpha);
-                    node.Instance.Model =
-                        Matrix4x4.CreateScale(node.Scale)
-                        * Matrix4x4.CreateFromQuaternion(rot)
-                        * Matrix4x4.CreateTranslation(pos);
-                    if (e == ship) { shipPos = pos; shipRot = rot; }
-                }
-
-                var forward = Vector3.Transform(Vector3.UnitZ, shipRot);
-                if (forward.LengthSquared() < 1e-4f) forward = Vector3.UnitZ;
-                forward = Vector3.Normalize(forward);
-                var eye = shipPos - forward * ChaseDistance + new Vector3(0f, ChaseHeight, 0f);
-                c.Scene.Camera = new PbrCamera
-                {
-                    View = PbrMath.LookAt(eye, shipPos + forward * LookAhead, Vector3.UnitY),
-                    Projection = PbrMath.Perspective(FovYRadians, aspect, 0.1f, 800f),
-                    Position = eye,
-                };
+                Entity e = node.Entity;
+                if (!a.IsAlive(e) || !b.IsAlive(e)) continue;
+                var pos = Vector3.Lerp(
+                    a.GetComponent<Position>(e).Value, b.GetComponent<Position>(e).Value, alpha);
+                var rot = Quaternion.Slerp(
+                    a.GetComponent<Rotation>(e).Value, b.GetComponent<Rotation>(e).Value, alpha);
+                node.Instance.Model =
+                    Matrix4x4.CreateScale(node.Scale)
+                    * Matrix4x4.CreateFromQuaternion(rot)
+                    * Matrix4x4.CreateTranslation(pos);
+                if (e == ship) { c.LastShipPos = pos; c.LastShipRot = rot; }
             }
         }
 
+        // Rebuild the chase camera EVERY frame from the last known ship transform (never gated by a
+        // successful sample) so scene.Camera is always a valid matrix before RenderFrame.
+        var forward = Vector3.Transform(Vector3.UnitZ, c.LastShipRot);
+        if (forward.LengthSquared() < 1e-4f) forward = Vector3.UnitZ;
+        forward = Vector3.Normalize(forward);
+        var eye = c.LastShipPos - forward * ChaseDistance + new Vector3(0f, ChaseHeight, 0f);
+        c.Scene.Camera = new PbrCamera
+        {
+            View = PbrMath.LookAt(eye, c.LastShipPos + forward * LookAhead, Vector3.UnitY),
+            Projection = PbrMath.Perspective(FovYRadians, aspect, 0.1f, 800f),
+            Position = eye,
+        };
+
         c.Scene.ElapsedSeconds += (float)frameDelta;
         c.Pbr.RenderFrame(c.Scene);
+    }
+
+    private static double NextSampleTime(OdysseyRunner runner, ref double sampleTime, double frameDelta)
+    {
+        var target = Math.Min(runner.Now - RenderDelaySeconds, runner.LatestSnapshotTime);
+        sampleTime = sampleTime <= 0.0 ? target : Math.Min(sampleTime + frameDelta, target);
+        if (target - sampleTime > MaxRenderSampleLagSeconds)
+        {
+            sampleTime = target;
+        }
+        return sampleTime;
     }
 
     private static Composed Compose(OdysseyRunner runner, WebGpuRenderer renderer, ImGuiSampleRunner pump, uint width, uint height)
