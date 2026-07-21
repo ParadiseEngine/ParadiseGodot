@@ -44,7 +44,11 @@ public ref partial struct MotionSystem : IWorldSystem
             ref readonly FlightConfig cfg = ref Ship.FlightConfig[i];
 
             ref float heading = ref Ship.Heading[i].Value;
-            heading += Ship.TurnInput[i].Value * cfg.TurnRate * dt;
+            // Subtract: with the chase camera behind the ship looking down its +Z, a positive yaw would
+            // swing the nose toward screen-LEFT — so +turn (the D / Right key) must DECREASE the heading
+            // to steer right on screen. (The rotation below uses the same heading, so the ship still
+            // points exactly where it flies.)
+            heading -= Ship.TurnInput[i].Value * cfg.TurnRate * dt;
 
             // Forward along the heading (0 = +Z). Thrust accelerates along it.
             var forward = new Vector3(MathF.Sin(heading), 0f, MathF.Cos(heading));
