@@ -8,12 +8,13 @@ using SDL;
 
 namespace Paradise.Sample.Runtime;
 
-/// <summary>Standalone host for the ImGui sample (<c>--game imgui</c>). The UI runs on
-/// <see cref="ImGuiSampleRunner"/>'s 60 Hz sim thread; this host only pumps SDL events into
-/// the runner's queue and renders an empty <see cref="PbrScene"/> (a clear) composited with
-/// the ImGui overlay through the renderer's OverlayPass. The ImGui frame itself is produced
-/// on the SIM thread; the render half here just replays the latest snapshot.</summary>
-internal static class ImGuiSampleHost
+/// <summary>Standalone host for the "Space Odyssey" sample (<c>--game odyssey</c>). The UI runs on
+/// <see cref="ImGuiSampleRunner"/>'s 60 Hz sim thread; this host only pumps SDL events into the
+/// runner's queue and renders an empty <see cref="PbrScene"/> (a near-black space clear) composited
+/// with the ImGui overlay through the renderer's OverlayPass. The ImGui frame itself is produced on
+/// the SIM thread; the render half here just replays the latest snapshot. Same sample core as the
+/// Godot bridge (<c>scenes/odyssey.tscn</c>).</summary>
+internal static class OdysseyHost
 {
     private const int Width = 1280;
     private const int Height = 720;
@@ -53,16 +54,16 @@ internal static class ImGuiSampleHost
             }
             if (runner.ThreadException is { } ex)
             {
-                Console.Error.WriteLine($"[ImGuiSample] sim thread faulted: {ex}");
+                Console.Error.WriteLine($"[Odyssey] sim thread faulted: {ex}");
                 return 1;
             }
-            Console.WriteLine($"[ImGuiSample] Headless: rendered {frameCount} frames, sim tick {runner.Frame}.");
+            Console.WriteLine($"[Odyssey] Headless: rendered {frameCount} frames, sim tick {runner.Frame}.");
 
             if (screenshotPath is not null)
             {
                 var pixels = renderer.ReadbackColor(out var w, out var h);
                 Program.WriteBmp(screenshotPath, pixels, w, h);
-                Console.WriteLine($"[ImGuiSample] Screenshot: {screenshotPath} ({w}x{h}).");
+                Console.WriteLine($"[Odyssey] Screenshot: {screenshotPath} ({w}x{h}).");
             }
             return 0;
         }
@@ -85,7 +86,7 @@ internal static class ImGuiSampleHost
         WebGpuRenderer? renderer = null;
         try
         {
-            window = SDL_CreateWindow("Paradise — ImGui Sample", Width, Height, SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
+            window = SDL_CreateWindow("Paradise — Space Odyssey", Width, Height, SDL_WindowFlags.SDL_WINDOW_RESIZABLE);
             if (window == null)
             {
                 Console.Error.WriteLine($"SDL_CreateWindow failed: {SDL_GetError()}");
@@ -100,7 +101,7 @@ internal static class ImGuiSampleHost
             int logicalW, logicalH;
             SDL_GetWindowSize(window, &logicalW, &logicalH);
             var uiScale = logicalW > 0 ? surfaceDesc.Width / (float)logicalW : 1f;
-            SDL_StartTextInput(window); // the sample's text field needs SDL text events
+            SDL_StartTextInput(window); // parity with the ImGui pump; harmless for this sample
 
             runner.Start();
 
@@ -110,7 +111,7 @@ internal static class ImGuiSampleHost
             {
                 if (runner.ThreadException is { } ex)
                 {
-                    Console.Error.WriteLine($"[ImGuiSample] sim thread faulted: {ex}");
+                    Console.Error.WriteLine($"[Odyssey] sim thread faulted: {ex}");
                     return 1;
                 }
 
@@ -152,24 +153,6 @@ internal static class ImGuiSampleHost
                         case SDL_EventType.SDL_EVENT_MOUSE_WHEEL:
                             runner.EnqueueUiEvent(UiEvent.Scroll(ev.wheel.x, ev.wheel.y));
                             break;
-                        case SDL_EventType.SDL_EVENT_TEXT_INPUT:
-                        {
-                            var text = ev.text.GetText();
-                            if (text is not null)
-                            {
-                                foreach (var rune in text.EnumerateRunes())
-                                {
-                                    runner.EnqueueUiEvent(UiEvent.Text((uint)rune.Value));
-                                }
-                            }
-                            break;
-                        }
-                        case SDL_EventType.SDL_EVENT_KEY_DOWN when ToKey(ev.key.scancode) is { } keyDown:
-                            runner.EnqueueUiEvent(UiEvent.KeyDown(keyDown));
-                            break;
-                        case SDL_EventType.SDL_EVENT_KEY_UP when ToKey(ev.key.scancode) is { } keyUp:
-                            runner.EnqueueUiEvent(UiEvent.KeyUp(keyUp));
-                            break;
                     }
                 }
 
@@ -187,11 +170,11 @@ internal static class ImGuiSampleHost
         }
     }
 
-    private static (ImGuiUi ImGui, PbrRenderer Pbr, PbrScene Scene, SampleUi Sample) Compose(
+    private static (ImGuiUi ImGui, PbrRenderer Pbr, PbrScene Scene, OdysseyUi Sample) Compose(
         ImGuiSampleRunner runner, WebGpuRenderer renderer, uint width = Width, uint height = Height)
     {
         var imgui = new ImGuiUi(width, height);
-        var sample = new SampleUi();       // MVVM composition root: owns the snapshot sim
+        var sample = new OdysseyUi();      // MVVM composition root: owns the snapshot sim
         runner.OnSimTick = sample.Tick;    // step the sim on the sim thread each frame
         imgui.AddDraw(sample.Draw);        // the thin ImGui View over the ViewModel
         imgui.Attach(renderer);
@@ -206,7 +189,8 @@ internal static class ImGuiSampleHost
                 View = System.Numerics.Matrix4x4.Identity,
                 Projection = System.Numerics.Matrix4x4.Identity,
             },
-            ClearColor = new ColorRgba(0.075f, 0.08f, 0.1f, 1f),
+            // Deep-space near-black; the ImGui starfield draws over it.
+            ClearColor = new ColorRgba(0.01f, 0.01f, 0.03f, 1f),
         };
         return (imgui, pbr, scene, sample);
     }
@@ -216,33 +200,6 @@ internal static class ImGuiSampleHost
         (byte)SDL_BUTTON_LEFT => UiPointerButton.Left,
         (byte)SDL_BUTTON_RIGHT => UiPointerButton.Right,
         (byte)SDL_BUTTON_MIDDLE => UiPointerButton.Middle,
-        _ => null,
-    };
-
-    private static UiKey? ToKey(SDL_Scancode scancode) => scancode switch
-    {
-        SDL_Scancode.SDL_SCANCODE_RETURN or SDL_Scancode.SDL_SCANCODE_KP_ENTER => UiKey.Enter,
-        SDL_Scancode.SDL_SCANCODE_ESCAPE => UiKey.Escape,
-        SDL_Scancode.SDL_SCANCODE_BACKSPACE => UiKey.Backspace,
-        SDL_Scancode.SDL_SCANCODE_DELETE => UiKey.Delete,
-        SDL_Scancode.SDL_SCANCODE_TAB => UiKey.Tab,
-        SDL_Scancode.SDL_SCANCODE_LEFT => UiKey.Left,
-        SDL_Scancode.SDL_SCANCODE_RIGHT => UiKey.Right,
-        SDL_Scancode.SDL_SCANCODE_UP => UiKey.Up,
-        SDL_Scancode.SDL_SCANCODE_DOWN => UiKey.Down,
-        SDL_Scancode.SDL_SCANCODE_HOME => UiKey.Home,
-        SDL_Scancode.SDL_SCANCODE_END => UiKey.End,
-        SDL_Scancode.SDL_SCANCODE_LCTRL or SDL_Scancode.SDL_SCANCODE_RCTRL => UiKey.Ctrl,
-        SDL_Scancode.SDL_SCANCODE_LSHIFT or SDL_Scancode.SDL_SCANCODE_RSHIFT => UiKey.Shift,
-        SDL_Scancode.SDL_SCANCODE_A => UiKey.A,
-        SDL_Scancode.SDL_SCANCODE_C => UiKey.C,
-        SDL_Scancode.SDL_SCANCODE_D => UiKey.D,
-        SDL_Scancode.SDL_SCANCODE_S => UiKey.S,
-        SDL_Scancode.SDL_SCANCODE_V => UiKey.V,
-        SDL_Scancode.SDL_SCANCODE_W => UiKey.W,
-        SDL_Scancode.SDL_SCANCODE_X => UiKey.X,
-        SDL_Scancode.SDL_SCANCODE_Y => UiKey.Y,
-        SDL_Scancode.SDL_SCANCODE_Z => UiKey.Z,
         _ => null,
     };
 }

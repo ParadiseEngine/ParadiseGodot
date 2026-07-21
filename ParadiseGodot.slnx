@@ -2,6 +2,8 @@
   <Project Path="Paradise.Sample.Pool.Tests/Paradise.Sample.Pool.Tests.csproj" />
   <Project Path="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
   <Project Path="Paradise.Sample.ImGui/Paradise.Sample.ImGui.csproj" />
+  <Project Path="Paradise.Sample.Odyssey/Paradise.Sample.Odyssey.csproj" />
+  <Project Path="Paradise.Sample.Odyssey.Tests/Paradise.Sample.Odyssey.Tests.csproj" />
   <Project Path="Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj" />
   <Project Path="Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj" />
   <Project Path="Paradise.Sample.Ui.Tests/Paradise.Sample.Ui.Tests.csproj" />

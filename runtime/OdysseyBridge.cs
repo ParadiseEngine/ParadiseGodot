@@ -2,22 +2,22 @@ using System;
 using Godot;
 using Paradise.Sample.ImGui;
 using Paradise.Sample.Pool.Ui;
-using ParadiseGodot.Runtime.Ui;
 using Paradise.Sample.Ui;
+using ParadiseGodot.Runtime.Ui;
 
 namespace ParadiseGodot.Runtime
 {
-    /// <summary>Godot play-mode host for the ImGui sample (<c>scenes/imgui_sample.tscn</c>).
+    /// <summary>Godot play-mode host for the "Space Odyssey" sample (<c>scenes/odyssey.tscn</c>).
     /// The UI runs on <see cref="ImGuiSampleRunner"/>'s 60 Hz sim thread — the same two-half
     /// snapshot machinery as the game bridges. This bridge only routes Godot input into the
     /// runner's queue and hosts the ImGui render half (<see cref="ImGuiCanvasRenderer"/>
     /// replaying the sim-thread-produced snapshots as canvas items). Same sample core as
-    /// <c>Paradise.Sample.Runtime --game imgui</c>.</summary>
-    public partial class ImGuiSampleBridge : Node
+    /// <c>Paradise.Sample.Runtime --game odyssey</c>.</summary>
+    public partial class OdysseyBridge : Node
     {
         private ImGuiSampleRunner? _runner;
         private ImGuiUiCore? _imgui;
-        private SampleUi? _sample;
+        private OdysseyUi? _sample;
         private bool _faulted;
 
         public override void _Ready()
@@ -29,14 +29,14 @@ namespace ParadiseGodot.Runtime
             }
             catch (Exception e) when (e is DllNotFoundException or TypeInitializationException)
             {
-                GD.PushError($"[ImGuiSampleBridge] cimgui unavailable — cannot run the sample UI: {e.Message}");
+                GD.PushError($"[OdysseyBridge] cimgui unavailable — cannot run the sample UI: {e.Message}");
                 return;
             }
 
             _runner = new ImGuiSampleRunner();
-            _sample = new SampleUi();            // MVVM composition root: owns the snapshot sim
-            _runner.OnSimTick = _sample.Tick;    // step the sim on the sim thread each frame
-            _imgui.AddDraw(_sample.Draw);        // the thin ImGui View over the ViewModel
+            _sample = new OdysseyUi();            // MVVM composition root: owns the snapshot sim
+            _runner.OnSimTick = _sample.Tick;     // step the sim on the sim thread each frame
+            _imgui.AddDraw(_sample.Draw);         // the thin ImGui View over the ViewModel
             _runner.UiInput = _imgui.Input; // the sim thread owns the ImGui frame from here on
 
             var renderer = new ImGuiCanvasRenderer { Name = "ImGuiRenderer" };
@@ -48,7 +48,7 @@ namespace ParadiseGodot.Runtime
             GetViewport().SizeChanged += OnViewportResized;
 
             _runner.Start();
-            GD.Print("[ImGuiSampleBridge] Sim thread started.");
+            GD.Print("[OdysseyBridge] Sim thread started.");
         }
 
         private void OnViewportResized()
@@ -63,7 +63,7 @@ namespace ParadiseGodot.Runtime
             if (_runner is null || _faulted) return;
             if (_runner.ThreadException is { } ex)
             {
-                GD.PushError($"[ImGuiSampleBridge] sim thread faulted: {ex}");
+                GD.PushError($"[OdysseyBridge] sim thread faulted: {ex}");
                 _faulted = true;
             }
         }

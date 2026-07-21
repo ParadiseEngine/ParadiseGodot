@@ -22,6 +22,8 @@
          (which brings ImGui.NET transitively via the Paradise.Ui.ImGui package). -->
     <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
     <ProjectReference Include="..\Paradise.Sample.Ui\Paradise.Sample.Ui.csproj" />
+    <!-- The "Space Odyssey" sim core the OdysseyUi composition root owns. -->
+    <ProjectReference Include="..\Paradise.Sample.Odyssey\Paradise.Sample.Odyssey.csproj" />
   </ItemGroup>
 
 </Project>

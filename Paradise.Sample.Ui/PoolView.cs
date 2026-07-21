@@ -1,11 +1,11 @@
 using System.Numerics;
 
-namespace Paradise.Sample.ImGui
+namespace Paradise.Sample.Ui
 {
-    // Inside the namespace so `ImGui` resolves to ImGuiNET.ImGui, not to this namespace's own
-    // trailing `ImGui` segment (a compilation-unit using cannot win that lookup).
+    // Inside the namespace so `ImGui` resolves to ImGuiNET.ImGui. Paradise.Sample.Ui brings ImGui.NET
+    // transitively (via the Paradise.Ui.ImGui package) — the pool ImGui demo lives here, with pool,
+    // rather than in the generic ImGui sample.
     using ImGuiNET;
-    using Paradise.Sample.Ui;
 
     /// <summary>The MVVM VIEW — a thin ImGui renderer over a single <see cref="PoolViewModel"/>.
     /// It holds ONLY presentation state (the frame-time ring buffer + the demo-window toggle); all

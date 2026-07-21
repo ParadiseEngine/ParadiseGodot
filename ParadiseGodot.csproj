@@ -25,6 +25,10 @@
     <Compile Remove="Paradise.Sample.Ui.Tests/**/*.cs" />
     <!-- The ImGui sample core is its own project (shared with Paradise.Sample.Runtime). -->
     <Compile Remove="Paradise.Sample.ImGui/**/*.cs" />
+    <!-- The "Space Odyssey" sim core + its tests are their own projects; keep their sources out
+         of this assembly's recursive **/*.cs glob (it flows in transitively via the ImGui sample). -->
+    <Compile Remove="Paradise.Sample.Odyssey/**/*.cs" />
+    <Compile Remove="Paradise.Sample.Odyssey.Tests/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>

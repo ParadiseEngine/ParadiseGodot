@@ -15,8 +15,9 @@ namespace Paradise.Sample.Runtime;
 ///
 /// Usage: Paradise.Sample.Runtime --scene data/scenes/sample.json [--headless N] [--ortho] [--fov N]
 ///
-/// <c>--game imgui</c> instead runs the Dear ImGui integration sample (no exported scene):
-/// Paradise.Sample.Runtime --game imgui [--headless N] [--screenshot path].</summary>
+/// <c>--game odyssey</c> runs the "Space Odyssey" ImGui MVVM sample and <c>--game pool</c> the pool
+/// ImGui MVVM sample (no exported scene needed):
+/// Paradise.Sample.Runtime --game odyssey [--headless N] [--screenshot path].</summary>
 internal static class Program
 {
     private const int InitialWidth = 1280;
@@ -80,12 +81,12 @@ internal static class Program
         {
             if (gameName is not null)
             {
-                if (!string.Equals(gameName, "imgui", StringComparison.OrdinalIgnoreCase))
+                return gameName.ToLowerInvariant() switch
                 {
-                    Console.Error.WriteLine($"Unknown --game '{gameName}' (supported: imgui).");
-                    return 1;
-                }
-                return ImGuiSampleHost.Run(headlessFrames, screenshotPath);
+                    "odyssey" => OdysseyHost.Run(headlessFrames, screenshotPath),
+                    "pool" => PoolSampleHost.Run(headlessFrames, screenshotPath),
+                    _ => UnknownGame(gameName),
+                };
             }
 
             var level = LevelLoader.Load(scenePath);
@@ -101,6 +102,12 @@ internal static class Program
             Console.Error.WriteLine($"Paradise.Sample.Runtime failed: {ex}");
             return 1;
         }
+    }
+
+    private static int UnknownGame(string gameName)
+    {
+        Console.Error.WriteLine($"Unknown --game '{gameName}' (supported: odyssey, pool).");
+        return 1;
     }
 
     private static int RunHeadless(RuntimeLevel level, int frameCount, bool orthographic, float fovDegrees, string? screenshotPath, float? animTime, string? uiXamlPath, bool enableImGui, string? audioBanksPath)

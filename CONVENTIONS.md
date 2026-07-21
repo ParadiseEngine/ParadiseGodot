@@ -279,14 +279,28 @@ out to READERS; any shared mutation they trigger keeps ONE owner.
 
 ## UI — MVVM over the sim
 
-The `Paradise.Sample.ImGui` sample follows immortal-cultivation's MVVM split: a **ViewModel**
-(`Paradise.Sample.Ui/PoolViewModel.cs`, no `ImGuiNET`) projects sim-snapshot state into display data
-and exposes command methods that drive the sim through its command/event seam; a **View**
-(`Paradise.Sample.ImGui/PoolView.cs`) is a thin immediate-mode ImGui renderer over one ViewModel,
-holding only presentation state; a **composition root** (`SampleUi`) owns the `SimulationRunner` and
-wires the pair. Both run on the sim thread (the immediate-mode contract); the UI never mutates sim
-state except through the ViewModel's commands. This sits on the existing `ImGuiUiCore` draw-snapshot
-two-half (the sim thread owns the ImGui frame; the render half only replays snapshots).
+The ImGui samples follow immortal-cultivation's MVVM split: a **ViewModel** (no `ImGuiNET`) projects
+sim-snapshot state into display data and exposes command methods that drive the sim through its
+command/event seam; a **View** is a thin immediate-mode ImGui renderer over one ViewModel, holding
+only presentation state; a **composition root** owns the runner and wires the pair. Both run on the
+sim thread (the immediate-mode contract); the UI never mutates sim state except through the
+ViewModel's commands. This sits on the existing `ImGuiUiCore` draw-snapshot two-half (the sim thread
+owns the ImGui frame; the render half only replays snapshots). The **pool** demo lives with pool
+(`Paradise.Sample.Ui/PoolViewModel.cs` ↔ `Paradise.Sample.Ui/PoolView.cs`, root `PoolSampleUi`); the
+generic `Paradise.Sample.ImGui` project keeps only the shared `ImGuiSampleRunner` sim-thread driver.
+
+### Odyssey sample
+
+`--game odyssey` (Godot: `scenes/odyssey.tscn`) is a sci-fi re-skin of the same architecture over the
+`Paradise.Sample.Odyssey` core — one ship entity, single-variable components, owner systems, and the
+**intent → system → event → owner-reactor** seam: `RequestWarp` writes a `WarpIntent`, `WarpSystem`
+rolls it and `Append`s a `WarpResolved` bus event, and the owner-reactors fold the result (sector /
+hull / credits) one frame later; `RequestNewVoyage` is a managed `Emit`. The MVVM trio is
+`Paradise.Sample.Ui/OdysseyViewModel.cs` (read-only projections + charge/warp/new-voyage commands) ↔
+`Paradise.Sample.ImGui/OdysseyView.cs` (a "Star Voyager" window — warp-charge and hull gauges, a
+ship's log child region, and a seeded starfield drawn into the background draw list) ↔
+`Paradise.Sample.ImGui/OdysseyUi.cs` (composition root over `OdysseyRunner`). Both hosts run it;
+the pool ImGui demo is now `--game pool`.
 
 ## Prefabs (Phase 5)
 

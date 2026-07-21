@@ -3,12 +3,11 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Ui;
 
-namespace Paradise.Sample.ImGui;
+namespace Paradise.Sample.Ui;
 
 /// <summary>
-/// The MVVM COMPOSITION ROOT of the ImGui sample. It owns the snapshot <see cref="SimulationRunner"/>,
+/// The MVVM COMPOSITION ROOT of the pool ImGui demo. It owns the snapshot <see cref="SimulationRunner"/>,
 /// racks a small self-contained pool set (a cue ball + object balls, each with a single pocket a short
 /// slide away), and wires the ViewModel/View split (<see cref="PoolViewModel"/> ↔ <see cref="PoolView"/>).
 /// <see cref="Tick"/> advances the sim one fixed step and <see cref="Draw"/> renders the View; the host
@@ -17,14 +16,17 @@ namespace Paradise.Sample.ImGui;
 /// Zero-gravity planar balls (no table/floor): a break/nudge slides an object ball across XZ until its
 /// center crosses a pocket mouth, which MovementSystem captures the instant it happens (planar, no floor
 /// needed) → a BallPocketed event → the ScoreSystem reactor increments Score one frame later.
+///
+/// Lives with pool (not the generic ImGui sample); the standalone <c>--game pool</c> host and the pool
+/// Godot bridge compose it.
 /// </summary>
-public sealed class SampleUi : IDisposable
+public sealed class PoolSampleUi : IDisposable
 {
     private readonly SimulationRunner _runner;
     private readonly PoolViewModel _vm;
     private readonly PoolView _view = new();
 
-    public SampleUi()
+    public PoolSampleUi()
     {
         _runner = new SimulationRunner();
 
