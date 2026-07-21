@@ -14,6 +14,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
+    <!-- The "Space Odyssey" ECS sim core the OdysseyViewModel projects. -->
+    <ProjectReference Include="..\Paradise.Sample.Odyssey\Paradise.Sample.Odyssey.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -279,14 +279,45 @@ out to READERS; any shared mutation they trigger keeps ONE owner.
 
 ## UI — MVVM over the sim
 
-The `Paradise.Sample.ImGui` sample follows immortal-cultivation's MVVM split: a **ViewModel**
-(`Paradise.Sample.Ui/PoolViewModel.cs`, no `ImGuiNET`) projects sim-snapshot state into display data
-and exposes command methods that drive the sim through its command/event seam; a **View**
-(`Paradise.Sample.ImGui/PoolView.cs`) is a thin immediate-mode ImGui renderer over one ViewModel,
-holding only presentation state; a **composition root** (`SampleUi`) owns the `SimulationRunner` and
-wires the pair. Both run on the sim thread (the immediate-mode contract); the UI never mutates sim
-state except through the ViewModel's commands. This sits on the existing `ImGuiUiCore` draw-snapshot
-two-half (the sim thread owns the ImGui frame; the render half only replays snapshots).
+The ImGui samples follow immortal-cultivation's MVVM split: a **ViewModel** (no `ImGuiNET`) projects
+sim-snapshot state into display data and exposes command methods that drive the sim through its
+command/event seam; a **View** is a thin immediate-mode ImGui renderer over one ViewModel, holding
+only presentation state; a **composition root** owns the runner and wires the pair. Both run on the
+sim thread (the immediate-mode contract); the UI never mutates sim state except through the
+ViewModel's commands. This sits on the existing `ImGuiUiCore` draw-snapshot two-half (the sim thread
+owns the ImGui frame; the render half only replays snapshots). The **pool** demo lives with pool
+(`Paradise.Sample.Ui/PoolViewModel.cs` ↔ `Paradise.Sample.Ui/PoolView.cs`, root `PoolSampleUi`); the
+generic `Paradise.Sample.ImGui` project keeps only the shared `ImGuiSampleRunner` sim-thread driver.
+
+### Odyssey sample
+
+`--game odyssey` (Godot: `scenes/odyssey.tscn`) is a **piloted 3D spaceship** flying a procedural
+sector map (a star, orbiting planets, asteroids, a glowing warp gate) — a sci-fi re-skin of the same
+architecture over the `Paradise.Sample.Odyssey` core. Pilot with **WASD** (thrust/turn), **hold SPACE**
+to charge the warp drive, then **fly into the gate** to jump to the next sector (which regenerates);
+**N** starts a new voyage. Rendered in **both** hosts with the same sim.
+
+- **Sim (single-variable, owner systems).** The abstract warp/hull mechanic keeps its
+  **intent → system → event → owner-reactor** seam: `WarpSystem` rolls a `WarpIntent` and `Append`s a
+  `WarpResolved`; the owner-reactors (`ChargeSystem`/`VoyageSystem`) fold sector/hull/credits one frame
+  later; `RequestNewVoyage` is a managed `Emit`. The **spatial layer** adds `Position`/`Rotation`
+  (+ ship `Velocity`/`Heading`, body `OrbitAngle`/`SpinPhase`) written by **one** `MotionSystem` — the
+  sole transform writer — over TWO disjoint segments (the ship vs the bodies), the merged-multi-segment
+  pattern from immortal-cultivation's `MonthlySettlementSystem`.
+- **Threaded snapshot runner.** `OdysseyRunner` is now the pool's proven threaded double-buffer model
+  (world pool + 60 Hz sim thread + `TrySampleInterpolation` + locked state reads + a command queue for
+  `SetThrust`/`SetTurn`/`SetCharging`/`RequestWarp`/`RequestNewVoyage`), so both hosts read transforms
+  while the sim ticks. Fly-to-gate and per-sector map regeneration are managed passes between ticks (the
+  body roster is fixed — a warp RESHUFFLES orbit config rather than respawning, so hosts build instances
+  once). `TickOnce` is still public for synchronous tests.
+- **SDL host** (`Paradise.Sample.Runtime/OdysseyHost.cs` + `ProcMesh.cs`) — procedural meshes (UV sphere,
+  a cone ship, a torus gate) uploaded to `PbrScene`, emissive star/gate + bloom, a chase `PbrCamera`.
+- **Godot host** (`runtime/OdysseyBridge.cs : Node3D` + `scenes/odyssey.tscn`) — built-in meshes
+  (`SphereMesh`/`TorusMesh`/cone `CylinderMesh`), `StandardMaterial3D` (emissive star/gate + glow), a
+  chase `Camera3D`; snapshot → `GlobalTransform` each `_Process`.
+- **HUD** — the MVVM `OdysseyViewModel` ↔ `OdysseyView` ("Star Voyager": warp-charge/hull gauges, ship's
+  log, seeded starfield) draws as a pure reader overlay (the sim owns its own thread). The pool ImGui
+  demo is `--game pool`.
 
 ## Prefabs (Phase 5)
 

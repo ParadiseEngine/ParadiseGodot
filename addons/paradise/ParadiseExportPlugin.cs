@@ -12,6 +12,10 @@ namespace ParadiseGodot
     [Tool]
     public partial class ParadiseExportPlugin : EditorPlugin
     {
+        // Scene-root metadata naming a code-driven runtime sample (`--game <name>`) for the "Play .NET"
+        // button — set on scenes that spawn their world in a bridge script rather than EntityExport nodes.
+        private const string GameMetaKey = "paradise_game";
+
         private const string ExportMenuItem = "Paradise/Export Active Scene";
         private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
         private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
@@ -109,16 +113,6 @@ namespace ParadiseGodot
                     return;
                 }
 
-                string sceneName = Export.SceneDataExporter.ResolveSceneName(root);
-                string sceneJson = ParadisePaths.ExportPaths().GetLevelDataOutputPath(sceneName);
-                if (!System.IO.File.Exists(sceneJson))
-                {
-                    GD.PushError(
-                        $"[Paradise.Export] '{sceneJson}' does not exist — save the scene (auto-export) " +
-                        "or run Project > Tools > Paradise/Export Active Scene first.");
-                    return;
-                }
-
                 string[]? host = ResolveRuntimeHostCommand();
                 if (host is null)
                 {
@@ -132,7 +126,34 @@ namespace ParadiseGodot
                 string logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "paradise_play_dotnet.log");
                 // User-configured runtime arguments (Paradise/Settings…, default --imgui).
                 string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
-                string[] argv = [.. host[1..], "--scene", sceneJson, .. extraArgs];
+
+                // A scene root may declare a code-driven runtime SAMPLE via the `paradise_game` metadata
+                // (e.g. Odyssey): those have no EntityExport nodes, so a --scene launch would render an
+                // empty world. The SAME button reads the metadata and launches the runtime's built-in
+                // sample (`--game <name>`); every other scene falls through to the data-export path — one
+                // launch flow, the scene's own metadata picks the mode (mirrors `paradise_entity_guid`).
+                string[] argv;
+                string launchLabel;
+                string game = root.HasMeta(GameMetaKey) ? root.GetMeta(GameMetaKey).AsString() : "";
+                if (!string.IsNullOrEmpty(game))
+                {
+                    argv = [.. host[1..], "--game", game, .. extraArgs];
+                    launchLabel = $"--game {game}";
+                }
+                else
+                {
+                    string sceneName = Export.SceneDataExporter.ResolveSceneName(root);
+                    string sceneJson = ParadisePaths.ExportPaths().GetLevelDataOutputPath(sceneName);
+                    if (!System.IO.File.Exists(sceneJson))
+                    {
+                        GD.PushError(
+                            $"[Paradise.Export] '{sceneJson}' does not exist — save the scene (auto-export) " +
+                            "or run Project > Tools > Paradise/Export Active Scene first.");
+                        return;
+                    }
+                    argv = [.. host[1..], "--scene", sceneJson, .. extraArgs];
+                    launchLabel = sceneJson;
+                }
 
                 long pid;
                 if (System.OperatingSystem.IsWindows())
@@ -159,7 +180,7 @@ namespace ParadiseGodot
                     return;
                 }
 
-                GD.Print($"[Paradise.Export] Launched .NET runtime (pid {pid}): {sceneJson} — output: {logPath}");
+                GD.Print($"[Paradise.Export] Launched .NET runtime (pid {pid}): {launchLabel} — output: {logPath}");
             }
             catch (System.Exception ex)
             {

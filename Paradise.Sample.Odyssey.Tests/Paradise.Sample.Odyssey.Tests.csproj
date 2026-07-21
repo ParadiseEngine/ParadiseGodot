@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Headless proof that the "Space Odyssey" sim (the immortal-cultivation architecture, sci-fi skin)
+    runs on Paradise.ECS alone: charge → warp roll → event → owner-reactor, plus the managed-emit
+    reset and the hull-breach end state. TUnit on Microsoft.Testing.Platform.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);NETSDK1188</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="TUnit" Version="1.57.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Paradise.Sample.Odyssey\Paradise.Sample.Odyssey.csproj" />
+  </ItemGroup>
+
+</Project>

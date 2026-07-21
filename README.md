@@ -45,8 +45,9 @@ dotnet test --project Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Test
 dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- \
   --scene data/scenes/sample.json
 
-# The minimal ImGui integration sample (no exported scene needed)
-dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- --game imgui
+# The ImGui MVVM samples (no exported scene needed): a sci-fi "Space Odyssey" or the pool demo
+dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- --game odyssey
+dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- --game pool
 ```
 
 Open the project in Godot to author: saving a scene auto-exports its contract to `data/`;
@@ -60,8 +61,9 @@ the **Play .NET** toolbar button launches the export in the standalone runtime.
   (Paradise.ECS), shared by the Godot bridge and the runtime host
 - `Paradise.Sample.Runtime(.Tests)` — standalone SDL/WebGPU runtime host; also packs as the
   `paradise-runtime` dotnet tool
-- `Paradise.Sample.Ui(.Tests)` / `Paradise.Sample.ImGui` — renderer-independent UI cores and
-  the minimal ImGui sample
+- `Paradise.Sample.Odyssey(.Tests)` — engine-agnostic "Space Odyssey" progression sim (Paradise.ECS)
+- `Paradise.Sample.Ui(.Tests)` / `Paradise.Sample.ImGui` — renderer-independent UI cores (the pool +
+  odyssey MVVM ViewModels/Views) and the shared ImGui sim-thread driver
 - `runtime/`, `scripts/`(godot), `scenes/` — Godot-side bridges and sample scenes
 - `templates/starter/` — the starter project (release zip bakes the addon in)
 - `docs/` — user documentation; `docs/publishing.md` is the maintainer release runbook
