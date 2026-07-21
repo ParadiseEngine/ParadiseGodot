@@ -1,3 +1,5 @@
+using System.Numerics;
+
 namespace Paradise.Sample.Odyssey;
 
 // ---------------------------------------------------------------------------------------------------
@@ -130,4 +132,156 @@ public partial struct SectorLadder
 
     /// <summary>Credits awarded per successful jump.</summary>
     public int CreditsPerJump;
+}
+
+// ---------------------------------------------------------------------------------------------------
+// SPATIAL LAYER (3D piloting + the procedural sector map).
+//
+// SOLE writer of Position/Rotation: MotionSystem — over BOTH the ship and every body, in two disjoint
+// segments of one system (Ships carry Velocity/Heading; bodies carry OrbitAngle; the sets never
+// overlap). Ship kinematics (Velocity/Heading) and body orbit (OrbitAngle/SpinPhase) are likewise
+// MotionSystem-owned. The rest are read-only config authored at spawn, managed-written pilot commands
+// (ThrustInput/TurnInput), or fields the runner reshuffles between ticks on a warp (OrbitCenter/
+// Radius/Speed) — all untracked managed writes, outside the system-injection model.
+// ---------------------------------------------------------------------------------------------------
+
+/// <summary>World-space position (right-handed, Y-up, −Z forward) of the ship or a body. Sole writer:
+/// MotionSystem. One variable.</summary>
+[Component]
+public partial struct Position
+{
+    public Vector3 Value;
+}
+
+/// <summary>World-space orientation of the ship or a body. Sole writer: MotionSystem. One variable.</summary>
+[Component]
+public partial struct Rotation
+{
+    public Quaternion Value;
+}
+
+/// <summary>Ship linear velocity (units/s). Sole writer: MotionSystem. One variable.</summary>
+[Component]
+public partial struct Velocity
+{
+    public Vector3 Value;
+}
+
+/// <summary>Ship yaw heading (radians; 0 = +Z). Sole writer: MotionSystem. One variable.</summary>
+[Component]
+public partial struct Heading
+{
+    public float Value;
+}
+
+/// <summary>Pilot thrust command in [-1..1] (forward+), managed-written each tick from the host keys.
+/// Read by MotionSystem. One variable.</summary>
+[Component]
+public partial struct ThrustInput
+{
+    public float Value;
+}
+
+/// <summary>Pilot turn command in [-1..1] (+yaw), managed-written each tick. Read by MotionSystem.
+/// One variable.</summary>
+[Component]
+public partial struct TurnInput
+{
+    public float Value;
+}
+
+/// <summary>CONFIG BAG (read-only, authored at spawn) — the ship flight tuning MotionSystem reads. The
+/// flight analog of <see cref="SectorLadder"/>.</summary>
+[Component]
+public partial struct FlightConfig
+{
+    /// <summary>Acceleration (units/s²) at full thrust.</summary>
+    public float ThrustAccel;
+
+    /// <summary>Yaw rate (rad/s) at full turn.</summary>
+    public float TurnRate;
+
+    /// <summary>Velocity decay fraction per second (drag).</summary>
+    public float LinearDamping;
+
+    /// <summary>Speed clamp (units/s).</summary>
+    public float MaxSpeed;
+
+    /// <summary>Half-extent of the sector cube the ship is clamped within.</summary>
+    public float SectorBounds;
+
+    /// <summary>How close (units) to the warp gate counts as "entered" — the fly-to-gate trigger.</summary>
+    public float GateCaptureRadius;
+}
+
+// --- bodies (star / planets / asteroids / warp gate) ---
+
+/// <summary>Body archetype for the renderers: 0 = star, 1 = planet, 2 = asteroid, 3 = warp gate.
+/// Read-only, fixed per entity across warps. One variable.</summary>
+[Component]
+public partial struct BodyKind
+{
+    public int Value;
+}
+
+/// <summary>Body render scale (radius units). Read-only config, fixed per entity. One variable.</summary>
+[Component]
+public partial struct BodyScale
+{
+    public float Value;
+}
+
+/// <summary>Body base tint (linear RGBA); star/gate use it as an emissive colour. Read-only config,
+/// fixed per entity (so both hosts can bake a material once). One variable.</summary>
+[Component]
+public partial struct BodyTint
+{
+    public Vector4 Value;
+}
+
+/// <summary>Centre the body orbits about (the star sits at origin; the gate anchors here at radius 0).
+/// Managed-reshuffled on warp; read by MotionSystem. One variable.</summary>
+[Component]
+public partial struct OrbitCenter
+{
+    public Vector3 Value;
+}
+
+/// <summary>Orbit radius (0 = stationary at the centre). Managed-reshuffled on warp; read by
+/// MotionSystem. One variable.</summary>
+[Component]
+public partial struct OrbitRadius
+{
+    public float Value;
+}
+
+/// <summary>Current orbit angle (radians), advanced each tick. Sole writer: MotionSystem (also
+/// managed-seeded on warp). One variable.</summary>
+[Component]
+public partial struct OrbitAngle
+{
+    public float Value;
+}
+
+/// <summary>Orbit angular speed (rad/s). Managed-reshuffled on warp; read by MotionSystem. One variable.</summary>
+[Component]
+public partial struct OrbitSpeed
+{
+    public float Value;
+}
+
+/// <summary>Accumulated self-spin phase (radians about Y), advanced each tick. Sole writer:
+/// MotionSystem. One variable.</summary>
+[Component]
+public partial struct SpinPhase
+{
+    public float Value;
+}
+
+/// <summary>Self-spin speed (rad/s about Y) for a little visible life (the gate ring rotates in
+/// place). Read-only config; read by MotionSystem. One variable.</summary>
+[Component]
+public partial struct SpinSpeed
+{
+    public float Value;
 }

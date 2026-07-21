@@ -291,16 +291,33 @@ generic `Paradise.Sample.ImGui` project keeps only the shared `ImGuiSampleRunner
 
 ### Odyssey sample
 
-`--game odyssey` (Godot: `scenes/odyssey.tscn`) is a sci-fi re-skin of the same architecture over the
-`Paradise.Sample.Odyssey` core — one ship entity, single-variable components, owner systems, and the
-**intent → system → event → owner-reactor** seam: `RequestWarp` writes a `WarpIntent`, `WarpSystem`
-rolls it and `Append`s a `WarpResolved` bus event, and the owner-reactors fold the result (sector /
-hull / credits) one frame later; `RequestNewVoyage` is a managed `Emit`. The MVVM trio is
-`Paradise.Sample.Ui/OdysseyViewModel.cs` (read-only projections + charge/warp/new-voyage commands) ↔
-`Paradise.Sample.ImGui/OdysseyView.cs` (a "Star Voyager" window — warp-charge and hull gauges, a
-ship's log child region, and a seeded starfield drawn into the background draw list) ↔
-`Paradise.Sample.ImGui/OdysseyUi.cs` (composition root over `OdysseyRunner`). Both hosts run it;
-the pool ImGui demo is now `--game pool`.
+`--game odyssey` (Godot: `scenes/odyssey.tscn`) is a **piloted 3D spaceship** flying a procedural
+sector map (a star, orbiting planets, asteroids, a glowing warp gate) — a sci-fi re-skin of the same
+architecture over the `Paradise.Sample.Odyssey` core. Pilot with **WASD** (thrust/turn), **hold SPACE**
+to charge the warp drive, then **fly into the gate** to jump to the next sector (which regenerates);
+**N** starts a new voyage. Rendered in **both** hosts with the same sim.
+
+- **Sim (single-variable, owner systems).** The abstract warp/hull mechanic keeps its
+  **intent → system → event → owner-reactor** seam: `WarpSystem` rolls a `WarpIntent` and `Append`s a
+  `WarpResolved`; the owner-reactors (`ChargeSystem`/`VoyageSystem`) fold sector/hull/credits one frame
+  later; `RequestNewVoyage` is a managed `Emit`. The **spatial layer** adds `Position`/`Rotation`
+  (+ ship `Velocity`/`Heading`, body `OrbitAngle`/`SpinPhase`) written by **one** `MotionSystem` — the
+  sole transform writer — over TWO disjoint segments (the ship vs the bodies), the merged-multi-segment
+  pattern from immortal-cultivation's `MonthlySettlementSystem`.
+- **Threaded snapshot runner.** `OdysseyRunner` is now the pool's proven threaded double-buffer model
+  (world pool + 60 Hz sim thread + `TrySampleInterpolation` + locked state reads + a command queue for
+  `SetThrust`/`SetTurn`/`SetCharging`/`RequestWarp`/`RequestNewVoyage`), so both hosts read transforms
+  while the sim ticks. Fly-to-gate and per-sector map regeneration are managed passes between ticks (the
+  body roster is fixed — a warp RESHUFFLES orbit config rather than respawning, so hosts build instances
+  once). `TickOnce` is still public for synchronous tests.
+- **SDL host** (`Paradise.Sample.Runtime/OdysseyHost.cs` + `ProcMesh.cs`) — procedural meshes (UV sphere,
+  a cone ship, a torus gate) uploaded to `PbrScene`, emissive star/gate + bloom, a chase `PbrCamera`.
+- **Godot host** (`runtime/OdysseyBridge.cs : Node3D` + `scenes/odyssey.tscn`) — built-in meshes
+  (`SphereMesh`/`TorusMesh`/cone `CylinderMesh`), `StandardMaterial3D` (emissive star/gate + glow), a
+  chase `Camera3D`; snapshot → `GlobalTransform` each `_Process`.
+- **HUD** — the MVVM `OdysseyViewModel` ↔ `OdysseyView` ("Star Voyager": warp-charge/hull gauges, ship's
+  log, seeded starfield) draws as a pure reader overlay (the sim owns its own thread). The pool ImGui
+  demo is `--game pool`.
 
 ## Prefabs (Phase 5)
 

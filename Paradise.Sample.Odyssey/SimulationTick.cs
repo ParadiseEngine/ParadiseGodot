@@ -19,5 +19,7 @@ public static class SimulationTick
         world.Query(default(Chargers));  // ChargeSystem
         world.Query(default(Warpers));   // WarpSystem
         world.Query(default(Voyagers));  // VoyageSystem
+        world.Query(default(Ships));     // MotionSystem (ship segment)
+        world.Query(default(Bodies));    // MotionSystem (body segment)
     }
 }

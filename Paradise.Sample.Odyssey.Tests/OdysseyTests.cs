@@ -93,6 +93,57 @@ public class OdysseyTests
     }
 
     [Test]
+    public async Task thrust_moves_the_ship()
+    {
+        using var runner = new OdysseyRunner();
+        var start = runner.ShipPosition;
+
+        runner.SetThrust(1f);
+        for (var i = 0; i < 60; i++) runner.TickOnce();
+
+        // A full second of forward thrust visibly relocates the ship (MotionSystem integrates it).
+        await Assert.That(System.Numerics.Vector3.Distance(runner.ShipPosition, start)).IsGreaterThan(1f);
+        await Assert.That(runner.ShipVelocity.Length()).IsGreaterThan(0.5f);
+    }
+
+    [Test]
+    public async Task flying_into_the_gate_triggers_a_warp()
+    {
+        using var runner = new OdysseyRunner();
+        // The ship spawns facing the warp gate. Charge the drive and fly straight in; reaching the gate
+        // charged raises the warp intent automatically (the fly-to-gate trigger), which resolves a jump.
+        runner.SetCharging(true);
+        runner.SetThrust(1f);
+
+        var warped = false;
+        for (var i = 0; i < 800 && !warped; i++)
+        {
+            runner.TickOnce();
+            warped = runner.Log.Any(line => line.Contains("Warp jump"));
+        }
+
+        await Assert.That(warped).IsTrue();
+    }
+
+    [Test]
+    public async Task a_new_voyage_recenters_and_halts_the_ship()
+    {
+        using var runner = new OdysseyRunner();
+        // Build up some velocity, then start a fresh voyage — regeneration must reposition the ship at a
+        // clean entry point with its motion cancelled.
+        runner.SetThrust(1f);
+        for (var i = 0; i < 90; i++) runner.TickOnce();
+        await Assert.That(runner.ShipVelocity.Length()).IsGreaterThan(1f);
+
+        runner.SetThrust(0f);
+        runner.RequestNewVoyage();
+        for (var i = 0; i < 4; i++) runner.TickOnce(); // emit → reactors reset → regenerate
+
+        await Assert.That(runner.Sector).IsEqualTo(0);
+        await Assert.That(runner.ShipVelocity.Length()).IsLessThan(0.1f); // halted by the regenerate
+    }
+
+    [Test]
     public async Task an_undriven_ship_breaches_its_hull()
     {
         using var runner = new OdysseyRunner();
