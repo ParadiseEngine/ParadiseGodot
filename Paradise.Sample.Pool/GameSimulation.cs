@@ -45,10 +45,14 @@ public sealed class GameSimulation : IDisposable
         World = _shared.CreateWorld();
         _previous = _shared.CreateWorld();
 
+        // The single score entity for the ScoreSystem reactor demo (fed only by the SystemEvents bus).
+        World.CreateEntity(EntityBuilder.Create().Add(new Score()));
+
         var schedule = SystemSchedule.Create(World)
             .AddWorld<MovementSystem>()
             .AddWorld<SpriteAnimationSystem>()
             .AddWorld<ParticleSystem>()
+            .AddWorld<ScoreSystem>()
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
         SimulationTick.WarmSystemQueries(World);
         _schedule = schedule;

@@ -69,7 +69,15 @@ public readonly ref partial struct ParticleEmitters;
 [With<SinkTargetY>]
 [With<BallPhysicsConfig>(IsReadOnly = true)]
 [With<PocketConfig>(IsReadOnly = true)]
+[With<BallId>(IsReadOnly = true)]
 [With<SimulationContext>(IsReadOnly = true)]
 [With<PhysicsWorldRef>(IsReadOnly = true)]
 [With<PhysicsTuning>(IsReadOnly = true)]
 public readonly ref partial struct Balls;
+
+/// <summary>The single score entity for the <see cref="ScoreSystem"/> reactor demo. A normal iterated
+/// queryable (there is exactly one <see cref="Score"/> entity — not a Singleton): the reactor loops its
+/// one row and folds in last frame's <c>SystemEvents</c>. Sole writer of <see cref="Score"/>.</summary>
+[Queryable]
+[With<Score>]
+public readonly ref partial struct Scores;

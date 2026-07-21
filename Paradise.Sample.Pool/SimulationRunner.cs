@@ -85,7 +85,19 @@ public sealed class SimulationRunner : IDisposable
         }
         // Initial snapshot (frame 0) — spawn target and first published state.
         _live.Add(new Snapshot { World = RentWorldUnlocked(), Frame = 0 });
+        // The single score entity for the ScoreSystem reactor demo (fed only by the SystemEvents bus).
+        // Created on the initial snapshot; CopyFrom carries it into every later tick's world.
+        _scoreEntity = Current.CreateEntity(EntityBuilder.Create().Add(new Score()));
     }
+
+    // The single score entity (ScoreSystem reactor demo). Sim-thread-created; read under _lock.
+    private Entity _scoreEntity;
+
+    // Monotonic id handed to each spawned ball so a BallPocketed event can name the ball that dropped.
+    private int _nextBallId;
+
+    // Set by RequestReset (any thread), consumed on the sim thread in TickOnce → GameReset emit.
+    private volatile bool _resetRequested;
 
     /// <summary>The immutable static collision world (safe to query from any thread), if any.</summary>
     public Paradise.Physics.CollisionWorld? CollisionWorld => _collisionWorld;
@@ -139,6 +151,7 @@ public sealed class SimulationRunner : IDisposable
             .Add(new BallSunk())
             .Add(new BallSinking())
             .Add(new SinkTargetY())
+            .Add(new BallId { Value = _nextBallId++ })
             .Add(pocket)
             .Add(tuning ?? PhysicsTuning.Default)
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
@@ -203,6 +216,18 @@ public sealed class SimulationRunner : IDisposable
     /// leaves spin untouched, so a non-strike velocity nudge never clobbers a spinning ball.</summary>
     public void EnqueueBallImpulse(Entity entity, Vector3 velocityDelta, Vector3? angularVelocity = null) =>
         _impulses.Enqueue((entity, velocityDelta, angularVelocity));
+
+    /// <summary>Request a score reset (thread-safe). The sim thread emits a managed
+    /// <see cref="GameReset"/> on its next tick (before the schedule commits); the
+    /// <see cref="ScoreSystem"/> reactor zeroes <see cref="Score"/> the tick after that.</summary>
+    public void RequestReset() => _resetRequested = true;
+
+    /// <summary>The current pool score from the latest published snapshot (thread-safe). Written only by
+    /// the <see cref="ScoreSystem"/> reactor, in response to <c>SystemEvents</c>.</summary>
+    public int Score
+    {
+        get { lock (_lock) { return _live.Count == 0 ? 0 : _live[^1].World.GetComponent<Score>(_scoreEntity).Value; } }
+    }
 
     /// <summary>Freeze the fixed-tick loop (rendering keeps interpolating the last published
     /// snapshots). While paused the rewind buffer can be scrubbed and
@@ -525,6 +550,15 @@ public sealed class SimulationRunner : IDisposable
             }
         }
 
+        // MANAGED event producer: raise GameReset on the sim thread BEFORE the schedule commits, so
+        // it publishes alongside the systems' appended events and is delivered to ScoreSystem next
+        // tick (the deferred-bus contract). Mirrors immortal-cultivation's managed world.Events.Emit.
+        if (_resetRequested)
+        {
+            _resetRequested = false;
+            write.Events.Emit(new GameReset());
+        }
+
         // MovementSystem (steering + character slide + ball dynamics — the sole transform
         // writer) runs inside the schedule. Systems' read-only fields bind to `current` (the
         // immutable previous-tick snapshot) — snapshot-read mode.
@@ -579,6 +613,7 @@ public sealed class SimulationRunner : IDisposable
             .AddWorld<MovementSystem>()
             .AddWorld<SpriteAnimationSystem>()
             .AddWorld<ParticleSystem>()
+            .AddWorld<ScoreSystem>()
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
         SimulationTick.WarmSystemQueries(world);
         _schedules.Add(schedule);

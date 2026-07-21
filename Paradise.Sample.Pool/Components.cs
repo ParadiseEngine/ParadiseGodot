@@ -324,6 +324,26 @@ public struct ParticleBuffer
     private Particle _element0;
 }
 
+// --- scoring / reactor demo (sole writer: ScoreSystem) ----------------------------------------------
+
+/// <summary>The running pool score, carried by exactly one score entity. SOLE WRITER: the owner-reactor
+/// <see cref="ScoreSystem"/>, which is fed only by the deferred <c>SystemEvents</c> bus (never by a
+/// direct caller or another system) — the reactor pattern from immortal-cultivation. One variable.</summary>
+[Component]
+public partial struct Score
+{
+    public int Value;
+}
+
+/// <summary>Stable per-ball identifier, assigned at spawn and carried for the ball's whole life. Read-only
+/// after spawn; rides on a <see cref="BallPocketed"/> event so a reactor can tell which ball
+/// dropped without a cross-entity read. One variable.</summary>
+[Component]
+public partial struct BallId
+{
+    public int Value;
+}
+
 // --- batch dynamics tuning --------------------------------------------------------------------------
 
 /// <summary>Global dynamics-solver tuning, carried per ball and applied batch-wide from the first

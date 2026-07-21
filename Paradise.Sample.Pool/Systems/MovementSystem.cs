@@ -44,6 +44,12 @@ public ref partial struct MovementSystem : IWorldSystem
     public AgentsSegments Agents;
     public BallsSegments Balls;
 
+    /// <summary>Deferred <c>SystemEvents</c> writer (engine 0.5.2): a <see cref="BallPocketed"/> is
+    /// appended the tick a ball drops (scratch OR sink) for next-frame fan-out. The owner-reactor
+    /// <see cref="ScoreSystem"/> is the sole consumer — this system never touches <see cref="Score"/>,
+    /// so cross-entity scoring stays clear of per-entity single-writer ownership. See GameEvents.cs.</summary>
+    public SystemEventWriter Events;
+
     public void Execute()
     {
         for (int i = 0; i < Agents.Length; i++)
@@ -304,6 +310,8 @@ public ref partial struct MovementSystem : IWorldSystem
                 pos = new Vector3(pocket.RespawnPosition.X, position.Y, pocket.RespawnPosition.Z);
                 Balls.Velocity[i].Value = Vector3.Zero;
                 Balls.AngularVelocity[i].Value = Vector3.Zero;
+                // Announce the drop for next-frame reactors (cue = scratch → score penalty).
+                Events.Append(new BallPocketed { BallId = Balls.BallId[i].Value, IsCue = pocket.IsCue });
                 return;
             }
 
@@ -313,6 +321,8 @@ public ref partial struct MovementSystem : IWorldSystem
             pos = new Vector3(mouth.X, position.Y, mouth.Y);
             ref Vector3 vel = ref Balls.Velocity[i].Value;
             vel = new Vector3(0f, MathF.Min(vel.Y, -0.5f), 0f);
+            // Announce the drop for next-frame reactors (object ball → score point).
+            Events.Append(new BallPocketed { BallId = Balls.BallId[i].Value, IsCue = pocket.IsCue });
             return;
         }
     }

@@ -40,5 +40,6 @@ public static class SimulationTick
         world.Query(default(Balls));             // MovementSystem
         world.Query(default(SpriteAnimations));  // SpriteAnimationSystem
         world.Query(default(ParticleEmitters));  // ParticleSystem
+        world.Query(default(Scores));            // ScoreSystem
     }
 }
