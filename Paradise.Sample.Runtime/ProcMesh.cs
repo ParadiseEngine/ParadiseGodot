@@ -46,8 +46,10 @@ internal static class ProcMesh
                 uint p1 = p0 + 1;
                 uint p2 = (uint)((i + 1) * rowStride + j);
                 uint p3 = p2 + 1;
-                idx.Add(p0); idx.Add(p2); idx.Add(p1);
-                idx.Add(p1); idx.Add(p2); idx.Add(p3);
+                // CCW when viewed from OUTSIDE, so the outer surface is front-facing (the engine PBR
+                // flips shading normals on back-faces — a reversed sphere would light its far side).
+                idx.Add(p0); idx.Add(p1); idx.Add(p2);
+                idx.Add(p1); idx.Add(p3); idx.Add(p2);
             }
         }
         return (verts.ToArray(), idx.ToArray());
@@ -78,7 +80,7 @@ internal static class ProcMesh
             Push(verts, apex, faceN, new Vector2(0.5f, 1f), tangent);
             Push(verts, r0, faceN, new Vector2(0f, 0f), tangent);
             Push(verts, r1, faceN, new Vector2(1f, 0f), tangent);
-            idx.Add(b); idx.Add(b + 1); idx.Add(b + 2);
+            idx.Add(b); idx.Add(b + 2); idx.Add(b + 1);
         }
         // Base cap (facing −Z).
         var backN = new Vector3(0f, 0f, -1f);
@@ -93,7 +95,7 @@ internal static class ProcMesh
         }
         for (uint j = 0; j < segments; j++)
         {
-            idx.Add(center); idx.Add(center + j + 2); idx.Add(center + j + 1);
+            idx.Add(center); idx.Add(center + j + 1); idx.Add(center + j + 2);
         }
         return (verts.ToArray(), idx.ToArray());
     }
@@ -131,8 +133,8 @@ internal static class ProcMesh
                 uint p1 = p0 + 1;
                 uint p2 = (uint)((i + 1) * stride + j);
                 uint p3 = p2 + 1;
-                idx.Add(p0); idx.Add(p2); idx.Add(p1);
-                idx.Add(p1); idx.Add(p2); idx.Add(p3);
+                idx.Add(p0); idx.Add(p1); idx.Add(p2);
+                idx.Add(p1); idx.Add(p3); idx.Add(p2);
             }
         }
         return (verts.ToArray(), idx.ToArray());

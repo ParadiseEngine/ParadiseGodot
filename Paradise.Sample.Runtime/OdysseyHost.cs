@@ -315,7 +315,7 @@ internal static class OdysseyHost
                 Ground = new Vector3(0.01f, 0.01f, 0.02f),
                 Exposure = 1f,
             },
-            Bloom = new PbrBloom { Enabled = true, Threshold = 0.75f, Knee = 0.35f, Intensity = 0.8f },
+            Bloom = new PbrBloom { Enabled = true, Threshold = 0.85f, Knee = 0.35f, Intensity = 0.55f },
         };
         // The star is the key light (a warm point at the origin); a dim cold directional fills shadows.
         scene.Lights.Add(new PbrLight
@@ -323,7 +323,7 @@ internal static class OdysseyHost
             Type = PbrLightType.Point,
             Position = Vector3.Zero,
             Color = new Vector3(1f, 0.9f, 0.7f),
-            Intensity = 60f,
+            Intensity = 42f,
             Range = 240f,
         });
         scene.Lights.Add(new PbrLight
@@ -358,8 +358,8 @@ internal static class OdysseyHost
             var tint = body.Tint;
             int matId = body.Kind switch
             {
-                0 => Emissive(pbr, new Vector3(tint.X, tint.Y, tint.Z), 3.0f),  // star
-                3 => Emissive(pbr, new Vector3(tint.X, tint.Y, tint.Z), 2.5f),  // warp gate
+                0 => Emissive(pbr, new Vector3(tint.X, tint.Y, tint.Z), 2.4f),  // star
+                3 => Emissive(pbr, new Vector3(tint.X, tint.Y, tint.Z), 2.0f),  // warp gate
                 1 => pbr.Materials.AddDefaultMaterial(tint, 0.10f, 0.80f),      // planet
                 _ => greyId,                                                     // asteroid
             };
@@ -380,9 +380,11 @@ internal static class OdysseyHost
     /// body glows and blooms; double-sided so the thin gate ring reads from either face.</summary>
     private static int Emissive(PbrRenderer pbr, Vector3 color, float strength)
     {
+        // Black base so the body is PURE emission (a light source is uniformly bright, not shaded like a
+        // lit sphere — a non-zero base would catch ambient/fill light and show a bright/dark side).
         var mat = new GltfMaterialData(
             Name: "emissive",
-            BaseColorFactor: new Vector4(color * 0.15f, 1f),
+            BaseColorFactor: new Vector4(0f, 0f, 0f, 1f),
             MetallicFactor: 0f,
             RoughnessFactor: 1f,
             EmissiveFactor: color * strength,

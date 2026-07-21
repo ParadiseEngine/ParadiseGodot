@@ -89,21 +89,22 @@ namespace ParadiseGodot.Runtime
                 BackgroundColor = new Color(0.01f, 0.01f, 0.03f),
                 AmbientLightSource = Godot.Environment.AmbientSource.Color,
                 AmbientLightColor = new Color(0.10f, 0.11f, 0.16f),
-                AmbientLightEnergy = 0.7f,
+                AmbientLightEnergy = 1.1f,
                 GlowEnabled = true,
-                GlowIntensity = 0.9f,
-                GlowBloom = 0.25f,
-                GlowHdrThreshold = 0.85f,
-                TonemapMode = Godot.Environment.ToneMapper.Aces,
+                GlowIntensity = 1.3f,
+                GlowBloom = 0.4f,
+                GlowHdrThreshold = 0.65f,
+                TonemapMode = Godot.Environment.ToneMapper.Filmic,
             };
             AddChild(new WorldEnvironment { Name = "SpaceEnvironment", Environment = env });
 
-            // The star's warm key light at the origin.
+            // The star's warm key light at the origin. Godot's light energy is a different unit from the
+            // engine PBR host's intensity, so tuned independently for a comparable planet brightness.
             AddChild(new OmniLight3D
             {
                 Name = "StarLight",
                 OmniRange = 260f,
-                LightEnergy = 6f,
+                LightEnergy = 24f,
                 LightColor = new Color(1f, 0.9f, 0.7f),
             });
             // A dim cold directional fill so shadowed sides still read.
@@ -141,18 +142,36 @@ namespace ParadiseGodot.Runtime
 
             foreach (var body in _runner.Bodies)
             {
+                var material = body.Kind switch
+                {
+                    0 => Emissive(body.Tint, 7.0f),  // star
+                    3 => Emissive(body.Tint, 5.0f),  // warp gate
+                    _ => Lit(body.Tint),             // planet / asteroid
+                };
+
+                if (body.Kind == 3)
+                {
+                    // Warp gate: Godot's TorusMesh lies in the XZ plane (hole along Y) — a horizontal disc
+                    // edge-on to the chase camera. Rotate the mesh into the XY plane (as the .NET host's
+                    // procedural torus) so it reads as an upright ring; the sim spin (about Y) still turns
+                    // the parent, matching the .NET gate.
+                    var gateRoot = new Node3D { Name = "Gate" };
+                    gateRoot.AddChild(new MeshInstance3D
+                    {
+                        Mesh = new TorusMesh { InnerRadius = 0.85f, OuterRadius = 1.25f },
+                        MaterialOverride = material,
+                        Transform = new Transform3D(new Basis(Vector3.Right, Mathf.Pi / 2f), Vector3.Zero),
+                    });
+                    AddChild(gateRoot);
+                    _nodes.Add((gateRoot, body.Entity, body.Scale));
+                    continue;
+                }
+
                 var mi = new MeshInstance3D
                 {
-                    Name = body.Kind switch { 0 => "Star", 3 => "Gate", 1 => "Planet", _ => "Asteroid" },
-                    Mesh = body.Kind == 3
-                        ? new TorusMesh { InnerRadius = 0.85f, OuterRadius = 1.25f }
-                        : new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 32, Rings = 16 },
-                    MaterialOverride = body.Kind switch
-                    {
-                        0 => Emissive(body.Tint, 4.0f),  // star
-                        3 => Emissive(body.Tint, 3.0f),  // warp gate
-                        _ => Lit(body.Tint),             // planet / asteroid
-                    },
+                    Name = body.Kind == 0 ? "Star" : body.Kind == 1 ? "Planet" : "Asteroid",
+                    Mesh = new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 32, Rings = 16 },
+                    MaterialOverride = material,
                 };
                 AddChild(mi);
                 _nodes.Add((mi, body.Entity, body.Scale));
@@ -166,9 +185,14 @@ namespace ParadiseGodot.Runtime
             Roughness = 0.80f,
         };
 
+        // Black albedo so the body is effectively PURE emission (a light source is uniformly bright, not
+        // shaded like a lit sphere): a zero albedo kills the diffuse gradient while the emission stays. We
+        // do NOT use ShadingMode.Unshaded — Godot's unshaded path drops emission (renders albedo only).
         private static StandardMaterial3D Emissive(SN.Vector4 tint, float energy) => new()
         {
-            AlbedoColor = new Color(tint.X * 0.2f, tint.Y * 0.2f, tint.Z * 0.2f),
+            AlbedoColor = new Color(0f, 0f, 0f),
+            Metallic = 0f,
+            Roughness = 1f,
             EmissionEnabled = true,
             Emission = new Color(tint.X, tint.Y, tint.Z),
             EmissionEnergyMultiplier = energy,
