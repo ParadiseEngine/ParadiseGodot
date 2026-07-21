@@ -153,7 +153,7 @@ namespace ParadiseGodot.Runtime
                     (float mass, float damping, float restitution) = ReadBallBody(node);
                     // The cue ball drives the pool controller (same "CueBall" id the .NET host uses).
                     bool isCue = string.Equals(node.Name, "CueBall", StringComparison.OrdinalIgnoreCase);
-                    PoolBall poolBall = PoolRack.BuildBall(pockets, isCue, pos, trayIndex++);
+                    PocketConfig poolBall = PoolRack.BuildBall(pockets, isCue, pos, trayIndex++);
                     Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), mass,
                         damping, restitution, staticRestitution, poolBall, tuning,
                         friction: GetFloat(node, "BodyFriction", 0.3f));
@@ -458,7 +458,7 @@ namespace ParadiseGodot.Runtime
                 int sunk = 0;
                 foreach (Entity ball in _poolBallEntities)
                 {
-                    if (worldB.IsAlive(ball) && worldB.GetComponent<PoolBall>(ball).Sunk != 0) sunk++;
+                    if (worldB.IsAlive(ball) && worldB.GetComponent<BallSunk>(ball).Value != 0) sunk++;
                 }
                 _pool.SunkCount = sunk;
             }
@@ -478,11 +478,13 @@ namespace ParadiseGodot.Runtime
                     continue;
                 }
 
-                LocalTransform ta = aliveA ? worldA.GetComponent<LocalTransform>(entity) : worldB.GetComponent<LocalTransform>(entity);
-                LocalTransform tb = aliveB ? worldB.GetComponent<LocalTransform>(entity) : ta;
+                var wa = aliveA ? worldA : worldB;
+                var wb = aliveB ? worldB : wa;
 
-                SN.Vector3 pos = SN.Vector3.Lerp(ta.Position, tb.Position, alpha);
-                SN.Quaternion rot = SN.Quaternion.Slerp(ta.Rotation, tb.Rotation, alpha);
+                SN.Vector3 pos = SN.Vector3.Lerp(
+                    wa.GetComponent<Position>(entity).Value, wb.GetComponent<Position>(entity).Value, alpha);
+                SN.Quaternion rot = SN.Quaternion.Slerp(
+                    wa.GetComponent<Rotation>(entity).Value, wb.GetComponent<Rotation>(entity).Value, alpha);
                 // Sim owns position + rotation only — re-apply the authored scale so the snapshot
                 // transform doesn't reset the node to unit scale (which ballooned the pool balls).
                 node.GlobalTransform = new Transform3D(new Basis(ToGodot(rot)).Scaled(scale), ToGodot(pos));
@@ -508,22 +510,22 @@ namespace ParadiseGodot.Runtime
         private void SetupParticleEmitter(Node3D node, SN.Vector3 pos, SN.Quaternion rot)
         {
             bool spriteKind = ReadInt(node, "ParticleKind", 0) != 2;
-            int capacity = Math.Clamp(ReadInt(node, "ParticleMaxCount", 64), 1, ParticleEmitter.MaxParticles);
+            int capacity = Math.Clamp(ReadInt(node, "ParticleMaxCount", 64), 1, ParticleState.MaxParticles);
             int columns = Math.Max(1, ReadInt(node, "ParticleSheetColumns", 1));
             int rows = Math.Max(1, ReadInt(node, "ParticleSheetRows", 1));
             int authoredFrames = ReadInt(node, "ParticleSheetFrameCount", 0);
             int frameCount = Math.Clamp(authoredFrames <= 0 ? columns * rows : authoredFrames, 1, columns * rows);
             Color color = ReadColor(node, "ParticleColor", Colors.White);
 
-            Entity entity = _runner!.SpawnParticleEmitter(pos, rot, new ParticleEmitter(
+            Entity entity = _runner!.SpawnParticleEmitter(pos, rot, new ParticleConfig(
                 ReadFloat(node, "ParticleEmitRate", 8f),
                 ReadFloat(node, "ParticleLifetime", 1.5f),
                 ReadFloat(node, "ParticleSpeed", 2f),
                 Mathf.DegToRad(ReadFloat(node, "ParticleSpreadDegrees", 25f)),
                 ReadFloat(node, "ParticleGravity", -9.8f),
                 ReadFloat(node, "ParticleDrag", 0f),
-                capacity,
-                unchecked((uint)ReadInt(node, "ParticleSeed", 1))));
+                capacity),
+                unchecked((uint)ReadInt(node, "ParticleSeed", 1)));
 
             Material material;
             PrimitiveMesh mesh;
@@ -601,11 +603,12 @@ namespace ParadiseGodot.Runtime
                     continue;
                 }
 
-                SpriteAnimation b = worldB.GetComponent<SpriteAnimation>(entity);
+                float bTime = worldB.GetComponent<SpriteTime>(entity).Value;
+                SpriteConfig cfg = worldB.GetComponent<SpriteConfig>(entity);
                 float time = worldA.IsAlive(entity)
-                    ? float.Lerp(worldA.GetComponent<SpriteAnimation>(entity).Time, b.Time, alpha)
-                    : b.Time;
-                sprite.Frame = SpriteAnimationSystem.SampleFrame(time, b.Fps, b.FrameCount, b.Loop != 0);
+                    ? float.Lerp(worldA.GetComponent<SpriteTime>(entity).Value, bTime, alpha)
+                    : bTime;
+                sprite.Frame = SpriteAnimationSystem.SampleFrame(time, cfg.Fps, cfg.FrameCount, cfg.Loop != 0);
             }
         }
 
@@ -621,10 +624,10 @@ namespace ParadiseGodot.Runtime
                     continue;
                 }
 
-                ParticleEmitter a = worldA.IsAlive(view.Entity)
-                    ? worldA.GetComponent<ParticleEmitter>(view.Entity)
-                    : worldB.GetComponent<ParticleEmitter>(view.Entity);
-                ParticleEmitter b = worldB.GetComponent<ParticleEmitter>(view.Entity);
+                ParticleState a = worldA.IsAlive(view.Entity)
+                    ? worldA.GetComponent<ParticleState>(view.Entity)
+                    : worldB.GetComponent<ParticleState>(view.Entity);
+                ParticleState b = worldB.GetComponent<ParticleState>(view.Entity);
                 MultiMesh multimesh = view.Node.Multimesh;
 
                 int visible = 0;

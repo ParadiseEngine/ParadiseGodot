@@ -19,24 +19,24 @@ public class SpriteAndParticleTests
         return new DetourNavigationMesh(verts, tris);
     }
 
-    private static SpriteAnimation SpriteOf(SimulationRunner runner, Entity entity)
+    private static int FrameOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<SpriteAnimation>(entity);
+        return latest.GetComponent<SpriteFrame>(entity).Value;
     }
 
-    private static ParticleEmitter EmitterOf(SimulationRunner runner, Entity entity)
+    private static ParticleState EmitterOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<ParticleEmitter>(entity);
+        return latest.GetComponent<ParticleState>(entity);
     }
 
-    private static int LiveCount(in ParticleEmitter emitter)
+    private static int LiveCount(in ParticleState state)
     {
         var live = 0;
-        for (var slot = 0; slot < emitter.Capacity; slot++)
+        for (var slot = 0; slot < ParticleState.MaxParticles; slot++)
         {
-            if (emitter.Particles[slot].Lifetime > 0f) live++;
+            if (state.Particles[slot].Lifetime > 0f) live++;
         }
         return live;
     }
@@ -52,10 +52,10 @@ public class SpriteAndParticleTests
             fps: 10f, frameCount: 4, loop: true);
 
         for (var i = 0; i < 7; i++) runner.TickOnce(); // t ≈ 0.1167 s → frame 1
-        await Assert.That(SpriteOf(runner, sprite).Frame).IsEqualTo(1);
+        await Assert.That(FrameOf(runner, sprite)).IsEqualTo(1);
 
         for (var i = 0; i < 24; i++) runner.TickOnce(); // one full cycle later → still frame 1
-        await Assert.That(SpriteOf(runner, sprite).Frame).IsEqualTo(1);
+        await Assert.That(FrameOf(runner, sprite)).IsEqualTo(1);
     }
 
     [Test]
@@ -66,7 +66,7 @@ public class SpriteAndParticleTests
             fps: 30f, frameCount: 3, loop: false);
 
         for (var i = 0; i < 60; i++) runner.TickOnce(); // 1 s — way past the 0.1 s clip
-        await Assert.That(SpriteOf(runner, sprite).Frame).IsEqualTo(2);
+        await Assert.That(FrameOf(runner, sprite)).IsEqualTo(2);
     }
 
     [Test]
@@ -81,16 +81,16 @@ public class SpriteAndParticleTests
 
     // ---- particle emitter ----
 
-    private static ParticleEmitter Fountain(float rate = 60f, float lifetime = 0.5f, int capacity = 64, uint seed = 7)
+    private static ParticleConfig Fountain(float rate = 60f, float lifetime = 0.5f, int capacity = 64)
         => new(emitRate: rate, lifetimeSeconds: lifetime, initialSpeed: 2f,
-            spreadRadians: 0.4f, gravity: -9.8f, drag: 0f, capacity: capacity, seed: seed);
+            spreadRadians: 0.4f, gravity: -9.8f, drag: 0f, capacity: capacity);
 
     [Test]
     public async Task emitter_spawns_at_the_authored_rate_and_particles_age_out()
     {
         using var runner = new SimulationRunner(FlatGround());
         // 60/s at 60 Hz = 1 per tick; 0.5 s lifetime → steady state ≈ 30 live.
-        var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), Quaternion.Identity, Fountain());
+        var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), Quaternion.Identity, Fountain(), 7u);
 
         for (var i = 0; i < 10; i++) runner.TickOnce();
         await Assert.That(LiveCount(EmitterOf(runner, emitter))).IsEqualTo(10);
@@ -107,7 +107,7 @@ public class SpriteAndParticleTests
         using var runner = new SimulationRunner(FlatGround());
         // 600/s into 8 slots with 0.2 s lifetime: pool saturates, then churns via freed slots.
         var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), Quaternion.Identity,
-            Fountain(rate: 600f, lifetime: 0.2f, capacity: 8));
+            Fountain(rate: 600f, lifetime: 0.2f, capacity: 8), 7u);
 
         for (var i = 0; i < 60; i++)
         {
@@ -124,8 +124,8 @@ public class SpriteAndParticleTests
         using var runner = new SimulationRunner(FlatGround());
         // Straight-up cone (zero spread), no drag: velocity.Y must strictly fall tick over tick.
         var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), Quaternion.Identity,
-            new ParticleEmitter(emitRate: 1f, lifetimeSeconds: 5f, initialSpeed: 1f,
-                spreadRadians: 0f, gravity: -9.8f, drag: 0f, capacity: 4, seed: 3));
+            new ParticleConfig(emitRate: 1f, lifetimeSeconds: 5f, initialSpeed: 1f,
+                spreadRadians: 0f, gravity: -9.8f, drag: 0f, capacity: 4), 3u);
 
         // 1/s at 60 Hz: the fractional carry crosses 1.0 on tick ~61 (float rounding), so run
         // a little past a full second before reading the first particle.
@@ -141,14 +141,14 @@ public class SpriteAndParticleTests
     [Test]
     public async Task same_seed_same_particles_different_seed_different_particles()
     {
-        static ParticleEmitter AfterTicks(uint seed, int ticks, out int liveCount)
+        static ParticleState AfterTicks(uint seed, int ticks, out int liveCount)
         {
             using var runner = new SimulationRunner(FlatGround());
             var entity = runner.SpawnParticleEmitter(
-                new Vector3(5, 1, 5), Quaternion.Identity, Fountain(seed: seed));
+                new Vector3(5, 1, 5), Quaternion.Identity, Fountain(), seed);
             for (var i = 0; i < ticks; i++) runner.TickOnce();
             runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-            var emitter = latest.GetComponent<ParticleEmitter>(entity);
+            var emitter = latest.GetComponent<ParticleState>(entity);
             liveCount = LiveCount(emitter);
             return emitter;
         }
@@ -159,7 +159,7 @@ public class SpriteAndParticleTests
 
         await Assert.That(liveA).IsEqualTo(liveB);
         var anyDiffersFromC = false;
-        for (var slot = 0; slot < a.Capacity; slot++)
+        for (var slot = 0; slot < ParticleState.MaxParticles; slot++)
         {
             // Bit-for-bit: the stream is a pure function of the seed and the tick count.
             await Assert.That(a.Particles[slot].Position).IsEqualTo(b.Particles[slot].Position);
@@ -177,8 +177,8 @@ public class SpriteAndParticleTests
         // Emitter rotated 90° about Z: +Y maps to −X, so particles fly toward −X, not up.
         var tilted = Quaternion.CreateFromAxisAngle(Vector3.UnitZ, MathF.PI / 2f);
         var emitter = runner.SpawnParticleEmitter(new Vector3(5, 1, 5), tilted,
-            new ParticleEmitter(emitRate: 60f, lifetimeSeconds: 2f, initialSpeed: 2f,
-                spreadRadians: 0f, gravity: 0f, drag: 0f, capacity: 8, seed: 5));
+            new ParticleConfig(emitRate: 60f, lifetimeSeconds: 2f, initialSpeed: 2f,
+                spreadRadians: 0f, gravity: 0f, drag: 0f, capacity: 8), 5u);
 
         for (var i = 0; i < 10; i++) runner.TickOnce();
         var state = EmitterOf(runner, emitter);

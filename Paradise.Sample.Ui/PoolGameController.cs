@@ -405,7 +405,7 @@ public sealed class PoolGameController
         }
         if (_runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _) && latest.IsAlive(_cueBall))
         {
-            return latest.GetComponent<LocalTransform>(_cueBall).Position;
+            return latest.GetComponent<Position>(_cueBall).Value;
         }
         return Vector3.Zero;
     }

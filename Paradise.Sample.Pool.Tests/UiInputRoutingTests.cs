@@ -102,8 +102,8 @@ public class UiInputRoutingTests
         for (var i = 0; i < 400; i++) runner.TickOnce();
 
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        var transform = latest.GetComponent<LocalTransform>(agent);
-        await Assert.That(Vector2.Distance(new Vector2(transform.Position.X, transform.Position.Z), new Vector2(18, 18)))
+        var pos = latest.GetComponent<Position>(agent).Value;
+        await Assert.That(Vector2.Distance(new Vector2(pos.X, pos.Z), new Vector2(18, 18)))
             .IsLessThan(0.6f);
     }
 }

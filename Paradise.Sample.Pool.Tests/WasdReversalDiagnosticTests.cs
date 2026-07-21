@@ -35,7 +35,7 @@ public class WasdReversalDiagnosticTests
         {
             runner.TickOnce();
             runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-            Vector3 position = latest.GetComponent<LocalTransform>(agent).Position;
+            Vector3 position = latest.GetComponent<Position>(agent).Value;
             float step = (position - previous).Length();
             if (tick is >= 28 and <= 34)
             {
@@ -81,8 +81,8 @@ public class WasdReversalDiagnosticTests
             if (!runner.TrySampleInterpolation(renderTime, out var a, out var b, out float alpha)) continue;
             if (!a.IsAlive(agent) || !b.IsAlive(agent)) continue;
             Vector3 position = Vector3.Lerp(
-                a.GetComponent<LocalTransform>(agent).Position,
-                b.GetComponent<LocalTransform>(agent).Position,
+                a.GetComponent<Position>(agent).Value,
+                b.GetComponent<Position>(agent).Value,
                 Math.Clamp(alpha, 0f, 1f));
             if (previous is { } prev)
             {

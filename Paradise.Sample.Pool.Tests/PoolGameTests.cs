@@ -37,7 +37,7 @@ public class PoolGameTests
     private static Vector3 PositionOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<LocalTransform>(entity).Position;
+        return latest.GetComponent<Position>(entity).Value;
     }
 
     private static float GlowOf(SimulationRunner runner, Entity entity)
@@ -67,12 +67,12 @@ public class PoolGameTests
         runner.EnqueueBallImpulse(cue, new Vector3(2f, 0f, 0f), new Vector3(0f, 1f, 0f)); // a strike sets spin
         runner.TickOnce();
         runner.TrySampleInterpolation(double.MaxValue, out var afterStrike, out _, out _);
-        await Assert.That(afterStrike.GetComponent<DynamicBody>(cue).AngularVelocity.Y).IsEqualTo(1f);
+        await Assert.That(afterStrike.GetComponent<AngularVelocity>(cue).Value.Y).IsEqualTo(1f);
 
         runner.EnqueueBallImpulse(cue, new Vector3(0f, 0f, 1f)); // a plain nudge (null spin) must not clobber it
         runner.TickOnce();
         runner.TrySampleInterpolation(double.MaxValue, out var afterNudge, out _, out _);
-        await Assert.That(afterNudge.GetComponent<DynamicBody>(cue).AngularVelocity.Y).IsEqualTo(1f);
+        await Assert.That(afterNudge.GetComponent<AngularVelocity>(cue).Value.Y).IsEqualTo(1f);
     }
 
     [Test]

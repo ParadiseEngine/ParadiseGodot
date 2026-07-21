@@ -23,16 +23,14 @@ public static class DirectMover
 
         horizontal /= length;
 
-        ref var transform = ref world.GetComponent<LocalTransform>(entity);
-        ref var path = ref world.GetComponent<NavPath>(entity);
         ref var intent = ref world.GetComponent<MoveIntent>(entity);
         NavAgent agent = world.GetComponent<NavAgent>(entity);
 
-        path.HasPath = 0; // WASD overrides click-to-move path following
+        world.GetComponent<HasPath>(entity).Value = 0; // WASD overrides click-to-move path following
         intent.DesiredVelocity = horizontal * agent.MoveSpeed;
 
         // Face the move direction (model forward is −Z, right-handed).
         float yaw = MathF.Atan2(-horizontal.X, -horizontal.Z);
-        transform.Rotation = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
+        world.GetComponent<Rotation>(entity).Value = Quaternion.CreateFromAxisAngle(Vector3.UnitY, yaw);
     }
 }

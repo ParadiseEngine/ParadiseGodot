@@ -100,14 +100,19 @@ public sealed class SimulationRunner : IDisposable
     private World Current => _live[^1].World; // sim-thread only; sim is the sole writer of _live
 
     public Entity SpawnStatic(Vector3 position, Quaternion rotation) =>
-        Current.CreateEntity(EntityBuilder.Create().Add(new LocalTransform(position, rotation)));
+        Current.CreateEntity(EntityBuilder.Create()
+            .Add(new Position { Value = position })
+            .Add(new Rotation { Value = rotation }));
 
     public Entity SpawnAgent(Vector3 position, Quaternion rotation, float moveSpeed, float arriveRadius,
         float bodyRadius = 0.4f, float bodyHalfLength = 0.5f) =>
         Current.CreateEntity(EntityBuilder.Create()
-            .Add(new LocalTransform(position, rotation))
+            .Add(new Position { Value = position })
+            .Add(new Rotation { Value = rotation })
             .Add(new NavAgent(moveSpeed, arriveRadius))
-            .Add(new NavPath())
+            .Add(new NavWaypoints())
+            .Add(new NavCursor())
+            .Add(new HasPath())
             .Add(new MoveIntent())
             .Add(new CharacterBody(bodyRadius, bodyHalfLength))
             // Seeded: under snapshot reads, systems see the CURRENT world's SimulationContext
@@ -116,19 +121,25 @@ public sealed class SimulationRunner : IDisposable
             .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
 
     /// <summary>Spawn a dynamic physics ball (sphere). Position is the sphere center.
-    /// <paramref name="poolBall"/> carries the optional pool-game config (pockets, tray slot,
+    /// <paramref name="pocket"/> carries the optional pool-game config (pockets, tray slot,
     /// cue respawn); the default is inert — the ball never sinks. <paramref name="tuning"/>
     /// carries the scene's global solver tuning (data/ProjectSettings.json); null = defaults.</summary>
     public Entity SpawnBall(Vector3 position, Quaternion rotation, float radius, float mass = 1f,
         float linearDamping = 1.5f, float restitution = 0.6f, float staticRestitution = 0.4f,
-        in PoolBall poolBall = default, PhysicsTuning? tuning = null,
+        in PocketConfig pocket = default, PhysicsTuning? tuning = null,
         float friction = 0.3f, float angularDamping = 0.4f)
     {
         var ball = Current.CreateEntity(EntityBuilder.Create()
-            .Add(new LocalTransform(position, rotation))
-            .Add(new DynamicBody(radius, mass, linearDamping, restitution, staticRestitution, friction, angularDamping))
+            .Add(new Position { Value = position })
+            .Add(new Rotation { Value = rotation })
+            .Add(new Velocity())
+            .Add(new AngularVelocity())
+            .Add(new BallPhysicsConfig(radius, mass, linearDamping, restitution, staticRestitution, friction, angularDamping))
             .Add(new BallGlow())
-            .Add(poolBall)
+            .Add(new BallSunk())
+            .Add(new BallSinking())
+            .Add(new SinkTargetY())
+            .Add(pocket)
             .Add(tuning ?? PhysicsTuning.Default)
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds })
             .Add(new PhysicsWorldRef { Handle = _collisionWorld?.Handle ?? default }));
@@ -138,19 +149,25 @@ public sealed class SimulationRunner : IDisposable
     private readonly List<Entity> _ballEntities = new();
 
     /// <summary>Spawn a flipbook 2D-animation clock (a placed sprite). The sim owns sprite
-    /// time; renderers read <see cref="SpriteAnimation.Frame"/> from snapshots.</summary>
+    /// time; renderers read <see cref="SpriteFrame.Value"/> from snapshots.</summary>
     public Entity SpawnSpriteAnimation(Vector3 position, Quaternion rotation, float fps, int frameCount, bool loop) =>
         Current.CreateEntity(EntityBuilder.Create()
-            .Add(new LocalTransform(position, rotation))
-            .Add(new SpriteAnimation(fps, frameCount, loop))
+            .Add(new Position { Value = position })
+            .Add(new Rotation { Value = rotation })
+            .Add(new SpriteTime())
+            .Add(new SpriteFrame())
+            .Add(new SpriteConfig(fps, frameCount, loop))
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds }));
 
-    /// <summary>Spawn a deterministic particle emitter; <paramref name="emitter"/> carries the
-    /// authored config (build with the <see cref="ParticleEmitter"/> constructor).</summary>
-    public Entity SpawnParticleEmitter(Vector3 position, Quaternion rotation, in ParticleEmitter emitter) =>
+    /// <summary>Spawn a deterministic particle emitter; <paramref name="config"/> carries the
+    /// authored config (build with the <see cref="ParticleConfig"/> constructor) and
+    /// <paramref name="seed"/> seeds the paired runtime state's xorshift stream.</summary>
+    public Entity SpawnParticleEmitter(Vector3 position, Quaternion rotation, in ParticleConfig config, uint seed) =>
         Current.CreateEntity(EntityBuilder.Create()
-            .Add(new LocalTransform(position, rotation))
-            .Add(emitter)
+            .Add(new Position { Value = position })
+            .Add(new Rotation { Value = rotation })
+            .Add(config)
+            .Add(ParticleConfig.SeedState(seed))
             .Add(new SimulationContext { DeltaSeconds = (float)FixedDeltaSeconds }));
 
     public void EnqueueMoveTo(Entity entity, Vector3 target) => _input.Enqueue(new MoveCommand(entity, target));
@@ -234,16 +251,14 @@ public sealed class SimulationRunner : IDisposable
         foreach (var ball in _restoreScratch)
         {
             if (!write.IsAlive(ball.Entity)) continue;
-            ref var transform = ref write.GetComponent<LocalTransform>(ball.Entity);
-            transform.Position = ball.Position;
-            transform.Rotation = ball.Rotation;
-            ref var body = ref write.GetComponent<DynamicBody>(ball.Entity);
-            body.Velocity = ball.Velocity;
-            body.AngularVelocity = ball.AngularVelocity;
+            write.GetComponent<Position>(ball.Entity).Value = ball.Position;
+            write.GetComponent<Rotation>(ball.Entity).Value = ball.Rotation;
+            write.GetComponent<Velocity>(ball.Entity).Value = ball.Velocity;
+            write.GetComponent<AngularVelocity>(ball.Entity).Value = ball.AngularVelocity;
             write.GetComponent<BallGlow>(ball.Entity).Intensity = ball.Glow;
             // Restoring to a pre-sink frame resurrects the ball (positions are recorded every
             // tick, so the transform write above already moved it back onto the table).
-            write.GetComponent<PoolBall>(ball.Entity).Sunk = ball.Sunk;
+            write.GetComponent<BallSunk>(ball.Entity).Value = ball.Sunk;
         }
         _rewind.DropNewest(framesBack);
         lock (_lock)
@@ -286,7 +301,7 @@ public sealed class SimulationRunner : IDisposable
         {
             if (_live.Count == 0) return false;
             World world = _live[^1].World;
-            if (!world.IsAlive(cue) || !world.HasComponent<DynamicBody>(cue)) return false;
+            if (!world.IsAlive(cue) || !world.HasComponent<BallPhysicsConfig>(cue)) return false;
 
             int n = _ballEntities.Count;
             if (_predictSpheres.Length < n)
@@ -300,13 +315,13 @@ public sealed class SimulationRunner : IDisposable
             for (int i = 0; i < n; i++)
             {
                 Entity e = _ballEntities[i];
-                if (!world.IsAlive(e) || !world.HasComponent<DynamicBody>(e)) continue;
-                if (world.GetComponent<PoolBall>(e).Sunk != 0) continue;
+                if (!world.IsAlive(e) || !world.HasComponent<BallPhysicsConfig>(e)) continue;
+                if (world.GetComponent<BallSunk>(e).Value != 0) continue;
 
-                ref readonly DynamicBody body = ref world.GetComponent<DynamicBody>(e);
-                Vector3 pos = world.GetComponent<LocalTransform>(e).Position;
-                Vector3 vel = body.Velocity;
-                Vector3 spin = body.AngularVelocity;
+                ref readonly BallPhysicsConfig cfg = ref world.GetComponent<BallPhysicsConfig>(e);
+                Vector3 pos = world.GetComponent<Position>(e).Value;
+                Vector3 vel = world.GetComponent<Velocity>(e).Value;
+                Vector3 spin = world.GetComponent<AngularVelocity>(e).Value;
                 if (useRewind)
                 {
                     foreach (RewoundBall rb in _predictRewind)
@@ -316,9 +331,9 @@ public sealed class SimulationRunner : IDisposable
                 }
                 _predictSpheres[live] = new DynamicSphere
                 {
-                    Position = pos, Velocity = vel, AngularVelocity = spin, Radius = body.Radius, Mass = body.Mass,
-                    LinearDamping = body.LinearDamping, AngularDamping = body.AngularDamping,
-                    Restitution = body.Restitution, Friction = body.Friction,
+                    Position = pos, Velocity = vel, AngularVelocity = spin, Radius = cfg.Radius, Mass = cfg.Mass,
+                    LinearDamping = cfg.LinearDamping, AngularDamping = cfg.AngularDamping,
+                    Restitution = cfg.Restitution, Friction = cfg.Friction,
                 };
                 _predictEntities[live] = e;
                 if (e == cue) cueIndex = live;
@@ -342,10 +357,10 @@ public sealed class SimulationRunner : IDisposable
                 Skin = tuning.Skin,
                 PushStrength = tuning.PushStrength,
                 StaticFriction = tuning.StaticFriction,
-                StaticRestitution = world.GetComponent<DynamicBody>(first).StaticRestitution,
+                StaticRestitution = world.GetComponent<BallPhysicsConfig>(first).StaticRestitution,
             };
             CollisionWorldHandle statics = _collisionWorld?.Handle ?? default;
-            PoolBall cuePockets = world.GetComponent<PoolBall>(cue);
+            PocketConfig cuePockets = world.GetComponent<PocketConfig>(cue);
 
             var span = new Span<DynamicSphere>(_predictSpheres, 0, live);
             var dt = (float)FixedDeltaSeconds;
@@ -363,7 +378,7 @@ public sealed class SimulationRunner : IDisposable
         }
     }
 
-    private static bool InPocket(in PoolBall pool, Vector3 p)
+    private static bool InPocket(in PocketConfig pool, Vector3 p)
     {
         // Pockets are packed as (centerX, centerZ, radius², unused) — the same planar XZ test
         // MovementSystem.CaptureInPocket uses.
@@ -493,11 +508,10 @@ public sealed class SimulationRunner : IDisposable
 
         while (_impulses.TryDequeue(out var impulse))
         {
-            if (write.IsAlive(impulse.Entity) && write.HasComponent<DynamicBody>(impulse.Entity))
+            if (write.IsAlive(impulse.Entity) && write.HasComponent<Velocity>(impulse.Entity))
             {
-                ref var body = ref write.GetComponent<DynamicBody>(impulse.Entity);
-                body.Velocity += impulse.VelocityDelta;
-                if (impulse.Angular is { } w) body.AngularVelocity = w; // a strike sets spin; a plain nudge leaves it
+                write.GetComponent<Velocity>(impulse.Entity).Value += impulse.VelocityDelta;
+                if (impulse.Angular is { } w) write.GetComponent<AngularVelocity>(impulse.Entity).Value = w; // a strike sets spin; a plain nudge leaves it
             }
         }
 

@@ -22,19 +22,19 @@ public class PoolPocketTests
     private static Vector3 PositionOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<LocalTransform>(entity).Position;
+        return latest.GetComponent<Position>(entity).Value;
     }
 
-    private static PoolBall PoolStateOf(SimulationRunner runner, Entity entity)
+    private static BallSunk PoolStateOf(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<PoolBall>(entity);
+        return latest.GetComponent<BallSunk>(entity);
     }
 
     /// <summary>One pocket at (x, z) with capture radius 0.3, park/respawn as given.</summary>
-    private static PoolBall OnePocket(float x, float z, Vector3 park, Vector3 respawn = default, bool isCue = false)
+    private static PocketConfig OnePocket(float x, float z, Vector3 park, Vector3 respawn = default, bool isCue = false)
     {
-        var pool = new PoolBall
+        var pool = new PocketConfig
         {
             PocketCount = 1,
             ParkPosition = park,
@@ -51,12 +51,12 @@ public class PoolPocketTests
         using var runner = new SimulationRunner(FlatGround());
         var park = new Vector3(1f, 0.85f, 1f);
         var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
-            poolBall: OnePocket(7f, 5f, park));
+            pocket: OnePocket(7f, 5f, park));
 
         runner.EnqueueBallImpulse(ball, new Vector3(4f, 0f, 0f)); // rolls +X across the mouth
         for (var i = 0; i < 180; i++) runner.TickOnce();
 
-        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+        await Assert.That(PoolStateOf(runner, ball).Value).IsEqualTo((byte)1);
         Vector3 parked = PositionOf(runner, ball);
         await Assert.That(MathF.Abs(parked.X - park.X)).IsLessThan(1e-4f);
         await Assert.That(MathF.Abs(parked.Z - park.Z)).IsLessThan(1e-4f);
@@ -73,13 +73,13 @@ public class PoolPocketTests
         using var runner = new SimulationRunner(FlatGround());
         var headSpot = new Vector3(3f, 0.85f, 3f);
         var cue = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
-            poolBall: OnePocket(7f, 5f, park: default, respawn: headSpot, isCue: true));
+            pocket: OnePocket(7f, 5f, park: default, respawn: headSpot, isCue: true));
 
         runner.EnqueueBallImpulse(cue, new Vector3(4f, 0f, 0f));
         for (var i = 0; i < 180; i++) runner.TickOnce();
 
         // Scratched, not sunk: back at the head spot, at rest, still playable.
-        await Assert.That(PoolStateOf(runner, cue).Sunk).IsEqualTo((byte)0);
+        await Assert.That(PoolStateOf(runner, cue).Value).IsEqualTo((byte)0);
         Vector3 position = PositionOf(runner, cue);
         await Assert.That(MathF.Abs(position.X - headSpot.X)).IsLessThan(1e-4f);
         await Assert.That(MathF.Abs(position.Z - headSpot.Z)).IsLessThan(1e-4f);
@@ -94,25 +94,25 @@ public class PoolPocketTests
     {
         using var runner = new SimulationRunner(FlatGround());
         var ball = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
-            poolBall: OnePocket(7f, 5f, park: new Vector3(1f, 0.85f, 1f)));
+            pocket: OnePocket(7f, 5f, park: new Vector3(1f, 0.85f, 1f)));
 
         runner.EnqueueBallImpulse(ball, new Vector3(4f, 0f, 0f));
         for (var i = 0; i < 120; i++) runner.TickOnce();
-        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+        await Assert.That(PoolStateOf(runner, ball).Value).IsEqualTo((byte)1);
 
         // Restore to tick 20 — long before the ball reached the mouth (~tick 55).
         runner.Paused = true;
         await Assert.That(runner.RestoreFromRewind(100)).IsTrue();
         runner.Paused = false;
 
-        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)0);
+        await Assert.That(PoolStateOf(runner, ball).Value).IsEqualTo((byte)0);
         Vector3 restored = PositionOf(runner, ball);
         await Assert.That(restored.X).IsGreaterThan(5f);   // it had started rolling…
         await Assert.That(restored.X).IsLessThan(6.7f);    // …but was not at the pocket yet
 
         // The resurrected timeline keeps playing — it rolls on and sinks again.
         for (var i = 0; i < 120; i++) runner.TickOnce();
-        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+        await Assert.That(PoolStateOf(runner, ball).Value).IsEqualTo((byte)1);
     }
 
     [Test]
@@ -121,12 +121,12 @@ public class PoolPocketTests
         using var runner = new SimulationRunner(FlatGround());
         var park = new Vector3(10f, 0.85f, 10f);
         var sunk = runner.SpawnBall(new Vector3(5f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f,
-            poolBall: OnePocket(7f, 5f, park));
+            pocket: OnePocket(7f, 5f, park));
         var rolling = runner.SpawnBall(new Vector3(10f, 0.85f, 6f), Quaternion.Identity, radius: 0.35f);
 
         runner.EnqueueBallImpulse(sunk, new Vector3(4f, 0f, 0f));
         for (var i = 0; i < 180; i++) runner.TickOnce();
-        await Assert.That(PoolStateOf(runner, sunk).Sunk).IsEqualTo((byte)1);
+        await Assert.That(PoolStateOf(runner, sunk).Value).IsEqualTo((byte)1);
 
         // Drive the live ball straight through the tray slot: no bounce, no displacement.
         runner.EnqueueBallImpulse(rolling, new Vector3(0f, 0f, 8f));
@@ -195,11 +195,11 @@ public class PoolPocketTests
         await Assert.That(MathF.Abs(poolBall.ParkPosition.X - 7.9f)).IsLessThan(1e-4f);
         await Assert.That(MathF.Abs(poolBall.ParkPosition.Z - 5.75f)).IsLessThan(1e-4f);
 
-        var ball = runner.SpawnBall(authored, Quaternion.Identity, radius: 0.2f, poolBall: poolBall);
+        var ball = runner.SpawnBall(authored, Quaternion.Identity, radius: 0.2f, pocket: poolBall);
         runner.EnqueueBallImpulse(ball, new Vector3(4f, 0f, 0f)); // roll +X across the pocket mouth
         for (var i = 0; i < 180; i++) runner.TickOnce();
 
-        await Assert.That(PoolStateOf(runner, ball).Sunk).IsEqualTo((byte)1);
+        await Assert.That(PoolStateOf(runner, ball).Value).IsEqualTo((byte)1);
         Vector3 parked = PositionOf(runner, ball);
         await Assert.That(MathF.Abs(parked.X - 7.9f)).IsLessThan(1e-4f);
         await Assert.That(MathF.Abs(parked.Z - 5.75f)).IsLessThan(1e-4f);

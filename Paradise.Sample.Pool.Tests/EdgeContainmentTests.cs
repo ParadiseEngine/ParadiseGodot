@@ -28,7 +28,7 @@ public class EdgeContainmentTests
     private static Vector3 LatestPosition(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<LocalTransform>(entity).Position;
+        return latest.GetComponent<Position>(entity).Value;
     }
 
     [Test]
@@ -82,7 +82,7 @@ public class EdgeContainmentTests
         Entity ball = runner.SpawnBall(new Vector3(3f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
 
         runner.TrySampleInterpolation(double.MaxValue, out var world, out _, out _);
-        world.GetComponent<DynamicBody>(ball).Velocity = new Vector3(4f, 0f, 0f);
+        world.GetComponent<Velocity>(ball).Value = new Vector3(4f, 0f, 0f);
 
         for (int i = 0; i < 30; i++)
         {
@@ -90,7 +90,7 @@ public class EdgeContainmentTests
         }
 
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        Quaternion rotation = latest.GetComponent<LocalTransform>(ball).Rotation;
+        Quaternion rotation = latest.GetComponent<Rotation>(ball).Value;
         // Rolled a measurable amount (≈ v·t/r radians) about a horizontal axis.
         await Assert.That(MathF.Abs(Quaternion.Dot(rotation, Quaternion.Identity))).IsLessThan(0.999f);
         // Rolling about Up × v = -Z for +X motion: the axis must be horizontal (no yaw spin).

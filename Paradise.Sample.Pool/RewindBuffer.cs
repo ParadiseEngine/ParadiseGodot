@@ -39,16 +39,14 @@ internal sealed class RewindBuffer
             foreach (var entity in balls)
             {
                 if (!world.IsAlive(entity)) continue;
-                ref readonly var transform = ref world.GetComponent<LocalTransform>(entity);
-                ref readonly var body = ref world.GetComponent<DynamicBody>(entity);
                 frame.Add(new RewoundBall(
                     entity,
-                    transform.Position,
-                    transform.Rotation,
-                    body.Velocity,
+                    world.GetComponent<Position>(entity).Value,
+                    world.GetComponent<Rotation>(entity).Value,
+                    world.GetComponent<Velocity>(entity).Value,
                     world.GetComponent<BallGlow>(entity).Intensity,
-                    world.GetComponent<PoolBall>(entity).Sunk,
-                    body.AngularVelocity));
+                    world.GetComponent<BallSunk>(entity).Value,
+                    world.GetComponent<AngularVelocity>(entity).Value));
             }
             _head = (_head + 1) % Capacity;
             if (_count < Capacity) _count++;

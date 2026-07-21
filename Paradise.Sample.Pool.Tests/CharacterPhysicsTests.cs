@@ -41,7 +41,7 @@ public class CharacterPhysicsTests
     private static Vector3 LatestPosition(SimulationRunner runner, Entity agent)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<LocalTransform>(agent).Position;
+        return latest.GetComponent<Position>(agent).Value;
     }
 
     [Test]
@@ -122,7 +122,7 @@ public class CharacterPhysicsTests
 
         Vector3 final = LatestPosition(runner, agent);
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        await Assert.That(latest.GetComponent<NavPath>(agent).HasPath).IsEqualTo((byte)0);
+        await Assert.That(latest.GetComponent<HasPath>(agent).Value).IsEqualTo((byte)0);
         float dx = final.X - 18f;
         float dz = final.Z - 18f;
         await Assert.That(MathF.Sqrt(dx * dx + dz * dz)).IsLessThan(0.6f);

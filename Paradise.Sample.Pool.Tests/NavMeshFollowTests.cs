@@ -58,9 +58,12 @@ public class NavMeshFollowTests
     private static Entity SpawnAgent(GameSimulation sim, Vector3 position, float moveSpeed)
     {
         return sim.World.CreateEntity(EntityBuilder.Create()
-            .Add(new LocalTransform(position, Quaternion.Identity))
+            .Add(new Position { Value = position })
+            .Add(new Rotation { Value = Quaternion.Identity })
             .Add(new NavAgent(moveSpeed, arriveRadius: 0.25f))
-            .Add(new NavPath())
+            .Add(new NavWaypoints())
+            .Add(new NavCursor())
+            .Add(new HasPath())
             .Add(new MoveIntent())
             .Add(new CharacterBody(radius: 0.4f, halfLength: 0.5f))
             // Seeded: read-only system fields see LAST tick's SimulationContext under snapshot
@@ -69,9 +72,9 @@ public class NavMeshFollowTests
             .Add(new PhysicsWorldRef())); // no collision world → unobstructed movement
     }
 
-    private static Vector3 PositionOf(GameSimulation sim, Entity e) => sim.World.GetComponent<LocalTransform>(e).Position;
+    private static Vector3 PositionOf(GameSimulation sim, Entity e) => sim.World.GetComponent<Position>(e).Value;
 
-    private static bool HasPath(GameSimulation sim, Entity e) => sim.World.GetComponent<NavPath>(e).HasPath != 0;
+    private static bool HasPath(GameSimulation sim, Entity e) => sim.World.GetComponent<HasPath>(e).Value != 0;
 
     private static void RunUntilArrived(GameSimulation sim, Entity agent, int maxSteps)
     {

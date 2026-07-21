@@ -280,15 +280,15 @@ public static class SceneAssembler
             {
                 var normalized = emitterData with { };
                 normalized.ValidateAndNormalize();
-                var emitterEntity = runner.SpawnParticleEmitter(position, rotation, new ParticleEmitter(
+                var emitterEntity = runner.SpawnParticleEmitter(position, rotation, new ParticleConfig(
                     normalized.EmitRate,
                     normalized.LifetimeSeconds,
                     normalized.InitialSpeed,
                     float.DegreesToRadians(normalized.SpreadDegrees),
                     normalized.Gravity,
                     normalized.Drag,
-                    normalized.MaxParticles,
-                    normalized.Seed));
+                    normalized.MaxParticles),
+                    normalized.Seed);
                 particleBatches.Add(new ParticleBatchState(
                     pbr, normalized, SheetBytes(level, normalized.Sheet), emitterEntity));
             }

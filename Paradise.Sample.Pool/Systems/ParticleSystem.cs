@@ -4,7 +4,7 @@ using System.Numerics;
 namespace Paradise.Sample.Pool;
 
 /// <summary>
-/// Deterministic CPU particle step — the sole writer of <see cref="ParticleEmitter"/>. Each
+/// Deterministic CPU particle step — the sole writer of <see cref="ParticleState"/>. Each
 /// fixed tick, per emitter: (1) integrate live particles (gravity, drag, world-space advance,
 /// aging — expired particles free their slot), then (2) spawn <c>EmitRate × dt</c> new
 /// particles (fractional remainder carried) into free slots, launched in a cone around the
@@ -27,18 +27,18 @@ public ref partial struct ParticleSystem : IWorldSystem
                 continue;
             }
 
-            ref ParticleEmitter emitter = ref Emitters.ParticleEmitter[i];
-            ref readonly LocalTransform transform = ref Emitters.LocalTransform[i];
-            Integrate(ref emitter, dt);
-            Spawn(ref emitter, transform.Position, transform.Rotation, dt);
+            ref ParticleState state = ref Emitters.ParticleState[i];
+            ref readonly ParticleConfig cfg = ref Emitters.ParticleConfig[i];
+            Integrate(ref state, in cfg, dt);
+            Spawn(ref state, in cfg, Emitters.Position[i].Value, Emitters.Rotation[i].Value, dt);
         }
     }
 
-    private static void Integrate(ref ParticleEmitter emitter, float dt)
+    private static void Integrate(ref ParticleState state, in ParticleConfig cfg, float dt)
     {
-        for (int slot = 0; slot < emitter.Capacity; slot++)
+        for (int slot = 0; slot < cfg.Capacity; slot++)
         {
-            ref Particle particle = ref emitter.Particles[slot];
+            ref Particle particle = ref state.Particles[slot];
             if (particle.Lifetime <= 0f)
             {
                 continue;
@@ -51,45 +51,45 @@ public ref partial struct ParticleSystem : IWorldSystem
                 continue;
             }
 
-            particle.Velocity.Y += emitter.Gravity * dt;
-            if (emitter.Drag > 0f)
+            particle.Velocity.Y += cfg.Gravity * dt;
+            if (cfg.Drag > 0f)
             {
-                particle.Velocity *= MathF.Max(0f, 1f - emitter.Drag * dt);
+                particle.Velocity *= MathF.Max(0f, 1f - cfg.Drag * dt);
             }
             particle.Position += particle.Velocity * dt;
         }
     }
 
-    private static void Spawn(ref ParticleEmitter emitter, Vector3 origin, Quaternion rotation, float dt)
+    private static void Spawn(ref ParticleState state, in ParticleConfig cfg, Vector3 origin, Quaternion rotation, float dt)
     {
-        emitter.SpawnCarry += emitter.EmitRate * dt;
-        int toSpawn = (int)emitter.SpawnCarry;
+        state.SpawnCarry += cfg.EmitRate * dt;
+        int toSpawn = (int)state.SpawnCarry;
         if (toSpawn <= 0)
         {
             return;
         }
-        emitter.SpawnCarry -= toSpawn;
+        state.SpawnCarry -= toSpawn;
 
         int slot = 0;
         for (int n = 0; n < toSpawn; n++)
         {
-            while (slot < emitter.Capacity && emitter.Particles[slot].Lifetime > 0f)
+            while (slot < cfg.Capacity && state.Particles[slot].Lifetime > 0f)
             {
                 slot++;
             }
-            if (slot >= emitter.Capacity)
+            if (slot >= cfg.Capacity)
             {
                 return; // pool full — drop the overflow (rate stays bounded by capacity/lifetime)
             }
 
-            emitter.Particles[slot] = new Particle
+            state.Particles[slot] = new Particle
             {
                 Position = origin,
                 Velocity = Vector3.Transform(
-                    ConeDirection(ref emitter.RngState, emitter.SpreadRadians), rotation)
-                    * emitter.InitialSpeed,
+                    ConeDirection(ref state.RngState, cfg.SpreadRadians), rotation)
+                    * cfg.InitialSpeed,
                 Age = 0f,
-                Lifetime = emitter.LifetimeSeconds,
+                Lifetime = cfg.LifetimeSeconds,
             };
             slot++;
         }

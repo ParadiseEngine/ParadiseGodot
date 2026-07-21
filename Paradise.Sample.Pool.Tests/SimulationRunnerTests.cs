@@ -38,11 +38,11 @@ public class SimulationRunnerTests
 
         // Read the latest published snapshot.
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        LocalTransform t = latest.GetComponent<LocalTransform>(agent);
-        NavPath path = latest.GetComponent<NavPath>(agent);
+        Vector3 t = latest.GetComponent<Position>(agent).Value;
+        byte hasPath = latest.GetComponent<HasPath>(agent).Value;
 
-        await Assert.That(HorizontalDistance(t.Position, goal)).IsLessThan(0.6f);
-        await Assert.That(path.HasPath).IsEqualTo((byte)0);
+        await Assert.That(HorizontalDistance(t, goal)).IsLessThan(0.6f);
+        await Assert.That(hasPath).IsEqualTo((byte)0);
     }
 
     [Test]
@@ -68,8 +68,8 @@ public class SimulationRunnerTests
         // Distinct snapshots, alpha ~0.5, and the interpolated X lies between the two.
         await Assert.That(alpha).IsGreaterThan(0.1f);
         await Assert.That(alpha).IsLessThan(0.9f);
-        float xa = a.GetComponent<LocalTransform>(agent).Position.X;
-        float xb = b.GetComponent<LocalTransform>(agent).Position.X;
+        float xa = a.GetComponent<Position>(agent).Value.X;
+        float xb = b.GetComponent<Position>(agent).Value.X;
         await Assert.That(xb).IsGreaterThan(xa); // moved +X between the two snapshots
         float xi = float.Lerp(xa, xb, alpha);
         await Assert.That(xi).IsGreaterThanOrEqualTo(xa);
@@ -86,14 +86,14 @@ public class SimulationRunnerTests
 
         // Acquire (pin) a pair and keep the references — mimicking a render frame in progress.
         runner.TrySampleInterpolation(runner.LatestSnapshotTime - SimulationRunner.FixedDeltaSeconds * 0.5, out var a, out _, out _);
-        float xBefore = a.GetComponent<LocalTransform>(agent).Position.X;
+        float xBefore = a.GetComponent<Position>(agent).Value.X;
 
         // Advance the sim far past the interpolation window WITHOUT sampling again. A recycle-based design
         // would overwrite `a`; the pin must keep it alive and unchanged.
         Tick(runner, 300);
 
         await Assert.That(a.IsAlive(agent)).IsTrue();
-        await Assert.That(a.GetComponent<LocalTransform>(agent).Position.X).IsEqualTo(xBefore);
+        await Assert.That(a.GetComponent<Position>(agent).Value.X).IsEqualTo(xBefore);
     }
 
     [Test]
@@ -110,7 +110,7 @@ public class SimulationRunnerTests
         runner.TickOnce();
 
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        Vector3 p = latest.GetComponent<LocalTransform>(agent).Position;
+        Vector3 p = latest.GetComponent<Position>(agent).Value;
         await Assert.That(p.X > 2f || p.Z > 2f).IsTrue(); // moved immediately, no warmup tick
     }
 
@@ -125,7 +125,7 @@ public class SimulationRunnerTests
         runner.SetMoveInput(agent, new Vector3(1, 0, 0)); // hold +X
         Tick(runner, 60);
         runner.TrySampleInterpolation(double.MaxValue, out var w1, out _, out _);
-        Vector3 p1 = w1.GetComponent<LocalTransform>(agent).Position;
+        Vector3 p1 = w1.GetComponent<Position>(agent).Value;
         await Assert.That(p1.X).IsGreaterThan(2f);   // moved +X at MoveSpeed
         await Assert.That(p1.Y).IsEqualTo(0.9f);     // planar contract: Y untouched
         await Assert.That(p1.Z).IsEqualTo(2f);
@@ -145,10 +145,10 @@ public class SimulationRunnerTests
         runner.TickOnce();
 
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        Vector3 p = latest.GetComponent<LocalTransform>(agent).Position;
+        Vector3 p = latest.GetComponent<Position>(agent).Value;
         await Assert.That(p.X).IsGreaterThan(10f);                        // moved +X (WASD)
         await Assert.That(p.Z).IsEqualTo(10f);                            // not +Z (path suppressed)
-        await Assert.That(latest.GetComponent<NavPath>(agent).HasPath).IsEqualTo((byte)0); // path cleared
+        await Assert.That(latest.GetComponent<HasPath>(agent).Value).IsEqualTo((byte)0); // path cleared
     }
 
     [Test]

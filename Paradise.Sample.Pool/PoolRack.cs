@@ -10,10 +10,10 @@ namespace Paradise.Sample.Pool;
 /// identical across hosts, so it lives here rather than being duplicated per host.</summary>
 public static class PoolRack
 {
-    /// <summary>Build a ball's <see cref="PoolBall"/> from the scene's pocket set. Empty pockets →
+    /// <summary>Build a ball's <see cref="PocketConfig"/> from the scene's pocket set. Empty pockets →
     /// inert default (never sinks). <paramref name="trayIndex"/> is the ball's spawn order, giving
     /// each sunk ball a deterministic tray slot along +Z past the pocket field.</summary>
-    public static PoolBall BuildBall(
+    public static PocketConfig BuildBall(
         IReadOnlyList<(Vector3 Center, float Radius)> pockets, bool isCue, Vector3 authoredPosition, int trayIndex)
     {
         if (pockets.Count == 0) return default;
@@ -25,9 +25,9 @@ public static class PoolRack
             minX = MathF.Min(minX, center.X);
         }
 
-        var pool = new PoolBall
+        var pool = new PocketConfig
         {
-            PocketCount = Math.Min(pockets.Count, PoolBall.MaxPockets),
+            PocketCount = Math.Min(pockets.Count, PocketConfig.MaxPockets),
             ParkPosition = new Vector3(minX + trayIndex * 0.45f, authoredPosition.Y, maxZ + 0.75f),
             RespawnPosition = authoredPosition,
             IsCue = isCue ? (byte)1 : (byte)0,

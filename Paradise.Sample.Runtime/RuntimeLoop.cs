@@ -333,10 +333,10 @@ public sealed class RuntimeLoop : IDisposable
                 {
                     if (instance.SimEntity is not { } entity) continue;
                     if (!worldA.IsAlive(entity) || !worldB.IsAlive(entity)) continue;
-                    var a = worldA.GetComponent<LocalTransform>(entity);
-                    var b = worldB.GetComponent<LocalTransform>(entity);
-                    var position = Vector3.Lerp(a.Position, b.Position, alpha);
-                    var rotation = Quaternion.Slerp(a.Rotation, b.Rotation, alpha);
+                    var position = Vector3.Lerp(
+                        worldA.GetComponent<Position>(entity).Value, worldB.GetComponent<Position>(entity).Value, alpha);
+                    var rotation = Quaternion.Slerp(
+                        worldA.GetComponent<Rotation>(entity).Value, worldB.GetComponent<Rotation>(entity).Value, alpha);
                     instance.Render.Model =
                         Matrix4x4.CreateScale(instance.SimScale)
                         * Matrix4x4.CreateFromQuaternion(rotation)
@@ -384,14 +384,14 @@ public sealed class RuntimeLoop : IDisposable
                 else
                 {
                     if (glowWorldA is null || !glowWorldA.IsAlive(entity) || !glowWorldB.IsAlive(entity)) continue;
-                    var a = glowWorldA.GetComponent<LocalTransform>(entity).Position;
-                    var b = glowWorldB.GetComponent<LocalTransform>(entity).Position;
+                    var a = glowWorldA.GetComponent<Position>(entity).Value;
+                    var b = glowWorldB.GetComponent<Position>(entity).Value;
                     position = Vector3.Lerp(a, b, glowAlpha);
                     glow = float.Lerp(
                         glowWorldA.GetComponent<BallGlow>(entity).Intensity,
                         glowWorldB.GetComponent<BallGlow>(entity).Intensity,
                         glowAlpha);
-                    if (glowWorldB.GetComponent<PoolBall>(entity).Sunk != 0) sunk++;
+                    if (glowWorldB.GetComponent<BallSunk>(entity).Value != 0) sunk++;
                 }
 
                 _scene.Lights[lightIndex] = _scene.Lights[lightIndex] with
@@ -454,15 +454,13 @@ public sealed class RuntimeLoop : IDisposable
         foreach (var sprite in _sprites)
         {
             if (!worldA.IsAlive(sprite.Entity) || !worldB.IsAlive(sprite.Entity)) continue;
-            var a = worldA.GetComponent<LocalTransform>(sprite.Entity);
-            var b = worldB.GetComponent<LocalTransform>(sprite.Entity);
             var time = float.Lerp(
-                worldA.GetComponent<SpriteAnimation>(sprite.Entity).Time,
-                worldB.GetComponent<SpriteAnimation>(sprite.Entity).Time,
+                worldA.GetComponent<SpriteTime>(sprite.Entity).Value,
+                worldB.GetComponent<SpriteTime>(sprite.Entity).Value,
                 alpha);
             sprite.Update(_pbr,
-                Vector3.Lerp(a.Position, b.Position, alpha),
-                Quaternion.Slerp(a.Rotation, b.Rotation, alpha),
+                Vector3.Lerp(worldA.GetComponent<Position>(sprite.Entity).Value, worldB.GetComponent<Position>(sprite.Entity).Value, alpha),
+                Quaternion.Slerp(worldA.GetComponent<Rotation>(sprite.Entity).Value, worldB.GetComponent<Rotation>(sprite.Entity).Value, alpha),
                 time, cameraRight, cameraUp);
         }
 
@@ -470,8 +468,9 @@ public sealed class RuntimeLoop : IDisposable
         {
             if (!worldA.IsAlive(batch.Entity) || !worldB.IsAlive(batch.Entity)) continue;
             batch.Update(_pbr,
-                worldA.GetComponent<ParticleEmitter>(batch.Entity),
-                worldB.GetComponent<ParticleEmitter>(batch.Entity),
+                worldA.GetComponent<ParticleState>(batch.Entity),
+                worldB.GetComponent<ParticleState>(batch.Entity),
+                worldB.GetComponent<ParticleConfig>(batch.Entity).Capacity,
                 alpha, cameraRight, cameraUp);
         }
     }

@@ -39,7 +39,7 @@ public class DynamicBallTests
     private static Vector3 LatestPosition(SimulationRunner runner, Entity entity)
     {
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);
-        return latest.GetComponent<LocalTransform>(entity).Position;
+        return latest.GetComponent<Position>(entity).Value;
     }
 
     [Test]
@@ -100,7 +100,7 @@ public class DynamicBallTests
 
         // Launch the ball at the obstacle by seeding velocity on the initial snapshot.
         runner.TrySampleInterpolation(double.MaxValue, out var world, out _, out _);
-        world.GetComponent<DynamicBody>(ball).Velocity = new Vector3(8f, 0f, 0f);
+        world.GetComponent<Velocity>(ball).Value = new Vector3(8f, 0f, 0f);
 
         for (int i = 0; i < 300; i++)
         {
@@ -115,7 +115,7 @@ public class DynamicBallTests
         // with friction residual for a while; the strong guarantee is the never-penetrates check
         // in the loop above.
         runner.TrySampleInterpolation(double.MaxValue, out var final, out _, out _);
-        await Assert.That(final.GetComponent<DynamicBody>(ball).Velocity.X).IsLessThanOrEqualTo(0.1f);
+        await Assert.That(final.GetComponent<Velocity>(ball).Value.X).IsLessThanOrEqualTo(0.1f);
     }
 
     [Test]
@@ -154,7 +154,7 @@ public class DynamicBallTests
         Entity ballB = runner.SpawnBall(new Vector3(6f, 0.85f, 5f), Quaternion.Identity, radius: 0.35f);
 
         runner.TrySampleInterpolation(double.MaxValue, out var world, out _, out _);
-        world.GetComponent<DynamicBody>(ballA).Velocity = new Vector3(6f, 0f, 0f);
+        world.GetComponent<Velocity>(ballA).Value = new Vector3(6f, 0f, 0f);
 
         for (int i = 0; i < 300; i++)
         {
@@ -188,31 +188,46 @@ public class DynamicBallTests
             using var sim = new GameSimulation(new DetourNavigationMesh(verts, tris), collision);
 
             Entity player = sim.World.CreateEntity(EntityBuilder.Create()
-                .Add(new LocalTransform(new Vector3(2f, 0.9f, 5f), Quaternion.Identity))
+                .Add(new Position { Value = new Vector3(2f, 0.9f, 5f) })
+                .Add(new Rotation { Value = Quaternion.Identity })
                 .Add(new NavAgent(3.5f, 0.25f))
-                .Add(new NavPath())
+                .Add(new NavWaypoints())
+                .Add(new NavCursor())
+                .Add(new HasPath())
                 .Add(new MoveIntent())
                 .Add(new CharacterBody(0.4f, 0.5f))
                 .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
                 .Add(new PhysicsWorldRef { Handle = collision.Handle }));
             Entity ballA = sim.World.CreateEntity(EntityBuilder.Create()
-                .Add(new LocalTransform(new Vector3(4f, 0.85f, 5f), Quaternion.Identity))
-                .Add(new DynamicBody(0.35f, 1f))
+                .Add(new Position { Value = new Vector3(4f, 0.85f, 5f) })
+                .Add(new Rotation { Value = Quaternion.Identity })
+                .Add(new Velocity())
+                .Add(new AngularVelocity())
+                .Add(new BallPhysicsConfig(0.35f, 1f))
                 .Add(new BallGlow())
-                .Add(new PoolBall())
+                .Add(new BallSunk())
+                .Add(new BallSinking())
+                .Add(new SinkTargetY())
+                .Add(new PocketConfig())
                 .Add(PhysicsTuning.Default)
                 .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
                 .Add(new PhysicsWorldRef { Handle = collision.Handle }));
             Entity ballB = sim.World.CreateEntity(EntityBuilder.Create()
-                .Add(new LocalTransform(new Vector3(5.2f, 0.85f, 5.3f), Quaternion.Identity))
-                .Add(new DynamicBody(0.35f, 1f))
+                .Add(new Position { Value = new Vector3(5.2f, 0.85f, 5.3f) })
+                .Add(new Rotation { Value = Quaternion.Identity })
+                .Add(new Velocity())
+                .Add(new AngularVelocity())
+                .Add(new BallPhysicsConfig(0.35f, 1f))
                 .Add(new BallGlow())
-                .Add(new PoolBall())
+                .Add(new BallSunk())
+                .Add(new BallSinking())
+                .Add(new SinkTargetY())
+                .Add(new PocketConfig())
                 .Add(PhysicsTuning.Default)
                 .Add(new SimulationContext { DeltaSeconds = 1f / 60f })
                 .Add(new PhysicsWorldRef { Handle = collision.Handle }));
 
-            sim.World.GetComponent<DynamicBody>(ballA).Velocity = new Vector3(5f, 0f, 1f);
+            sim.World.GetComponent<Velocity>(ballA).Value = new Vector3(5f, 0f, 1f);
             for (int i = 0; i < 300; i++)
             {
                 sim.Tick(1f / 60f);
@@ -221,7 +236,7 @@ public class DynamicBallTests
             var sink = new List<int>();
             foreach (Entity e in new[] { player, ballA, ballB })
             {
-                Vector3 p = sim.World.GetComponent<LocalTransform>(e).Position;
+                Vector3 p = sim.World.GetComponent<Position>(e).Value;
                 sink.Add(BitConverter.SingleToInt32Bits(p.X));
                 sink.Add(BitConverter.SingleToInt32Bits(p.Z));
             }

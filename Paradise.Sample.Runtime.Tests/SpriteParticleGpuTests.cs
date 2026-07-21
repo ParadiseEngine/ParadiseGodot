@@ -43,9 +43,9 @@ public class SpriteParticleGpuTests
         var spriteEntity = runner.SpawnSpriteAnimation(
             new Vector3(5, 1, 5), Quaternion.Identity, fps: 10f, frameCount: 4, loop: true);
         var spriteEmitter = runner.SpawnParticleEmitter(new Vector3(4, 1, 5), Quaternion.Identity,
-            new ParticleEmitter(60f, 1f, 2f, 0.4f, -9.8f, 0f, capacity: 16, seed: 7));
+            new ParticleConfig(60f, 1f, 2f, 0.4f, -9.8f, 0f, capacity: 16), 7u);
         var voxelEmitter = runner.SpawnParticleEmitter(new Vector3(6, 1, 5), Quaternion.Identity,
-            new ParticleEmitter(60f, 1f, 2f, 0.4f, -9.8f, 0f, capacity: 16, seed: 8));
+            new ParticleConfig(60f, 1f, 2f, 0.4f, -9.8f, 0f, capacity: 16), 8u);
         for (var i = 0; i < 30; i++) runner.TickOnce();
 
         using (renderer)
@@ -70,8 +70,8 @@ public class SpriteParticleGpuTests
                 .IsTrue();
             // The sim really produced live particles for the batches to draw.
             var live = 0;
-            var pool = b.GetComponent<ParticleEmitter>(spriteEmitter);
-            for (var slot = 0; slot < pool.Capacity; slot++)
+            var pool = b.GetComponent<ParticleState>(spriteEmitter);
+            for (var slot = 0; slot < ParticleState.MaxParticles; slot++)
             {
                 if (pool.Particles[slot].Lifetime > 0f) live++;
             }
@@ -79,13 +79,15 @@ public class SpriteParticleGpuTests
 
             var cameraRight = Vector3.UnitX;
             var cameraUp = Vector3.UnitY;
-            var spriteTime = b.GetComponent<SpriteAnimation>(spriteEntity).Time;
+            var spriteTime = b.GetComponent<SpriteTime>(spriteEntity).Value;
             sprite.Update(pbr, new Vector3(5, 1, 5), Quaternion.Identity, spriteTime, cameraRight, cameraUp);
             quads.Update(pbr,
-                a.GetComponent<ParticleEmitter>(spriteEmitter), b.GetComponent<ParticleEmitter>(spriteEmitter),
+                a.GetComponent<ParticleState>(spriteEmitter), b.GetComponent<ParticleState>(spriteEmitter),
+                b.GetComponent<ParticleConfig>(spriteEmitter).Capacity,
                 alpha, cameraRight, cameraUp);
             cubes.Update(pbr,
-                a.GetComponent<ParticleEmitter>(voxelEmitter), b.GetComponent<ParticleEmitter>(voxelEmitter),
+                a.GetComponent<ParticleState>(voxelEmitter), b.GetComponent<ParticleState>(voxelEmitter),
+                b.GetComponent<ParticleConfig>(voxelEmitter).Capacity,
                 alpha, cameraRight, cameraUp);
 
             var scene = new PbrScene

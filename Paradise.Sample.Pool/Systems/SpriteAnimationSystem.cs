@@ -4,7 +4,7 @@ namespace Paradise.Sample.Pool;
 
 /// <summary>
 /// Advances every flipbook clock one fixed tick and derives the current frame index — the sole
-/// writer of <see cref="SpriteAnimation"/>. Deriving the frame HERE (not in the renderers)
+/// writer of <see cref="SpriteTime"/>/<see cref="SpriteFrame"/>. Deriving the frame HERE (not in the renderers)
 /// keeps the sampling rule in one place, so the Godot host and the .NET host can never round a
 /// frame differently. Looping wraps; non-looping holds the last frame forever.
 /// </summary>
@@ -22,9 +22,10 @@ public ref partial struct SpriteAnimationSystem : IWorldSystem
                 continue;
             }
 
-            ref SpriteAnimation sprite = ref Sprites.SpriteAnimation[i];
-            sprite.Time += dt;
-            sprite.Frame = SampleFrame(sprite.Time, sprite.Fps, sprite.FrameCount, sprite.Loop != 0);
+            ref float time = ref Sprites.SpriteTime[i].Value;
+            ref readonly SpriteConfig cfg = ref Sprites.SpriteConfig[i];
+            time += dt;
+            Sprites.SpriteFrame[i].Value = SampleFrame(time, cfg.Fps, cfg.FrameCount, cfg.Loop != 0);
         }
     }
 
