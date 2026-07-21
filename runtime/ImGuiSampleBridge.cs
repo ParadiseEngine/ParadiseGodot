@@ -17,6 +17,7 @@ namespace ParadiseGodot.Runtime
     {
         private ImGuiSampleRunner? _runner;
         private ImGuiUiCore? _imgui;
+        private SampleUi? _sample;
         private bool _faulted;
 
         public override void _Ready()
@@ -33,7 +34,9 @@ namespace ParadiseGodot.Runtime
             }
 
             _runner = new ImGuiSampleRunner();
-            _imgui.AddDraw(new ImGuiSampleUi(_runner).Draw);
+            _sample = new SampleUi();            // MVVM composition root: owns the snapshot sim
+            _runner.OnSimTick = _sample.Tick;    // step the sim on the sim thread each frame
+            _imgui.AddDraw(_sample.Draw);        // the thin ImGui View over the ViewModel
             _runner.UiInput = _imgui.Input; // the sim thread owns the ImGui frame from here on
 
             var renderer = new ImGuiCanvasRenderer { Name = "ImGuiRenderer" };
@@ -69,6 +72,8 @@ namespace ParadiseGodot.Runtime
         {
             _runner?.Dispose();
             _runner = null;
+            _sample?.Dispose();
+            _sample = null;
         }
 
         public override void _UnhandledInput(InputEvent @event)

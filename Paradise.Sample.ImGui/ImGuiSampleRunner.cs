@@ -23,6 +23,12 @@ public sealed class ImGuiSampleRunner : IDisposable
     /// <see cref="Start"/>; the sim thread owns the ImGui frame from then on.</summary>
     public IUiInput? UiInput { get; set; }
 
+    /// <summary>Optional per-tick sim step, invoked ON THIS (sim) THREAD each frame right before the
+    /// ImGui frame is built — so the immediate-mode View reads state coherent with the tick that
+    /// produced it. The composition root (<c>SampleUi</c>) wires its <c>SimulationRunner.TickOnce</c>
+    /// here.</summary>
+    public System.Action? OnSimTick { get; set; }
+
     /// <summary>Non-null after the sim thread dies; hosts poll and surface it.</summary>
     public Exception? ThreadException => _threadException;
 
@@ -68,6 +74,9 @@ public sealed class ImGuiSampleRunner : IDisposable
                     {
                         input.Handle(in uiEvent);
                     }
+                    // Step the sim on this thread before building the ImGui frame, so the View
+                    // (run inside input.Tick's draw delegates) reads coherent snapshot state.
+                    OnSimTick?.Invoke();
                     input.Tick(now);
                     Interlocked.Increment(ref _frame);
                 }
