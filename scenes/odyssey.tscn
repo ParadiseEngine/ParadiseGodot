@@ -4,3 +4,4 @@
 
 [node name="Odyssey" type="Node3D"]
 script = ExtResource("1_odyssey")
+metadata/paradise_game = "odyssey"
