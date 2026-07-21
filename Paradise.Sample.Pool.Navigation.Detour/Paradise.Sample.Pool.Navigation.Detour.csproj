@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
-    <PackageReference Include="Paradise.Export" Version="0.3.0" />
+    <PackageReference Include="Paradise.Export" Version="0.5.2" />
   </ItemGroup>
 
   <ItemGroup>

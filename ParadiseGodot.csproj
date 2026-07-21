@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Paradise.Export" Version="0.3.0" />
+    <PackageReference Include="Paradise.Export" Version="0.5.2" />
     <ProjectReference Include="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
     <ProjectReference Include="Paradise.Sample.Pool.Navigation.Detour/Paradise.Sample.Pool.Navigation.Detour.csproj" />
     <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
@@ -37,7 +37,7 @@
          engine project (NOT the in-tree symlink, which breaks restore). -->
     <ProjectReference Include="Paradise.Sample.Ui/Paradise.Sample.Ui.csproj" />
     <ProjectReference Include="Paradise.Sample.ImGui/Paradise.Sample.ImGui.csproj" />
-    <PackageReference Include="Paradise.Ui.Noesis" Version="0.3.0" />
+    <PackageReference Include="Paradise.Ui.Noesis" Version="0.5.2" />
   </ItemGroup>
 
 </Project>
