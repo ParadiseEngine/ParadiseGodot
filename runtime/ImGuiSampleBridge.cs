@@ -1,7 +1,7 @@
 using System;
 using Godot;
 using Paradise.Sample.ImGui;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool.Ui;
 using ParadiseGodot.Runtime.Ui;
 using Paradise.Sample.Ui;
 

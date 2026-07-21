@@ -1,8 +1,8 @@
 using Paradise.Assets.Gltf;
 using Paradise.Export.Data;
 using Paradise.Export.Serialization;
-using Paradise.Sample.Game.Navigation;
-using Paradise.Sample.Game.Navigation.Detour;
+using Paradise.Sample.Pool.Navigation;
+using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Runtime;
 

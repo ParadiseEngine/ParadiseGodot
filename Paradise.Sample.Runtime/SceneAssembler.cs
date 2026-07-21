@@ -6,8 +6,8 @@ using Paradise.Rendering;
 using Paradise.Rendering.Pbr;
 using Paradise.Export.Data;
 using Paradise.Export.Geometry;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Physics;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Physics;
 
 namespace Paradise.Sample.Runtime;
 

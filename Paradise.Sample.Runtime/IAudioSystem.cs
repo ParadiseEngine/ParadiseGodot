@@ -1,4 +1,4 @@
-using Paradise.Sample.Game.Audio;
+using Paradise.Sample.Pool.Audio;
 
 namespace Paradise.Sample.Runtime;
 
@@ -6,7 +6,7 @@ namespace Paradise.Sample.Runtime;
 ///
 /// - <see cref="Sink"/> is the SIM-thread half (event posts, parameters, per-tick time),
 ///   consumed by <c>SimulationRunner</c> via the engine-neutral
-///   <see cref="Paradise.Sample.Game.Audio.IAudioSink"/>.
+///   <see cref="Paradise.Sample.Pool.Audio.IAudioSink"/>.
 /// - <see cref="Pump"/> is the RENDER-thread half: called once per render frame to advance
 ///   the audio engine (e.g. Wwise's <c>RenderAudio</c>, which consumes the commands the sink
 ///   enqueued from the sim thread).

@@ -4,16 +4,16 @@ using Godot;
 using Paradise.ECS;
 using Paradise.Physics;
 using Paradise.Export.Geometry;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Physics;
-using Paradise.Sample.Game.Navigation.Detour;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Physics;
+using Paradise.Sample.Pool.Navigation.Detour;
+using Paradise.Sample.Pool.Ui;
 using ParadiseGodot.Runtime.Ui;
 using Paradise.Sample.Ui;
 using SN = System.Numerics;
-// The source-generated `World` alias only exists inside Paradise.Sample.Game (per-assembly generator
+// The source-generated `World` alias only exists inside Paradise.Sample.Pool (per-assembly generator
 // output); this assembly names the closed generic type explicitly.
-using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Game.GameConfig>;
+using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Pool.GameConfig>;
 
 namespace ParadiseGodot.Runtime
 {

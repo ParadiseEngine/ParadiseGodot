@@ -2,14 +2,14 @@ using System.Diagnostics;
 using System.Numerics;
 using Paradise.Rendering;
 using Paradise.Rendering.WebGPU;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool.Ui;
 using static SDL.SDL3;
 using SDL;
 
 namespace Paradise.Sample.Runtime;
 
 /// <summary>The standalone Paradise runtime: loads an exported scene from <c>data/</c>, runs
-/// the real 60 Hz game simulation (Paradise.Sample.Game's SimulationRunner + MovementSystem), and
+/// the real 60 Hz game simulation (Paradise.Sample.Pool's SimulationRunner + MovementSystem), and
 /// PBR-renders interpolated snapshots in an SDL window. WASD moves the player
 /// camera-relative; left-click paths via the navmesh. <c>--headless N</c> renders N frames
 /// offscreen for CI.
@@ -164,7 +164,7 @@ internal static class Program
         return systems.ToArray();
     }
 
-    private static Paradise.Sample.Game.Ui.IUiInput? ComposeUiInput(IUiSystem[] systems) => systems.Length switch
+    private static Paradise.Sample.Pool.Ui.IUiInput? ComposeUiInput(IUiSystem[] systems) => systems.Length switch
     {
         0 => null,
         1 => systems[0].Input,
@@ -308,7 +308,7 @@ internal static class Program
                                 if (pw > 0 && ph > 0)
                                 {
                                     uiScale = lw > 0 ? pw / (float)lw : 1f;
-                                    loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.Resize, new Vector2(pw, ph));
+                                    loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.Resize, new Vector2(pw, ph));
                                 }
                             }
                         }
@@ -318,7 +318,7 @@ internal static class Program
                         loop.UpdateAim(new Vector2(ev.motion.x, ev.motion.y) * uiScale);
                         if (ui is not null || imgui is not null)
                         {
-                            loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
+                            loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
                         }
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
@@ -327,7 +327,7 @@ internal static class Program
                         loop.ReleaseAim();
                         if (ui is not null || imgui is not null)
                         {
-                            loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                            loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
                         }
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN &&
@@ -339,7 +339,7 @@ internal static class Program
                         {
                             if (ui is not null || imgui is not null)
                             {
-                                loop.EnqueueUiEvent(Paradise.Sample.Game.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                                loop.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
                             }
                             else
                             {

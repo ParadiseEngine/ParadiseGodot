@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
-using Paradise.Sample.Game;
+using Paradise.Sample.Pool;
 
 namespace Paradise.Sample.Ui;
 
@@ -26,8 +26,8 @@ public interface IPoolCameraProjection
 /// Godot play-mode bridge so both render the identical UI from one source — each host only supplies
 /// an <see cref="IPoolCameraProjection"/> and routes pointer events + registers <see cref="DrawPanel"/>.
 ///
-/// Lives in Paradise.Sample.Ui (not the engine-agnostic Paradise.Sample.Game) because <see cref="DrawPanel"/> draws
-/// with ImGui; the sim types come from Paradise.Sample.Game, which Paradise.Sample.Ui references.
+/// Lives in Paradise.Sample.Ui (not the engine-agnostic Paradise.Sample.Pool) because <see cref="DrawPanel"/> draws
+/// with ImGui; the sim types come from Paradise.Sample.Pool, which Paradise.Sample.Ui references.
 ///
 /// Threading: the aim methods run on the host main/render thread (camera access) and cache the aim
 /// endpoints into volatile-guarded fields; <see cref="DrawPanel"/> runs on the sim thread and reads

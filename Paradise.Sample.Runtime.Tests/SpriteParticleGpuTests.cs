@@ -2,8 +2,8 @@ using System.Numerics;
 using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
 using Paradise.Export.Data;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Navigation.Detour;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Navigation.Detour;
 
 namespace Paradise.Sample.Runtime.Tests;
 

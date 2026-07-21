@@ -191,7 +191,7 @@ complete (bank-heist's "physics state is ECS state" principle).
   `navigation_source` group the navmesh bakes from (Box/Sphere/Capsule, scale folded per
   `ColliderScaleFold`), so physics and pathfinding agree on the world.
 - **Layers** — Godot `collision_layer` maps to `CollisionFilter.BelongsTo`: bit 1 = Floor,
-  bit 2 = Obstacle (`Paradise.Sample.Game/Physics/PhysicsLayers`). Character movement casts collide
+  bit 2 = Obstacle (`Paradise.Sample.Pool/Physics/PhysicsLayers`). Character movement casts collide
   with **Obstacle only** — the capsule rests exactly on the floor, which must never block
   horizontal motion. Click rays hit Floor | Obstacle.
 - **Planar contract** — physics NEVER modifies Y. `MovementSystem` casts the character
@@ -256,7 +256,7 @@ complete (bank-heist's "physics state is ECS state" principle).
 
 ## Snapshot-read execution (systems run fully parallel)
 
-`Paradise.Sample.Game` opts into two assembly attributes that together define the system memory
+`Paradise.Sample.Pool` opts into two assembly attributes that together define the system memory
 model (`AssemblyInfo.cs`):
 
 - **`[assembly: SingleWriter]`** — every component has at most ONE writer system (PECS3008

@@ -2,8 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Navigation;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Navigation;
 using Paradise.Sample.Ui;
 
 namespace Paradise.Sample.Ui.Tests;

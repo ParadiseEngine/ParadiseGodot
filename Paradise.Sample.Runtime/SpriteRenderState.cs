@@ -2,7 +2,7 @@ using System.Numerics;
 using Paradise.ECS;
 using Paradise.Rendering.Pbr;
 using Paradise.Export.Data;
-using Paradise.Sample.Game;
+using Paradise.Sample.Pool;
 
 namespace Paradise.Sample.Runtime;
 

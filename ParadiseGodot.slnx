@@ -1,7 +1,7 @@
 <Solution>
-  <Project Path="Paradise.Sample.Game.Navigation.Detour/Paradise.Sample.Game.Navigation.Detour.csproj" />
-  <Project Path="Paradise.Sample.Game.Tests/Paradise.Sample.Game.Tests.csproj" />
-  <Project Path="Paradise.Sample.Game/Paradise.Sample.Game.csproj" />
+  <Project Path="Paradise.Sample.Pool.Navigation.Detour/Paradise.Sample.Pool.Navigation.Detour.csproj" />
+  <Project Path="Paradise.Sample.Pool.Tests/Paradise.Sample.Pool.Tests.csproj" />
+  <Project Path="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
   <Project Path="Paradise.Sample.ImGui/Paradise.Sample.ImGui.csproj" />
   <Project Path="Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj" />
   <Project Path="Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj" />

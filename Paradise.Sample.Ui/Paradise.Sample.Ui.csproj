@@ -8,12 +8,12 @@
     <LangVersion>latest</LangVersion>
     <!-- Font-atlas pixel copy from cimgui's unmanaged buffer. -->
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- Loaded into Godot's collectible AssemblyLoadContext, like Paradise.Sample.Game. -->
+    <!-- Loaded into Godot's collectible AssemblyLoadContext, like Paradise.Sample.Pool. -->
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Paradise.Sample.Game\Paradise.Sample.Game.csproj" />
+    <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
   </ItemGroup>
 
   <ItemGroup>

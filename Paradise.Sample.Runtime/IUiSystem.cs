@@ -1,5 +1,5 @@
 using Paradise.Rendering.WebGPU;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool.Ui;
 
 namespace Paradise.Sample.Runtime;
 
@@ -14,7 +14,7 @@ namespace Paradise.Sample.Runtime;
 ///   the renderer's <c>OverlayPass</c> seam (LoadOp.Load — composite over the scene).
 ///
 /// This interface lives in the runtime (not the engine) because it joins the engine-neutral
-/// input contract from Paradise.Sample.Game with engine WebGPU types — the two ends the runtime
+/// input contract from Paradise.Sample.Pool with engine WebGPU types — the two ends the runtime
 /// exists to connect. Content authoring is intentionally NOT part of the contract (XAML vs
 /// immediate-mode delegates); only the lifecycle around it is unified.</summary>
 internal interface IUiSystem

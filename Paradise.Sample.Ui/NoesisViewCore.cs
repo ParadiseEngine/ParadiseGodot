@@ -1,5 +1,5 @@
 using Noesis;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool.Ui;
 using IoPath = System.IO.Path;
 
 namespace Paradise.Sample.Ui;

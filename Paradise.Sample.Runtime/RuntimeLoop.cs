@@ -4,14 +4,14 @@ using Paradise.Physics;
 using Paradise.Rendering;
 using Paradise.Rendering.Pbr;
 using Paradise.Rendering.WebGPU;
-using Paradise.Sample.Game;
-using Paradise.Sample.Game.Physics;
-using Paradise.Sample.Game.Audio;
-using Paradise.Sample.Game.Ui;
+using Paradise.Sample.Pool;
+using Paradise.Sample.Pool.Physics;
+using Paradise.Sample.Pool.Audio;
+using Paradise.Sample.Pool.Ui;
 using Paradise.Sample.Ui;
-// The source-generated `World` alias only exists inside Paradise.Sample.Game (per-assembly generator
+// The source-generated `World` alias only exists inside Paradise.Sample.Pool (per-assembly generator
 // output); this assembly names the closed generic type explicitly.
-using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Game.GameConfig>;
+using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Pool.GameConfig>;
 
 namespace Paradise.Sample.Runtime;
 

@@ -37,7 +37,7 @@ Start with the **[quickstart](docs/quickstart.md)**, then the
 
 ```bash
 dotnet build ParadiseGodot.slnx        # everything, including the Godot assembly
-dotnet test --project Paradise.Sample.Game.Tests/Paradise.Sample.Game.Tests.csproj
+dotnet test --project Paradise.Sample.Pool.Tests/Paradise.Sample.Pool.Tests.csproj
 dotnet test --project Paradise.Sample.Ui.Tests/Paradise.Sample.Ui.Tests.csproj
 dotnet test --project Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj
 
@@ -56,7 +56,7 @@ the **Play .NET** toolbar button launches the export in the standalone runtime.
 
 - `addons/paradise/` — the publishable addon (only depends on Godot + `Paradise.Export`;
   CI enforces this)
-- `Paradise.Sample.Game(.Tests)` / `.Navigation.Detour` — engine-agnostic game simulation
+- `Paradise.Sample.Pool(.Tests)` / `.Navigation.Detour` — engine-agnostic game simulation
   (Paradise.ECS), shared by the Godot bridge and the runtime host
 - `Paradise.Sample.Runtime(.Tests)` — standalone SDL/WebGPU runtime host; also packs as the
   `paradise-runtime` dotnet tool
