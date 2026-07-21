@@ -9,7 +9,7 @@ namespace Paradise.Sample.Ui;
 /// warp energy, hull, credits, distance, jump chance, ship's log) passed straight through the runner,
 /// plus a couple of derived fractions the gauges bind to, and COMMAND methods (charge toggle, warp,
 /// new voyage) that only forward to the runner. It has no ImGui dependency: the same ViewModel is what
-/// Paradise.Sample.Ui.Tests drives headlessly. Mirrors <see cref="PoolViewModel"/>.
+/// Paradise.Sample.Ui.Tests drives headlessly.
 ///
 /// Threading: every projection/command runs on the sim thread (the same thread that ticks the runner
 /// and draws the View), so the reads are coherent with the tick that produced them.

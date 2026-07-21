@@ -12,7 +12,7 @@ namespace Paradise.Sample.ImGui
     /// <see cref="OdysseyViewModel"/>. It holds ONLY presentation state (a fixed starfield laid out
     /// once from a seeded RNG so the stars stay put across frames); all sim state is read through the
     /// ViewModel and every button forwards to a ViewModel command. Runs immediate-mode ON THE SIM
-    /// THREAD (registered via ImGuiUiCore.AddDraw), the same contract PoolView relies on.</summary>
+    /// THREAD (registered via ImGuiUiCore.AddDraw), the immediate-mode contract the samples rely on.</summary>
     public sealed class OdysseyView
     {
         private const int StarCount = 140;

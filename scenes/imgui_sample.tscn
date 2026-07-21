@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cr4ntvk5tytw"]
+
+[ext_resource type="Script" path="res://runtime/ImGuiSampleBridge.cs" id="1_imguisample"]
+
+[node name="ImGuiSample" type="Node" unique_id=1149131719]
+script = ExtResource("1_imguisample")

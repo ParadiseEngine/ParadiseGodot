@@ -15,9 +15,9 @@ namespace Paradise.Sample.Runtime;
 ///
 /// Usage: Paradise.Sample.Runtime --scene data/scenes/sample.json [--headless N] [--ortho] [--fov N]
 ///
-/// <c>--game odyssey</c> runs the "Space Odyssey" ImGui MVVM sample and <c>--game pool</c> the pool
-/// ImGui MVVM sample (no exported scene needed):
-/// Paradise.Sample.Runtime --game odyssey [--headless N] [--screenshot path].</summary>
+/// <c>--game odyssey</c> runs the "Space Odyssey" ImGui MVVM sample (no exported scene needed):
+/// Paradise.Sample.Runtime --game odyssey [--headless N] [--screenshot path]. The pool game and its
+/// UI run only as its scene (<c>--scene data/scenes/pool.json</c>) — see PoolGameController.</summary>
 internal static class Program
 {
     private const int InitialWidth = 1280;
@@ -84,7 +84,6 @@ internal static class Program
                 return gameName.ToLowerInvariant() switch
                 {
                     "odyssey" => OdysseyHost.Run(headlessFrames, screenshotPath),
-                    "pool" => PoolSampleHost.Run(headlessFrames, screenshotPath),
                     _ => UnknownGame(gameName),
                 };
             }
@@ -106,7 +105,7 @@ internal static class Program
 
     private static int UnknownGame(string gameName)
     {
-        Console.Error.WriteLine($"Unknown --game '{gameName}' (supported: odyssey, pool).");
+        Console.Error.WriteLine($"Unknown --game '{gameName}' (supported: odyssey). The pool game runs as a scene: --scene data/scenes/pool.json.");
         return 1;
     }
 

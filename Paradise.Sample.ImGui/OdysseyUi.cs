@@ -9,7 +9,7 @@ namespace Paradise.Sample.ImGui;
 /// <see cref="OdysseyRunner"/> and wires the ViewModel/View split (<see cref="OdysseyViewModel"/> ↔
 /// <see cref="OdysseyView"/>). <see cref="Tick"/> advances the sim one fixed step and <see cref="Draw"/>
 /// renders the View; the host runner calls them back-to-back on one thread so the immediate-mode View
-/// reads state coherent with the tick that produced it. Mirrors the pool sample's <c>PoolSampleUi</c>.
+/// reads state coherent with the tick that produced it.
 /// </summary>
 public sealed class OdysseyUi : IDisposable
 {
