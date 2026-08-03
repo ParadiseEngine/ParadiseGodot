@@ -23,8 +23,11 @@ namespace ParadiseGodot
         private const string RuntimeHostSetting = "paradise/play/runtime_host";
 
         /// <summary>Extra Paradise.Sample.Runtime CLI arguments the "Play .NET" button appends after
-        /// <c>--scene</c>. Only the initial default — an intentionally emptied setting stays empty.</summary>
-        public const string DefaultPlayDotnetArgs = "--imgui";
+        /// <c>--scene</c>. Only the initial default — an intentionally emptied setting stays empty.
+        /// Empty since the Noesis migration's phase-5 flip: runtime hosts render their UI
+        /// unconditionally now, and the legacy <c>--imgui</c>/<c>--noesis</c> flags are
+        /// accepted-and-ignored / page-override only.</summary>
+        public const string DefaultPlayDotnetArgs = "";
 
         // Track what THIS session applied, so clearing a setting can unset the variable we set
         // without wiping one the user provided externally (shell/launchd).
