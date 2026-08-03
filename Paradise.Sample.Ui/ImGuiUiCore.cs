@@ -1,7 +1,7 @@
 using System.Numerics;
 using ImGuiNET;
 using Paradise.Ui.ImGui;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 
 namespace Paradise.Sample.Ui;
 

@@ -19,11 +19,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The engine-neutral UI input contract ImGuiUiCore's sim half implements. -->
+    <PackageReference Include="Paradise.Ui" Version="0.6.0" />
     <!-- Published engine package; brings ImGui.NET + WebGPUSharp transitively
          (ImGuiDrawSnapshot lives there). -->
-    <PackageReference Include="Paradise.Ui.ImGui" Version="0.5.2" />
-    <!-- Pinned to the engine's version (ParadiseEngine/src/Directory.Packages.props). -->
-    <PackageReference Include="Noesis.GUI" Version="3.2.12" />
+    <PackageReference Include="Paradise.Ui.ImGui" Version="0.6.0" />
   </ItemGroup>
 
 </Project>

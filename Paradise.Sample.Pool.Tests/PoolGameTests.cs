@@ -195,8 +195,8 @@ public class PoolGameTests
             Thread.Sleep(80); // let an in-flight tick drain
             ticksBefore = ui.Ticks.Count;
             var handledBefore = ui.Handled.Count;
-            runner.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEvent.PointerMove(10, 10));
-            runner.EnqueueUiEvent(Paradise.Sample.Pool.Ui.UiEvent.PointerUp(10, 10, Paradise.Sample.Pool.Ui.UiPointerButton.Left));
+            runner.EnqueueUiEvent(Paradise.Ui.UiEvent.PointerMove(10, 10));
+            runner.EnqueueUiEvent(Paradise.Ui.UiEvent.PointerUp(10, 10, Paradise.Ui.UiPointerButton.Left));
             WaitUntil(() => ui.Handled.Count >= handledBefore + 2, "paused UI events to drain");
             handledWhilePaused = ui.Handled.Count - handledBefore;
             WaitUntil(() => ui.Ticks.Count > ticksBefore, "UI time to keep flowing while paused");
@@ -208,11 +208,11 @@ public class PoolGameTests
         await Assert.That(ticksAfterWait).IsGreaterThan(ticksBefore); // UI time keeps flowing
     }
 
-    private sealed class RecordingUi : Paradise.Sample.Pool.Ui.IUiInput
+    private sealed class RecordingUi : Paradise.Ui.IUiInput
     {
-        public readonly List<Paradise.Sample.Pool.Ui.UiEvent> Handled = new();
+        public readonly List<Paradise.Ui.UiEvent> Handled = new();
         public readonly List<double> Ticks = new();
-        public bool Handle(in Paradise.Sample.Pool.Ui.UiEvent uiEvent) { Handled.Add(uiEvent); return false; }
+        public bool Handle(in Paradise.Ui.UiEvent uiEvent) { Handled.Add(uiEvent); return false; }
         public void Tick(double simTimeSeconds) => Ticks.Add(simTimeSeconds);
     }
 

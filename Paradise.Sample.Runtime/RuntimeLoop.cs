@@ -7,7 +7,7 @@ using Paradise.Rendering.WebGPU;
 using Paradise.Sample.Pool;
 using Paradise.Sample.Pool.Physics;
 using Paradise.Sample.Pool.Audio;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 using Paradise.Sample.Ui;
 // The source-generated `World` alias only exists inside Paradise.Sample.Pool (per-assembly generator
 // output); this assembly names the closed generic type explicitly.

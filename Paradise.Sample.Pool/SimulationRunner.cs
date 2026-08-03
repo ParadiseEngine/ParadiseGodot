@@ -6,7 +6,7 @@ using System.Numerics;
 using System.Threading;
 using Paradise.Physics;
 using Paradise.Sample.Pool.Audio;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 
 namespace Paradise.Sample.Pool;
 

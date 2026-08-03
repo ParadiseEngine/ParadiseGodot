@@ -6,7 +6,8 @@ using Paradise.Physics;
 using Paradise.Export.Geometry;
 using Paradise.Sample.Pool;
 using Paradise.Sample.Pool.Physics;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
+using Paradise.Ui.Noesis.Host;
 using ParadiseGodot.Runtime.Ui;
 using Paradise.Sample.Ui;
 using SN = System.Numerics;
@@ -205,8 +206,15 @@ namespace ParadiseGodot.Runtime
                 if (System.Runtime.InteropServices.NativeLibrary.TryLoad(
                         "Noesis", typeof(global::Noesis.GUI).Assembly, null, out _))
                 {
+                    // Pool HUD bindings: when the scene has a pool game, the overlay VM is the
+                    // XAML's DataContext, refreshed on the SIM thread each tick (Noesis pins
+                    // binding updates to the view's creation thread) from the same SunkCount /
+                    // Paused the ImGui panel shows.
+                    PoolGameController? pool = _pool;
+                    PoolOverlayViewModel? vm = pool is null ? null : new PoolOverlayViewModel(_ballCount);
                     _noesis = new NoesisViewCore(
-                        ProjectSettings.GlobalizePath(UiXaml), (uint)size.X, (uint)size.Y);
+                        ProjectSettings.GlobalizePath(UiXaml), (uint)size.X, (uint)size.Y,
+                        vm, vm is null ? null : () => vm.Refresh(pool!.SunkCount, pool.Paused));
                 }
                 else
                 {
