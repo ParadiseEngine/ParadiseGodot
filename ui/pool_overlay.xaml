@@ -1,0 +1,46 @@
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      Background="Transparent">
+  <!-- Text-free HUD (the repo ships no fonts): a pocketed-progress tray + a pause badge,
+       both data-bound to PoolOverlayViewModel (refreshed on the sim thread). -->
+
+  <!-- pocketed-progress tray: the fill bar's ScaleX is the pocketed fraction -->
+  <Border Width="360" Height="20" VerticalAlignment="Bottom" HorizontalAlignment="Center"
+          Margin="0,0,0,26" CornerRadius="10" BorderBrush="#FF7FB2D9" BorderThickness="1.2">
+    <Border.Background>
+      <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#D91C2B3A" Offset="0"/>
+        <GradientStop Color="#D90F1822" Offset="1"/>
+      </LinearGradientBrush>
+    </Border.Background>
+    <Rectangle Margin="3" RadiusX="7" RadiusY="7" RenderTransformOrigin="0,0.5">
+      <Rectangle.Fill>
+        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+          <GradientStop Color="#FF8FE9AC" Offset="0"/>
+          <GradientStop Color="#FF4BB671" Offset="1"/>
+        </LinearGradientBrush>
+      </Rectangle.Fill>
+      <Rectangle.RenderTransform>
+        <!-- FallbackValue: with no DataContext the bar must read EMPTY, not the ScaleX default (1). -->
+        <ScaleTransform ScaleX="{Binding SunkFraction, FallbackValue=0}"/>
+      </Rectangle.RenderTransform>
+    </Rectangle>
+  </Border>
+
+  <!-- pause badge: two amber bars, visible only while the sim is paused -->
+  <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Top"
+              Margin="0,26,0,0">
+    <StackPanel.Style>
+      <Style TargetType="StackPanel">
+        <Setter Property="Visibility" Value="Collapsed"/>
+        <Style.Triggers>
+          <DataTrigger Binding="{Binding IsPaused}" Value="True">
+            <Setter Property="Visibility" Value="Visible"/>
+          </DataTrigger>
+        </Style.Triggers>
+      </Style>
+    </StackPanel.Style>
+    <Rectangle Width="11" Height="32" RadiusX="3.5" RadiusY="3.5" Margin="4,0" Fill="#FFE8A33D"/>
+    <Rectangle Width="11" Height="32" RadiusX="3.5" RadiusY="3.5" Margin="4,0" Fill="#FFE8A33D"/>
+  </StackPanel>
+</Grid>

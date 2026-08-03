@@ -14,6 +14,12 @@ namespace Paradise.Sample.Runtime;
 /// ball. <c>--headless N</c> renders N frames offscreen for CI.
 ///
 /// Usage: Paradise.Sample.Runtime --scene data/scenes/sample.json [--headless N] [--ortho] [--fov N]
+///        [--ui data/ui/&lt;overlay&gt;.xaml]
+///
+/// <c>--ui</c> takes an EXPORTED XAML path: this host consumes <c>data/</c> only, and the editor's
+/// export pipeline stages the project's authoring tree (<c>res://ui/**</c>) into <c>data/ui/</c>.
+/// The Godot play-mode bridge is the other half of that split — it loads the authoring source
+/// directly and needs no export.
 ///
 /// <c>--game odyssey</c> runs the "Space Odyssey" ImGui MVVM sample (no exported scene needed):
 /// Paradise.Sample.Runtime --game odyssey [--headless N] [--screenshot path]. The pool game and its
