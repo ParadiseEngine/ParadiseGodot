@@ -70,6 +70,7 @@ namespace ParadiseGodot.Export
             }
 
             ProjectSettingsExporter.Export(paths);
+            UiAssetExporter.Export(paths);
             materials.WriteExportedMaterials(paths);
             ExportNavMesh(root, sceneName, paths, document);
             string outputPath = paths.GetLevelDataOutputPath(sceneName);

@@ -8,7 +8,14 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
+    <!-- UiStagingRules is addon code (#if TOOLS) but deliberately Godot-free so its staging
+         decisions are unit-testable here without a Godot runtime. -->
+    <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="..\addons\paradise\Export\UiStagingRules.cs" Link="UiStagingRules.cs" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.11.16" />
