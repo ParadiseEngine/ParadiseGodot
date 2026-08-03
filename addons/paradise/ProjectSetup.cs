@@ -126,6 +126,16 @@ namespace ParadiseGodot
                 ProjectSettings.SetSetting(ParadisePaths.DataDirSetting, ParadisePaths.DefaultDataDir);
             }
             ProjectSettings.SetInitialValue(ParadisePaths.DataDirSetting, ParadisePaths.DefaultDataDir);
+
+            // The authored UI tree the export pipeline stages into <data>/ui/. Registered here so
+            // it is editable in Project Settings; the default is right for most projects.
+            if (!ProjectSettings.HasSetting(Export.UiAssetExporter.UiSourceDirSetting))
+            {
+                ProjectSettings.SetSetting(
+                    Export.UiAssetExporter.UiSourceDirSetting, Export.UiAssetExporter.DefaultUiSourceDir);
+            }
+            ProjectSettings.SetInitialValue(
+                Export.UiAssetExporter.UiSourceDirSetting, Export.UiAssetExporter.DefaultUiSourceDir);
             ProjectSettings.Save();
         }
     }

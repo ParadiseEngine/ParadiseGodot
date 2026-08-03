@@ -40,6 +40,28 @@ it on demand. Output per scene:
 - `data/scenes/<Scene>.navmesh.bin` — DotRecast MeshSet, when the scene has a navmesh
 - `data/materials/*.json` — material descriptions referenced by slot overrides
 - `data/ProjectSettings.json` — global physics tuning (edited via Paradise/Settings…)
+- `data/ui/**` — a staged copy of the authored UI tree (see below)
+
+## UI assets
+
+NoesisGUI XAML, fonts and images are **authored** under `res://ui` (configurable via
+`paradise/export/ui_source_dir`) and committed there. Every export copies that tree into
+`data/ui/`, preserving subfolders and taking `.xaml`, `.ttf`, `.otf`, `.png`, `.jpg` and `.svg`.
+Noesis Studio's design-time sidecars (`*.noesis` and the hidden `.noesis/` folder) stay behind.
+A project with no UI directory skips the step silently.
+
+The two locations serve different consumers, so point each at the right one:
+
+| Consumer | Reads | Why |
+|---|---|---|
+| Godot play mode (`EcsSceneBridge.UiXaml`) | `res://ui/…` | Loads the file straight off disk — no export step, edits apply on the next run |
+| Standalone runtime (`--ui`) | `data/ui/…` | Ships `data/` only; the staged copy is its whole world |
+
+Staging is additive — it overwrites what it copies but never wipes `data/ui/`, so renaming an
+authored file leaves the old staged copy behind until `data/` is regenerated. Staged XAML is
+also linted: a `Source="…"` or `FontFamily="folder/#family"` reference that did not stage
+raises an export warning (never an error), which catches an asset left outside the UI
+directory.
 
 Headless (CI) export:
 

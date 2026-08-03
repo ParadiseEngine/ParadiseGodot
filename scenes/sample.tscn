@@ -708,7 +708,7 @@ metadata/paradise_entity_guid = "8361afe8c9824d7b8fad4193b946e152"
 
 [node name="EcsSceneBridge" type="Node3D" parent="." unique_id=372775218]
 script = ExtResource("2_ecsbridge")
-UiXaml = "res://data/ui/sample_overlay.xaml"
+UiXaml = "res://ui/sample_overlay.xaml"
 
 [editable path="Characters/Elf/Model"]
 [editable path="Characters/Knight/Model"]
