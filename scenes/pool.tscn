@@ -1074,3 +1074,4 @@ shape = SubResource("shape_unit_sphere")
 
 [node name="EcsSceneBridge" type="Node3D" parent="."]
 script = ExtResource("3_ecsbridge")
+UiXaml = "res://data/ui/pool_overlay.xaml"

@@ -1,10 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <!--
-    The shared UI cores (ImGui frame + snapshot handoff, Noesis view lifecycle) headless:
-    cimgui is CPU-only so the full ImGui pipeline runs without any GPU or window; Noesis view
-    tests stay natives-free (lazy construction means an unticked core never touches the
-    native library). TUnit on Microsoft.Testing.Platform, matching the repo's test stack.
+    The shared UI cores (ImGui frame + snapshot handoff) and the host-agnostic ViewModels
+    headless: cimgui is CPU-only so the full ImGui pipeline runs without any GPU or window,
+    and the Noesis overlay ViewModel is pure INotifyPropertyChanged (the Noesis view lifecycle
+    itself now lives in the engine's Paradise.Ui.Noesis.Host package and is tested there).
+    TUnit on Microsoft.Testing.Platform, matching the repo's test stack.
   -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>

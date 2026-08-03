@@ -4,7 +4,7 @@ using Godot;
 using Paradise.ECS;
 using Paradise.Sample.ImGui;
 using Paradise.Sample.Odyssey;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 using Paradise.Sample.Ui;
 using ParadiseGodot.Runtime.Ui;
 using SN = System.Numerics;

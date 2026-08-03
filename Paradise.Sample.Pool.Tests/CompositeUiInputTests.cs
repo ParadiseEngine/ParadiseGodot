@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 
 namespace Paradise.Sample.Pool.Tests;
 

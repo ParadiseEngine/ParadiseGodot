@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 
 namespace Paradise.Sample.ImGui;
 

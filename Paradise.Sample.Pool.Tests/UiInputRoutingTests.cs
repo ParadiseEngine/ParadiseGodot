@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Numerics;
 using Paradise.Sample.Pool;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 
 namespace Paradise.Sample.Pool.Tests;
 

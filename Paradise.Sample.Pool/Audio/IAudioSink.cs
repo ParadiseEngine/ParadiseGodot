@@ -3,7 +3,7 @@ using System.Numerics;
 namespace Paradise.Sample.Pool.Audio;
 
 /// <summary>The SIMULATION-thread half of an audio system — the mirror of
-/// <see cref="Ui.IUiInput"/> with the data flowing the other way: UI events flow platform →
+/// <see cref="Paradise.Ui.IUiInput"/> with the data flowing the other way: UI events flow platform →
 /// sim, audio commands flow sim → device. Game logic calls these on the sim thread (event
 /// posts, parameters, switches) and the runner advances <see cref="Tick"/> once per fixed
 /// tick; the system's other half (the engine pump, e.g. Wwise's RenderAudio) runs on the
@@ -32,6 +32,6 @@ public interface IAudioSink
     void SetListenerPose(Vector3 position, Vector3 forward, Vector3 up);
 
     /// <summary>Advance audio-side time on the sim thread, once per fixed tick with
-    /// canonical sim time (mirrors <see cref="Ui.IUiInput.Tick"/>).</summary>
+    /// canonical sim time (mirrors <see cref="Paradise.Ui.IUiInput.Tick"/>).</summary>
     void Tick(double simTimeSeconds);
 }

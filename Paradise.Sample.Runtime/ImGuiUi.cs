@@ -1,6 +1,6 @@
 using Paradise.Rendering.WebGPU;
 using Paradise.Ui.ImGui;
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 using Paradise.Sample.Ui;
 
 namespace Paradise.Sample.Runtime;

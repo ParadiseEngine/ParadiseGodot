@@ -1,4 +1,4 @@
-using Paradise.Sample.Pool.Ui;
+using Paradise.Ui;
 using Paradise.Sample.Ui;
 
 namespace Paradise.Sample.Ui.Tests;
