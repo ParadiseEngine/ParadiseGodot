@@ -20,10 +20,10 @@
 
   <ItemGroup>
     <!-- The engine-neutral UI input contract ImGuiUiCore's sim half implements. -->
-    <PackageReference Include="Paradise.Ui" Version="0.6.0" />
+    <PackageReference Include="Paradise.Ui" Version="0.6.2" />
     <!-- Published engine package; brings ImGui.NET + WebGPUSharp transitively
          (ImGuiDrawSnapshot lives there). -->
-    <PackageReference Include="Paradise.Ui.ImGui" Version="0.6.0" />
+    <PackageReference Include="Paradise.Ui.ImGui" Version="0.6.2" />
   </ItemGroup>
 
 </Project>

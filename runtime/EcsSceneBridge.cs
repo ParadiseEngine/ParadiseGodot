@@ -321,6 +321,27 @@ namespace ParadiseGodot.Runtime
                     _runner.EnqueueUiEvent(UiEvent.PointerMove(motion.Position.X, motion.Position.Y));
                     break;
 
+                case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true } wheelUp:
+                    _runner.EnqueueUiEvent(UiEvent.Scroll(0f, wheelUp.Factor));
+                    break;
+                case InputEventMouseButton { ButtonIndex: MouseButton.WheelDown, Pressed: true } wheelDown:
+                    _runner.EnqueueUiEvent(UiEvent.Scroll(0f, -wheelDown.Factor));
+                    break;
+                case InputEventMouseButton { ButtonIndex: MouseButton.WheelRight, Pressed: true } wheelRight:
+                    _runner.EnqueueUiEvent(UiEvent.Scroll(wheelRight.Factor, 0f));
+                    break;
+                case InputEventMouseButton { ButtonIndex: MouseButton.WheelLeft, Pressed: true } wheelLeft:
+                    _runner.EnqueueUiEvent(UiEvent.Scroll(-wheelLeft.Factor, 0f));
+                    break;
+
+                // A precise pointing device (MacBook trackpad, Magic Mouse) never produces the
+                // wheel buttons above: Godot's macOS backend routes any scroll that carries a
+                // gesture phase to a pan gesture instead, with the delta negated relative to the
+                // wheel axes (+delta.y is a scroll DOWN).
+                case InputEventPanGesture pan:
+                    _runner.EnqueueUiEvent(UiEvent.Scroll(pan.Delta.X, -pan.Delta.Y));
+                    break;
+
                 case InputEventMouseButton { Pressed: true } down when ToUiButton(down.ButtonIndex) is { } button:
                     // The cue ball claims a left-click first (start aiming); if it does, the click is
                     // consumed and does NOT fall through to the UI/click-move path (parity with Program).
