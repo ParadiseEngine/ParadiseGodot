@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Paradise.Export" Version="0.12.0" />
+    <PackageReference Include="Paradise.Export" Version="0.12.1" />
     <ProjectReference Include="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
     <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
          render device (headless Dawn + readback in the Godot host). Real sibling path for the
