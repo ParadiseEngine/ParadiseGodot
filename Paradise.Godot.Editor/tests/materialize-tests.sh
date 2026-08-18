@@ -124,7 +124,11 @@ grep -q "LOCAL EDIT" "$ADDON/Authoring/AuthoredEntityNode.cs" && ok "local edit 
 
 echo "===== ROW 5: Update (version bump) ====="
 (cd "$T/pkg" && dotnet pack -c Release -o "$T/feed" -p:Version=0.14.0 -p:ParadiseUseEngineSource=false >/dev/null 2>&1)
-sed -i '' 's/Version="0.13.0"/Version="0.14.0"/' "$A/Consumer.csproj"
+# Portable in-place edit: `sed -i ''` is BSD-only and on GNU sed reads the '' as the script
+# and the pattern as a filename, so the bump silently never happens (and only the Linux CI
+# notices). Rewrite through a temp file instead.
+sed 's/Version="0.13.0"/Version="0.14.0"/' "$A/Consumer.csproj" > "$A/Consumer.csproj.tmp"
+mv "$A/Consumer.csproj.tmp" "$A/Consumer.csproj"
 OUT=$(cd "$A" && dotnet build 2>&1)
 echo "$OUT" | grep -q "updating res:// payload 0.13.0 -> 0.14.0" && ok "logs update" 1 || ok "logs update" 0
 grep -q "LOCAL EDIT" "$ADDON/Authoring/AuthoredEntityNode.cs" && ok "package overwrites on bump" 0 || ok "package overwrites on bump" 1
