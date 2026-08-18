@@ -1,0 +1,7 @@
+Not res:// content. This directory is the addon's PACKAGE project: its sources compile into
+Paradise.Godot.Editor.dll and reach Godot as an assembly reference, never as script resources.
+
+Without this file Godot imports all ~20 .cs here as scripts and mints a .cs.uid beside each one -
+noise at best, and actively confusing for the two types whose design depends on NOT being res://
+scripts: AuthoredEntityNodeBase (the shim under addons/paradise/ is the registered global class)
+and ParadiseExportPluginBase (plugin.cfg points at the shim, not at this).

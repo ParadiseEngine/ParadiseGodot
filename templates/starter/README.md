@@ -1,7 +1,8 @@
 # Paradise Starter
 
 A minimal Godot .NET project pre-wired for [Paradise Engine](https://github.com/ParadiseEngine/ParadiseEngine)
-authoring. The Paradise addon ships in `addons/paradise/` and is already enabled.
+authoring. The Paradise addon comes from the `Paradise.Godot.Editor` NuGet package and is already
+enabled; `addons/paradise/` is created by the first build, not checked in here.
 
 ## Requirements
 
@@ -12,7 +13,10 @@ authoring. The Paradise addon ships in `addons/paradise/` and is already enabled
 ## First run
 
 1. Open the project in Godot (.NET build). Build the C# project once
-   (the hammer icon, or `dotnet build`).
+   (the hammer icon, or `dotnet build`). **The first build is what installs the addon** - it
+   writes `addons/paradise/` from the package, so Godot reports the plugin as missing until it
+   has run. Reload the project afterwards. Commit `addons/paradise/`, including the `.uid` files
+   Godot mints beside the scripts on import.
 2. Run **Project > Tools > Paradise/Project Setup** — verifies the `Paradise.Export`
    package reference and creates the `data/` layout.
 3. Install the preview runtime: `dotnet tool install --global Paradise.Sample.Runtime`

@@ -1,7 +1,8 @@
 ; Paradise Engine starter project — Godot .NET.
-; The release starter zip ships with the Paradise addon baked into addons/paradise and
-; enabled below. After opening: build the C# project once, then run
-; Project > Tools > Paradise/Project Setup and follow docs/quickstart.
+; The addon is a NuGet package (see ParadiseStarter.csproj), not a copy in this repo, so
+; addons/paradise does not exist until the first C# build places it there. Godot will report
+; the plugin below as missing until then — build once, reload, and it resolves.
+; Then run Project > Tools > Paradise/Project Setup and follow docs/quickstart.
 
 config_version=5
 

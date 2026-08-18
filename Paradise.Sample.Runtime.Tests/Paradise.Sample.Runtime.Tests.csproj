@@ -9,12 +9,14 @@
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
     <!-- UiStagingRules is addon code (#if TOOLS) but deliberately Godot-free so its staging
-         decisions are unit-testable here without a Godot runtime. -->
+         decisions are unit-testable here without a Godot runtime. It is linked as SOURCE rather
+         than reached through a ProjectReference to Paradise.Godot.Editor on purpose: that would
+         drag GodotSharp into a test project that must not need a Godot runtime. -->
     <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="..\addons\paradise\Export\UiStagingRules.cs" Link="UiStagingRules.cs" />
+    <Compile Include="..\Paradise.Godot.Editor\Export\UiStagingRules.cs" Link="UiStagingRules.cs" />
   </ItemGroup>
 
   <ItemGroup>

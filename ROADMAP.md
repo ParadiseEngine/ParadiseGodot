@@ -49,20 +49,22 @@ dependency is the `Paradise.Export` package. Next: productize that plugin into a
         csproj, `data/` layout, default settings; load-time version-mismatch warning
 
 - [x] **Phase 2 — Packaging & distribution**
-  - [x] Addon zip (`scripts/package_addon.sh`) + self-contained starter zip
-        (`scripts/package_starter.sh`, addon baked in), both attached to releases
+  - [~] Addon zip + self-contained starter zip — **retired**. The addon ships as the
+        `Paradise.Godot.Editor` NuGet package instead; its res:// half is two shims over types in
+        the package assembly, so a zip of `addons/paradise/` no longer compiles standalone
   - [x] `paradise-runtime` dotnet tool (`Paradise.Sample.Runtime` PackAsTool) + OIDC publish
         workflow (`runtime-v*` tag); verified by local install + headless render
   - [x] Compatibility check in-plugin; statement in README/docs
-  - [!] Godot Asset Library listing — initial submission is a manual one-time step
-        (runbook: `docs/publishing.md`); CI updates automated once
-        `ASSETLIB_ASSET_ID`/`ASSETLIB_TOKEN` are configured
+  - [~] Godot Asset Library listing — **dropped** before submission. The library distributes
+        source zips with no dependency resolution, which cannot express "needs
+        `Paradise.Godot.Editor` X.Y.Z"
 
 - [x] **Phase 3 — CI/CD**
-  - [x] `ci.yml`: solution build + 3 test suites; addon zip artifact + dependency allowlist;
-        headless Godot 4.7 import + scene-export smoke gated by the runtime contract tests
-  - [x] `addon-release.yml`: `addon-v*` tag → version check, zips, GitHub release,
-        optional asset-library update
+  - [x] `ci.yml`: solution build + 3 test suites; addon package + dependency allowlist +
+        materialization tests; headless Godot 4.7 import + scene-export smoke gated by the
+        runtime contract tests
+  - [x] `publish-addon-package.yml`: `addon-v*` tag → three-way version check, pack,
+        package-contents gate, OIDC publish to nuget.org
 
 - [x] **Phase 4 — Documentation**
   - [x] `README.md`, `docs/quickstart.md`, `docs/authoring.md`, `docs/contract.md`,
@@ -89,10 +91,12 @@ dependency is the `Paradise.Export` package. Next: productize that plugin into a
 
 ## Notes
 
-- C# addon install caveat: dropping an addon zip into a project does NOT edit the user's
-  csproj — the Phase 1 "Project Setup" button exists precisely to close that gap, and docs
-  must state the Godot .NET (mono) build requirement loudly.
-- Monorepo decision: the addon stays in this repo (addon + sample co-evolve; CI zips the
-  subfolder). Revisit only if Asset Library mirroring or external contributions get painful.
-- Asset Library submission requires a manual one-time account/listing step by the maintainer;
-  CI automates subsequent version updates.
+- The C# addon install caveat that shaped Phase 1 is gone: a package DOES reference its own
+  dependencies, so "Project Setup" no longer writes a `Paradise.Export` reference into the user's
+  csproj (it warns about a leftover hand-pinned one instead). Docs must still state the Godot
+  .NET (mono) build requirement loudly.
+- Two files of the addon must stay real `res://` scripts and cannot ever move into the package:
+  scenes serialize a script binding as path + uid. `Paradise.Godot.Editor`'s `build/` targets
+  place them; the uid stays whatever the consuming project minted.
+- Monorepo decision: the addon stays in this repo (addon + sample co-evolve; it packs from the
+  `Paradise.Godot.Editor/` subfolder). Revisit only if external contributions get painful.

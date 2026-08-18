@@ -8,26 +8,30 @@ using Godot;
 namespace ParadiseGodot
 {
     /// <summary>"Paradise/Project Setup": one-click wiring of a Godot .NET project for the
-    /// Paradise addon. Installing an addon zip cannot touch the user's csproj, so the C# addon
-    /// sources will not compile until the <c>Paradise.Export</c> package is referenced — this
-    /// action closes that gap, creates the data-directory layout, and persists the default
-    /// settings. Idempotent: safe to run repeatedly.</summary>
+    /// Paradise addon — creates the data-directory layout and persists the default settings.
+    /// Idempotent: safe to run repeatedly.
+    ///
+    /// It used to WRITE a pinned <c>Paradise.Export</c> PackageReference into the user's csproj,
+    /// because an addon installed from a zip could not reference anything itself. The addon is a
+    /// package now and states its own dependencies, so that write would put a second, hand-pinned
+    /// version next to the one the addon actually compiled against — reintroducing exactly the
+    /// drift packaging removed. It now only warns about such a reference if it finds one.</summary>
     public static class ProjectSetup
     {
         /// <summary>The Paradise.Export version this addon release is developed against. Kept in
-        /// lockstep with plugin.cfg's version (addon minor tracks the engine/data-contract
-        /// minor). Project Setup pins new references to it; the load-time compatibility check
-        /// warns when the resolved assembly diverges on major.minor.</summary>
+        /// lockstep with AddonVersion.props and plugin.cfg (addon minor tracks the
+        /// engine/data-contract minor). The load-time compatibility check warns when the resolved
+        /// assembly diverges from it on major.minor.</summary>
         public const string SupportedExportVersion = "0.13.0";
 
         public static void Run()
         {
             bool ok = true;
-            ok &= EnsurePackageReference();
+            ok &= WarnOnRedundantExportReference();
             ok &= EnsureDataLayout();
             EnsureProjectSettings();
             GD.Print(ok
-                ? "[Paradise] Project Setup complete. If the package reference was just added, build the project (or let the editor rebuild) before using the export tools."
+                ? "[Paradise] Project Setup complete."
                 : "[Paradise] Project Setup finished with warnings — see errors above.");
         }
 
@@ -51,7 +55,13 @@ namespace ParadiseGodot
             }
         }
 
-        private static bool EnsurePackageReference()
+        /// <summary>
+        /// Paradise.Export arrives with this addon, at the version it was compiled against. A
+        /// hand-written reference to it in the game's csproj can only agree with that by luck,
+        /// and when it does not, the export contract the addon writes and the one the game reads
+        /// silently differ. Say so; do not edit the file.
+        /// </summary>
+        private static bool WarnOnRedundantExportReference()
         {
             string projectDir = ProjectSettings.GlobalizePath("res://");
             string? csproj = Directory.EnumerateFiles(projectDir, "*.csproj", SearchOption.TopDirectoryOnly)
@@ -69,33 +79,21 @@ namespace ParadiseGodot
             {
                 var doc = XDocument.Load(csproj, LoadOptions.PreserveWhitespace);
                 XNamespace ns = doc.Root?.Name.Namespace ?? XNamespace.None;
-                bool present = doc.Descendants(ns + "PackageReference")
-                    .Any(e => string.Equals((string?)e.Attribute("Include"), "Paradise.Export", StringComparison.OrdinalIgnoreCase));
-                if (present)
+                XElement? pinned = doc.Descendants(ns + "PackageReference")
+                    .FirstOrDefault(e => string.Equals((string?)e.Attribute("Include"), "Paradise.Export", StringComparison.OrdinalIgnoreCase));
+                if (pinned is not null)
                 {
-                    GD.Print($"[Paradise] {Path.GetFileName(csproj)}: Paradise.Export reference already present.");
-                    return true;
+                    GD.PushWarning(
+                        $"[Paradise] {Path.GetFileName(csproj)} pins Paradise.Export " +
+                        $"{(string?)pinned.Attribute("Version") ?? "?"} by hand. Paradise.Godot.Editor " +
+                        $"already brings {SupportedExportVersion}; remove the hand-written reference so " +
+                        "there is only one version to keep aligned.");
                 }
-
-                var reference = new XElement(ns + "PackageReference",
-                    new XAttribute("Include", "Paradise.Export"),
-                    new XAttribute("Version", SupportedExportVersion));
-                // Reuse an existing PackageReference group when there is one; otherwise append a
-                // fresh ItemGroup at the end of the project element.
-                XElement? group = doc.Descendants(ns + "PackageReference").FirstOrDefault()?.Parent;
-                if (group is null)
-                {
-                    group = new XElement(ns + "ItemGroup");
-                    doc.Root!.Add(group);
-                }
-                group.Add(reference);
-                doc.Save(csproj);
-                GD.Print($"[Paradise] {Path.GetFileName(csproj)}: added Paradise.Export {SupportedExportVersion} package reference.");
                 return true;
             }
             catch (Exception ex)
             {
-                GD.PushError($"[Paradise] Could not update '{csproj}': {ex.Message}");
+                GD.PushError($"[Paradise] Could not read '{csproj}': {ex.Message}");
                 return false;
             }
         }

@@ -9,7 +9,7 @@ namespace ParadiseGodot.Pipeline
     /// Editor import hook: whenever a GLB under <c>res://data/</c> is (re)imported, transcode its
     /// embedded textures to KTX2 IN PLACE via <see cref="DataGlbConverter"/>, so a model dropped
     /// into <c>data/</c> is runtime-ready without any manual step. Registered by
-    /// <c>ParadiseExportPlugin</c> against <c>EditorFileSystem.resources_reimported</c>.
+    /// <c>ParadiseExportPluginBase</c> against <c>EditorFileSystem.resources_reimported</c>.
     ///
     /// Loop-safe: conversion is idempotent (an already-KTX2 GLB is not rewritten, so no further
     /// filesystem change is produced), and an <see cref="_inFlight"/> guard blocks synchronous

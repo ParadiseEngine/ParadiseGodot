@@ -362,7 +362,7 @@ namespace ParadiseGodot
             bool ok;
             if (text.Length == 0)
             {
-                string[]? host = ParadiseExportPlugin.ResolveRuntimeHostCommand();
+                string[]? host = ParadiseExportPluginBase.ResolveRuntimeHostCommand();
                 ok = host is not null;
                 _runtimeHostStatus.Text = ok
                     ? $"Auto-detected: {string.Join(' ', host!)}"
@@ -370,7 +370,7 @@ namespace ParadiseGodot
             }
             else
             {
-                string resolved = ParadiseExportPlugin.ResolveHostPath(text);
+                string resolved = ParadiseExportPluginBase.ResolveHostPath(text);
                 ok = File.Exists(resolved);
                 _runtimeHostStatus.Text = ok ? $"OK: {resolved}" : $"File does not exist: {resolved}";
             }

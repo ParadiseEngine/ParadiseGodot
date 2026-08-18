@@ -10,24 +10,38 @@ that data in the standalone .NET runtime.
 
 ## 2. Get a project
 
-Easiest: download `paradise-starter-*.zip` from the releases page and unzip — skip to step 4.
+Easiest: copy [`templates/starter/`](../templates/starter) — already wired, skip to step 4 after
+building once.
 
 For an existing Godot .NET project:
 
-1. Download `paradise-addon-*.zip` and unzip at the project root (adds `addons/paradise/`).
-2. If your project has no csproj yet: Project > Tools > C# > Create C# solution.
-3. Enable **Paradise Engine Tools** in Project Settings > Plugins.
+1. If your project has no csproj yet: Project > Tools > C# > Create C# solution.
+2. Add the addon to it:
+
+   ```xml
+   <PackageReference Include="Paradise.Godot.Editor" Version="0.13.0" />
+   ```
+
+3. Build once (hammer icon or `dotnet build`). **This is what installs the addon**: the package
+   writes its `res://` half into `addons/paradise/` — `plugin.cfg` and the two scripts your
+   scenes will bind entities to. Reload the project afterwards.
+4. Enable **Paradise Engine Tools** in Project Settings > Plugins.
+
+Commit `addons/paradise/`, including the `.uid` files Godot mints beside the scripts on import.
+A scene stores a script binding as a res:// path *and* a uid, so those files are how your scenes
+keep hold of their authored entities. Don't hand-edit the scripts either — the package rewrites
+them whenever you bump its version.
+
+You do not add a `Paradise.Export` reference. It comes with the addon, at the version the addon
+was built against, which is the only version guaranteed to match the contract it writes.
 
 ## 3. Project Setup
 
 Run **Project > Tools > Paradise/Project Setup**. It is idempotent and:
 
-- adds the pinned `Paradise.Export` PackageReference to your csproj (the addon's C# sources
-  will not compile without it — an addon zip cannot edit your csproj, this closes the gap),
 - creates the `data/` layout (`scenes/`, `materials/`, `Models/`, `primitives/`, `sprites/`),
-- persists the default settings (`paradise/export/data_dir = res://data`).
-
-Build the project once (hammer icon or `dotnet build`) so the plugin compiles.
+- persists the default settings (`paradise/export/data_dir = res://data`),
+- warns if your csproj still pins `Paradise.Export` by hand (remove it — see above).
 
 ## 4. Install the preview runtime
 
