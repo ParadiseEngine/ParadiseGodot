@@ -543,6 +543,27 @@ namespace ParadiseGodot.Export
         private static EntityComponentsData BuildComponents(EntityExport entity, ExportPaths paths)
         {
             var components = new EntityComponentsData();
+
+            // Components the ENGINE does not define: whatever the node authored through the
+            // authoring schema. Collected first so a malformed authored component is visible in the
+            // output next to the engine ones rather than appended as an afterthought.
+            if (entity is Authoring.IAuthoredComponents authored)
+            {
+                var custom = new List<AuthoredComponentData>();
+                foreach (AuthoredComponentData component in authored.ExportAuthoredComponents())
+                {
+                    if (!string.IsNullOrWhiteSpace(component.Id))
+                    {
+                        custom.Add(component);
+                    }
+                }
+                // Left NULL when nothing was authored, so the written document is unchanged for
+                // every project that authors none of this.
+                if (custom.Count > 0)
+                {
+                    components.Custom = custom;
+                }
+            }
             // Schema v2 (source-GLB pipeline): Renderable.Mesh REFERENCES the entity's source GLB
             // under data/ (no per-entity bake). The runtime resolves it as data/<field> and reads
             // the shared, KTX2-converted GLB — the same file the Godot editor renders.

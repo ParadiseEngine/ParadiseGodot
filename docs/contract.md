@@ -32,6 +32,18 @@ consumer must read the data as-is (no Z-mirror).
 Unknown/absent optional fields deserialize to defaults — additive schema evolution is
 non-breaking (the reason the contract version follows the package's major.minor).
 
+#### `Entities[].Components.Custom` — game-defined components
+
+Components the engine does not define, authored with `[Authored]` and carried verbatim:
+
+```json
+"Custom": [ { "Id": "mygame.ledge", "Data": { "Overhang": 2.0, "Friction": 0.35, "IsTrigger": false } } ]
+```
+
+`Data` is opaque to the engine — the game deserializes it into its own record through its own
+source-generated context. **Omitted entirely when an entity authors nothing**, so documents from
+projects that use none of this are unchanged.
+
 ### `data/scenes/<Scene>.navmesh.bin`
 
 DotRecast **MeshSet** written by `NavMeshBinaryWriter` (modern format, not the C++ demo

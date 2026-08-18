@@ -31,6 +31,61 @@ Key properties:
 The scene **root must keep an identity transform** — a nudged root offsets every exported
 `WorldMatrix`.
 
+## AuthoredComponentNode — components the addon does not define
+
+`EntityExport` covers the components the engine ships. For anything else, use
+**`AuthoredComponentNode`** (an `EntityExport` subclass): pick a component from the `Component Id`
+dropdown and that component's fields appear in the inspector, described by a *schema* rather than
+by code in this addon.
+
+That means a game adds an authored component **without touching the addon**. Mark a plain record
+with `[Authored]` from `Paradise.Authoring`, and a source generator publishes the schema:
+
+```csharp
+[Authored("mygame.ledge", DisplayName = "Ice ledge")]
+public sealed record LedgeConfig
+{
+    [Meters, AuthorRange(0.5, 20), AuthorDoc("How far the ledge overhangs.")]
+    public float Overhang { get; set; } = 2f;
+
+    [Unit01, AuthorDoc("0 is glass, 1 is grippy.")]
+    public float Friction { get; set; } = 0.35f;
+
+    public bool IsTrigger { get; set; }
+}
+```
+
+The node reads two schemas and merges them, engine first:
+
+| Source | Where it comes from |
+|---|---|
+| Engine components | compiled into `Paradise.Export`; always present |
+| Your components | `data/authoring-schema.json`, dumped from your own assembly |
+
+Values export into the entity's `Components.Custom` as `{ "Id": "mygame.ledge", "Data": { … } }`,
+and the runtime reads them straight back into the same record. **Entities that author nothing are
+unaffected** — `Custom` is omitted entirely, so existing scenes and their exported data do not
+change.
+
+### Declaring how it looks, not coding it
+
+The record also declares its editor visuals, so no per-component gizmo class exists:
+
+- `[AuthorBoxGizmo(x, z, depth)]` — draw a wireframe box sized from three of the record's own
+  fields, from `Y = 0` downward.
+- `[AuthorNativeShape]` on a nested part — author it by **pointing at a `CollisionShape3D`** and
+  editing it with Godot's own handles. The reference is baked to plain numbers at export, since a
+  `NodePath` means nothing to the runtime.
+
+Hints are **semantic** (`[Meters]`, `[Radians]`, `[Seconds]`, `[Unit01]`), never Godot's own
+vocabulary — the same schema drives the Blender addon and the browser editor, and the moment one
+editor's vocabulary enters it, the others inherit it forever. Ranges are advisory: the runtime is
+still what decides whether a value is playable.
+
+A game that needs authoring behaviour no schema can express can implement
+`ParadiseGodot.Authoring.IAuthoredComponents` on its own node instead; the exporter picks that up
+the same way.
+
 ## Export flow
 
 Saving a scene auto-exports it (the plugin's save hook); **Paradise/Export Active Scene** does
