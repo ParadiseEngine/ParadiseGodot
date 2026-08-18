@@ -31,14 +31,15 @@ Key properties:
 The scene **root must keep an identity transform** — a nudged root offsets every exported
 `WorldMatrix`.
 
-## AuthoredEntityNode — components the addon does not define
+## AuthoredEntityNode — every component, engine and game alike
 
-`EntityExport` covers the components the engine ships. For anything else, use
-**`AuthoredEntityNode`** (an `EntityExport` subclass): pick a component from the `Component Id`
-dropdown and that component's fields appear in the inspector, described by a *schema* rather than
-by code in this addon.
+**`AuthoredEntityNode`** is the only entity node. Tick a component in the inspector and its
+fields appear, described by a *schema* rather than by code in this addon — and that is true of the
+engine's own components (`paradise.identity`, `.renderable`, `.collider`, `.rigidbody`, `.agent`,
+`.interactable`, `.sprite-animation`, `.particle-emitter`) exactly as much as of a game's.
 
-That means a game adds an authored component **without touching the addon**. Mark a plain record
+It replaced `EntityExport`, which hardcoded 41 `[Export]` fields. Adding a component now touches
+**nothing in this addon**. Mark a plain record
 with `[Authored]` from `Paradise.Authoring`, and a source generator publishes the schema:
 
 ```csharp
@@ -85,6 +86,18 @@ still what decides whether a value is playable.
 A game that needs authoring behaviour no schema can express can implement
 `ParadiseGodot.Authoring.IAuthoredEntity` on its own node instead; the exporter picks that up
 the same way.
+
+### What is no longer discovered for you
+
+The exporter used to walk an entity's children looking for a GLB to render and a `Sprite3D` to
+animate. **It no longer does.** Dropping a model under an entity exports nothing until you point
+`paradise.renderable`'s `Mesh` at the file, and a sprite needs `paradise.sprite-animation`'s
+source picked. The gain is that what an entity exports is visible in the inspector instead of
+being inferred from its children; the cost is that you have to say so.
+
+Three things remain behaviour rather than data, because no schema can carry them: the entity's
+GUID (minted and kept unique on save), its transform (that is `Node3D`'s, and you still move nodes
+in the viewport), and the baking of a reference into values at export.
 
 ## Export flow
 

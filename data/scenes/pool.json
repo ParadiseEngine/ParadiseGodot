@@ -21,6 +21,8 @@
   },
   "Lighting": {
     "ActiveState": "Default",
+    "ShadowMapSize": null,
+    "ShadowBlur": null,
     "States": [
       {
         "Name": "Default",
@@ -343,7 +345,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -469,7 +474,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -595,7 +603,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -721,7 +732,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -847,7 +861,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -973,7 +990,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1099,7 +1119,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1225,7 +1248,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1351,7 +1377,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1477,7 +1506,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1603,7 +1635,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1729,7 +1764,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1816,7 +1854,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1903,7 +1944,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -1990,7 +2034,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2077,7 +2124,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2164,7 +2214,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2285,7 +2338,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2406,7 +2462,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2527,7 +2586,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2648,7 +2710,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2769,7 +2834,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2890,7 +2958,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -2977,7 +3048,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3064,7 +3138,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3151,7 +3228,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3238,7 +3318,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3325,7 +3408,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3412,7 +3498,10 @@
         "Collider": null,
         "Rigidbody": null,
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3538,7 +3627,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3664,7 +3756,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3790,7 +3885,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -3916,7 +4014,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4042,7 +4143,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4168,7 +4272,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4294,7 +4401,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4420,7 +4530,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4546,7 +4659,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4672,7 +4788,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4798,7 +4917,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -4924,7 +5046,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -5050,7 +5175,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -5176,7 +5304,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -5302,7 +5433,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     },
     {
@@ -5428,7 +5562,10 @@
           "LayerName": ""
         },
         "Interactable": null,
-        "Agent": null
+        "Agent": null,
+        "SpriteAnimation": null,
+        "ParticleEmitter": null,
+        "AudioEmitter": null
       }
     }
   ],
