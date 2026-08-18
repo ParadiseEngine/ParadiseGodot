@@ -60,8 +60,12 @@ namespace ParadiseGodot.Export
                         ExportEnvironment(env, EnsureLightingState(document).Environment, FindSun(root));
                         environmentExported = true;
                         break;
-                    case Light3D light:
-                        EnsureLightingState(document).Lights.Add(ExportLight(light));
+                    // A light BENEATH an entity belongs to that entity, which exports it as its
+                    // own component; listing it here too would describe one light twice and light
+                    // the scene twice over. No scene authored before this had a light under an
+                    // entity, so nothing existing changes.
+                    case Light3D light when !OwnedByEntity(light):
+                        EnsureLightingState(document).Lights.Add(HostObjectBaker.BakeLight(light));
                         break;
                     case AuthoredEntityNode entity:
                         document.Entities.Add(ExportEntity(entity, materials, prefabs, paths));
@@ -339,50 +343,6 @@ namespace ParadiseGodot.Export
             return color;
         }
 
-        private static SceneLightData ExportLight(Light3D light)
-        {
-            // Godot lights aim down their local -Z; the contract is right-handed, so this world-space
-            // forward is stored verbatim.
-            SN.Vector3 forward = ToSN(-light.GlobalTransform.Basis.Z);
-            Color color = light.LightColor;
-            return new SceneLightData
-            {
-                Id = light.Name.ToString(),
-                Type = LightTypeName(light),
-                Position = ToSN(light.GlobalPosition),
-                Direction = forward,
-                Color = Color32.FromRgba(color.R, color.G, color.B, color.A),
-                Enabled = light.Visible,
-                Intensity = light.LightEnergy,
-                ShadowsEnabled = light.ShadowEnabled,
-                Specular = light.GetParam(Light3D.Param.Specular),
-                Size = light.GetParam(Light3D.Param.Size),
-                // Godot's shadow_opacity (1 = fully dark) maps to the contract's shadow strength.
-                ShadowStrength = light.ShadowOpacity,
-                // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis→edge); the
-                // contract/shader use the FULL cone angle, so double it.
-                Range = light switch
-                {
-                    OmniLight3D omni => omni.OmniRange,
-                    SpotLight3D spot => spot.SpotRange,
-                    _ => 0f,
-                },
-                SpotAngle = light is SpotLight3D s ? s.SpotAngle * 2f : 0f,
-                // Distance-falloff exponent (Godot's LIGHT_PARAM_ATTENUATION, i.e. omni_/spot_attenuation).
-                // Godot's default 1.0 is inverse-linear; the shader applies pow(distance, -exponent).
-                // Directionals have no range falloff, so the value is exported but unused for them.
-                AttenuationExponent = (float)light.GetParam(Light3D.Param.Attenuation),
-            };
-        }
-
-        private static string LightTypeName(Light3D light) => light switch
-        {
-            DirectionalLight3D => "Directional",
-            OmniLight3D => "Point",
-            SpotLight3D => "Spot",
-            _ => "Directional",
-        };
-
         private static LightingStateData EnsureLightingState(LevelData document)
         {
             document.Lighting ??= new LightingData { ActiveState = "Default" };
@@ -478,6 +438,19 @@ namespace ParadiseGodot.Export
             }
 
             return data;
+        }
+
+        /// <summary>Whether a node sits under an entity, which then owns it.</summary>
+        private static bool OwnedByEntity(Node node)
+        {
+            for (Node? parent = node.GetParent(); parent is not null; parent = parent.GetParent())
+            {
+                if (parent is AuthoredEntityNode)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         private static EntityParentData? ResolveParent(AuthoredEntityNode entity)

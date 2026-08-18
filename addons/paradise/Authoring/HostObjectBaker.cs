@@ -226,6 +226,55 @@ namespace ParadiseGodot.Authoring
             return path == "." ? "" : path;
         }
 
+        // ---- lights ---------------------------------------------------------------------
+
+        /// <summary>Read a light into the contract. Shared by the scene-level walk and by an entity
+        /// that AUTHORED the light by pointing at it, so one light cannot describe itself two
+        /// different ways depending on which path found it.</summary>
+        public static SceneLightData BakeLight(Light3D light)
+        {
+            // Godot lights aim down their local -Z; the contract is right-handed, so this world-space
+            // forward is stored verbatim.
+            SN.Vector3 forward = ToSN(-light.GlobalTransform.Basis.Z);
+            Color color = light.LightColor;
+            return new SceneLightData
+            {
+                Id = light.Name.ToString(),
+                Type = LightTypeName(light),
+                Position = ToSN(light.GlobalPosition),
+                Direction = forward,
+                Color = Color32.FromRgba(color.R, color.G, color.B, color.A),
+                Enabled = light.Visible,
+                Intensity = light.LightEnergy,
+                ShadowsEnabled = light.ShadowEnabled,
+                Specular = light.GetParam(Light3D.Param.Specular),
+                Size = light.GetParam(Light3D.Param.Size),
+                // Godot's shadow_opacity (1 = fully dark) maps to the contract's shadow strength.
+                ShadowStrength = light.ShadowOpacity,
+                // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis→edge); the
+                // contract/shader use the FULL cone angle, so double it.
+                Range = light switch
+                {
+                    OmniLight3D omni => omni.OmniRange,
+                    SpotLight3D spot => spot.SpotRange,
+                    _ => 0f,
+                },
+                SpotAngle = light is SpotLight3D s ? s.SpotAngle * 2f : 0f,
+                // Distance-falloff exponent (Godot's LIGHT_PARAM_ATTENUATION, i.e. omni_/spot_attenuation).
+                // Godot's default 1.0 is inverse-linear; the shader applies pow(distance, -exponent).
+                // Directionals have no range falloff, so the value is exported but unused for them.
+                AttenuationExponent = (float)light.GetParam(Light3D.Param.Attenuation),
+            };
+        }
+
+        private static string LightTypeName(Light3D light) => light switch
+        {
+            DirectionalLight3D => "Directional",
+            OmniLight3D => "Point",
+            SpotLight3D => "Spot",
+            _ => "Directional",
+        };
+
         private static SN.Vector3 ToSN(Vector3 v) => new(v.X, v.Y, v.Z);
         private static SN.Quaternion ToSN(Quaternion q) => new(q.X, q.Y, q.Z, q.W);
     }

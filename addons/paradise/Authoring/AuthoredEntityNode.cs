@@ -425,6 +425,7 @@ namespace ParadiseGodot.Authoring
             {
                 AuthoredBySources.Shape => "CollisionShape3D",
                 AuthoredBySources.Sprite => "Sprite3D",
+                AuthoredBySources.Light => "Light3D",
                 _ => "Node3D",
             };
 
@@ -594,7 +595,17 @@ namespace ParadiseGodot.Authoring
         public string ModelPath
         {
             get => AuthoredValue(ParadiseComponentIds.Identity, "Prefab").AsString();
-            set => SetAuthored(ParadiseComponentIds.Identity, "Prefab", value);
+
+            // Sets BOTH halves, because a model is two authored facts and code that has only a
+            // path cannot be expected to know that. paradise.identity/Prefab is provenance — which
+            // asset this entity came from — and paradise.renderable/Mesh is what draws. Setting
+            // only the first produced a prefab that renders in the Godot editor, where the child
+            // GLB is native, and is INVISIBLE at runtime, which no export diff catches.
+            set
+            {
+                SetAuthored(ParadiseComponentIds.Identity, "Prefab", value);
+                SetAuthored(ParadiseComponentIds.Renderable, "Mesh", value);
+            }
         }
 
         /// <summary>The authored kind, falling back to "Prop" — the contract treats it as a label
@@ -865,6 +876,7 @@ namespace ParadiseGodot.Authoring
             }
             if (value is JsonObject candidates && host.Fields.Count > 0)
             {
+                WarnOnShapeMismatch(host, candidates);
                 value = Select(candidates, host.Fields);
             }
 
@@ -880,6 +892,31 @@ namespace ParadiseGodot.Authoring
                 return;
             }
             Write(payload, path, value);
+        }
+
+        /// <summary>
+        /// A record asking for box EXTENTS, pointed at something that is not a box.
+        ///
+        /// The engine's collider is unaffected — it takes Size and LocalCenter, which every shape
+        /// fills — but a game part that declared SizeX/SizeY/SizeZ gets zeroes from a sphere or
+        /// capsule, since only a box sets Size. The old bake rejected non-box shapes outright with
+        /// a warning; keeping the warning is what stops an authoring mistake becoming a
+        /// zero-sized collider nobody notices.
+        /// </summary>
+        private void WarnOnShapeMismatch(HostRef host, JsonObject candidates)
+        {
+            if (host.Kind != AuthoredBySources.Shape ||
+                !host.Fields.Contains("SizeX") ||
+                candidates["ShapeType"]?.GetValue<string>() is not { } shape ||
+                shape == "Box")
+            {
+                return;
+            }
+
+            GD.PushWarning(
+                $"[Paradise.Export] '{Name}': '{host.Path}' asks for box extents but points at a "
+                + $"{shape} shape, which leaves them zero. Point it at a BoxShape3D, or give the "
+                + "record the fields that shape fills (Size, Radius, Height).");
         }
 
         /// <summary>
@@ -957,6 +994,17 @@ namespace ParadiseGodot.Authoring
                             .FirstOrDefault(p => p is not null);
                     string? field = HostObjectBaker.MeshField(this, source, paths);
                     return field is null ? null : JsonValue.Create(field);
+                }
+
+                case AuthoredBySources.Light:
+                {
+                    if (GetNodeOrNull<Light3D>(path) is not { } lightNode)
+                    {
+                        return null;
+                    }
+                    // Baked through the same reader the scene-level walk uses, so a light cannot
+                    // describe itself one way when it is owned and another when it is not.
+                    return Serialize(HostObjectBaker.BakeLight(lightNode));
                 }
 
                 case AuthoredBySources.Sprite:

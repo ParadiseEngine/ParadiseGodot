@@ -61,10 +61,12 @@ namespace ParadiseGodot
 
             // Headless/CI hook: run one or more migration tasks then quit. Any combination of:
             //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
+            //   PARADISE_GENERATE_MODEL_PREFABS=1 generate a prefab per model under data/
             //   PARADISE_CONVERT_DATA_GLBS=1     transcode data/ GLB textures → KTX2 in place
             //   PARADISE_EXPORT_SCENE=res://...   export that scene's data/ contract
             // e.g. godot --headless --editor --path . — tasks run in the above order, then quit.
             if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1" ||
+                OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1" ||
                 OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1" ||
                 !string.IsNullOrEmpty(OS.GetEnvironment("PARADISE_EXPORT_SCENE")))
             {
@@ -321,6 +323,13 @@ namespace ParadiseGodot
                 if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1")
                 {
                     Pipeline.PrimitiveGlbGenerator.GenerateAll();
+                }
+
+                // Reachable headlessly so it can be TESTED. It was menu-only, which is how it
+                // came to produce prefabs with no renderable component without anything noticing.
+                if (OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1")
+                {
+                    Pipeline.ModelPrefabGenerator.GenerateAll();
                 }
 
                 if (OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")
