@@ -13,7 +13,7 @@ namespace ParadiseGodot.Authoring
     /// can also hand-roll a node when it needs authoring behaviour no schema expresses, and still
     /// have the exporter pick it up.
     /// </summary>
-    public interface IAuthoredComponents
+    public interface IAuthoredEntity
     {
         /// <summary>The components this node authors, ready for
         /// <see cref="EntityComponentsData.Custom"/>. An empty sequence exports nothing.</summary>

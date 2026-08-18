@@ -547,7 +547,7 @@ namespace ParadiseGodot.Export
             // Components the ENGINE does not define: whatever the node authored through the
             // authoring schema. Collected first so a malformed authored component is visible in the
             // output next to the engine ones rather than appended as an afterthought.
-            if (entity is Authoring.IAuthoredComponents authored)
+            if (entity is Authoring.IAuthoredEntity authored)
             {
                 var custom = new List<AuthoredComponentData>();
                 foreach (AuthoredComponentData component in authored.ExportAuthoredComponents())

@@ -83,7 +83,7 @@ editor's vocabulary enters it, the others inherit it forever. Ranges are advisor
 still what decides whether a value is playable.
 
 A game that needs authoring behaviour no schema can express can implement
-`ParadiseGodot.Authoring.IAuthoredComponents` on its own node instead; the exporter picks that up
+`ParadiseGodot.Authoring.IAuthoredEntity` on its own node instead; the exporter picks that up
 the same way.
 
 ## Export flow
