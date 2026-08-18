@@ -90,7 +90,16 @@ namespace ParadiseGodot.Authoring
 
         /// <summary>A field authored by pointing at one of Godot's own objects.</summary>
         private readonly record struct HostRef(
-            string Path, string Kind, bool IsList, IReadOnlyList<string>? AssetKinds);
+            string Path,
+            string Kind,
+            bool IsList,
+            IReadOnlyList<string>? AssetKinds,
+            /// <summary>Leaf field names the referencing record declares BENEATH this reference —
+            /// what the bake is allowed to fill in. Different records want different slices of the
+            /// same object: the engine's collider wants Size and LocalCenter, a game's box part
+            /// wants SizeX/SizeY/SizeZ. Baking a fixed record would serve one and corrupt the
+            /// other.</summary>
+            IReadOnlyList<string> Fields);
 
         // ---------------------------------------------------------------------------------
         // Schema
@@ -181,7 +190,8 @@ namespace ParadiseGodot.Authoring
                     // at a control nobody wants is how a schema grows things no editor implements.
                     if (field.Items is { AuthoredBy: { } listKind })
                     {
-                        into.Hosts.Add(new HostRef(path, listKind, IsList: true, field.Items.AssetKinds));
+                        into.Hosts.Add(new HostRef(
+                            path, listKind, IsList: true, field.Items.AssetKinds, LeafNames(field.Items.Fields)));
                     }
                     else
                     {
@@ -194,7 +204,8 @@ namespace ParadiseGodot.Authoring
 
                 if (field.AuthoredBy is { } kind)
                 {
-                    into.Hosts.Add(new HostRef(path, kind, IsList: false, field.AssetKinds));
+                    into.Hosts.Add(new HostRef(
+                        path, kind, IsList: false, field.AssetKinds, LeafNames(field.Fields)));
                     // Its nested fields are what the reference BAKES into; they are never typed in.
                     continue;
                 }
@@ -219,6 +230,10 @@ namespace ParadiseGodot.Authoring
                     field.AssetKinds));
             }
         }
+
+        /// <summary>The immediate leaf names of a field list — what a bake may fill in.</summary>
+        private static IReadOnlyList<string> LeafNames(List<AuthoredFieldSchema>? fields) =>
+            fields is null ? Array.Empty<string>() : fields.Select(f => f.Name).ToList();
 
         /// <summary>
         /// A field's default, read AT ITS SCHEMA TYPE.
@@ -306,6 +321,7 @@ namespace ParadiseGodot.Authoring
                 {
                     list.Add(HostPicker(component.Id + SourceSuffix, componentKind, isList: false, null));
                 }
+
 
                 foreach (HostRef host in component.Hosts)
                 {
@@ -741,31 +757,33 @@ namespace ParadiseGodot.Authoring
         {
             if (component.AuthoredBy is { } componentKind)
             {
-                BakeInto(payload, "", componentKind, component.Id + SourceSuffix, isList: false, paths);
+                var whole = new HostRef("", componentKind, false, null, Array.Empty<string>());
+                BakeInto(payload, whole, component.Id + SourceSuffix, paths);
             }
 
             foreach (HostRef host in component.Hosts)
             {
-                BakeInto(payload, host.Path, host.Kind, component.Id + "/" + host.Path, host.IsList, paths);
+                BakeInto(payload, host, component.Id + "/" + host.Path, paths);
             }
         }
 
-        private void BakeInto(
-            JsonObject payload, string path, string kind, string valueKey, bool isList, ExportPaths paths)
+        private void BakeInto(JsonObject payload, HostRef host, string valueKey, ExportPaths paths)
         {
+            string path = host.Path;
+            string kind = host.Kind;
             if (!_values.TryGetValue(valueKey, out Variant stored))
             {
                 return;
             }
 
-            if (isList)
+            if (host.IsList)
             {
                 var array = new JsonArray();
                 foreach (Variant element in stored.AsGodotArray())
                 {
                     if (BakeOne(kind, element.AsNodePath(), paths) is { } baked)
                     {
-                        array.Add(baked);
+                        array.Add(Select(baked, host.Fields));
                     }
                 }
                 Write(payload, path, array);
@@ -793,6 +811,10 @@ namespace ParadiseGodot.Authoring
             {
                 return;
             }
+            if (value is JsonObject candidates && host.Fields.Count > 0)
+            {
+                value = Select(candidates, host.Fields);
+            }
 
             if (path.Length == 0 && value is JsonObject fields)
             {
@@ -806,6 +828,31 @@ namespace ParadiseGodot.Authoring
                 return;
             }
             Write(payload, path, value);
+        }
+
+        /// <summary>
+        /// Keep only the fields the referencing record actually declares.
+        ///
+        /// A bake offers every name it knows how to produce; the record decides which it wants. The
+        /// engine's collider takes Size and LocalCenter, a game's box part takes SizeX/SizeY/SizeZ,
+        /// and both are baked from the same CollisionShape3D. Writing the full set instead would
+        /// put keys into the payload that the record has no property for.
+        /// </summary>
+        private static JsonObject Select(JsonNode baked, IReadOnlyList<string> wanted)
+        {
+            var result = new JsonObject();
+            if (baked is not JsonObject source)
+            {
+                return result;
+            }
+            foreach (string name in wanted)
+            {
+                if (source[name] is { } value)
+                {
+                    result[name] = value.DeepClone();
+                }
+            }
+            return result;
         }
 
         /// <summary>Bake one referenced object into the JSON its field expects.</summary>
@@ -825,7 +872,25 @@ namespace ParadiseGodot.Authoring
                         return null;
                     }
                     var data = new ColliderShapeData();
-                    return HostObjectBaker.TryBakeShape(this, shape, data) ? Serialize(data) : null;
+                    if (!HostObjectBaker.TryBakeShape(this, shape, data))
+                    {
+                        return null;
+                    }
+
+                    // Everything a shape can offer, in BOTH vocabularies the contract and games
+                    // use. Select() then keeps whichever the referencing record declared.
+                    JsonNode? full = Serialize(data);
+                    if (full is not JsonObject candidates)
+                    {
+                        return null;
+                    }
+                    candidates["SizeX"] = JsonValue.Create(data.Size.X);
+                    candidates["SizeY"] = JsonValue.Create(data.Size.Y);
+                    candidates["SizeZ"] = JsonValue.Create(data.Size.Z);
+                    candidates["CenterX"] = JsonValue.Create(data.LocalCenter.X);
+                    candidates["CenterY"] = JsonValue.Create(data.LocalCenter.Y);
+                    candidates["CenterZ"] = JsonValue.Create(data.LocalCenter.Z);
+                    return candidates;
                 }
 
                 case AuthoredBySources.Mesh:
