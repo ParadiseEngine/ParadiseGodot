@@ -31,10 +31,10 @@ Key properties:
 The scene **root must keep an identity transform** — a nudged root offsets every exported
 `WorldMatrix`.
 
-## AuthoredComponentNode — components the addon does not define
+## AuthoredEntityNode — components the addon does not define
 
 `EntityExport` covers the components the engine ships. For anything else, use
-**`AuthoredComponentNode`** (an `EntityExport` subclass): pick a component from the `Component Id`
+**`AuthoredEntityNode`** (an `EntityExport` subclass): pick a component from the `Component Id`
 dropdown and that component's fields appear in the inspector, described by a *schema* rather than
 by code in this addon.
 

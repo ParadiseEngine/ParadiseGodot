@@ -34,7 +34,7 @@ namespace ParadiseGodot.Authoring
     /// </summary>
     [Tool]
     [GlobalClass]
-    public partial class AuthoredComponentNode : EntityExport, IAuthoredComponents
+    public partial class AuthoredEntityNode : EntityExport, IAuthoredComponents
     {
         /// <summary>The game's schema, relative to the configured data directory. Optional: a
         /// project that authors only ENGINE components needs no file at all.</summary>
