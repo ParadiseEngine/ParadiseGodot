@@ -18,8 +18,9 @@ consumer must read the data as-is (no Z-mirror).
 
 - **Environment**: ambient/sky energy, tonemap (mode/exposure/white), SSAO, glow, fog.
 - **Lights**: directional/omni/spot with transforms, color, energy, shadows.
-- **Entities**: one record per `EntityExport` node —
-  - identity: GUID (from `paradise_entity_guid` metadata), name, `Kind`, `ActiveOnLoad`
+- **Entities**: one record per `AuthoredEntityNode` —
+  - identity: GUID (from `paradise_entity_guid` metadata), name, plus whatever
+    `paradise.identity` authored (`Kind`, `IsActive`, `Prefab`, …)
   - `WorldMatrix` (column-major, world space; primitive size rides in scale)
   - `Renderable.Mesh`: **data-relative reference** to the source GLB (`Models/knight.glb`,
     `primitives/cube.glb`) plus per-slot material overrides

@@ -7,7 +7,7 @@ namespace ParadiseGodot.Pipeline
     /// <summary>
     /// Generates the shared unit-primitive GLBs used by scene entities that have no authored art
     /// (ground/obstacle/crate → cube, ball → sphere, agent → capsule). Written once to
-    /// <c>res://data/primitives/</c>; entities reference them via <c>EntityExport.ModelPath</c>
+    /// <c>res://data/primitives/</c>; entities reference them via <c>AuthoredEntityNode.ModelPath</c>
     /// and express their real size through the entity transform SCALE (a unit collider folds to
     /// match). Most primitives are untextured — per-entity look comes from material-slot overrides.
     /// The exception is <c>sphere_ball</c>, which carries a baked gradient image (balls need a

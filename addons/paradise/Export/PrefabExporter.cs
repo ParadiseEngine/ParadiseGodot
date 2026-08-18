@@ -41,7 +41,7 @@ namespace ParadiseGodot.Export
 
         /// <summary>Resolve identity for an entity from its nearest scene-instance ancestor, and
         /// export that prefab's template (deduped) as a side effect.</summary>
-        public Identity ResolveAndExport(EntityExport entity)
+        public Identity ResolveAndExport(AuthoredEntityNode entity)
         {
             Node? instanceRoot = NearestInstanceRoot(entity);
             if (instanceRoot is null || string.IsNullOrEmpty(instanceRoot.SceneFilePath))
@@ -102,10 +102,10 @@ namespace ParadiseGodot.Export
         {
             var entities = new List<LevelEntityData>();
             // Descendants() intentionally excludes `root` itself: the prefab root is the container
-            // (an EntityExport produced by ModelPrefabGenerator), not a nested template entity.
+            // (an AuthoredEntityNode produced by ModelPrefabGenerator), not a nested template entity.
             foreach (Node node in Descendants(root))
             {
-                if (node is not EntityExport entity)
+                if (node is not AuthoredEntityNode entity)
                 {
                     continue;
                 }
@@ -137,7 +137,7 @@ namespace ParadiseGodot.Export
         }
 
         private static string? ModelPathOf(Node root) =>
-            root is EntityExport entity && !string.IsNullOrEmpty(entity.ModelPath) ? entity.ModelPath : null;
+            root is AuthoredEntityNode entity && !string.IsNullOrEmpty(entity.ModelPath) ? entity.ModelPath : null;
 
         private static Node? NearestInstanceRoot(Node node)
         {

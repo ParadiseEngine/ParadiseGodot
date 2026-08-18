@@ -32,7 +32,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Paradise.Export" Version="0.12.1" />
+    <PackageReference Include="Paradise.Export" Version="0.13.0" />
+    <!-- Referenced DIRECTLY, not just pulled in by Paradise.Export: AuthoredEntityNode reads the
+         schema through Paradise.Authoring's own types, so the version it compiles against should be
+         stated here rather than inherited. Getting it transitively is how the addon silently built
+         against a schema v1 model after the engine had moved to v2. -->
+    <PackageReference Include="Paradise.Authoring" Version="0.13.0" />
     <ProjectReference Include="Paradise.Sample.Pool/Paradise.Sample.Pool.csproj" />
     <!-- Play-mode UI overlays: shared renderer-independent cores + the managed Noesis WebGPU
          render device (headless Dawn + readback in the Godot host). Real sibling path for the

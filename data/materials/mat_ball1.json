@@ -2,20 +2,20 @@
   "Path": "materials/mat_ball1.json",
   "Name": "sample",
   "BaseColorFactor": {
-	"r": 0.6901961,
-	"g": 0.050980393,
-	"b": 0.050980393,
-	"a": 1
+    "r": 0.6901961,
+    "g": 0.050980393,
+    "b": 0.050980393,
+    "a": 1
   },
   "BaseColorTexture": "data/primitives/sphere_ball_albedo.png",
   "MetallicFactor": 0,
   "RoughnessFactor": 0.4,
   "MetallicRoughnessTexture": null,
   "EmissiveFactor": {
-	"r": 0,
-	"g": 0,
-	"b": 0,
-	"a": 1
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
   },
   "EmissiveTexture": null,
   "NormalScale": 1,
@@ -30,15 +30,15 @@
   "NoiseScale": 1,
   "FlowSpeed": 1,
   "ColorA": {
-	"r": 1,
-	"g": 1,
-	"b": 1,
-	"a": 1
+    "r": 1,
+    "g": 1,
+    "b": 1,
+    "a": 1
   },
   "ColorB": {
-	"r": 0,
-	"g": 0,
-	"b": 0,
-	"a": 1
+    "r": 0,
+    "g": 0,
+    "b": 0,
+    "a": 1
   }
 }

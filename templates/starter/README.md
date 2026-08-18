@@ -21,8 +21,9 @@ authoring. The Paradise addon ships in `addons/paradise/` and is already enabled
 ## Author your first entity
 
 1. Open `scenes/main.tscn`.
-2. Add a `Node3D`, attach the `EntityExport` script (`addons/paradise/Authoring/EntityExport.cs`),
-   and give it a mesh child (or set `ModelPath`).
+2. Add a `Node3D`, attach the `AuthoredEntityNode` script
+   (`addons/paradise/Authoring/AuthoredEntityNode.cs`), then tick `paradise.identity` and
+   `paradise.renderable` and point the latter's `Mesh` at a GLB under `data/`.
 3. Save the scene — the engine-neutral contract is exported to `data/scenes/main.json`
    automatically on every save.
 4. Press **Play .NET** in the toolbar to run the exported scene in the standalone runtime.

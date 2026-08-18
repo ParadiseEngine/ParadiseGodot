@@ -42,6 +42,7 @@ Paradise.Export/            ← class library, NO Godot reference. Unit-testable
 addons/paradise/         ← Godot EditorPlugin (references Core + Godot)
   plugin.cfg, ParadisePlugin.cs ← [Tool] EditorPlugin: menus, signals, automation
   Authoring/EntityExport.cs     ← [Tool] Node3D — the EntityAuthoring equivalent
+                                   (since replaced by AuthoredEntityNode; see docs/authoring.md)
   Export/SceneDataExporter.cs   ← Godot scene walk → LevelData
   Export/MaterialExporter.cs    ← StandardMaterial3D → LevelMaterialData
   Export/ColliderExportUtility.cs

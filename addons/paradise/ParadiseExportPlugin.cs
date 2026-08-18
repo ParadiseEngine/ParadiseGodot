@@ -13,7 +13,7 @@ namespace ParadiseGodot
     public partial class ParadiseExportPlugin : EditorPlugin
     {
         // Scene-root metadata naming a code-driven runtime sample (`--game <name>`) for the "Play .NET"
-        // button — set on scenes that spawn their world in a bridge script rather than EntityExport nodes.
+        // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNode nodes.
         private const string GameMetaKey = "paradise_game";
 
         private const string ExportMenuItem = "Paradise/Export Active Scene";
@@ -61,10 +61,12 @@ namespace ParadiseGodot
 
             // Headless/CI hook: run one or more migration tasks then quit. Any combination of:
             //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
+            //   PARADISE_GENERATE_MODEL_PREFABS=1 generate a prefab per model under data/
             //   PARADISE_CONVERT_DATA_GLBS=1     transcode data/ GLB textures → KTX2 in place
             //   PARADISE_EXPORT_SCENE=res://...   export that scene's data/ contract
             // e.g. godot --headless --editor --path . — tasks run in the above order, then quit.
             if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1" ||
+                OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1" ||
                 OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1" ||
                 !string.IsNullOrEmpty(OS.GetEnvironment("PARADISE_EXPORT_SCENE")))
             {
@@ -128,7 +130,7 @@ namespace ParadiseGodot
                 string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
 
                 // A scene root may declare a code-driven runtime SAMPLE via the `paradise_game` metadata
-                // (e.g. Odyssey): those have no EntityExport nodes, so a --scene launch would render an
+                // (e.g. Odyssey): those have no AuthoredEntityNode nodes, so a --scene launch would render an
                 // empty world. The SAME button reads the metadata and launches the runtime's built-in
                 // sample (`--game <name>`); every other scene falls through to the data-export path — one
                 // launch flow, the scene's own metadata picks the mode (mirrors `paradise_entity_guid`).
@@ -321,6 +323,13 @@ namespace ParadiseGodot
                 if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1")
                 {
                     Pipeline.PrimitiveGlbGenerator.GenerateAll();
+                }
+
+                // Reachable headlessly so it can be TESTED. It was menu-only, which is how it
+                // came to produce prefabs with no renderable component without anything noticing.
+                if (OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1")
+                {
+                    Pipeline.ModelPrefabGenerator.GenerateAll();
                 }
 
                 if (OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")

@@ -5,8 +5,8 @@ using Paradise.Export.Data;
 namespace ParadiseGodot.Authoring
 {
     /// <summary>
-    /// An <see cref="EntityExport"/> that carries components the ENGINE does not define: authored
-    /// data declared by a game with <c>[Authored]</c>.
+    /// An entity node that carries components the ENGINE does not define: authored data declared
+    /// by a game with <c>[Authored]</c>.
     ///
     /// <see cref="AuthoredEntityNode"/> implements this by interpreting the authoring schema,
     /// which is enough for every component a schema can describe. The interface exists so a game

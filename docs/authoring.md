@@ -1,44 +1,42 @@
 # Authoring guide
 
 How scene content in Godot becomes Paradise Engine runtime data. Everything revolves around
-the `EntityExport` node script and the `data/` directory (configurable via
+the `AuthoredEntityNode` script and the `data/` directory (configurable via
 `paradise/export/data_dir`; `res://data` by convention).
 
-## EntityExport
+## The entity node
 
-Attach `addons/paradise/Authoring/EntityExport.cs` to a `Node3D`. Only `EntityExport` nodes
-are exported — a plain instanced GLB renders in the Godot editor but is **invisible to the
-runtime**. Wrap decorative models in an `EntityExport` (`Kind = "Prop"`).
+Attach `addons/paradise/Authoring/AuthoredEntityNode.cs` to a `Node3D`. Only these nodes are
+exported — a plain instanced GLB renders in the Godot editor but is **invisible to the runtime**.
 
-Each entity gets a stable GUID in the `paradise_entity_guid` node metadata (created on first
-export). The GUID — not the node path — is the entity's identity across exports and at
-runtime, where the tools-only script itself is absent.
+Each entity gets a stable GUID in the `paradise_entity_guid` node metadata, minted on first save.
+The GUID — not the node path — is the entity's identity across exports and at runtime, where the
+tools-only script itself is absent.
 
-Key properties:
+**Everything else about the entity is an authored component.** There is no fixed list of
+properties on the node: what you can set is whatever the schema declares, and the node has three
+responsibilities a schema cannot express —
 
-| Property | Meaning |
+| Stays code | Why |
 | --- | --- |
-| `Kind` | Free-form label (`Prop`, `Player`, …) consumed by the runtime's spawn logic |
-| `ActiveOnLoad` | Spawn active or dormant |
-| `ModelPath` | Source GLB override; otherwise the nearest instanced child's scene file is used. Must resolve **under `data/`** or the entity warns and renders nothing in the runtime |
-| `InitialAnimation` / `IdleAnimation` / `WalkAnimation` | Skeletal clip names |
-| `IsAgent`, `MoveSpeed`, `Acceleration` | Navmesh-following agent movement |
-| `IsDynamicBody`, `BodyMass`, `BodyLinearDamping`, `BodyRestitution`, `BodyFriction` | Rigid-body sphere dynamics (pool balls etc.) |
-| `PhysicsColliders` / `InteractionColliders` | Explicit collider node lists; physics vs. trigger split (Area3D exports as trigger) |
-| `Sprite*` | Spritesheet flipbook animation (sheet under `data/sprites/`) |
-| `Particle*` | Deterministic sim-side particle emitter |
+| GUID minting + uniqueness | a schema cannot generate a value, or check it against its siblings |
+| Transform | position/rotation/scale are `Node3D`'s; the exporter reads `GlobalTransform` |
+| Baking references to values | a node path means nothing to the runtime |
 
 The scene **root must keep an identity transform** — a nudged root offsets every exported
 `WorldMatrix`.
 
-## AuthoredEntityNode — components the addon does not define
+## AuthoredEntityNode — every component, engine and game alike
 
-`EntityExport` covers the components the engine ships. For anything else, use
-**`AuthoredEntityNode`** (an `EntityExport` subclass): pick a component from the `Component Id`
-dropdown and that component's fields appear in the inspector, described by a *schema* rather than
-by code in this addon.
+**`AuthoredEntityNode`** is the only entity node. Pick a component from **Add Component** and its
+fields appear, described by a *schema* rather than by code in this addon — untick a component's
+`Enabled` to remove it again. The inspector shows only what the entity actually carries; the menu
+lists what it could — and that is true of the
+engine's own components (`paradise.identity`, `.renderable`, `.collider`, `.rigidbody`, `.agent`,
+`.interactable`, `.sprite-animation`, `.particle-emitter`) exactly as much as of a game's.
 
-That means a game adds an authored component **without touching the addon**. Mark a plain record
+It replaced `EntityExport`, which hardcoded 41 `[Export]` fields. Adding a component now touches
+**nothing in this addon**. Mark a plain record
 with `[Authored]` from `Paradise.Authoring`, and a source generator publishes the schema:
 
 ```csharp
@@ -85,6 +83,18 @@ still what decides whether a value is playable.
 A game that needs authoring behaviour no schema can express can implement
 `ParadiseGodot.Authoring.IAuthoredEntity` on its own node instead; the exporter picks that up
 the same way.
+
+### What is no longer discovered for you
+
+The exporter used to walk an entity's children looking for a GLB to render and a `Sprite3D` to
+animate. **It no longer does.** Dropping a model under an entity exports nothing until you point
+`paradise.renderable`'s `Mesh` at the file, and a sprite needs `paradise.sprite-animation`'s
+source picked. The gain is that what an entity exports is visible in the inspector instead of
+being inferred from its children; the cost is that you have to say so.
+
+Three things remain behaviour rather than data, because no schema can carry them: the entity's
+GUID (minted and kept unique on save), its transform (that is `Node3D`'s, and you still move nodes
+in the viewport), and the baking of a reference into values at export.
 
 ## Export flow
 

@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://cbf3nx0sn7cpw"]
 
-[ext_resource type="Script" uid="uid://cujxyk6bhcl3t" path="res://addons/paradise/Authoring/EntityExport.cs" id="1_entity"]
+[ext_resource type="Script" uid="uid://dle1r2o66thri" path="res://addons/paradise/Authoring/AuthoredEntityNode.cs" id="1_entity"]
 [ext_resource type="Script" uid="uid://ce28xongxoxp5" path="res://runtime/EcsSceneBridge.cs" id="2_ecsbridge"]
 [ext_resource type="PackedScene" uid="uid://dti73rhd7aoo3" path="res://data/Models/knight.glb" id="3_knight"]
 [ext_resource type="PackedScene" uid="uid://djl1gm4qkodbf" path="res://data/Models/elf.glb" id="4_elf"]
@@ -140,8 +140,22 @@ spot_angle = 35.0
 [node name="Ground" type="Node3D" parent="." unique_id=1053927207]
 transform = Transform3D(20, 0, 0, 0, 1, 0, 0, 0, 20, 0, 0, 0)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/cube.glb"
-PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/cube.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/cube.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Static"
+paradise.rigidbody/Mass = 0
+paradise.rigidbody/LinearDamping = 0
+paradise.rigidbody/Restitution = 0.2
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "e63c73bca31b48a7b7411a9eb265ff98"
 
 [node name="StaticBody3D" type="StaticBody3D" parent="Ground" unique_id=972858114 groups=["navigation_source"]]
@@ -156,9 +170,22 @@ surface_material_override/0 = SubResource("mat_ground")
 [node name="Obstacle1" type="Node3D" parent="." unique_id=1827508925]
 transform = Transform3D(2, 0, 0, 0, 3, 0, 0, 0, 2, 5, 2, 0)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/cube.glb"
-BodyRestitution = 0.4
-PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/cube.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/cube.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Static"
+paradise.rigidbody/Mass = 0
+paradise.rigidbody/LinearDamping = 0
+paradise.rigidbody/Restitution = 0.4
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "737ca5eda98447968d5091b08c8cb584"
 
 [node name="StaticBody3D" type="StaticBody3D" parent="Obstacle1" unique_id=1206449134 groups=["navigation_source"]]
@@ -174,9 +201,22 @@ surface_material_override/0 = SubResource("mat_obstacle")
 [node name="Obstacle2" type="Node3D" parent="." unique_id=1536670941]
 transform = Transform3D(2, 0, 0, 0, 3, 0, 0, 0, 2, -4, 2, 3)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/cube.glb"
-BodyRestitution = 0.4
-PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/cube.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/cube.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Static"
+paradise.rigidbody/Mass = 0
+paradise.rigidbody/LinearDamping = 0
+paradise.rigidbody/Restitution = 0.4
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "282f0a34516746a0b6ffb81e8701b19c"
 
 [node name="StaticBody3D" type="StaticBody3D" parent="Obstacle2" unique_id=1833716221 groups=["navigation_source"]]
@@ -192,9 +232,22 @@ surface_material_override/0 = SubResource("mat_obstacle")
 [node name="Crate1" type="Node3D" parent="." unique_id=1015100952]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2, 1, -3)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/cube.glb"
-BodyRestitution = 0.4
-PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/cube.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/cube.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Static"
+paradise.rigidbody/Mass = 0
+paradise.rigidbody/LinearDamping = 0
+paradise.rigidbody/Restitution = 0.4
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "e2832dd371aa4e9380941d38c326f788"
 
 [node name="StaticBody3D" type="StaticBody3D" parent="Crate1" unique_id=983070201 groups=["navigation_source"]]
@@ -210,9 +263,22 @@ surface_material_override/0 = SubResource("mat_crate")
 [node name="Crate2" type="Node3D" parent="." unique_id=353085416]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 1, -2)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/cube.glb"
-BodyRestitution = 0.4
-PhysicsColliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("StaticBody3D/CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/cube.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/cube.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Static"
+paradise.rigidbody/Mass = 0
+paradise.rigidbody/LinearDamping = 0
+paradise.rigidbody/Restitution = 0.4
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "17907cd3ce764670ba6ede16a02a64af"
 
 [node name="StaticBody3D" type="StaticBody3D" parent="Crate2" unique_id=1060627265 groups=["navigation_source"]]
@@ -228,11 +294,22 @@ surface_material_override/0 = SubResource("mat_crate")
 [node name="CueBall" type="Node3D" parent="." groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.0, 0.85, 7.5)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "47bc0d24e235478181b9de295ec80868"
 
 [node name="Model" parent="CueBall" instance=ExtResource("15_ball")]
@@ -246,11 +323,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="PoolBall1" type="Node3D" parent="." groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.0, 0.85, 6.0)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "19ef0209bdfb41d7a04521ea864e469b"
 
 [node name="Model" parent="PoolBall1" instance=ExtResource("15_ball")]
@@ -264,11 +352,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="PoolBall2" type="Node3D" parent="." groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.38, 0.85, 5.35)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "57c9a4cb6111485da4fbb91fa8437547"
 
 [node name="Model" parent="PoolBall2" instance=ExtResource("15_ball")]
@@ -282,11 +381,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="PoolBall3" type="Node3D" parent="." groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -2.62, 0.85, 5.35)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "82881a09c2ab415ab0826cc9d0757d24"
 
 [node name="Model" parent="PoolBall3" instance=ExtResource("15_ball")]
@@ -300,11 +410,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="PoolBall4" type="Node3D" parent="." groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -3.76, 0.85, 4.7)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "20b40cedb99e418384a1cdb05fe72488"
 
 [node name="Model" parent="PoolBall4" instance=ExtResource("15_ball")]
@@ -318,11 +439,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="PoolBall5" type="Node3D" parent="." groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -2.24, 0.85, 4.7)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "8d4b56f566a24de08ae0ff58dbeb0207"
 
 [node name="Model" parent="PoolBall5" instance=ExtResource("15_ball")]
@@ -336,11 +468,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="Ball1" type="Node3D" parent="." unique_id=289205107 groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 1, 0.85, 2)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "5a1c9f02b7d34e6f8a20c3d4e5f60711"
 
 [node name="Model" parent="Ball1" unique_id=1719142054 instance=ExtResource("15_ball")]
@@ -354,11 +497,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="Ball2" type="Node3D" parent="." unique_id=1635342644 groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, -1.5, 0.85, 1)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "6b2da013c8e45f709b31d4e5f6071822"
 
 [node name="Model" parent="Ball2" unique_id=1108983375 instance=ExtResource("15_ball")]
@@ -372,11 +526,22 @@ shape = SubResource("shape_unit_sphere")
 [node name="Ball3" type="Node3D" parent="." unique_id=1593599410 groups=["paradise_ball"]]
 transform = Transform3D(0.7, 0, 0, 0, 0.7, 0, 0, 0, 0.7, 0.5, 0.85, -1.5)
 script = ExtResource("1_entity")
-ModelPath = "res://data/primitives/sphere_ball.glb"
-IsDynamicBody = true
-BodyLinearDamping = 1.5
-BodyRestitution = 0.6
-PhysicsColliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/sphere_ball.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/sphere_ball.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Dynamic"
+paradise.rigidbody/Mass = 1
+paradise.rigidbody/LinearDamping = 1.5
+paradise.rigidbody/Restitution = 0.6
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "216920dcc6454fedba74860d1c64c3d0"
 
 [node name="Model" parent="Ball3" unique_id=293383467 instance=ExtResource("15_ball")]
@@ -390,11 +555,27 @@ shape = SubResource("shape_unit_sphere")
 [node name="Guard" type="Node3D" parent="." unique_id=605771265 groups=["paradise_player"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, 4)
 script = ExtResource("1_entity")
-Kind = "Character"
-ModelPath = "res://data/primitives/capsule.glb"
-PhysicsColliders = Array[NodePath]([NodePath("CharacterBody3D/CollisionShape3D")])
-IsAgent = true
-MoveSpeed = 7.0
+paradise.agent/Enabled = true
+paradise.agent/MoveSpeed = 7
+paradise.agent/Acceleration = 40
+paradise.agent/IdleClip = "Idle"
+paradise.agent/WalkClip = "Walk"
+paradise.collider/Enabled = true
+paradise.collider/Colliders = Array[NodePath]([NodePath("CharacterBody3D/CollisionShape3D")])
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Character"
+paradise.identity/IsActive = true
+paradise.identity/Prefab = "res://data/primitives/capsule.glb"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/primitives/capsule.glb"
+paradise.rigidbody/Enabled = true
+paradise.rigidbody/BodyType = "Kinematic"
+paradise.rigidbody/Mass = 0
+paradise.rigidbody/LinearDamping = 0
+paradise.rigidbody/Restitution = 0.2
+paradise.rigidbody/Friction = 0.5
+paradise.rigidbody/Layer = 0
+paradise.rigidbody/LayerName = ""
 metadata/paradise_entity_guid = "c1fd4aa5467a487586e76b382a2ef39c"
 
 [node name="CharacterBody3D" type="CharacterBody3D" parent="Guard" unique_id=1866525357]
@@ -411,7 +592,12 @@ surface_material_override/0 = SubResource("mat_agent")
 [node name="Knight" type="Node3D" parent="Characters" unique_id=943055341]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 0.5, 2)
 script = ExtResource("1_entity")
-InitialAnimation = "Idle"
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/InitialAnimation = "Idle"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/knight.glb"
 metadata/paradise_entity_guid = "323184d8cb14485aad21c68ffdb1f68c"
 
 [node name="Model" parent="Characters/Knight" unique_id=679609866 instance=ExtResource("3_knight")]
@@ -422,7 +608,12 @@ autoplay = "Idle"
 [node name="Elf" type="Node3D" parent="Characters" unique_id=1799224281]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.5, 5)
 script = ExtResource("1_entity")
-InitialAnimation = "Idle"
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/InitialAnimation = "Idle"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/elf.glb"
 metadata/paradise_entity_guid = "7d009fccdf47466a8f6e98efe2880f21"
 
 [node name="Model" parent="Characters/Elf" unique_id=1538026161 instance=ExtResource("4_elf")]
@@ -433,8 +624,12 @@ autoplay = "Idle"
 [node name="Heister" type="Node3D" parent="Characters" unique_id=1912734055]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5, 0.5, 7)
 script = ExtResource("1_entity")
-Kind = "Character"
-InitialAnimation = "Idle"
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Character"
+paradise.identity/IsActive = true
+paradise.identity/InitialAnimation = "Idle"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/player.glb"
 metadata/paradise_entity_guid = "fa2821f596bb4ba797504f02ac0a87f4"
 
 [node name="Model" parent="Characters/Heister" unique_id=1912734056 instance=ExtResource("15_heister")]
@@ -445,7 +640,12 @@ autoplay = "Idle"
 [node name="Mage" type="Node3D" parent="Characters" unique_id=2115633995]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -7, 0.5, -2)
 script = ExtResource("1_entity")
-InitialAnimation = "Idle"
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/InitialAnimation = "Idle"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/mage.glb"
 metadata/paradise_entity_guid = "adc91a6b037c4c8e9a384101c168f97c"
 
 [node name="Model" parent="Characters/Mage" unique_id=1475946009 instance=ExtResource("5_mage")]
@@ -456,7 +656,12 @@ autoplay = "Idle"
 [node name="Nain" type="Node3D" parent="Characters" unique_id=1235929606]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0.5, 1)
 script = ExtResource("1_entity")
-InitialAnimation = "Idle"
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.identity/InitialAnimation = "Idle"
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/nain.glb"
 metadata/paradise_entity_guid = "c66e0c81978146728567ac529e39c44d"
 
 [node name="Model" parent="Characters/Nain" unique_id=2120138105 instance=ExtResource("6_nain")]
@@ -467,6 +672,11 @@ autoplay = "Idle"
 [node name="Dragon" type="Node3D" parent="Characters" unique_id=1874550291]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, -8)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/dragon.glb"
 metadata/paradise_entity_guid = "cd895c1ae7e443f4abe1790d09306d64"
 
 [node name="Model" parent="Characters/Dragon" unique_id=314244289 instance=ExtResource("7_dragon")]
@@ -476,6 +686,11 @@ metadata/paradise_entity_guid = "cd895c1ae7e443f4abe1790d09306d64"
 [node name="WaterBottle" type="Node3D" parent="Props" unique_id=1437811356]
 transform = Transform3D(20, 0, 0, 0, 20, 0, 0, 0, 20, 2.734051, 0.9, 3.8937478)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/waterbottle.glb"
 metadata/paradise_entity_guid = "9b68c5e6c58d454db3bc43f9b5a6cae2"
 
 [node name="Model" parent="Props/WaterBottle" unique_id=2061877778 instance=ExtResource("14_bottle")]
@@ -667,6 +882,11 @@ omni_range = 3.0
 [node name="Plant1" type="Node3D" parent="Plants" unique_id=1619968921]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.5, -6)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/plants/plant_001.glb"
 metadata/paradise_entity_guid = "26ce2ba190fa4ba3bcb88e0414004406"
 
 [node name="Model" parent="Plants/Plant1" unique_id=524874694 instance=ExtResource("8_plant1")]
@@ -674,6 +894,11 @@ metadata/paradise_entity_guid = "26ce2ba190fa4ba3bcb88e0414004406"
 [node name="Plant5" type="Node3D" parent="Plants" unique_id=582567094]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.5, -6)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/plants/plant_005.glb"
 metadata/paradise_entity_guid = "a0c9d2d4559140b4a47db574f3aa910c"
 
 [node name="Model" parent="Plants/Plant5" unique_id=1443094720 instance=ExtResource("9_plant5")]
@@ -681,6 +906,11 @@ metadata/paradise_entity_guid = "a0c9d2d4559140b4a47db574f3aa910c"
 [node name="Plant10" type="Node3D" parent="Plants" unique_id=990960089]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -8, 0.5, 7)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/plants/plant_010.glb"
 metadata/paradise_entity_guid = "035b8d5c9f3e4e9f81d8294ee9d3adce"
 
 [node name="Model" parent="Plants/Plant10" unique_id=835764530 instance=ExtResource("10_plant10")]
@@ -688,6 +918,11 @@ metadata/paradise_entity_guid = "035b8d5c9f3e4e9f81d8294ee9d3adce"
 [node name="Plant15" type="Node3D" parent="Plants" unique_id=1091696362]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 8, 0.5, 8)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/plants/plant_015.glb"
 metadata/paradise_entity_guid = "9fcd41001fa44f66bc06079ee6eb72ec"
 
 [node name="Model" parent="Plants/Plant15" unique_id=742499622 instance=ExtResource("11_plant15")]
@@ -695,6 +930,11 @@ metadata/paradise_entity_guid = "9fcd41001fa44f66bc06079ee6eb72ec"
 [node name="Plant20" type="Node3D" parent="Plants" unique_id=604987755]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3, 0.5, 7)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/plants/plant_020.glb"
 metadata/paradise_entity_guid = "a874cb3d412a4daeb54bee35a231cd9e"
 
 [node name="Model" parent="Plants/Plant20" unique_id=308687259 instance=ExtResource("12_plant20")]
@@ -702,6 +942,11 @@ metadata/paradise_entity_guid = "a874cb3d412a4daeb54bee35a231cd9e"
 [node name="Plant" type="Node3D" parent="Plants" unique_id=1744310866]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3, 0.5, 8)
 script = ExtResource("1_entity")
+paradise.identity/Enabled = true
+paradise.identity/Kind = "Prop"
+paradise.identity/IsActive = true
+paradise.renderable/Enabled = true
+paradise.renderable/Mesh = "res://data/Models/plants/plant.glb"
 metadata/paradise_entity_guid = "8361afe8c9824d7b8fad4193b946e152"
 
 [node name="Model" parent="Plants/Plant" unique_id=1395939252 instance=ExtResource("13_plant")]

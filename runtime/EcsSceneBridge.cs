@@ -25,7 +25,7 @@ namespace ParadiseGodot.Runtime
     /// aims and strikes the cue ball; pointer events are queued to the sim thread.
     ///
     /// Entities are identified by the runtime-safe <c>paradise_entity_guid</c> node metadata (the editor-only
-    /// EntityExport script is absent at runtime). Right-handed throughout.
+    /// authoring script is absent at runtime). Right-handed throughout.
     /// Node writes happen only on Godot's main thread (<c>_Process</c>); the sim never touches Godot.
     /// </summary>
     public partial class EcsSceneBridge : Node3D
@@ -117,8 +117,8 @@ namespace ParadiseGodot.Runtime
 
                 if (node.IsInGroup(BallGroup))
                 {
-                    // Feed our sim the AUTHORED physics params (EntityExport Body* fields, read
-                    // dynamically since EntityExport is a tools-only type) exactly as the .NET host
+                    // Feed our sim the AUTHORED physics params (paradise.rigidbody fields, read
+                    // dynamically since the authoring node is a tools-only type) exactly as the .NET host
                     // does via SceneAssembler: same mass/damping/restitution + global tuning + the
                     // pocket set → identical roll/bounce AND pocket capture in both hosts.
                     (float mass, float damping, float restitution) = ReadBallBody(node);
@@ -127,7 +127,7 @@ namespace ParadiseGodot.Runtime
                     PocketConfig poolBall = PoolRack.BuildBall(pockets, isCue, pos, trayIndex++);
                     Entity ball = _runner.SpawnBall(pos, rot, ReadBallRadius(node), mass,
                         damping, restitution, staticRestitution, poolBall, tuning,
-                        friction: GetFloat(node, "BodyFriction", 0.3f));
+                        friction: GetFloat(node, "paradise.rigidbody/Friction", 0.3f));
                     _agents.Add((node, ball, scale)); // dynamic: interpolated like the player
                     _poolBallEntities.Add(ball);
                     _ballCount++;
@@ -144,14 +144,17 @@ namespace ParadiseGodot.Runtime
                     if (FirstSprite3D(node) is { } sprite)
                     {
                         _sprites.Add((sprite, _runner.SpawnSpriteAnimation(pos, rot,
-                            ReadFloat(node, "SpriteFps", 10f),
-                            ReadInt(node, "SpriteFrameCount", 0) is var authored && authored > 0
+                            ReadFloat(node, "paradise.sprite-animation/Fps", 10f),
+                            ReadInt(node, "paradise.sprite-animation/FrameCount", 0) is var authored && authored > 0
                                 ? authored
                                 : Math.Max(1, sprite.Hframes * sprite.Vframes),
-                            ReadBool(node, "SpriteLoop", true))));
+                            ReadBool(node, "paradise.sprite-animation/Loop", true))));
                         special = true;
                     }
-                    if (ReadInt(node, "ParticleKind", 0) > 0)
+                    // PRESENCE of the component is what makes an emitter now — there is no
+                    // "kind = None" sentinel any more, because you either tick the component or
+                    // you do not.
+                    if (ReadBool(node, "paradise.particle-emitter/Enabled", false))
                     {
                         SetupParticleEmitter(node, pos, rot);
                         special = true;
@@ -468,27 +471,30 @@ namespace ParadiseGodot.Runtime
         /// <summary>Spawn the emitter's sim entity and build its render half: a MultiMesh of
         /// unit quads (Sprite kind, particle-billboarded with flipbook animation) or unit boxes
         /// (Voxel kind), refilled from snapshot particle pools in <see cref="_Process"/>.
-        /// Presentation config is read from the authored EntityExport properties (present in
+        /// Presentation config is read from the authored component properties (present in
         /// editor play mode; exported builds fall back to defaults, like MoveSpeed).</summary>
         private void SetupParticleEmitter(Node3D node, SN.Vector3 pos, SN.Quaternion rot)
         {
-            bool spriteKind = ReadInt(node, "ParticleKind", 0) != 2;
-            int capacity = Math.Clamp(ReadInt(node, "ParticleMaxCount", 64), 1, ParticleState.MaxParticles);
-            int columns = Math.Max(1, ReadInt(node, "ParticleSheetColumns", 1));
-            int rows = Math.Max(1, ReadInt(node, "ParticleSheetRows", 1));
-            int authoredFrames = ReadInt(node, "ParticleSheetFrameCount", 0);
+            // The kind is an enum authored BY NAME, matching how the contract serializes it, so
+            // there is no int to compare against.
+            bool spriteKind = ReadString(node, "paradise.particle-emitter/Kind", "Sprite") != "Voxel";
+            int capacity = Math.Clamp(
+                ReadInt(node, "paradise.particle-emitter/MaxParticles", 64), 1, ParticleState.MaxParticles);
+            int columns = Math.Max(1, ReadInt(node, "paradise.particle-emitter/Columns", 1));
+            int rows = Math.Max(1, ReadInt(node, "paradise.particle-emitter/Rows", 1));
+            int authoredFrames = ReadInt(node, "paradise.particle-emitter/FrameCount", 0);
             int frameCount = Math.Clamp(authoredFrames <= 0 ? columns * rows : authoredFrames, 1, columns * rows);
-            Color color = ReadColor(node, "ParticleColor", Colors.White);
+            Color color = ReadColor(node, "paradise.particle-emitter/Color", Colors.White);
 
             Entity entity = _runner!.SpawnParticleEmitter(pos, rot, new ParticleConfig(
-                ReadFloat(node, "ParticleEmitRate", 8f),
-                ReadFloat(node, "ParticleLifetime", 1.5f),
-                ReadFloat(node, "ParticleSpeed", 2f),
-                Mathf.DegToRad(ReadFloat(node, "ParticleSpreadDegrees", 25f)),
-                ReadFloat(node, "ParticleGravity", -9.8f),
-                ReadFloat(node, "ParticleDrag", 0f),
+                ReadFloat(node, "paradise.particle-emitter/EmitRate", 8f),
+                ReadFloat(node, "paradise.particle-emitter/LifetimeSeconds", 1.5f),
+                ReadFloat(node, "paradise.particle-emitter/InitialSpeed", 2f),
+                Mathf.DegToRad(ReadFloat(node, "paradise.particle-emitter/SpreadDegrees", 25f)),
+                ReadFloat(node, "paradise.particle-emitter/Gravity", -9.8f),
+                ReadFloat(node, "paradise.particle-emitter/Drag", 0f),
                 capacity),
-                unchecked((uint)ReadInt(node, "ParticleSeed", 1)));
+                unchecked((uint)ReadInt(node, "paradise.particle-emitter/Seed", 1)));
 
             Material material;
             PrimitiveMesh mesh;
@@ -509,7 +515,7 @@ namespace ParadiseGodot.Runtime
                     Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
                     AlbedoColor = color,
                 };
-                string sheet = ReadString(node, "ParticleSheet", "");
+                string sheet = ReadString(node, "paradise.particle-emitter/Sheet", "");
                 if (!string.IsNullOrEmpty(sheet) && ResourceLoader.Load<Texture2D>(sheet) is { } texture)
                 {
                     standard.AlbedoTexture = texture;
@@ -547,10 +553,10 @@ namespace ParadiseGodot.Runtime
                 Entity = entity,
                 Capacity = capacity,
                 SpriteKind = spriteKind,
-                StartSize = ReadFloat(node, "ParticleStartSize", 0.25f),
-                EndSize = ReadFloat(node, "ParticleEndSize", 0.25f),
+                StartSize = ReadFloat(node, "paradise.particle-emitter/StartSize", 0.25f),
+                EndSize = ReadFloat(node, "paradise.particle-emitter/EndSize", 0.25f),
                 FrameCount = frameCount,
-                Fps = ReadFloat(node, "ParticleSheetFps", 0f),
+                Fps = ReadFloat(node, "paradise.particle-emitter/Fps", 0f),
             });
         }
 
@@ -646,8 +652,8 @@ namespace ParadiseGodot.Runtime
             return null;
         }
 
-        // Authored EntityExport properties, read dynamically like ReadAuthoredMoveSpeed
-        // (EntityExport is TOOLS-only; absent property → fallback).
+        // Authored properties, read dynamically: the authoring node is TOOLS-only, so at play
+        // time in an exported build the properties are absent and the fallback applies.
         private static float ReadFloat(Node3D node, string property, float fallback)
         {
             Variant value = node.Get(property);
@@ -799,13 +805,28 @@ namespace ParadiseGodot.Runtime
             return BallRadius;
         }
 
-        /// <summary>Authored dynamic-ball physics (EntityExport Body* fields, read dynamically).
-        /// Fallbacks match the EntityExport <c>[Export]</c> defaults, so an unset field behaves
-        /// exactly as the exporter would write it. Mirrors the .NET host's Rigidbody read.</summary>
+        /// <summary>
+        /// Authored dynamic-ball physics, read dynamically off the authoring node.
+        ///
+        /// The names are the AUTHORED PROPERTY PATHS, not C# members: the authoring node builds its
+        /// inspector from the schema, so a rigidbody's mass lives at
+        /// <c>paradise.rigidbody/Mass</c>. They used to be EntityExport's Body* exports, and the
+        /// rename is silent — <c>Get</c> on a property that does not exist returns nil and every
+        /// ball quietly falls back to defaults, which is exactly the "starved input" failure this
+        /// method exists to prevent.
+        ///
+        /// Fallbacks match the record's own defaults, so an unset field behaves as the exporter
+        /// would write it. Mirrors the .NET host's Rigidbody read.
+        /// </summary>
         private (float Mass, float Damping, float Restitution) ReadBallBody(Node3D ballNode) => (
-            MathF.Max(0.01f, GetFloat(ballNode, "BodyMass", BallMass)),
-            GetFloat(ballNode, "BodyLinearDamping", 0f),
-            GetFloat(ballNode, "BodyRestitution", 0.2f));
+            MathF.Max(0.01f, GetFloat(ballNode, RigidbodyMass, BallMass)),
+            GetFloat(ballNode, RigidbodyDamping, 0f),
+            GetFloat(ballNode, RigidbodyRestitution, 0.2f));
+
+        // Authored property paths on AuthoredEntityNode: "<component id>/<field>".
+        private const string RigidbodyMass = "paradise.rigidbody/Mass";
+        private const string RigidbodyDamping = "paradise.rigidbody/LinearDamping";
+        private const string RigidbodyRestitution = "paradise.rigidbody/Restitution";
 
         /// <summary>Global solver tuning from <c>paradise/physics/*</c> — the same project settings
         /// the .NET host exports. Missing keys fall back to <see cref="PhysicsTuning.Default"/>.</summary>
@@ -824,7 +845,7 @@ namespace ParadiseGodot.Runtime
         /// <summary>The bounciest Obstacle-layer static surface (the cushions/frames), else the
         /// fallback. Shares the max/fallback reduction with the .NET host via
         /// <see cref="StaticSurfaces.BounceRestitution"/>; this only gathers the surfaces from live
-        /// nodes (restitution is authored on the body's owning EntityExport).</summary>
+        /// nodes (restitution is authored on the body's owning entity).</summary>
         private static float ReadStaticSurfaceRestitution(Node root, float fallback) =>
             StaticSurfaces.BounceRestitution(GatherStaticSurfaces(root), fallback);
 
@@ -835,7 +856,7 @@ namespace ParadiseGodot.Runtime
                 if (body.GetParent() is Node owner)
                 {
                     yield return new StaticSurfaces.Surface(
-                        GetFloat(owner, "BodyRestitution", 0f), (uint)body.CollisionLayer);
+                        GetFloat(owner, RigidbodyRestitution, 0f), (uint)body.CollisionLayer);
                 }
             }
         }

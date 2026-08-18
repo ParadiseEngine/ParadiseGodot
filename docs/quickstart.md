@@ -41,8 +41,10 @@ executable or `.csproj`.
 
 ## 5. Author and run an entity
 
-1. In your scene, add a **Node3D**, attach `addons/paradise/Authoring/EntityExport.cs`.
-2. Give it geometry: instance a GLB under `data/Models/` as a child (or set `ModelPath`),
+1. In your scene, add a **Node3D**, attach `addons/paradise/Authoring/AuthoredEntityNode.cs`,
+   and tick the components it should carry (`paradise.identity` and `paradise.renderable` for
+   a plain prop).
+2. Give it geometry: tick `paradise.renderable` and point `Mesh` at a GLB under `data/Models/`,
    or leave it to the primitive pipeline.
 3. **Save the scene.** The contract is exported automatically:
    `data/scenes/<SceneName>.json` (+ materials, navmesh when present).
