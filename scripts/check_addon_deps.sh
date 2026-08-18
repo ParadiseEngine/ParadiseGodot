@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # Dependency allowlist for the publishable addon: addons/paradise C# sources may only
-# reference Godot, the BCL, Paradise.Export, and themselves (ParadiseGodot namespace).
-# Anything else (Paradise.Sample.*, Paradise.ECS, ...) means sample/game code leaked into
-# the addon and the released zip would not compile in a user's project.
+# reference Godot, the BCL, Paradise.Export, Paradise.Authoring, and themselves (ParadiseGodot
+# namespace). Anything else (Paradise.Sample.*, Paradise.ECS, ...) means sample/game code leaked
+# into the addon and the released zip would not compile in a user's project.
+#
+# Paradise.Authoring is allowed because Paradise.Export DEPENDS on it, so it is already present in
+# any project that can use this addon at all — it adds nothing to what a user must install. It is
+# a separate package only so that a game's simulation assembly can carry [Authored] attributes
+# without inheriting the export core's DotRecast and Blender/KTX dependencies.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-allowed='^using ([A-Za-z0-9_.]+ = )?(System|Godot|Paradise\.Export|ParadiseGodot)([.;]|$)'
+allowed='^using ([A-Za-z0-9_.]+ = )?(System|Godot|Paradise\.Export|Paradise\.Authoring|ParadiseGodot)([.;]|$)'
 violations=0
 
 while IFS= read -r file; do
