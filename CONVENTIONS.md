@@ -72,8 +72,9 @@ that System.Numerics' native row-vector `CreateTranslation` would produce.
 ## Entity GUID identity (Phase 2)
 
 The per-placement entity GUID is stored in Godot node **metadata** (`paradise_entity_guid`,
-persisted in the `.tscn`). `EntityExport` mints it and enforces uniqueness among `EntityExport`
-nodes in the edited scene on `NOTIFICATION_EDITOR_PRE_SAVE`.
+persisted in the `.tscn`). `AuthoredEntityNode` mints it and enforces uniqueness among entity
+nodes in the edited scene on `NOTIFICATION_EDITOR_PRE_SAVE`. This is one of the three things that
+stay real code rather than becoming authored data — a schema cannot mint anything.
 
 ## Materials (Phase 3)
 
@@ -108,11 +109,11 @@ material under `data/materials/`. Mapping:
   scan). Procedural textures (GradientTexture2D…) do NOT export — author file-based textures
   for anything that must survive the contract.
 - **Everything is an entity** — static scenery (floor, walls, obstacles) is authored with
-  `EntityExport` like every prop (a `Node3D` root wrapping the `StaticBody3D` that keeps the
+  `AuthoredEntityNode` like every prop (a `Node3D` root wrapping the `StaticBody3D` that keeps the
   `navigation_source` group), so ONE path covers visuals (`Renderable.Mesh` + dedupe),
   collision (`Collider` component) and placement (`WorldMatrix`); the CollisionWorld rebuilds
-  from entity colliders alone. `Rigidbody.BodyType` includes `Dynamic` (authored via
-  `EntityExport.IsDynamicBody` + `BodyMass`) — the runtime spawns those as simulated balls.
+  from entity colliders alone. `Rigidbody.BodyType` includes `Dynamic` (authored on the
+  `paradise.rigidbody` component) — the runtime spawns those as simulated balls.
 - **Material naming** — sub-resource materials take their field name from the sub-resource id
   (`materials/mat_ball1.json`), not the scene filename (which used to collide).
 - **Headless export** — `PARADISE_EXPORT_SCENE=res://scenes/x.tscn godot --headless --editor
@@ -139,9 +140,10 @@ material under `data/materials/`. Mapping:
   import hook) encodes a KTX2 SIDECAR next to the source; Godot keeps rendering the source
   image, only the .NET runtime reads the sidecar. Frames are row-major, left-to-right then
   top-to-bottom.
-- **Authoring** — a `Sprite3D` child under an `EntityExport` exports the SpriteAnimation
-  component (grid/size/billboard from the node, clock from the `Sprite Animation` inspector
-  group); `Particle Emitter` group fields with `ParticleKind != None` export the emitter.
+- **Authoring** — tick `paradise.sprite-animation` and point it at a `Sprite3D`: grid, sheet and
+  quad size are read off that node, the clock is authored. It is no longer discovered from the
+  children. Likewise `paradise.particle-emitter` — the component's PRESENCE is what exports an
+  emitter, so the old "kind = None means off" sentinel is gone.
 - **Render halves** — Godot: the bridge writes `Sprite3D.Frame` and refills one
   `MultiMeshInstance3D` per emitter (billboard-particles material, flipbook phase in
   `INSTANCE_CUSTOM.z`; alpha BLEND — the engine shader has no cutout path). .NET: dynamic
@@ -335,8 +337,8 @@ Identity maps cleanly onto the contract:
 - **Template export** — each referenced prefab is written once to `data/prefabs/<name>.json`
   (`PrefabTemplateData`). Template entities are **shallow** (id / kind / transform / renderable);
   the authoritative per-placement component data comes from the scene export.
-- **`ModelPrefabGenerator`** (`Paradise/Generate Model Prefabs`) — generates a clean `EntityExport`
-  root with the GLB/glTF instanced as a child. Idempotent: existing prefabs are left untouched,
+- **`ModelPrefabGenerator`** (`Paradise/Generate Model Prefabs`) — generates a clean
+  `AuthoredEntityNode` root with the GLB/glTF instanced as a child. Idempotent: existing prefabs are left untouched,
   preserving hand-authored roots (the Godot equivalent of Unity's GUID-preserving regenerate).
 
 ### Override granularity — explicit decision (resolves the semantic gap)

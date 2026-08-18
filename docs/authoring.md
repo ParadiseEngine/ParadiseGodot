@@ -1,32 +1,27 @@
 # Authoring guide
 
 How scene content in Godot becomes Paradise Engine runtime data. Everything revolves around
-the `EntityExport` node script and the `data/` directory (configurable via
+the `AuthoredEntityNode` script and the `data/` directory (configurable via
 `paradise/export/data_dir`; `res://data` by convention).
 
-## EntityExport
+## The entity node
 
-Attach `addons/paradise/Authoring/EntityExport.cs` to a `Node3D`. Only `EntityExport` nodes
-are exported — a plain instanced GLB renders in the Godot editor but is **invisible to the
-runtime**. Wrap decorative models in an `EntityExport` (`Kind = "Prop"`).
+Attach `addons/paradise/Authoring/AuthoredEntityNode.cs` to a `Node3D`. Only these nodes are
+exported — a plain instanced GLB renders in the Godot editor but is **invisible to the runtime**.
 
-Each entity gets a stable GUID in the `paradise_entity_guid` node metadata (created on first
-export). The GUID — not the node path — is the entity's identity across exports and at
-runtime, where the tools-only script itself is absent.
+Each entity gets a stable GUID in the `paradise_entity_guid` node metadata, minted on first save.
+The GUID — not the node path — is the entity's identity across exports and at runtime, where the
+tools-only script itself is absent.
 
-Key properties:
+**Everything else about the entity is an authored component.** There is no fixed list of
+properties on the node: what you can set is whatever the schema declares, and the node has three
+responsibilities a schema cannot express —
 
-| Property | Meaning |
+| Stays code | Why |
 | --- | --- |
-| `Kind` | Free-form label (`Prop`, `Player`, …) consumed by the runtime's spawn logic |
-| `ActiveOnLoad` | Spawn active or dormant |
-| `ModelPath` | Source GLB override; otherwise the nearest instanced child's scene file is used. Must resolve **under `data/`** or the entity warns and renders nothing in the runtime |
-| `InitialAnimation` / `IdleAnimation` / `WalkAnimation` | Skeletal clip names |
-| `IsAgent`, `MoveSpeed`, `Acceleration` | Navmesh-following agent movement |
-| `IsDynamicBody`, `BodyMass`, `BodyLinearDamping`, `BodyRestitution`, `BodyFriction` | Rigid-body sphere dynamics (pool balls etc.) |
-| `PhysicsColliders` / `InteractionColliders` | Explicit collider node lists; physics vs. trigger split (Area3D exports as trigger) |
-| `Sprite*` | Spritesheet flipbook animation (sheet under `data/sprites/`) |
-| `Particle*` | Deterministic sim-side particle emitter |
+| GUID minting + uniqueness | a schema cannot generate a value, or check it against its siblings |
+| Transform | position/rotation/scale are `Node3D`'s; the exporter reads `GlobalTransform` |
+| Baking references to values | a node path means nothing to the runtime |
 
 The scene **root must keep an identity transform** — a nudged root offsets every exported
 `WorldMatrix`.
