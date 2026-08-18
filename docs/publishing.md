@@ -4,48 +4,109 @@
 
 | Artifact | Trigger | Workflow |
 | --- | --- | --- |
-| `paradise-addon-vX.Y.Z.zip` + `paradise-starter-vX.Y.Z.zip` (GitHub release) | tag `addon-vX.Y.Z` | `addon-release.yml` |
-| Godot Asset Library version update | same tag (optional step) | `addon-release.yml` |
+| `Paradise.Godot.Editor` (the addon) on nuget.org | tag `addon-vX.Y.Z` | `publish-addon-package.yml` |
 | `Paradise.Sample.Runtime` dotnet tool (`paradise-runtime`) on nuget.org | tag `runtime-vX.Y.Z` | `publish-runtime-tool.yml` |
 | Engine packages (`Paradise.*`) | `v*` tag **in the engine repo** | engine `publish-nuget.yml` |
 
+The addon zip and the Godot Asset Library listing were retired when the addon became a package.
+They cannot be brought back as they were: the addon's res:// half is now two shim scripts that
+derive from types in `Paradise.Godot.Editor.dll`, so a zip of `addons/paradise/` does not compile
+on its own. A standalone zip would have to regenerate the full source, which is exactly the
+duplication packaging removed.
+
+## How the addon is laid out
+
+Two halves, and the split is not arbitrary:
+
+- **`Paradise.Godot.Editor/`** — the package project. Everything Godot never names by path, which
+  is all but two files. Ships as `lib/`.
+- **`addons/paradise/`** — the res:// half: `plugin.cfg` and the two shim scripts. It exists
+  because Godot serializes a script binding as a res:// **path plus uid**, so a type that lives
+  only in an assembly cannot be attached to a node at all. The package carries copies under
+  `addon/` and its `build/` targets place them into every consuming repo.
+
+`.cs.uid` files are **minted per project by the Godot editor and committed by that project**. The
+package never ships one and the targets never writes, deletes, or touches one — rewriting a uid
+would silently detach every node in every scene that references the script. `check_addon_deps.sh`
+and the package-contents gate in `publish-addon-package.yml` both enforce this.
+
 ## Cutting an addon release
 
-1. Bump `version=` in `addons/paradise/plugin.cfg` (the release workflow fails on mismatch)
-   and `ProjectSetup.SupportedExportVersion` if the targeted `Paradise.Export` changed.
-   Policy: **addon minor tracks the Paradise.Export/contract minor** it targets.
-2. Merge to `main` with green CI (the export smoke is the addon's real gate).
+1. Bump the version in **both** places, to the same value:
+   - `Paradise.Godot.Editor/AddonVersion.props` (`ParadiseGodotAddonPackageVersion`) — the package
+     version and the marker consumers compare against.
+   - `Paradise.Godot.Editor/addon/plugin.cfg` (`version=`) — what Godot displays.
+
+   Also bump `ProjectSetup.SupportedExportVersion` if the targeted `Paradise.Export` changed.
+   Policy: **addon minor tracks the `Paradise.Export`/contract minor** it targets.
+
+   `publish-addon-package.yml` refuses to publish if the tag and those two disagree. That guard is
+   not cosmetic: a marker that never matches the installed package makes the payload
+   re-materialize on every build in every consuming repo.
+
+2. Merge to `main` with green CI. Two jobs are the real gate — `export-smoke` (a real headless
+   Godot editor runs the plugin and exports a scene) and `addon-nuget` (packs, checks the package
+   actually contains its payload and targets, and runs the materialization tests).
+
 3. `git tag addon-vX.Y.Z && git push origin addon-vX.Y.Z`.
+
+4. Consuming game repos pick it up by bumping their `Paradise.Godot.Editor` PackageReference. The
+   next build rewrites their `addons/paradise/` payload and bumps their marker; their `.uid` files
+   are left alone. Review that diff like any other.
+
+## Local checks before tagging
+
+```bash
+bash scripts/check_addon_deps.sh
+bash Paradise.Godot.Editor/tests/materialize-tests.sh
+# Packing locally needs the engine-source override OFF, or the package records the local
+# source build (0.1.1) instead of the real Paradise.Export version:
+dotnet pack Paradise.Godot.Editor/Paradise.Godot.Editor.csproj -c Release -o /tmp/nupkg \
+  -p:ParadiseUseEngineSource=false
+```
+
+CI never sees that override — `Directory.Build.targets` lives outside every repo — so CI packs
+correctly without the flag.
+
+## Onboarding a new consuming repo
+
+```xml
+<PackageReference Include="Paradise.Godot.Editor" Version="X.Y.Z" />
+```
+
+Build once. The targets writes `addons/paradise/` and Godot mints the `.uid` files on the next
+import; commit both. Nothing else is copied by hand.
+
+Migrating a repo that still has the addon **vendored** needs one extra manual step: delete its
+`addons/paradise/**/*.cs` and the `.cs.uid` files for all but the two shims. The targets never
+deletes anything, so leftover vendored sources would duplicate every type in the package. Keep
+`ParadiseExportPlugin.cs.uid` and `Authoring/AuthoredEntityNode.cs.uid` — the scenes reference
+those uids.
 
 ## One-time setup
 
-### NuGet trusted publishing (runtime tool)
+### NuGet trusted publishing
 
-`publish-runtime-tool.yml` uses OIDC like the engine repo. On nuget.org (as the package
-owner): Account > Trusted Publishing > add a policy for `ParadiseEngine/ParadiseGodot`,
-workflow `publish-runtime-tool.yml`. Optionally set the `NUGET_USER` repository variable
-(defaults to the repo owner).
+Both nuget.org workflows use OIDC, so there is no API key to store. On nuget.org, as the package
+owner: **Account > Trusted Publishing**, add a policy per workflow for repository
+`ParadiseEngine/ParadiseGodot`:
 
-### Godot Asset Library
+| Package | Workflow file |
+| --- | --- |
+| `Paradise.Godot.Editor` | `publish-addon-package.yml` |
+| `Paradise.Sample.Runtime` | `publish-runtime-tool.yml` |
 
-The **initial listing is manual** (one-time):
+`Paradise.Godot.Editor` has never been published, so the first run also claims the package id —
+make sure the policy exists before the first `addon-v*` tag, or the push fails on an unowned id.
 
-1. Account on https://godotengine.org/asset-library (GitHub sign-in works).
-2. Submit asset: category **Tools**, Godot version 4.7, license **MIT**,
-   repository URL `https://github.com/ParadiseEngine/ParadiseGodot`, download = the
-   `addon-vX.Y.Z` release zip URL, icon + screenshots, and a description that states the
-   **Godot .NET build requirement** and the Project Setup step loudly.
-3. Wait for moderation.
-
-After approval, automate updates: set the repository variable `ASSETLIB_ASSET_ID` (the
-numeric id from the listing URL) and the secret `ASSETLIB_TOKEN` (asset-library API token) —
-the release workflow then posts each new version.
+Optionally set the `NUGET_USER` repository variable (defaults to the repo owner).
 
 ## Version alignment cheat-sheet
 
-| Thing | Version source | Current |
-| --- | --- | --- |
-| Contract | `Paradise.Export` major.minor | 0.3 |
-| Addon | `plugin.cfg` + `SupportedExportVersion` | 0.3.0 |
-| Runtime tool | `runtime-v*` tag | 0.3.0 |
-| Engine packages | engine `v*` tag | 0.2.0 / 0.3.0 |
+| Thing | Version source |
+| --- | --- |
+| Contract | `Paradise.Export` major.minor |
+| Addon package | `AddonVersion.props` + `addon/plugin.cfg` + `addon-v*` tag (all three must match) |
+| Addon's targeted contract | `ProjectSetup.SupportedExportVersion` |
+| Runtime tool | `runtime-v*` tag |
+| Engine packages | engine `v*` tag |

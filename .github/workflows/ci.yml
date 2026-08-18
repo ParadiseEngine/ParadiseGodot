@@ -37,22 +37,37 @@ jobs:
             dotnet test --project "$project/$project.csproj" --no-build --output normal
           done
 
-  addon-package:
+  # Protects the package half of the addon: it must pack, the payload and targets must be IN the
+  # package (a lib-only package restores fine and then silently does nothing in a game repo), and
+  # the materializer must still place that payload correctly in every state a repo can be in -
+  # fresh install, up to date, a deleted file, a local edit, a version bump, and adoption of a
+  # hand-vendored copy. The uid assertions in that harness are the ones that matter most: Godot
+  # mints resource uids per project and scenes bind scripts by uid, so a materializer that
+  # rewrote one would silently detach every node using it.
+  addon-nuget:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
       - name: Addon dependency allowlist
         run: bash scripts/check_addon_deps.sh
 
-      - name: Package addon zip
-        run: bash scripts/package_addon.sh paradise-addon.zip
+      - name: Pack addon package
+        run: dotnet pack Paradise.Godot.Editor/Paradise.Godot.Editor.csproj -c Release -o artifacts/nuget
 
-      - name: Upload addon artifact
+      - name: Materialization tests
+        run: bash Paradise.Godot.Editor/tests/materialize-tests.sh
+
+      - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: paradise-addon
-          path: paradise-addon.zip
+          name: paradise-godot-editor-nupkg
+          path: artifacts/nuget/*.nupkg
 
   # The gate that protects addon users: import the project with a real headless Godot
   # editor, run the scene export through the plugin, and require (a) the export to succeed

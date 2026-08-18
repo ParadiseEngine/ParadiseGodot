@@ -1,0 +1,123 @@
+name: Publish addon package
+
+# Tag `addon-vX.Y.Z` to publish Paradise.Godot.Editor to nuget.org — the addon itself, as a
+# package rather than a copy-paste into each game repo. Uses NuGet trusted publishing (OIDC)
+# exactly like publish-runtime-tool.yml; the one-time nuget.org policy for THIS repository and
+# THIS workflow file must exist first (see docs/publishing.md).
+#
+# One addon version, one tag, one artifact. The version guard below refuses to publish if the
+# three places that state that version disagree.
+
+on:
+  push:
+    tags:
+      - "addon-v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Addon package version to publish, for example 0.13.0"
+        required: true
+        type: string
+
+env:
+  DOTNET_NOLOGO: true
+  PACKAGE_OUTPUT_DIR: artifacts/nuget
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Resolve version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#addon-v}"
+          fi
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Version must look like 0.13.0 or 0.13.1-beta.1"
+            exit 1
+          fi
+          echo "ADDON_VERSION=$version" >> "$GITHUB_ENV"
+
+      # Three places name the addon version and all three are load-bearing: the tag is what
+      # maintainers type, AddonVersion.props is what the package and the materialization targets
+      # use, and plugin.cfg is what Godot shows and what the payload carries into every game repo.
+      # A mismatch means consumers get a marker version that never matches the package they
+      # installed, so the payload re-materializes on every single build. Refuse to publish.
+      - name: Verify version agrees everywhere
+        shell: bash
+        run: |
+          props_version="$(sed -n 's|.*<ParadiseGodotAddonPackageVersion>\(.*\)</ParadiseGodotAddonPackageVersion>.*|\1|p' \
+            Paradise.Godot.Editor/AddonVersion.props)"
+          cfg_version="$(sed -n 's/^version="\(.*\)"/\1/p' Paradise.Godot.Editor/addon/plugin.cfg)"
+
+          echo "tag/input:          $ADDON_VERSION"
+          echo "AddonVersion.props: $props_version"
+          echo "addon/plugin.cfg:   $cfg_version"
+
+          fail=0
+          [[ "$props_version" == "$ADDON_VERSION" ]] || { echo "::error::AddonVersion.props says '$props_version', expected '$ADDON_VERSION'"; fail=1; }
+          [[ "$cfg_version"   == "$ADDON_VERSION" ]] || { echo "::error::addon/plugin.cfg says '$cfg_version', expected '$ADDON_VERSION'"; fail=1; }
+          exit $fail
+
+      - name: Addon dependency allowlist
+        run: bash scripts/check_addon_deps.sh
+
+      - name: Pack
+        run: >
+          dotnet pack Paradise.Godot.Editor/Paradise.Godot.Editor.csproj
+          -c Release
+          -o "$PACKAGE_OUTPUT_DIR"
+          -p:ContinuousIntegrationBuild=true
+          -p:Version=${{ env.ADDON_VERSION }}
+
+      # The package is only useful if the res:// payload and the targets that place it actually
+      # shipped. A lib-only package restores fine and then silently does nothing in a game repo.
+      - name: Verify package contents
+        shell: bash
+        run: |
+          pkg="$PACKAGE_OUTPUT_DIR/Paradise.Godot.Editor.$ADDON_VERSION.nupkg"
+          [[ -f "$pkg" ]] || { echo "::error::$pkg not produced"; exit 1; }
+          contents="$(unzip -Z1 "$pkg")"
+          echo "$contents"
+          for required in \
+            "lib/net10.0/Paradise.Godot.Editor.dll" \
+            "build/Paradise.Godot.Editor.targets" \
+            "build/Paradise.Godot.Editor.props" \
+            "addon/plugin.cfg" \
+            "addon/ParadiseExportPlugin.cs" \
+            "addon/Authoring/AuthoredEntityNode.cs"
+          do
+            grep -qx "$required" <<<"$contents" || { echo "::error::package is missing $required"; exit 1; }
+          done
+          # Godot mints resource uids per project; shipping one would repoint every scene that
+          # references the script. The targets refuses to install such a package - catch it here.
+          if grep -q '^addon/.*\.uid$' <<<"$contents"; then
+            echo "::error::package payload contains uid files"
+            exit 1
+          fi
+
+      - name: NuGet login (OIDC -> temp API key)
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ vars.NUGET_USER || github.repository_owner }}
+
+      - name: Publish to NuGet
+        run: >
+          dotnet nuget push "$PACKAGE_OUTPUT_DIR/*.nupkg"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
+          --source "https://api.nuget.org/v3/index.json"
+          --skip-duplicate

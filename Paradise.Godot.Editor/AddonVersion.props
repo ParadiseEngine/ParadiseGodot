@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    One version for the addon, imported by both halves: the package project stamps it as the
+    NuGet version, and ParadiseGodot.csproj feeds it to the materialization targets so this repo
+    dogfoods the same payload placement every consuming game gets.
+    Keep it aligned with the Paradise.Export contract version the addon writes.
+  -->
+  <PropertyGroup>
+    <ParadiseGodotAddonPackageVersion>0.13.0</ParadiseGodotAddonPackageVersion>
+  </PropertyGroup>
+</Project>

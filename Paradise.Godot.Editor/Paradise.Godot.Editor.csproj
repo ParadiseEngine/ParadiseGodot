@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="AddonVersion.props" />
+
+  <!--
+    The Paradise Godot addon, shipped as a package instead of copy-pasted into every game repo.
+
+    Deliberately NOT Godot.NET.Sdk: that SDK expects a project.godot beside it. A plain library
+    plus the GodotSharp / Godot.SourceGenerators packages is all an editor-only assembly needs,
+    and it keeps the package consumable by any Godot .NET project.
+
+    What ships:
+      lib/    this assembly - every addon type Godot never names by path (18 files today)
+      addon/  the res:// payload - the two files Godot DOES name by path, plus plugin.cfg
+      build/  the materialization targets that place that payload in the consuming repo
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ParadiseGodot</RootNamespace>
+    <!-- Godot editor hot-reload of the consuming game assembly reloads this one with it. -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+    <!-- The addon source is #if TOOLS throughout. This assembly is editor-only by definition,
+         so TOOLS is always on: there is no non-tools configuration of it to build. -->
+    <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
+    <!-- Godot's ScriptPathAttributeGenerator throws here because there is no GodotProjectDir,
+         and that is the CORRECT outcome: types in this assembly are not res:// scripts and must
+         not carry [ScriptPath]. Only the shims in addon/ are scripts. Suppressing the noise does
+         not disable the generators that matter - ScriptProperties/ScriptMethods still emit the
+         interop dispatch the shims chain into. -->
+    <NoWarn>$(NoWarn);CS8785</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Version>$(ParadiseGodotAddonPackageVersion)</Version>
+    <PackageId>Paradise.Godot.Editor</PackageId>
+    <Authors>ParadiseEngine</Authors>
+    <Description>Use Godot as the authoring editor for Paradise Engine: entity authoring, asset pipeline, and scene/navmesh/material export to the engine-neutral data contract.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>godot;paradise;editor;authoring</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="GodotSharp" Version="4.7.1" />
+    <!-- EditorPlugin, EditorImportPlugin and EditorInterface live here, not in GodotSharp. This
+         assembly is editor-only, so taking the editor assembly as a real dependency is correct -
+         but it does mean the DLL joins the consuming assembly closure, so keep this package out
+         of any project that actually ships in an exported game. -->
+    <PackageReference Include="GodotSharpEditor" Version="4.7.1" />
+    <PackageReference Include="Godot.SourceGenerators" Version="4.7.1" PrivateAssets="all" />
+    <!-- Stated, not inherited. The addon writes the export contract these define; a consuming
+         game no longer restates either version, which is the whole point of packaging this. -->
+    <PackageReference Include="Paradise.Export" Version="0.13.0" />
+    <PackageReference Include="Paradise.Authoring" Version="0.13.0" />
+  </ItemGroup>
+
+  <!-- The res:// payload and the targets that place it. None of it compiles into this assembly:
+       addon/ is source the CONSUMER compiles, after the targets copies it into their repo. -->
+  <ItemGroup>
+    <Compile Remove="addon/**/*.cs" />
+    <None Include="addon/**/*" Pack="true" PackagePath="addon/" />
+    <None Include="build/Paradise.Godot.Editor.targets" Pack="true" PackagePath="build/" />
+    <None Include="$(IntermediateOutputPath)Paradise.Godot.Editor.props" Pack="true" PackagePath="build/" />
+  </ItemGroup>
+
+  <!--
+    The package version has to be readable by the targets at consume time, and the targets cannot
+    see $(Version) - that property belongs to THIS build, not the consumer's. So bake it into an
+    auto-imported props file. build/<PackageId>.props is imported by NuGet before the consuming
+    project, so $(ParadiseGodotAddonPackageVersion) is set by the time the targets run.
+  -->
+  <Target Name="GenerateAddonVersionProps" BeforeTargets="Build;GenerateNuspec">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <WriteLinesToFile
+        File="$(IntermediateOutputPath)Paradise.Godot.Editor.props"
+        Overwrite="true"
+        Lines="&lt;Project&gt;&lt;PropertyGroup&gt;&lt;ParadiseGodotAddonPackageVersion&gt;$(Version)&lt;/ParadiseGodotAddonPackageVersion&gt;&lt;/PropertyGroup&gt;&lt;/Project&gt;" />
+  </Target>
+
+</Project>

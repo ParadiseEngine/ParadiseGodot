@@ -7,7 +7,7 @@ namespace ParadiseGodot.Pipeline
 {
     /// <summary>
     /// Generates entity prefabs (<c>.tscn</c>) from GLB/glTF models — the Godot equivalent of the
-    /// Unity ModelPrefabGenerator. Each prefab is a clean <see cref="AuthoredEntityNode"/> root with the
+    /// Unity ModelPrefabGenerator. Each prefab is a clean <see cref="AuthoredEntityNodeBase"/> root with the
     /// model instanced as a child, so authored entity settings + colliders live on the root while
     /// the model child tracks the source asset.
     ///
@@ -50,7 +50,14 @@ namespace ParadiseGodot.Pipeline
                 return false;
             }
 
-            var root = new AuthoredEntityNode { Name = name, ModelPath = modelResPath };
+            if (AuthoredEntityNodeBase.Create() is not AuthoredEntityNodeBase root)
+            {
+                modelInstance.QueueFree();
+                return false;
+            }
+
+            root.Name = name;
+            root.ModelPath = modelResPath;
             modelInstance.Name = name;
             // Mark the child as an instance of the source scene so the packed prefab references it
             // (re-imports flow through) rather than embedding a frozen copy.

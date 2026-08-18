@@ -1,0 +1,392 @@
+#if TOOLS
+using Godot;
+using Paradise.Export;
+
+namespace ParadiseGodot
+{
+    /// <summary>
+    /// Phase 0 editor plugin scaffold. Registers a Project &gt; Tools menu item and confirms the
+    /// engine-neutral <c>Paradise.Export</c> library is wired in. Export logic arrives in
+    /// later phases — see MIGRATION.md.
+    /// </summary>
+    [Tool]
+    public partial class ParadiseExportPluginBase : EditorPlugin
+    {
+        // Scene-root metadata naming a code-driven runtime sample (`--game <name>`) for the "Play .NET"
+        // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNodeBase nodes.
+        private const string GameMetaKey = "paradise_game";
+
+        private const string ExportMenuItem = "Paradise/Export Active Scene";
+        private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
+        private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
+        private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
+        private const string ConvertDataGlbsMenuItem = "Paradise/Convert data GLBs → KTX2";
+        private const string ValidateMenuItem = "Paradise/Validate Export";
+        private const string ProjectSetupMenuItem = "Paradise/Project Setup";
+        private const string SettingsMenuItem = "Paradise/Settings…";
+
+        private Button? _playDotnetButton;
+        private ParadiseSettingsDialog? _settingsDialog;
+        private readonly Pipeline.DataGlbImportHook _dataGlbHook = new();
+
+        public override void _EnterTree()
+        {
+            // Saved tool paths (toktx/Blender) take effect for the whole session — including
+            // headless exports — before anything can invoke the pipeline.
+            ParadiseSettingsDialog.ApplySavedSettings();
+
+            AddToolMenuItem(ExportMenuItem, Callable.From(OnExportActiveScene));
+            AddToolMenuItem(GeneratePrefabsMenuItem, Callable.From(OnGenerateModelPrefabs));
+            AddToolMenuItem(GeneratePrimitivesMenuItem, Callable.From(OnGeneratePrimitives));
+            AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
+            AddToolMenuItem(ConvertDataGlbsMenuItem, Callable.From(OnConvertDataGlbs));
+            AddToolMenuItem(ValidateMenuItem, Callable.From(ExportValidator.ValidateActiveScene));
+            AddToolMenuItem(ProjectSetupMenuItem, Callable.From(ProjectSetup.Run));
+            AddToolMenuItem(SettingsMenuItem, Callable.From(OnOpenSettings));
+            // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
+            // dropped into data/ is runtime-ready with no manual step.
+            EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported += _dataGlbHook.OnResourcesReimported;
+            _playDotnetButton = new Button
+            {
+                Text = "Play .NET",
+                TooltipText = "Launch the active scene's exported data in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
+                Flat = true,
+            };
+            _playDotnetButton.Pressed += OnPlayDotnet;
+            AddControlToContainer(CustomControlContainer.Toolbar, _playDotnetButton);
+            // Automation: re-export scene data whenever the edited scene is saved.
+            SceneSaved += OnSceneSaved;
+            GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
+            ProjectSetup.CheckExportVersion();
+
+            // Headless/CI hook: run one or more migration tasks then quit. Any combination of:
+            //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
+            //   PARADISE_GENERATE_MODEL_PREFABS=1 generate a prefab per model under data/
+            //   PARADISE_CONVERT_DATA_GLBS=1     transcode data/ GLB textures → KTX2 in place
+            //   PARADISE_EXPORT_SCENE=res://...   export that scene's data/ contract
+            // e.g. godot --headless --editor --path . — tasks run in the above order, then quit.
+            if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1" ||
+                OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1" ||
+                OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1" ||
+                !string.IsNullOrEmpty(OS.GetEnvironment("PARADISE_EXPORT_SCENE")))
+            {
+                Callable.From(RunHeadlessTasks).CallDeferred();
+            }
+        }
+
+        public override void _ExitTree()
+        {
+            RemoveToolMenuItem(ExportMenuItem);
+            RemoveToolMenuItem(GeneratePrefabsMenuItem);
+            RemoveToolMenuItem(GeneratePrimitivesMenuItem);
+            RemoveToolMenuItem(ConvertModelsMenuItem);
+            RemoveToolMenuItem(ConvertDataGlbsMenuItem);
+            RemoveToolMenuItem(ValidateMenuItem);
+            RemoveToolMenuItem(ProjectSetupMenuItem);
+            RemoveToolMenuItem(SettingsMenuItem);
+            SceneSaved -= OnSceneSaved;
+            EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported -= _dataGlbHook.OnResourcesReimported;
+            if (_settingsDialog is not null)
+            {
+                _settingsDialog.QueueFree();
+                _settingsDialog = null;
+            }
+            if (_playDotnetButton is not null)
+            {
+                RemoveControlFromContainer(CustomControlContainer.Toolbar, _playDotnetButton);
+                _playDotnetButton.QueueFree();
+                _playDotnetButton = null;
+            }
+        }
+
+        /// <summary>Toolbar "Play .NET": launch the ALREADY-exported scene data detached in the
+        /// standalone runtime via `dotnet run` (builds on demand — the first launch after a code
+        /// change takes a few seconds before the window appears). Deliberately does NOT export:
+        /// data/ is authoring output, kept fresh by the save hook / Paradise menu — launching is
+        /// a pure consumer of it.</summary>
+        private void OnPlayDotnet()
+        {
+            try
+            {
+                Node? root = EditorInterface.Singleton.GetEditedSceneRoot();
+                if (root is null)
+                {
+                    GD.PushWarning("[Paradise.Export] No edited scene to play.");
+                    return;
+                }
+
+                string[]? host = ResolveRuntimeHostCommand();
+                if (host is null)
+                {
+                    GD.PushError(
+                        "[Paradise.Export] No runtime host found. Set one in Paradise/Settings… " +
+                        "(a paradise-runtime executable or a host .csproj), or install the tool: " +
+                        "`dotnet tool install --global paradise-runtime`.");
+                    return;
+                }
+
+                string logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "paradise_play_dotnet.log");
+                // User-configured runtime arguments (Paradise/Settings…, default --imgui).
+                string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
+
+                // A scene root may declare a code-driven runtime SAMPLE via the `paradise_game` metadata
+                // (e.g. Odyssey): those have no AuthoredEntityNodeBase nodes, so a --scene launch would render an
+                // empty world. The SAME button reads the metadata and launches the runtime's built-in
+                // sample (`--game <name>`); every other scene falls through to the data-export path — one
+                // launch flow, the scene's own metadata picks the mode (mirrors `paradise_entity_guid`).
+                string[] argv;
+                string launchLabel;
+                string game = root.HasMeta(GameMetaKey) ? root.GetMeta(GameMetaKey).AsString() : "";
+                if (!string.IsNullOrEmpty(game))
+                {
+                    argv = [.. host[1..], "--game", game, .. extraArgs];
+                    launchLabel = $"--game {game}";
+                }
+                else
+                {
+                    string sceneName = Export.SceneDataExporter.ResolveSceneName(root);
+                    string sceneJson = ParadisePaths.ExportPaths().GetLevelDataOutputPath(sceneName);
+                    if (!System.IO.File.Exists(sceneJson))
+                    {
+                        GD.PushError(
+                            $"[Paradise.Export] '{sceneJson}' does not exist — save the scene (auto-export) " +
+                            "or run Project > Tools > Paradise/Export Active Scene first.");
+                        return;
+                    }
+                    argv = [.. host[1..], "--scene", sceneJson, .. extraArgs];
+                    launchLabel = sceneJson;
+                }
+
+                long pid;
+                if (System.OperatingSystem.IsWindows())
+                {
+                    pid = OS.CreateProcess(host[0], argv);
+                }
+                else
+                {
+                    // Shell wrapper for two GUI-launch realities: OS.CreateProcess drops the
+                    // child's output (build errors would vanish — log them to a file instead),
+                    // and the editor's PATH lacks the dotnet directory, which build targets
+                    // invoking `dotnet` (child processes) need.
+                    string dotnetDir = System.IO.Path.GetDirectoryName(ResolveDotnetPath()) ?? "/usr/local/share/dotnet";
+                    string args = string.Concat(System.Linq.Enumerable.Select(argv, a => $" {ShellQuote(a)}"));
+                    string command =
+                        $"export PATH=\"{dotnetDir}:$PATH\"; " +
+                        $"exec {ShellQuote(host[0])}{args} > \"{logPath}\" 2>&1";
+                    pid = OS.CreateProcess("/bin/sh", ["-c", command]);
+                }
+
+                if (pid <= 0)
+                {
+                    GD.PushError($"[Paradise.Export] Failed to launch '{host[0]}' — is the .NET SDK installed?");
+                    return;
+                }
+
+                GD.Print($"[Paradise.Export] Launched .NET runtime (pid {pid}): {launchLabel} — output: {logPath}");
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[Paradise.Export] Play .NET failed: {ex.Message}");
+            }
+        }
+
+        // POSIX single-quote wrapping: every token becomes one word verbatim, whatever it
+        // contains ('...' with embedded quotes spliced as '\'' ).
+        private static string ShellQuote(string value) => $"'{value.Replace("'", "'\\''")}'";
+
+        /// <summary>Resolve the runtime host as an argv prefix (element 0 = executable). Order:
+        /// the Paradise/Settings… "runtime host" path (a .csproj means `dotnet run --project`;
+        /// machine-level EditorSettings override first, then the committed project setting),
+        /// then this project's own Paradise.Sample.Runtime (the dev-workbench case), then the
+        /// globally installed `paradise-runtime` dotnet tool. Null when nothing is found.</summary>
+        internal static string[]? ResolveRuntimeHostCommand()
+        {
+            string configured = ResolveHostPath(ParadiseSettingsDialog.RuntimeHostPath());
+            if (configured.Length > 0)
+            {
+                return configured.EndsWith(".csproj", System.StringComparison.OrdinalIgnoreCase)
+                    ? [ResolveDotnetPath(), "run", "--project", configured, "--"]
+                    : [configured];
+            }
+
+            string sampleProject = System.IO.Path.Combine(
+                ProjectSettings.GlobalizePath("res://"), "Paradise.Sample.Runtime", "Paradise.Sample.Runtime.csproj");
+            if (System.IO.File.Exists(sampleProject))
+            {
+                return [ResolveDotnetPath(), "run", "--project", sampleProject, "--"];
+            }
+
+            string toolName = System.OperatingSystem.IsWindows() ? "paradise-runtime.exe" : "paradise-runtime";
+            string toolPath = System.IO.Path.Combine(
+                System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
+                ".dotnet", "tools", toolName);
+            return System.IO.File.Exists(toolPath) ? [toolPath] : null;
+        }
+
+        /// <summary>Normalize a configured host path to an absolute one. `res://` and plain
+        /// relative paths resolve against the project root — the committed project setting must
+        /// stay device-portable, and the launched process's CWD is not guaranteed to be the
+        /// project directory. Empty stays empty.</summary>
+        internal static string ResolveHostPath(string configured)
+        {
+            if (configured.Length == 0)
+            {
+                return configured;
+            }
+            if (configured.StartsWith("res://", System.StringComparison.Ordinal))
+            {
+                return ProjectSettings.GlobalizePath(configured);
+            }
+            return System.IO.Path.IsPathRooted(configured)
+                ? configured
+                : System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), configured));
+        }
+
+        private static string ResolveDotnetPath()
+        {
+            // A GUI-launched editor doesn't inherit the shell PATH (notably on macOS), so probe
+            // the standard SDK locations before falling back to PATH resolution.
+            foreach (string candidate in new[]
+            {
+                "/usr/local/share/dotnet/dotnet", // macOS official installer
+                "/usr/local/bin/dotnet",
+                "/opt/homebrew/bin/dotnet",
+                "/usr/bin/dotnet",                // Linux distro packages
+                "/usr/share/dotnet/dotnet",
+            })
+            {
+                if (System.IO.File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return "dotnet";
+        }
+
+        private void OnSceneSaved(string filePath)
+        {
+            // In Godot 4, SceneSaved fires for the current root scene, so re-exporting the active
+            // edited scene targets the just-saved scene. filePath is unused today (kept in the
+            // signature for future resilience if sub-scene saves ever emit independently).
+            try
+            {
+                Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[Paradise.Export] Auto re-export on save failed: {ex.Message}");
+            }
+        }
+
+        private void OnGenerateModelPrefabs()
+        {
+            Pipeline.ModelPrefabGenerator.GenerateAll();
+        }
+
+        private void OnGeneratePrimitives()
+        {
+            Pipeline.PrimitiveGlbGenerator.GenerateAll();
+        }
+
+        private void OnConvertModels()
+        {
+            WarnIfKtxMissing("model conversion");
+            Pipeline.AssetPipeline.ConvertAllModels();
+        }
+
+        private void OnConvertDataGlbs()
+        {
+            WarnIfKtxMissing("data GLB conversion");
+            Pipeline.DataGlbConverter.ConvertAll();
+        }
+
+        // Pre-flight: batch conversions run per-file and would otherwise emit one error per GLB;
+        // a single up-front warning with the fix beats a wall of failures.
+        private static void WarnIfKtxMissing(string operation)
+        {
+            if (Paradise.Export.Pipeline.KtxCreate.FindKtx() is null)
+            {
+                GD.PushWarning(
+                    $"[Paradise.Export] ktx CLI not found — {operation} will skip KTX2 encoding. " +
+                    "Install KTX-Software and set the path in Paradise/Settings….");
+            }
+        }
+
+        // Headless orchestrator: run whichever migration tasks the env selects, in a fixed order
+        // (generate primitives → convert data GLBs → export scene), then quit with a combined code.
+        private void RunHeadlessTasks()
+        {
+            int exitCode = 0;
+            try
+            {
+                if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1")
+                {
+                    Pipeline.PrimitiveGlbGenerator.GenerateAll();
+                }
+
+                // Reachable headlessly so it can be TESTED. It was menu-only, which is how it
+                // came to produce prefabs with no renderable component without anything noticing.
+                if (OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1")
+                {
+                    Pipeline.ModelPrefabGenerator.GenerateAll();
+                }
+
+                if (OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")
+                {
+                    Pipeline.DataGlbConverter.ConvertAll();
+                }
+
+                string scenePath = OS.GetEnvironment("PARADISE_EXPORT_SCENE");
+                if (!string.IsNullOrEmpty(scenePath) && !RunHeadlessExport(scenePath))
+                {
+                    exitCode = 1;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                GD.PushError($"[Paradise.Export] Headless task failed: {ex}");
+                exitCode = 1;
+            }
+
+            GetTree().Quit(exitCode);
+        }
+
+        private bool RunHeadlessExport(string scenePath)
+        {
+            var packed = GD.Load<PackedScene>(scenePath);
+            Node root = packed.Instantiate();
+            // Exporters read GlobalTransform, which requires tree membership — parent the
+            // instance under the plugin for the duration of the export.
+            AddChild(root);
+            try
+            {
+                string? output = Export.SceneDataExporter.ExportRoot(root);
+                GD.Print($"[Paradise.Export] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
+                return output is not null;
+            }
+            finally
+            {
+                RemoveChild(root);
+                root.QueueFree();
+            }
+        }
+
+        private void OnExportActiveScene()
+        {
+            Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
+        }
+
+        private void OnOpenSettings()
+        {
+            if (_settingsDialog is null)
+            {
+                _settingsDialog = new ParadiseSettingsDialog();
+                EditorInterface.Singleton.GetBaseControl().AddChild(_settingsDialog);
+            }
+
+            _settingsDialog.PopupCentered();
+        }
+    }
+}
+#endif

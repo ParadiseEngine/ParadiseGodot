@@ -8,7 +8,7 @@ namespace ParadiseGodot.Authoring
     /// An entity node that carries components the ENGINE does not define: authored data declared
     /// by a game with <c>[Authored]</c>.
     ///
-    /// <see cref="AuthoredEntityNode"/> implements this by interpreting the authoring schema,
+    /// <see cref="AuthoredEntityNodeBase"/> implements this by interpreting the authoring schema,
     /// which is enough for every component a schema can describe. The interface exists so a game
     /// can also hand-roll a node when it needs authoring behaviour no schema expresses, and still
     /// have the exporter pick it up.

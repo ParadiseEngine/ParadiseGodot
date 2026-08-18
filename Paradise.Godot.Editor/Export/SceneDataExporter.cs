@@ -67,7 +67,7 @@ namespace ParadiseGodot.Export
                     case Light3D light when !OwnedByEntity(light):
                         EnsureLightingState(document).Lights.Add(HostObjectBaker.BakeLight(light));
                         break;
-                    case AuthoredEntityNode entity:
+                    case AuthoredEntityNodeBase entity:
                         document.Entities.Add(ExportEntity(entity, materials, prefabs, paths));
                         break;
                 }
@@ -389,7 +389,7 @@ namespace ParadiseGodot.Export
         }
 
         private static LevelEntityData ExportEntity(
-            AuthoredEntityNode entity, MaterialExporter materials, PrefabExporter prefabs, ExportPaths paths)
+            AuthoredEntityNodeBase entity, MaterialExporter materials, PrefabExporter prefabs, ExportPaths paths)
         {
             SN.Vector3 localPos = ToSN(entity.Position);
             SN.Quaternion localRot = ToSN(entity.Quaternion);
@@ -445,7 +445,7 @@ namespace ParadiseGodot.Export
         {
             for (Node? parent = node.GetParent(); parent is not null; parent = parent.GetParent())
             {
-                if (parent is AuthoredEntityNode)
+                if (parent is AuthoredEntityNodeBase)
                 {
                     return true;
                 }
@@ -453,11 +453,11 @@ namespace ParadiseGodot.Export
             return false;
         }
 
-        private static EntityParentData? ResolveParent(AuthoredEntityNode entity)
+        private static EntityParentData? ResolveParent(AuthoredEntityNodeBase entity)
         {
             for (Node? parent = entity.GetParent(); parent is not null; parent = parent.GetParent())
             {
-                if (parent is AuthoredEntityNode ancestor)
+                if (parent is AuthoredEntityNodeBase ancestor)
                 {
                     return new EntityParentData { Id = ancestor.Name.ToString() };
                 }

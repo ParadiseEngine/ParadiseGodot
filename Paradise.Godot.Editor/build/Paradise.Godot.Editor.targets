@@ -1,0 +1,124 @@
+<Project>
+
+  <!--
+    Places the addon's res:// payload into the consuming Godot repo.
+
+    Only two paths in this addon are ever named by Godot's resource system - verified by grepping
+    every .tscn/.tres/.godot across the workspace:
+
+        5x  res://addons/paradise/plugin.cfg                      (project.godot enables it)
+        4x  res://addons/paradise/Authoring/AuthoredEntityNode.cs (scenes attach it as a script)
+
+    Everything else lives in the packaged assembly and is never materialized. These two must exist
+    as real files at stable paths: Godot serializes a script attachment as path + uid, so if
+    AuthoredEntityNode.cs is absent the nodes that reference it lose their script AND every
+    script-defined property value on them - silently, because those values ride on _Set /
+    _GetPropertyList rather than on engine properties.
+
+    ============================ THE INVARIANT ============================
+    This target writes .cs and .cfg. It NEVER writes, deletes, or touches a
+    *.cs.uid file, and it never deletes anything at all.
+
+    Godot mints the uid on first import and the repo owner commits it. That is why the vendored
+    copies already differ (upstream dle1r2o66thri vs Pingu's ctvfn0ijupsww) - each repo minted its
+    own, which is correct. Rewriting a uid would repoint every scene reference to it.
+    =======================================================================
+
+    The materialized files are COMMITTED, not gitignored. Godot imports resources when the project
+    opens, which is before the C# build that runs this target; on a fresh clone with the payload
+    absent, scenes would load with dead script bindings before this ever fired. Materialization is
+    for bootstrap and version bumps - git still holds the files.
+
+    Opt out with -p:ParadiseGodotAddonMaterialize=false. Relocate with ParadiseGodotAddonDir.
+  -->
+
+  <PropertyGroup>
+    <!-- Only act on an actual Godot project. A plain library that happens to reference this
+         package has no res:// tree and must not have an addons/ directory scribbled into it. -->
+    <ParadiseGodotAddonMaterialize Condition="'$(ParadiseGodotAddonMaterialize)' == '' and Exists('$(MSBuildProjectDirectory)/project.godot')">true</ParadiseGodotAddonMaterialize>
+    <ParadiseGodotAddonMaterialize Condition="'$(ParadiseGodotAddonMaterialize)' == ''">false</ParadiseGodotAddonMaterialize>
+
+    <ParadiseGodotAddonDir Condition="'$(ParadiseGodotAddonDir)' == ''">$(MSBuildProjectDirectory)/addons/paradise/</ParadiseGodotAddonDir>
+    <!-- NormalizeDirectory, not EnsureTrailingSlash: the paths built from this are compared
+         against %(FullPath) of existing Compile items below, so they must be canonical. -->
+    <ParadiseGodotAddonDir>$([MSBuild]::NormalizeDirectory('$(ParadiseGodotAddonDir)'))</ParadiseGodotAddonDir>
+
+    <_ParadiseAddonPayloadDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', 'addon'))</_ParadiseAddonPayloadDir>
+    <_ParadiseAddonMarker>$(ParadiseGodotAddonDir).paradise-addon-version</_ParadiseAddonMarker>
+  </PropertyGroup>
+
+  <Target Name="ParadiseMaterializeGodotAddon"
+          Condition="'$(ParadiseGodotAddonMaterialize)' == 'true' and Exists('$(_ParadiseAddonPayloadDir)')"
+          BeforeTargets="BeforeBuild;CoreCompile">
+
+    <ItemGroup>
+      <_ParadiseAddonPayload Include="$(_ParadiseAddonPayloadDir)**/*" />
+      <!-- Encode the invariant in the build rather than in a comment: if a uid ever gets packed
+           into the payload, fail loudly instead of quietly repointing the consumer's scenes. -->
+      <_ParadiseAddonUidLeak Include="@(_ParadiseAddonPayload)" Condition="'%(Extension)' == '.uid'" />
+    </ItemGroup>
+
+    <Error Condition="'@(_ParadiseAddonUidLeak)' != ''"
+           Text="Paradise.Godot.Editor package is malformed: its addon payload contains uid files (@(_ParadiseAddonUidLeak->'%(Filename)%(Extension)', ', ')). Godot mints uids per repo; shipping one would repoint every scene that references the script. Remove them from the package." />
+
+    <PropertyGroup>
+      <_ParadiseAddonInstalled Condition="Exists('$(_ParadiseAddonMarker)')">$([System.IO.File]::ReadAllText('$(_ParadiseAddonMarker)'))</_ParadiseAddonInstalled>
+      <_ParadiseAddonInstalled>$(_ParadiseAddonInstalled.Trim())</_ParadiseAddonInstalled>
+
+      <!-- missing marker + missing payload -> fresh repo
+           missing marker + present payload -> the hand-vendored copy this package replaces
+           marker behind                    -> version bump
+           marker current                   -> nothing to do (but still repair deleted files) -->
+      <_ParadiseAddonMode Condition="'$(_ParadiseAddonInstalled)' == '' and !Exists('$(ParadiseGodotAddonDir)plugin.cfg')">Install</_ParadiseAddonMode>
+      <_ParadiseAddonMode Condition="'$(_ParadiseAddonInstalled)' == '' and Exists('$(ParadiseGodotAddonDir)plugin.cfg')">Adopt</_ParadiseAddonMode>
+      <_ParadiseAddonMode Condition="'$(_ParadiseAddonInstalled)' != '' and '$(_ParadiseAddonInstalled)' != '$(ParadiseGodotAddonPackageVersion)'">Update</_ParadiseAddonMode>
+      <_ParadiseAddonMode Condition="'$(_ParadiseAddonMode)' == ''">None</_ParadiseAddonMode>
+    </PropertyGroup>
+
+    <Message Importance="high" Condition="'$(_ParadiseAddonMode)' == 'Install'"
+             Text="Paradise addon: installing res:// payload $(ParadiseGodotAddonPackageVersion) into $(ParadiseGodotAddonDir). Commit these files; Godot will mint their .uid on first import - commit those too." />
+    <Message Importance="high" Condition="'$(_ParadiseAddonMode)' == 'Adopt'"
+             Text="Paradise addon: adopting a hand-vendored copy in $(ParadiseGodotAddonDir) and taking ownership at $(ParadiseGodotAddonPackageVersion). Local edits to the payload files are overwritten; existing .uid files are left untouched. Review the diff." />
+    <Message Importance="high" Condition="'$(_ParadiseAddonMode)' == 'Update'"
+             Text="Paradise addon: updating res:// payload $(_ParadiseAddonInstalled) -> $(ParadiseGodotAddonPackageVersion) in $(ParadiseGodotAddonDir)." />
+
+    <!-- Overwrite on Install/Adopt/Update: the package owns these files. -->
+    <Copy Condition="'$(_ParadiseAddonMode)' != 'None'"
+          SourceFiles="@(_ParadiseAddonPayload)"
+          DestinationFiles="@(_ParadiseAddonPayload->'$(ParadiseGodotAddonDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+
+    <!-- Up to date: repair anything deleted, but never touch a file that is present. Someone
+         mid-edit on the shim keeps their edit until the next version bump. -->
+    <ItemGroup Condition="'$(_ParadiseAddonMode)' == 'None'">
+      <_ParadiseAddonMissing Include="@(_ParadiseAddonPayload)"
+                             Condition="!Exists('$(ParadiseGodotAddonDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+    </ItemGroup>
+    <Message Importance="high" Condition="'@(_ParadiseAddonMissing)' != ''"
+             Text="Paradise addon: restoring deleted payload file(s) @(_ParadiseAddonMissing->'%(Filename)%(Extension)', ', ')." />
+    <Copy Condition="'@(_ParadiseAddonMissing)' != ''"
+          SourceFiles="@(_ParadiseAddonMissing)"
+          DestinationFiles="@(_ParadiseAddonMissing->'$(ParadiseGodotAddonDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+
+    <WriteLinesToFile Condition="'$(_ParadiseAddonMode)' != 'None'"
+                      File="$(_ParadiseAddonMarker)" Lines="$(ParadiseGodotAddonPackageVersion)" Overwrite="true" />
+
+    <!--
+      Compile items were fixed at evaluation time, so a payload file created just now is not in
+      @(Compile) and would not compile until a SECOND build - the plugin would fail to load on the
+      first one. Add them here.
+
+      Only the ones not already there. On every later build the project's own **/*.cs glob has
+      already matched them, and a second entry is CS2002. Excluding by %(FullPath) rather than by
+      Compile Remove is deliberate: the SDK glob produces RELATIVE item specs, so a Remove spelled
+      as an absolute path silently matches nothing.
+    -->
+    <ItemGroup>
+      <_ParadiseAddonCs Include="@(_ParadiseAddonPayload)" Condition="'%(Extension)' == '.cs'" />
+      <_ParadiseAddonCsDest Include="@(_ParadiseAddonCs->'$(ParadiseGodotAddonDir)%(RecursiveDir)%(Filename)%(Extension)')" />
+      <_ParadiseCompiledAlready Include="@(Compile->'%(FullPath)')" />
+      <Compile Include="@(_ParadiseAddonCsDest)" Exclude="@(_ParadiseCompiledAlready)" />
+    </ItemGroup>
+
+  </Target>
+
+</Project>
