@@ -86,8 +86,24 @@ namespace ParadiseGodot.Authoring
             {
                 return;
             }
+            // Latched before any work, so a failure below reports once instead of on every
+            // inspector redraw. Everything after it is inside a try: a throw that escaped would
+            // leave the node permanently schema-less with an empty dropdown and no error, which is
+            // the one failure mode here that gives an author nothing to go on.
             _loaded = true;
 
+            try
+            {
+                LoadSchema();
+            }
+            catch (Exception e)
+            {
+                GD.PushError($"[Paradise.Export] The authoring schema could not be loaded: {e}");
+            }
+        }
+
+        private void LoadSchema()
+        {
             var documents = new List<AuthoringSchemaDocument>();
             try
             {
@@ -420,6 +436,13 @@ namespace ParadiseGodot.Authoring
 
             foreach (string shape in refs)
             {
+                // Clear FIRST, so a reference that is cleared or repointed at something unbakeable
+                // exports the record's defaults rather than whatever last baked successfully. These
+                // fields are hidden from the inspector, so nothing else ever resets them: without
+                // this, an entity keeps a collision volume its author explicitly removed, and the
+                // warnings below promise zeroes while shipping stale geometry.
+                ResetBakedFields(shape);
+
                 if (!_values.TryGetValue(shape, out Variant stored))
                 {
                     continue;
@@ -429,26 +452,118 @@ namespace ParadiseGodot.Authoring
                 {
                     GD.PushWarning(
                         $"[Paradise.Export] '{Name}' authors '{shape}' but no CollisionShape3D is "
-                        + "assigned — the component exports zeroes.");
+                        + "assigned — the component exports its defaults.");
                     continue;
                 }
                 if (node.Shape is not BoxShape3D box)
                 {
                     GD.PushWarning(
                         $"[Paradise.Export] '{Name}': '{shape}' points at a "
-                        + $"{node.Shape?.GetType().Name ?? "null"} shape; only BoxShape3D is baked so far.");
+                        + $"{node.Shape?.GetType().Name ?? "null"} shape; only BoxShape3D is baked so far, "
+                        + "so the component exports its defaults.");
                     continue;
                 }
 
-                Vector3 centre = node.GlobalPosition - GlobalPosition;
-                _values[shape + "/SizeX"] = box.Size.X;
-                _values[shape + "/SizeY"] = box.Size.Y;
-                _values[shape + "/SizeZ"] = box.Size.Z;
-                _values[shape + "/CenterX"] = centre.X;
-                _values[shape + "/CenterY"] = centre.Y;
-                _values[shape + "/CenterZ"] = centre.Z;
+                // The shape's placement RELATIVE TO THIS ENTITY, through the entity's own transform.
+                //
+                // Subtracting world positions instead gives the WORLD-space delta, which equals the
+                // local offset only when the entity is unrotated and unscaled. A ledge tilted to sit
+                // against sloped terrain — the ordinary case — would bake a centre measured along
+                // world axes, the runtime would rebuild the box in the entity's local frame, and the
+                // box would land somewhere else. The export carries no orientation, so nothing
+                // downstream could recover it.
+                Transform3D relative = GlobalTransform.AffineInverse() * node.GlobalTransform;
+                Vector3 centre = relative.Origin;
+
+                // Scale rides on the same transform, so a shape under a scaled entity (or scaled
+                // itself) bakes the extents it actually renders with.
+                Vector3 size = box.Size * relative.Basis.Scale;
+
+                // A shape ROTATED relative to its entity cannot be represented: the part carries a
+                // size and a centre, and no orientation. Say so rather than exporting an
+                // axis-aligned box that silently disagrees with the viewport.
+                if (!IsAxisAligned(relative.Basis))
+                {
+                    GD.PushWarning(
+                        $"[Paradise.Export] '{Name}': '{shape}' is rotated relative to the entity. "
+                        + "A baked shape carries size and centre only, so the rotation is dropped — "
+                        + "rotate the entity instead of the CollisionShape3D.");
+                }
+
+                WriteBakedFields(shape, size, centre);
             }
         }
+
+        /// <summary>Restore every field under a shape reference to its declared default.</summary>
+        private void ResetBakedFields(string shape)
+        {
+            if (!_fields.TryGetValue(_componentId, out List<SchemaField>? fields))
+            {
+                return;
+            }
+            string prefix = shape + "/";
+            foreach (SchemaField field in fields)
+            {
+                if (field.Path.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    _values[field.Path] = field.Default;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Write the baked geometry into whichever of the part's fields exist.
+        ///
+        /// Driven off the SCHEMA rather than assigning six hardcoded paths, because the names here
+        /// have to match the record's <c>[AuthorNativeShape]</c> part exactly. Writing blind would
+        /// put orphan keys into a dictionary nothing reads, and the component would quietly export
+        /// defaults; this way a divergence is a warning that names the missing field.
+        /// </summary>
+        private void WriteBakedFields(string shape, Vector3 size, Vector3 centre)
+        {
+            if (!_fields.TryGetValue(_componentId, out List<SchemaField>? fields))
+            {
+                return;
+            }
+
+            var baked = new Dictionary<string, float>(StringComparer.Ordinal)
+            {
+                ["SizeX"] = size.X,
+                ["SizeY"] = size.Y,
+                ["SizeZ"] = size.Z,
+                ["CenterX"] = centre.X,
+                ["CenterY"] = centre.Y,
+                ["CenterZ"] = centre.Z,
+            };
+
+            string prefix = shape + "/";
+            foreach (SchemaField field in fields)
+            {
+                if (!field.Path.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+                string suffix = field.Path.Substring(prefix.Length);
+                if (baked.TryGetValue(suffix, out float value))
+                {
+                    _values[field.Path] = value;
+                    baked.Remove(suffix);
+                }
+            }
+
+            foreach (string missing in baked.Keys)
+            {
+                GD.PushWarning(
+                    $"[Paradise.Export] '{_componentId}' declares '{shape}' as a native shape but has "
+                    + $"no '{missing}' field, so that value is not exported. The record's shape part "
+                    + "and this addon's bake have diverged.");
+            }
+        }
+
+        /// <summary>Whether a basis carries no rotation (scale and mirroring are fine). Best-effort:
+        /// it only drives a warning, never what is exported.</summary>
+        private static bool IsAxisAligned(Basis basis) =>
+            Mathf.Abs(basis.GetRotationQuaternion().Normalized().W) > 0.9999f;
 
         /// <summary>Write one level of the tree, recursing into each composed part.</summary>
         private void WriteGroup(System.Text.Json.Utf8JsonWriter writer, List<SchemaField> fields, string prefix)
