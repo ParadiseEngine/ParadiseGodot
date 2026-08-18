@@ -50,6 +50,13 @@ namespace ParadiseGodot.Authoring
         /// authored by pointing at one object (a sprite, say) rather than filled in as a form.</summary>
         private const string SourceSuffix = "/Source";
 
+        /// <summary>The picker that ADDS a component. Editor-only: it is a verb, not state, and
+        /// storing it in the .tscn would persist a menu selection as though it were data.</summary>
+        private const string AddProperty = "Add Component";
+
+        /// <summary>Resting value of the add picker.</summary>
+        private const string AddNone = "(add…)";
+
         private readonly List<ComponentSchema> _components = new();
         private readonly Dictionary<string, ComponentSchema> _byId = new(StringComparer.Ordinal);
         private readonly HashSet<string> _enabled = new(StringComparer.Ordinal);
@@ -293,10 +300,37 @@ namespace ParadiseGodot.Authoring
             EnsureSchema();
             var list = new global::Godot.Collections.Array<global::Godot.Collections.Dictionary>();
 
+            // ADD, rather than a toggle for every component that exists. Listing them all put a
+            // dozen checkboxes on a node that carries two — and the list grows with every component
+            // the engine or the game ever declares, so the wall only gets worse. What an entity
+            // HAS should be what the inspector shows; the rest belongs behind a menu.
+            //
+            // Ids rather than display names: two components may share a name, and the id is what
+            // the author is choosing. The group header below shows the friendly name.
+            string[] addable =
+            [
+                AddNone,
+                .. _components.Where(c => !_enabled.Contains(c.Id)).Select(c => c.Id),
+            ];
+            list.Add(new global::Godot.Collections.Dictionary
+            {
+                { "name", AddProperty },
+                { "type", (int)Variant.Type.String },
+                // Editor, NOT Default: Default includes Storage, which would write the menu's
+                // resting value into the scene as if it were authored data.
+                { "usage", (int)PropertyUsageFlags.Editor },
+                { "hint", (int)PropertyHint.Enum },
+                { "hint_string", string.Join(",", addable) },
+            });
+
             foreach (ComponentSchema component in _components)
             {
-                // A group per component, so the inspector reads as a list of components rather than
-                // one flat wall of every field in the engine.
+                if (!_enabled.Contains(component.Id))
+                {
+                    continue;
+                }
+
+                // A group per component the entity actually carries.
                 list.Add(new global::Godot.Collections.Dictionary
                 {
                     { "name", component.DisplayName },
@@ -305,17 +339,14 @@ namespace ParadiseGodot.Authoring
                     { "hint_string", component.Id + "/" },
                 });
 
+                // Kept as the way to REMOVE one: unticking is how the component goes away, and it
+                // is also what the .tscn stores, so scenes authored before this change still load.
                 list.Add(new global::Godot.Collections.Dictionary
                 {
                     { "name", component.Id + EnabledSuffix },
                     { "type", (int)Variant.Type.Bool },
                     { "usage", (int)PropertyUsageFlags.Default },
                 });
-
-                if (!_enabled.Contains(component.Id))
-                {
-                    continue;
-                }
 
                 if (component.AuthoredBy is { } componentKind)
                 {
@@ -453,6 +484,12 @@ namespace ParadiseGodot.Authoring
             EnsureSchema();
             string name = property.ToString();
 
+            // The add picker always reads as its resting value: it is a verb that fires on set,
+            // never a selection that persists.
+            if (name == AddProperty)
+            {
+                return AddNone;
+            }
             if (name.EndsWith(EnabledSuffix, StringComparison.Ordinal))
             {
                 return _enabled.Contains(name[..^EnabledSuffix.Length]);
@@ -464,6 +501,21 @@ namespace ParadiseGodot.Authoring
         {
             EnsureSchema();
             string name = property.ToString();
+
+            if (name == AddProperty)
+            {
+                string chosen = value.AsString();
+                if (chosen != AddNone && _byId.TryGetValue(chosen, out ComponentSchema? added) &&
+                    _enabled.Add(chosen))
+                {
+                    SeedDefaults(added);
+                    OnAuthoredChanged();
+                }
+                // Always redraw: the picker has to fall back to its resting value and drop the id
+                // it just added from its own list.
+                NotifyPropertyListChanged();
+                return true;
+            }
 
             if (name.EndsWith(EnabledSuffix, StringComparison.Ordinal))
             {

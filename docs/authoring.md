@@ -28,8 +28,10 @@ The scene **root must keep an identity transform** — a nudged root offsets eve
 
 ## AuthoredEntityNode — every component, engine and game alike
 
-**`AuthoredEntityNode`** is the only entity node. Tick a component in the inspector and its
-fields appear, described by a *schema* rather than by code in this addon — and that is true of the
+**`AuthoredEntityNode`** is the only entity node. Pick a component from **Add Component** and its
+fields appear, described by a *schema* rather than by code in this addon — untick a component's
+`Enabled` to remove it again. The inspector shows only what the entity actually carries; the menu
+lists what it could — and that is true of the
 engine's own components (`paradise.identity`, `.renderable`, `.collider`, `.rigidbody`, `.agent`,
 `.interactable`, `.sprite-animation`, `.particle-emitter`) exactly as much as of a game's.
 
