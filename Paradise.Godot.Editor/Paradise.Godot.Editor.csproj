@@ -10,7 +10,7 @@
     and it keeps the package consumable by any Godot .NET project.
 
     What ships:
-      lib/    this assembly - every addon type Godot never names by path (18 files today)
+      lib/    this assembly - every addon type Godot never names by path
       addon/  the res:// payload - the two files Godot DOES name by path, plus plugin.cfg
       build/  the materialization targets that place that payload in the consuming repo
   -->
@@ -27,9 +27,9 @@
     <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
     <!-- Godot's ScriptPathAttributeGenerator throws here because there is no GodotProjectDir,
          and that is the CORRECT outcome: types in this assembly are not res:// scripts and must
-         not carry [ScriptPath]. Only the shims in addon/ are scripts. Suppressing the noise does
+         not carry [ScriptPath]. Only the two files in addon/ are scripts. Suppressing the noise does
          not disable the generators that matter - ScriptProperties/ScriptMethods still emit the
-         interop dispatch the shims chain into. -->
+         interop dispatch those scripts delegate into. -->
     <NoWarn>$(NoWarn);CS8785</NoWarn>
   </PropertyGroup>
 

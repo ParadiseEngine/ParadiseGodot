@@ -9,8 +9,8 @@
 | Engine packages (`Paradise.*`) | `v*` tag **in the engine repo** | engine `publish-nuget.yml` |
 
 The addon zip and the Godot Asset Library listing were retired when the addon became a package.
-They cannot be brought back as they were: the addon's res:// half is now two shim scripts that
-derive from types in `Paradise.Godot.Editor.dll`, so a zip of `addons/paradise/` does not compile
+They cannot be brought back as they were: the addon's res:// half is now two thin scripts that
+delegate into `Paradise.Godot.Editor.dll`, so a zip of `addons/paradise/` does not compile
 on its own. A standalone zip would have to regenerate the full source, which is exactly the
 duplication packaging removed.
 
@@ -20,10 +20,20 @@ Two halves, and the split is not arbitrary:
 
 - **`Paradise.Godot.Editor/`** — the package project. Everything Godot never names by path, which
   is all but two files. Ships as `lib/`.
-- **`addons/paradise/`** — the res:// half: `plugin.cfg` and the two shim scripts. It exists
-  because Godot serializes a script binding as a res:// **path plus uid**, so a type that lives
-  only in an assembly cannot be attached to a node at all. The package carries copies under
-  `addon/` and its `build/` targets place them into every consuming repo.
+- **`addons/paradise/`** — the res:// half: `plugin.cfg` and two thin scripts. It exists because
+  Godot serializes a script binding as a res:// **path plus uid**, so a type that lives only in an
+  assembly cannot be attached to a node at all. The package carries copies under `addon/` and its
+  `build/` targets place them into every consuming repo.
+
+**Those two scripts delegate; they must never inherit.** `AuthoredEntityNode` derives from
+`Node3D` and forwards to `AuthoredEntityCore`; `ParadiseExportPlugin` derives from `EditorPlugin`
+and forwards to `ExportPluginCore`. Both cores are plain classes. If a res:// script instead
+derives from a GodotObject-derived type in this package, Godot registers that base as a script
+type as well and its `ScriptTypeBiMap` throws a duplicate-key exception on **every assembly
+reload** — editor hot-reload stops working and the inspector is stuck on "This inspector might be
+out of date" (godotengine/godot#75352). 0.13.0 shipped exactly that mistake: it passed a green
+build, 127 tests and a byte-identical export, because the fault only appears on a reload, which no
+cold headless run performs. CI's `Assembly reload must be clean` step is the guard.
 
 `.cs.uid` files are **minted per project by the Godot editor and committed by that project**. The
 package never ships one and the targets never writes, deletes, or touches one — rewriting a uid
@@ -54,6 +64,14 @@ and the package-contents gate in `publish-addon-package.yml` both enforce this.
    next build rewrites their `addons/paradise/` payload and bumps their marker; their `.uid` files
    are left alone. Review that diff like any other.
 
+## Editing the res:// payload during development
+
+The targets leaves an installed payload alone while its version marker matches, which is what keeps
+a consumer's local edit from being clobbered mid-version. The cost lands on maintainers: editing
+`Paradise.Godot.Editor/addon/**` does **not** propagate into this repo's own `addons/paradise/`
+until the version changes. Delete the installed file and rebuild — the repair path restores it from
+the payload.
+
 ## Local checks before tagging
 
 ```bash
@@ -78,7 +96,7 @@ Build once. The targets writes `addons/paradise/` and Godot mints the `.uid` fil
 import; commit both. Nothing else is copied by hand.
 
 Migrating a repo that still has the addon **vendored** needs one extra manual step: delete its
-`addons/paradise/**/*.cs` and the `.cs.uid` files for all but the two shims. The targets never
+`addons/paradise/**/*.cs` and the `.cs.uid` files for all but the two res:// scripts. The targets never
 deletes anything, so leftover vendored sources would duplicate every type in the package. Keep
 `ParadiseExportPlugin.cs.uid` and `Authoring/AuthoredEntityNode.cs.uid` — the scenes reference
 those uids.

@@ -67,7 +67,7 @@ namespace ParadiseGodot.Export
                     case Light3D light when !OwnedByEntity(light):
                         EnsureLightingState(document).Lights.Add(HostObjectBaker.BakeLight(light));
                         break;
-                    case AuthoredEntityNodeBase entity:
+                    case IAuthoredEntity entity:
                         document.Entities.Add(ExportEntity(entity, materials, prefabs, paths));
                         break;
                 }
@@ -389,19 +389,19 @@ namespace ParadiseGodot.Export
         }
 
         private static LevelEntityData ExportEntity(
-            AuthoredEntityNodeBase entity, MaterialExporter materials, PrefabExporter prefabs, ExportPaths paths)
+            IAuthoredEntity entity, MaterialExporter materials, PrefabExporter prefabs, ExportPaths paths)
         {
-            SN.Vector3 localPos = ToSN(entity.Position);
-            SN.Quaternion localRot = ToSN(entity.Quaternion);
-            SN.Vector3 localScale = ToSN(entity.Scale);
+            SN.Vector3 localPos = ToSN(entity.Node.Position);
+            SN.Quaternion localRot = ToSN(entity.Node.Quaternion);
+            SN.Vector3 localScale = ToSN(entity.Node.Scale);
 
-            Transform3D global = entity.GlobalTransform;
+            Transform3D global = entity.Node.GlobalTransform;
             SN.Vector3 worldPos = ToSN(global.Origin);
             SN.Quaternion worldRot = ToSN(global.Basis.GetRotationQuaternion());
             SN.Vector3 worldScale = ToSN(global.Basis.Scale);
 
             PrefabExporter.Identity prefab = prefabs.ResolveAndExport(entity);
-            string name = entity.Name.ToString();
+            string name = entity.Node.Name.ToString();
 
             // Only what a HOST knows: identity, placement, provenance, material slots. Everything
             // an entity HAS is authored, and arrives below through the router.
@@ -423,7 +423,7 @@ namespace ParadiseGodot.Export
                 LocalScale = localScale,
                 LocalMatrix = ContractMatrix.Trs(localPos, localRot, localScale),
                 WorldMatrix = ContractMatrix.Trs(worldPos, worldRot, worldScale),
-                Materials = materials.ExportMaterialSlots(entity),
+                Materials = materials.ExportMaterialSlots(entity.Node),
             };
 
             // Authored components decide the rest — Kind, IsActive, every component slot. The
@@ -445,7 +445,7 @@ namespace ParadiseGodot.Export
         {
             for (Node? parent = node.GetParent(); parent is not null; parent = parent.GetParent())
             {
-                if (parent is AuthoredEntityNodeBase)
+                if (parent is IAuthoredEntity)
                 {
                     return true;
                 }
@@ -453,13 +453,13 @@ namespace ParadiseGodot.Export
             return false;
         }
 
-        private static EntityParentData? ResolveParent(AuthoredEntityNodeBase entity)
+        private static EntityParentData? ResolveParent(IAuthoredEntity entity)
         {
-            for (Node? parent = entity.GetParent(); parent is not null; parent = parent.GetParent())
+            for (Node? parent = entity.Node.GetParent(); parent is not null; parent = parent.GetParent())
             {
-                if (parent is AuthoredEntityNodeBase ancestor)
+                if (parent is IAuthoredEntity ancestor)
                 {
-                    return new EntityParentData { Id = ancestor.Name.ToString() };
+                    return new EntityParentData { Id = ancestor.Node.Name.ToString() };
                 }
             }
 

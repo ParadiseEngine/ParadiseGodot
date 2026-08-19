@@ -46,9 +46,21 @@ namespace ParadiseGodot.Authoring
     /// declared by res:// scripts, so the attribute on a packaged type would claim a registration
     /// it never gets.
     /// </remarks>
-    [Tool]
-    public partial class AuthoredEntityNodeBase : Node3D, IAuthoredEntity
+    public sealed class AuthoredEntityCore
     {
+        /// <summary>
+        /// The node this core drives. Everything Godot-facing goes through it rather than through
+        /// inheritance, and that is not a style choice: a res:// script may not derive from a
+        /// GodotObject-derived type declared in another assembly. Godot registers the base as a
+        /// script type too and its ScriptTypeBiMap then rejects the duplicate on every assembly
+        /// reload, which breaks editor hot-reload and pins the inspector to "might be out of date".
+        /// See godotengine/godot#75352. Composition sidesteps it entirely: this type is a plain
+        /// class, so Godot has no reason to look at it at all.
+        /// </summary>
+        private readonly Node3D _host;
+
+        public AuthoredEntityCore(Node3D host) => _host = host;
+
         private const string GuidMetaKey = "paradise_entity_guid";
         private const string SchemaFileName = "authoring-schema.json";
 
@@ -68,7 +80,7 @@ namespace ParadiseGodot.Authoring
         /// that relocated the addon (ParadiseGodotAddonDir) still works.
         /// </summary>
         /// <returns>The new node, or null if the shim is missing from the project.</returns>
-        public static AuthoredEntityNodeBase? Create()
+        public static IAuthoredEntity? CreateNode()
         {
             foreach (Godot.Collections.Dictionary entry in ProjectSettings.GetGlobalClassList())
             {
@@ -84,7 +96,7 @@ namespace ParadiseGodot.Authoring
                     return null;
                 }
 
-                return script.Call("new").As<Node3D>() as AuthoredEntityNodeBase;
+                return script.Call("new").As<Node3D>() as IAuthoredEntity;
             }
 
             GD.PushError(
@@ -347,7 +359,7 @@ namespace ParadiseGodot.Authoring
         // Inspector
         // ---------------------------------------------------------------------------------
 
-        public override global::Godot.Collections.Array<global::Godot.Collections.Dictionary> _GetPropertyList()
+        public global::Godot.Collections.Array<global::Godot.Collections.Dictionary> BuildPropertyList()
         {
             EnsureSchema();
             var list = new global::Godot.Collections.Array<global::Godot.Collections.Dictionary>();
@@ -532,7 +544,7 @@ namespace ParadiseGodot.Authoring
             };
         }
 
-        public override Variant _Get(StringName property)
+        public Variant GetAuthored(StringName property)
         {
             EnsureSchema();
             string name = property.ToString();
@@ -550,7 +562,7 @@ namespace ParadiseGodot.Authoring
             return _values.TryGetValue(name, out Variant value) ? value : default;
         }
 
-        public override bool _Set(StringName property, Variant value)
+        public bool SetAuthored(StringName property, Variant value)
         {
             EnsureSchema();
             string name = property.ToString();
@@ -566,7 +578,7 @@ namespace ParadiseGodot.Authoring
                 }
                 // Always redraw: the picker has to fall back to its resting value and drop the id
                 // it just added from its own list.
-                NotifyPropertyListChanged();
+                _host.NotifyPropertyListChanged();
                 return true;
             }
 
@@ -595,7 +607,7 @@ namespace ParadiseGodot.Authoring
                         _values.Remove(key);
                     }
                 }
-                NotifyPropertyListChanged();
+                _host.NotifyPropertyListChanged();
                 OnAuthoredChanged();
                 return true;
             }
@@ -606,7 +618,7 @@ namespace ParadiseGodot.Authoring
             }
             _values[name] = value;
             // A guard field changing reveals or hides its dependants.
-            NotifyPropertyListChanged();
+            _host.NotifyPropertyListChanged();
             OnAuthoredChanged();
             return true;
         }
@@ -693,7 +705,7 @@ namespace ParadiseGodot.Authoring
 
         /// <summary>Stable per-placement identity; <see cref="Guid.Empty"/> until minted.</summary>
         public Guid EntityGuid =>
-            HasMeta(GuidMetaKey) && Guid.TryParse(GetMeta(GuidMetaKey).AsString(), out Guid g) ? g : Guid.Empty;
+            _host.HasMeta(GuidMetaKey) && Guid.TryParse(_host.GetMeta(GuidMetaKey).AsString(), out Guid g) ? g : Guid.Empty;
 
         /// <summary>Force a specific GUID (used by rebuild pipelines to carry identity across a
         /// destroy/recreate). Rejects <see cref="Guid.Empty"/>.</summary>
@@ -703,7 +715,7 @@ namespace ParadiseGodot.Authoring
             {
                 return false;
             }
-            SetMeta(GuidMetaKey, value.ToString("N"));
+            _host.SetMeta(GuidMetaKey, value.ToString("N"));
             return true;
         }
 
@@ -719,13 +731,13 @@ namespace ParadiseGodot.Authoring
             }
 
             Guid minted = Guid.NewGuid();
-            SetMeta(GuidMetaKey, minted.ToString("N"));
+            _host.SetMeta(GuidMetaKey, minted.ToString("N"));
             return minted;
         }
 
-        public override void _Notification(int what)
+        public void OnNotification(int what)
         {
-            if (what == NotificationEditorPreSave)
+            if (what == Node.NotificationEditorPreSave)
             {
                 EnsureUniqueGuid();
             }
@@ -737,7 +749,7 @@ namespace ParadiseGodot.Authoring
         {
             EnsureEntityGuid();
 
-            Node? sceneRoot = GetTree()?.EditedSceneRoot;
+            Node? sceneRoot = _host.GetTree()?.EditedSceneRoot;
             if (sceneRoot is null)
             {
                 return;
@@ -745,9 +757,9 @@ namespace ParadiseGodot.Authoring
 
             foreach (Node node in Descendants(sceneRoot))
             {
-                if (node != this && node is AuthoredEntityNodeBase other && other.EntityGuid == EntityGuid)
+                if (node != _host && node is IAuthoredEntity other && other.EntityGuid == EntityGuid)
                 {
-                    SetMeta(GuidMetaKey, Guid.NewGuid().ToString("N"));
+                    _host.SetMeta(GuidMetaKey, Guid.NewGuid().ToString("N"));
                     return;
                 }
             }
@@ -916,8 +928,8 @@ namespace ParadiseGodot.Authoring
                 // through the mesh resolver, an image through the spritesheet one (which also
                 // rewrites the extension to the runtime's .ktx2 sidecar).
                 string? baked = HostObjectBaker.IsGlbPath(file)
-                    ? HostObjectBaker.MeshField(this, file, paths)
-                    : HostObjectBaker.SheetField(this, file, paths);
+                    ? HostObjectBaker.MeshField(_host, file, paths)
+                    : HostObjectBaker.SheetField(_host, file, paths);
                 Write(payload, path, baked is null ? null : JsonValue.Create(baked));
                 return;
             }
@@ -966,7 +978,7 @@ namespace ParadiseGodot.Authoring
             }
 
             GD.PushWarning(
-                $"[Paradise.Export] '{Name}': '{host.Path}' asks for box extents but points at a "
+                $"[Paradise.Export] '{_host.Name}': '{host.Path}' asks for box extents but points at a "
                 + $"{shape} shape, which leaves them zero. Point it at a BoxShape3D, or give the "
                 + "record the fields that shape fills (Size, Radius, Height).");
         }
@@ -1008,12 +1020,12 @@ namespace ParadiseGodot.Authoring
             {
                 case AuthoredBySources.Shape:
                 {
-                    if (GetNodeOrNull<CollisionShape3D>(path) is not { Shape: not null } shape)
+                    if (_host.GetNodeOrNull<CollisionShape3D>(path) is not { Shape: not null } shape)
                     {
                         return null;
                     }
                     var data = new ColliderShapeData();
-                    if (!HostObjectBaker.TryBakeShape(this, shape, data))
+                    if (!HostObjectBaker.TryBakeShape(_host, shape, data))
                     {
                         return null;
                     }
@@ -1036,7 +1048,7 @@ namespace ParadiseGodot.Authoring
 
                 case AuthoredBySources.Mesh:
                 {
-                    if (GetNodeOrNull<Node>(path) is not { } node)
+                    if (_host.GetNodeOrNull<Node>(path) is not { } node)
                     {
                         return null;
                     }
@@ -1044,13 +1056,13 @@ namespace ParadiseGodot.Authoring
                         ?? HostObjectBaker.ModelDescendants(node)
                             .Select(HostObjectBaker.SourceGlbOf)
                             .FirstOrDefault(p => p is not null);
-                    string? field = HostObjectBaker.MeshField(this, source, paths);
+                    string? field = HostObjectBaker.MeshField(_host, source, paths);
                     return field is null ? null : JsonValue.Create(field);
                 }
 
                 case AuthoredBySources.Light:
                 {
-                    if (GetNodeOrNull<Light3D>(path) is not { } lightNode)
+                    if (_host.GetNodeOrNull<Light3D>(path) is not { } lightNode)
                     {
                         return null;
                     }
@@ -1061,12 +1073,12 @@ namespace ParadiseGodot.Authoring
 
                 case AuthoredBySources.Sprite:
                 {
-                    if (GetNodeOrNull<Sprite3D>(path) is not { } sprite)
+                    if (_host.GetNodeOrNull<Sprite3D>(path) is not { } sprite)
                     {
                         return null;
                     }
                     var data = new SpriteAnimationComponentData();
-                    HostObjectBaker.BakeSprite(this, sprite, paths, data);
+                    HostObjectBaker.BakeSprite(_host, sprite, paths, data);
                     // Only the fields the sprite OWNS; the rest of the component stays authored.
                     return new JsonObject
                     {
@@ -1153,7 +1165,7 @@ namespace ParadiseGodot.Authoring
             // INTERNAL: GetChildren() skips internal children, and the exporter walks children for
             // both entities and MATERIAL SLOTS. As a plain child, this wireframe's material was
             // exported as the entity's own and written into data/materials/.
-            AddChild(_wire, forceReadableName: false, @internal: InternalMode.Front);
+            _host.AddChild(_wire, forceReadableName: false, @internal: Node.InternalMode.Front);
         }
 
         private static void Rectangle(ImmediateMesh mesh, float hx, float hz, float y, Color color)
@@ -1176,7 +1188,7 @@ namespace ParadiseGodot.Authoring
                 ? (float)value.AsDouble()
                 : 0f;
 
-        public override void _Ready() => OnAuthoredChanged();
+        public void OnReady() => OnAuthoredChanged();
     }
 }
 #endif

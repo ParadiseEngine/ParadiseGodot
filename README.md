@@ -71,7 +71,7 @@ the **Play .NET** toolbar button launches the export in the standalone runtime.
   `Paradise.Export`; CI enforces this). `addon/` inside it is the res:// payload it installs into
   consuming repos, and `build/` the targets that place it
 - `addons/paradise/` — this repo's own installed copy of that payload: `plugin.cfg` and the two
-  shim scripts, placed by the same targets every consumer uses
+  res:// scripts, placed by the same targets every consumer uses
 - `Paradise.Sample.Pool(.Tests)` / `.Navigation.Detour` — engine-agnostic game simulation
   (Paradise.ECS), shared by the Godot bridge and the runtime host
 - `Paradise.Sample.Runtime(.Tests)` — standalone SDL/WebGPU runtime host; also packs as the
