@@ -18,7 +18,7 @@ engine repository checked out.
 Add one package reference to your Godot project's csproj:
 
 ```xml
-<PackageReference Include="Paradise.Godot.Editor" Version="0.13.0" />
+<PackageReference Include="Paradise.Godot.Editor" Version="0.14.0" />
 ```
 
 Build once. That first build installs the addon's `res://` half into `addons/paradise/` —
