@@ -223,12 +223,14 @@ namespace ParadiseGodot.Authoring
             {
                 return;
             }
-            _schemaStamp = stamp;
 
             // Only the SCHEMA is rebuilt. _enabled and _values are this node's authored data and
             // must survive: a re-dump changes what components exist, never what this node carries.
-            _components.Clear();
-            _byId.Clear();
+            //
+            // Torn down only AFTER the replacement loaded, and the stamp latched only then too: an
+            // uncaught throw from a load must leave the node on the schema it had — still working,
+            // and retrying on the next rebuild — rather than empty with the new stamp latched,
+            // which would pin the picker empty until the file changes AGAIN.
             try
             {
                 LoadSchema();
@@ -236,7 +238,9 @@ namespace ParadiseGodot.Authoring
             catch (Exception e)
             {
                 GD.PushError($"[Paradise.Export] The authoring schema could not be reloaded: {e}");
+                return;
             }
+            _schemaStamp = stamp;
         }
 
         /// <summary>
@@ -266,6 +270,9 @@ namespace ParadiseGodot.Authoring
         /// <summary>Engine components first, then the game's, so a game cannot redefine an engine id.</summary>
         private void LoadSchema()
         {
+            _components.Clear();
+            _byId.Clear();
+
             var documents = new List<AuthoringSchemaDocument>();
             try
             {
