@@ -126,6 +126,10 @@ namespace ParadiseGodot.Authoring
         private readonly HashSet<string> _enabled = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Variant> _values = new(StringComparer.Ordinal);
         private bool _loaded;
+
+        /// <summary>Modified time of the game's schema file when it was last read, so a re-dump is
+        /// noticed without reopening the project.</summary>
+        private ulong _schemaStamp;
         private MeshInstance3D? _wire;
 
         /// <summary>One component, flattened for the inspector.</summary>
@@ -186,6 +190,7 @@ namespace ParadiseGodot.Authoring
             // redraw. Everything after it is guarded: a throw that escaped would leave the node
             // permanently componentless with no error, which gives an author nothing to go on.
             _loaded = true;
+            _schemaStamp = SchemaStamp();
 
             try
             {
@@ -195,6 +200,67 @@ namespace ParadiseGodot.Authoring
             {
                 GD.PushError($"[Paradise.Export] The authoring schema could not be loaded: {e}");
             }
+        }
+
+        /// <summary>
+        /// Re-read the schema if the game's file changed since it was last read.
+        ///
+        /// A game adds a component by declaring an <c>[Authored]</c> record and re-dumping
+        /// <c>authoring-schema.json</c>. Without this the node holds whatever it read when the
+        /// scene opened, so the new component is absent from the picker until the whole project is
+        /// reloaded — with nothing on screen to suggest why.
+        ///
+        /// Called only from <see cref="BuildPropertyList"/>: that is where freshness matters, and
+        /// it runs once per inspector rebuild rather than once per property like the rest of the
+        /// EnsureSchema callers, so this costs one stat rather than hundreds.
+        /// </summary>
+        private void RefreshSchemaIfChanged()
+        {
+            EnsureSchema();
+
+            ulong stamp = SchemaStamp();
+            if (stamp == _schemaStamp)
+            {
+                return;
+            }
+            _schemaStamp = stamp;
+
+            // Only the SCHEMA is rebuilt. _enabled and _values are this node's authored data and
+            // must survive: a re-dump changes what components exist, never what this node carries.
+            _components.Clear();
+            _byId.Clear();
+            try
+            {
+                LoadSchema();
+            }
+            catch (Exception e)
+            {
+                GD.PushError($"[Paradise.Export] The authoring schema could not be reloaded: {e}");
+            }
+        }
+
+        /// <summary>
+        /// A cheap fingerprint of the game's schema file: modified time combined with length, or 0
+        /// when it does not exist.
+        ///
+        /// Length is in there because <c>GetModifiedTime</c> has one-SECOND resolution, so a
+        /// re-dump landing in the same second as the previous read would otherwise look unchanged.
+        /// Adding or removing a component always moves the length, which covers exactly the case
+        /// this refresh exists for.
+        /// </summary>
+        private static ulong SchemaStamp()
+        {
+            string path = ParadisePaths.DataDirPrefix + SchemaFileName;
+            if (!global::Godot.FileAccess.FileExists(path))
+            {
+                return 0;
+            }
+
+            ulong modified = global::Godot.FileAccess.GetModifiedTime(path);
+            using global::Godot.FileAccess? file = global::Godot.FileAccess.Open(
+                path, global::Godot.FileAccess.ModeFlags.Read);
+            ulong length = file?.GetLength() ?? 0;
+            return (modified * 31) ^ length;
         }
 
         /// <summary>Engine components first, then the game's, so a game cannot redefine an engine id.</summary>
@@ -361,7 +427,7 @@ namespace ParadiseGodot.Authoring
 
         public global::Godot.Collections.Array<global::Godot.Collections.Dictionary> BuildPropertyList()
         {
-            EnsureSchema();
+            RefreshSchemaIfChanged();
             var list = new global::Godot.Collections.Array<global::Godot.Collections.Dictionary>();
 
             // ADD, rather than a toggle for every component that exists. Listing them all put a
