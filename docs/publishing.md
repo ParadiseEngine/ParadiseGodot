@@ -64,6 +64,14 @@ and the package-contents gate in `publish-addon-package.yml` both enforce this.
    next build rewrites their `addons/paradise/` payload and bumps their marker; their `.uid` files
    are left alone. Review that diff like any other.
 
+## Editing the res:// payload during development
+
+The targets leaves an installed payload alone while its version marker matches, which is what keeps
+a consumer's local edit from being clobbered mid-version. The cost lands on maintainers: editing
+`Paradise.Godot.Editor/addon/**` does **not** propagate into this repo's own `addons/paradise/`
+until the version changes. Delete the installed file and rebuild — the repair path restores it from
+the payload.
+
 ## Local checks before tagging
 
 ```bash

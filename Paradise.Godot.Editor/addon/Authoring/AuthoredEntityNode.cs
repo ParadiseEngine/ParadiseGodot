@@ -40,6 +40,8 @@ namespace ParadiseGodot.Authoring
 
         public string ResolvedKind => Core.ResolvedKind;
 
+        public Guid EntityGuid => Core.EntityGuid;
+
         public Guid EnsureEntityGuid() => Core.EnsureEntityGuid();
 
         public IEnumerable<AuthoredComponentData> ExportAuthoredComponents() =>

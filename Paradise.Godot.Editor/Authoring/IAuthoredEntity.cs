@@ -32,6 +32,11 @@ namespace ParadiseGodot.Authoring
         /// <summary>What this entity is, as the exporter should record it.</summary>
         string ResolvedKind { get; }
 
+        /// <summary>This entity's GUID as it stands, or <see cref="Guid.Empty"/> if it has none.
+        /// Reading never mints one - the uniqueness scan compares every sibling through this, and
+        /// must not write to nodes it is merely looking at.</summary>
+        Guid EntityGuid { get; }
+
         /// <summary>Ensure a stable GUID exists, minting and persisting one if the node has none.
         /// Without it every headless re-export mints a fresh id and the exported scene churns in
         /// git while nothing has actually changed.</summary>

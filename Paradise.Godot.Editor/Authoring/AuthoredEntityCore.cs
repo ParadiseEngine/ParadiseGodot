@@ -757,7 +757,7 @@ namespace ParadiseGodot.Authoring
 
             foreach (Node node in Descendants(sceneRoot))
             {
-                if (node != _host && node is IAuthoredEntity other && other.EnsureEntityGuid() == EntityGuid)
+                if (node != _host && node is IAuthoredEntity other && other.EntityGuid == EntityGuid)
                 {
                     _host.SetMeta(GuidMetaKey, Guid.NewGuid().ToString("N"));
                     return;

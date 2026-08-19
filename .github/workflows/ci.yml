@@ -124,8 +124,12 @@ jobs:
             grep -oE "Key: [A-Za-z.]+" reload.log | sort -u
             exit 1
           fi
-          if grep -q "Resource file not found: res:// " reload.log; then
-            echo "::error::Script resolution failed on reload - same cause as above."
+          # The space after res:// is load-bearing: it matches Godot's
+          # "Resource file not found: res:// (expected type: Script)" - an EMPTY path, which is the
+          # reload symptom. A genuinely missing file reads "res://some/path.tscn (expected ...)"
+          # and must not trip this.
+          if grep -qE "Resource file not found: res:// \\(" reload.log; then
+            echo "::error::Script resolution failed on reload with an empty path - same cause as above."
             exit 1
           fi
           echo "Assembly reload clean."

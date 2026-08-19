@@ -24,7 +24,7 @@ namespace ParadiseGodot
         public ExportPluginCore(EditorPlugin host) => _host = host;
 
         // Scene-root metadata naming a code-driven runtime sample (`--game <name>`) for the "Play .NET"
-        // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNodeBase nodes.
+        // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNode nodes.
         private const string GameMetaKey = "paradise_game";
 
         private const string ExportMenuItem = "Paradise/Export Active Scene";
