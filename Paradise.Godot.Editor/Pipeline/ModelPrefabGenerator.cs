@@ -50,25 +50,25 @@ namespace ParadiseGodot.Pipeline
                 return false;
             }
 
-            if (AuthoredEntityNodeBase.Create() is not AuthoredEntityNodeBase root)
+            if (AuthoredEntityCore.CreateNode() is not IAuthoredEntity root)
             {
                 modelInstance.QueueFree();
                 return false;
             }
 
-            root.Name = name;
+            root.Node.Name = name;
             root.ModelPath = modelResPath;
             modelInstance.Name = name;
             // Mark the child as an instance of the source scene so the packed prefab references it
             // (re-imports flow through) rather than embedding a frozen copy.
             modelInstance.SceneFilePath = modelResPath;
-            root.AddChild(modelInstance);
-            modelInstance.Owner = root;
+            root.Node.AddChild(modelInstance);
+            modelInstance.Owner = root.Node;
 
             var packed = new PackedScene();
             try
             {
-                if (packed.Pack(root) != Error.Ok)
+                if (packed.Pack(root.Node) != Error.Ok)
                 {
                     return false;
                 }
@@ -87,7 +87,7 @@ namespace ParadiseGodot.Pipeline
             finally
             {
                 // Always free the in-memory tree, even if save/dir creation throws.
-                root.Free();
+                root.Node.Free();
             }
         }
 

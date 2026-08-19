@@ -41,9 +41,9 @@ namespace ParadiseGodot.Export
 
         /// <summary>Resolve identity for an entity from its nearest scene-instance ancestor, and
         /// export that prefab's template (deduped) as a side effect.</summary>
-        public Identity ResolveAndExport(AuthoredEntityNodeBase entity)
+        public Identity ResolveAndExport(IAuthoredEntity entity)
         {
-            Node? instanceRoot = NearestInstanceRoot(entity);
+            Node? instanceRoot = NearestInstanceRoot(entity.Node);
             if (instanceRoot is null || string.IsNullOrEmpty(instanceRoot.SceneFilePath))
             {
                 return default;
@@ -102,17 +102,17 @@ namespace ParadiseGodot.Export
         {
             var entities = new List<LevelEntityData>();
             // Descendants() intentionally excludes `root` itself: the prefab root is the container
-            // (an AuthoredEntityNodeBase produced by ModelPrefabGenerator), not a nested template entity.
+            // (an IAuthoredEntity produced by ModelPrefabGenerator), not a nested template entity.
             foreach (Node node in Descendants(root))
             {
-                if (node is not AuthoredEntityNodeBase entity)
+                if (node is not IAuthoredEntity entity)
                 {
                     continue;
                 }
 
-                SN.Vector3 localPos = new SN.Vector3(entity.Position.X, entity.Position.Y, entity.Position.Z);
-                SN.Quaternion localRot = new SN.Quaternion(entity.Quaternion.X, entity.Quaternion.Y, entity.Quaternion.Z, entity.Quaternion.W);
-                string name = entity.Name.ToString();
+                SN.Vector3 localPos = new SN.Vector3(entity.Node.Position.X, entity.Node.Position.Y, entity.Node.Position.Z);
+                SN.Quaternion localRot = new SN.Quaternion(entity.Node.Quaternion.X, entity.Node.Quaternion.Y, entity.Node.Quaternion.Z, entity.Node.Quaternion.W);
+                string name = entity.Node.Name.ToString();
                 entities.Add(new LevelEntityData
                 {
                     // Template entities carry no scene-instance identity; the GUID is assigned per
@@ -125,7 +125,7 @@ namespace ParadiseGodot.Export
                     Prefab = string.IsNullOrEmpty(entity.ModelPath) ? null : entity.ModelPath,
                     LocalPosition = localPos,
                     LocalRotation = localRot,
-                    LocalScale = new SN.Vector3(entity.Scale.X, entity.Scale.Y, entity.Scale.Z),
+                    LocalScale = new SN.Vector3(entity.Node.Scale.X, entity.Node.Scale.Y, entity.Node.Scale.Z),
                     Components = new EntityComponentsData
                     {
                         Renderable = string.IsNullOrEmpty(entity.ModelPath) ? null : new RenderableComponentData(),
@@ -137,7 +137,7 @@ namespace ParadiseGodot.Export
         }
 
         private static string? ModelPathOf(Node root) =>
-            root is AuthoredEntityNodeBase entity && !string.IsNullOrEmpty(entity.ModelPath) ? entity.ModelPath : null;
+            root is IAuthoredEntity entity && !string.IsNullOrEmpty(entity.ModelPath) ? entity.ModelPath : null;
 
         private static Node? NearestInstanceRoot(Node node)
         {

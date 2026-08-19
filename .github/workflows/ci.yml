@@ -106,6 +106,30 @@ jobs:
       - name: Import project
         run: $GODOT_BIN --headless --import --path . || true  # first import surfaces non-fatal warnings
 
+      # The addon's res:// scripts must never DERIVE from a type in the package assembly. Godot
+      # registers such a base as a script type too, and its ScriptTypeBiMap throws a duplicate-key
+      # exception on every assembly reload - breaking editor hot-reload and pinning the inspector
+      # to "This inspector might be out of date" (godotengine/godot#75352). Composition avoids it.
+      #
+      # This only reproduces on a RELOAD, which a cold headless run never performs - which is
+      # exactly how it shipped in 0.13.0 past a green build, passing tests and a byte-identical
+      # export. Touching a source and passing --build-solutions makes the editor rebuild and
+      # reload in-process, which is the path that throws.
+      - name: Assembly reload must be clean
+        run: |
+          touch addons/paradise/Authoring/AuthoredEntityNode.cs
+          $GODOT_BIN --headless --editor --build-solutions --path . --quit-after 900 2>&1 | tee reload.log || true
+          if grep -q "same key has already been added" reload.log; then
+            echo "::error::Godot could not reload the C# assembly. A res:// script is deriving from a type in the package assembly; use composition instead. Offending types:"
+            grep -oE "Key: [A-Za-z.]+" reload.log | sort -u
+            exit 1
+          fi
+          if grep -q "Resource file not found: res:// " reload.log; then
+            echo "::error::Script resolution failed on reload - same cause as above."
+            exit 1
+          fi
+          echo "Assembly reload clean."
+
       - name: Headless scene export
         run: PARADISE_EXPORT_SCENE=res://scenes/sample.tscn $GODOT_BIN --headless --editor --path .
 
