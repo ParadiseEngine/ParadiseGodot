@@ -19,7 +19,7 @@ For an existing Godot .NET project:
 2. Add the addon to it:
 
    ```xml
-   <PackageReference Include="Paradise.Godot.Editor" Version="0.13.0" />
+   <PackageReference Include="Paradise.Godot.Editor" Version="0.14.0" />
    ```
 
 3. Build once (hammer icon or `dotnet build`). **This is what installs the addon**: the package

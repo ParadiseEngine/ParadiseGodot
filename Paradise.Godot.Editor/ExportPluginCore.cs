@@ -37,6 +37,31 @@ namespace ParadiseGodot
         private const string SettingsMenuItem = "Paradise/Settings…";
 
         private Button? _playDotnetButton;
+        /// <summary>
+        /// Methods the res:// plugin script must forward to this core, BY THESE NAMES.
+        ///
+        /// Editor UI is wired with name-based callables — new Callable(_host, name) — never with
+        /// Callable.From(delegate). A delegate-backed callable is a ManagedCallableMiddleman
+        /// holding a GC handle into the CURRENT assembly; a .NET assembly reload frees that handle,
+        /// and any UI that survives the reload then fails its clicks with
+        /// "Parameter delegate_handle.value is null … ManagedCallableMiddleman:: Method not found".
+        /// A name-based callable re-resolves against whatever assembly is loaded when it is
+        /// invoked, so it survives every reload — and this editor now reloads often: the payload
+        /// materializer, the schema auto-dump and hammer builds all trigger it.
+        /// </summary>
+        private static readonly string[] ForwardedMethods =
+        [
+            "OnExportActiveScene",
+            "OnGenerateModelPrefabs",
+            "OnGeneratePrimitives",
+            "OnConvertModels",
+            "OnConvertDataGlbs",
+            "OnValidateActiveScene",
+            "OnProjectSetup",
+            "OnOpenSettings",
+            "OnPlayDotnet",
+        ];
+
         private ParadiseSettingsDialog? _settingsDialog;
         private readonly Pipeline.DataGlbImportHook _dataGlbHook = new();
 
@@ -46,14 +71,27 @@ namespace ParadiseGodot
             // headless exports — before anything can invoke the pipeline.
             ParadiseSettingsDialog.ApplySavedSettings();
 
-            _host.AddToolMenuItem(ExportMenuItem, Callable.From(OnExportActiveScene));
-            _host.AddToolMenuItem(GeneratePrefabsMenuItem, Callable.From(OnGenerateModelPrefabs));
-            _host.AddToolMenuItem(GeneratePrimitivesMenuItem, Callable.From(OnGeneratePrimitives));
-            _host.AddToolMenuItem(ConvertModelsMenuItem, Callable.From(OnConvertModels));
-            _host.AddToolMenuItem(ConvertDataGlbsMenuItem, Callable.From(OnConvertDataGlbs));
-            _host.AddToolMenuItem(ValidateMenuItem, Callable.From(ExportValidator.ValidateActiveScene));
-            _host.AddToolMenuItem(ProjectSetupMenuItem, Callable.From(ProjectSetup.Run));
-            _host.AddToolMenuItem(SettingsMenuItem, Callable.From(OnOpenSettings));
+            // A payload shim from before these forwarders would leave every menu item dead with
+            // an unhelpful native error; say what is actually wrong instead.
+            foreach (var method in ForwardedMethods)
+            {
+                if (!_host.HasMethod(method))
+                {
+                    GD.PushError(
+                        $"[Paradise.Export] The res:// plugin script has no '{method}' forwarder — " +
+                        "addons/paradise is older than the addon assembly. Rebuild the C# project " +
+                        "so the payload materializer updates it, then reload the project.");
+                }
+            }
+
+            _host.AddToolMenuItem(ExportMenuItem, new Callable(_host, "OnExportActiveScene"));
+            _host.AddToolMenuItem(GeneratePrefabsMenuItem, new Callable(_host, "OnGenerateModelPrefabs"));
+            _host.AddToolMenuItem(GeneratePrimitivesMenuItem, new Callable(_host, "OnGeneratePrimitives"));
+            _host.AddToolMenuItem(ConvertModelsMenuItem, new Callable(_host, "OnConvertModels"));
+            _host.AddToolMenuItem(ConvertDataGlbsMenuItem, new Callable(_host, "OnConvertDataGlbs"));
+            _host.AddToolMenuItem(ValidateMenuItem, new Callable(_host, "OnValidateActiveScene"));
+            _host.AddToolMenuItem(ProjectSetupMenuItem, new Callable(_host, "OnProjectSetup"));
+            _host.AddToolMenuItem(SettingsMenuItem, new Callable(_host, "OnOpenSettings"));
             // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
             // dropped into data/ is runtime-ready with no manual step.
             EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported += _dataGlbHook.OnResourcesReimported;
@@ -63,7 +101,7 @@ namespace ParadiseGodot
                 TooltipText = "Launch the active scene's exported data in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
                 Flat = true,
             };
-            _playDotnetButton.Pressed += OnPlayDotnet;
+            _playDotnetButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnPlayDotnet"));
             _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
             // Automation: re-export scene data whenever the edited scene is saved.
             _host.SceneSaved += OnSceneSaved;
@@ -87,6 +125,14 @@ namespace ParadiseGodot
 
         public void ExitTree()
         {
+            // Button first: if any teardown below throws, a leftover toolbar button whose pressed
+            // connection points into an unloaded assembly is the failure users actually see.
+            if (_playDotnetButton is not null)
+            {
+                _host.RemoveControlFromContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
+                _playDotnetButton.QueueFree();
+                _playDotnetButton = null;
+            }
             _host.RemoveToolMenuItem(ExportMenuItem);
             _host.RemoveToolMenuItem(GeneratePrefabsMenuItem);
             _host.RemoveToolMenuItem(GeneratePrimitivesMenuItem);
@@ -102,12 +148,6 @@ namespace ParadiseGodot
                 _settingsDialog.QueueFree();
                 _settingsDialog = null;
             }
-            if (_playDotnetButton is not null)
-            {
-                _host.RemoveControlFromContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
-                _playDotnetButton.QueueFree();
-                _playDotnetButton = null;
-            }
         }
 
         /// <summary>Toolbar "Play .NET": launch the ALREADY-exported scene data detached in the
@@ -115,7 +155,7 @@ namespace ParadiseGodot
         /// change takes a few seconds before the window appears). Deliberately does NOT export:
         /// data/ is authoring output, kept fresh by the save hook / Paradise menu — launching is
         /// a pure consumer of it.</summary>
-        private void OnPlayDotnet()
+        public void OnPlayDotnet()
         {
             try
             {
@@ -290,23 +330,23 @@ namespace ParadiseGodot
             }
         }
 
-        private void OnGenerateModelPrefabs()
+        public void OnGenerateModelPrefabs()
         {
             Pipeline.ModelPrefabGenerator.GenerateAll();
         }
 
-        private void OnGeneratePrimitives()
+        public void OnGeneratePrimitives()
         {
             Pipeline.PrimitiveGlbGenerator.GenerateAll();
         }
 
-        private void OnConvertModels()
+        public void OnConvertModels()
         {
             WarnIfKtxMissing("model conversion");
             Pipeline.AssetPipeline.ConvertAllModels();
         }
 
-        private void OnConvertDataGlbs()
+        public void OnConvertDataGlbs()
         {
             WarnIfKtxMissing("data GLB conversion");
             Pipeline.DataGlbConverter.ConvertAll();
@@ -383,12 +423,12 @@ namespace ParadiseGodot
             }
         }
 
-        private void OnExportActiveScene()
+        public void OnExportActiveScene()
         {
             Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
         }
 
-        private void OnOpenSettings()
+        public void OnOpenSettings()
         {
             if (_settingsDialog is null)
             {

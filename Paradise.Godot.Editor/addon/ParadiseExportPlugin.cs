@@ -6,6 +6,12 @@
 // type declared in another assembly, because Godot registers the base as a script type too and
 // its ScriptTypeBiMap then throws a duplicate-key exception on every assembly reload, breaking
 // editor hot-reload. See godotengine/godot#75352.
+//
+// The forwarders below are the addon's menu items and toolbar button. They exist as NAMED methods
+// on this GodotObject so the core can wire its UI with name-based callables, which re-resolve
+// against the current assembly on every invocation. A Callable.From(delegate) instead holds a GC
+// handle that dies with the assembly on reload, after which every click fails with
+// "Parameter delegate_handle.value is null ... ManagedCallableMiddleman:: Method not found".
 #if TOOLS
 using Godot;
 
@@ -21,6 +27,24 @@ namespace ParadiseGodot
         public override void _EnterTree() => Core.EnterTree();
 
         public override void _ExitTree() => Core.ExitTree();
+
+        public void OnExportActiveScene() => Core.OnExportActiveScene();
+
+        public void OnGenerateModelPrefabs() => Core.OnGenerateModelPrefabs();
+
+        public void OnGeneratePrimitives() => Core.OnGeneratePrimitives();
+
+        public void OnConvertModels() => Core.OnConvertModels();
+
+        public void OnConvertDataGlbs() => Core.OnConvertDataGlbs();
+
+        public void OnValidateActiveScene() => ExportValidator.ValidateActiveScene();
+
+        public void OnProjectSetup() => ProjectSetup.Run();
+
+        public void OnOpenSettings() => Core.OnOpenSettings();
+
+        public void OnPlayDotnet() => Core.OnPlayDotnet();
     }
 }
 #endif
