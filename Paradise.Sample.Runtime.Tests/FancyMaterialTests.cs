@@ -36,7 +36,7 @@ public class FancyMaterialTests
         // sample.json's Ball2 (which keeps the textured slot override).
         var sample = LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
         var ball2 = sample.Level.Entities.First(e => e.Id == "Ball2");
-        GltfAsset asset = sample.MeshAssets[ball2.Components.Renderable!.Mesh!];
+        GltfAsset asset = sample.MeshAssets[ball2.Get<RenderableComponentData>()!.Mesh!];
         var texturedGlb = asset.Materials[0];
         await Assert.That(SceneAssembler.HasAnyTexture(in texturedGlb)).IsTrue();
 

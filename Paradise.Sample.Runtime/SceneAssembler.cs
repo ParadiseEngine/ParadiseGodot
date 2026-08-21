@@ -41,9 +41,9 @@ public static class SceneAssembler
         {
             // Only truly static bodies join the static world — kinematic agents and dynamic
             // balls are simulated, exactly like the Godot bridge's navigation_source harvest.
-            if (entity.Components.Rigidbody?.BodyType != PhysicsBodyType.Static) continue;
+            if (entity.Get<RigidbodyComponentData>()?.BodyType != PhysicsBodyType.Static) continue;
             var model = ToModelMatrix(entity.WorldMatrix);
-            foreach (var shape in entity.Components.Collider?.Colliders ?? [])
+            foreach (var shape in entity.Get<ColliderComponentData>()?.Colliders ?? [])
             {
                 // Triggers are sensors (pool-pocket capture regions), never solid geometry —
                 // a pocket sphere in the collision world would block the pocket mouth.
@@ -124,10 +124,10 @@ public static class SceneAssembler
         var pockets = new List<(Vector3, float)>();
         foreach (var entity in level.Entities)
         {
-            if (entity.Components.Rigidbody?.BodyType != PhysicsBodyType.Static) continue;
+            if (entity.Get<RigidbodyComponentData>()?.BodyType != PhysicsBodyType.Static) continue;
             var model = ToModelMatrix(entity.WorldMatrix);
             var ownerScale = OwnerScale(model);
-            foreach (var shape in entity.Components.Collider?.Colliders ?? [])
+            foreach (var shape in entity.Get<ColliderComponentData>()?.Colliders ?? [])
             {
                 if (!shape.IsTrigger || shape.ShapeType != PhysicsShapeType.Sphere) continue;
                 var world = Matrix4x4.CreateTranslation(shape.LocalCenter) * model;
@@ -149,8 +149,8 @@ public static class SceneAssembler
     {
         foreach (var entity in level.Entities)
         {
-            if (entity.Components.Rigidbody is not { BodyType: PhysicsBodyType.Static } rigidbody) continue;
-            foreach (var shape in entity.Components.Collider?.Colliders ?? [])
+            if (entity.Get<RigidbodyComponentData>() is not { BodyType: PhysicsBodyType.Static } rigidbody) continue;
+            foreach (var shape in entity.Get<ColliderComponentData>()?.Colliders ?? [])
             {
                 if (shape.IsTrigger) continue;
                 // shape.Layer is a Unity-style layer INDEX; the contract-to-mask shift matches
@@ -196,7 +196,7 @@ public static class SceneAssembler
             var model = ToModelMatrix(entity.WorldMatrix);
             PbrInstance? render = null;
             SkinnedMeshState? skinned = null;
-            if (entity.Components.Renderable?.Mesh is { } meshField)
+            if (entity.Get<RenderableComponentData>()?.Mesh is { } meshField)
             {
                 var asset = level.MeshAssets[meshField];
                 // Entities that author InitialAnimation get PRIVATE dynamic buffers for their
@@ -216,23 +216,26 @@ public static class SceneAssembler
 
             Entity? simEntity = null;
             var (position, rotation) = DecomposePose(model);
-            var components = entity.Components;
-            if (components.Rigidbody?.BodyType == PhysicsBodyType.Dynamic)
+            // Read once per entity rather than per access: Get<T> deserializes the payload each
+            // time it is called, and this loop asks for the rigidbody five times.
+            var rigidbody = entity.Get<RigidbodyComponentData>();
+            var collider = entity.Get<ColliderComponentData>();
+            if (rigidbody?.BodyType == PhysicsBodyType.Dynamic)
             {
-                var sphere = FindShape(components, PhysicsShapeType.Sphere);
+                var sphere = FindShape(collider, PhysicsShapeType.Sphere);
                 // Godot scales collision shapes by node scale; the contract stores the UNSCALED
                 // shape radius, so apply the entity's (uniform) scale here or a 0.7-scaled ball
                 // simulates 43% too fat and racks placed at visual spacing explode apart.
                 var radius = (sphere?.Radius ?? 0.5f) * entity.LocalScale.X;
                 var isCue = string.Equals(entity.StableId, "CueBall", StringComparison.OrdinalIgnoreCase);
                 var ball = runner.SpawnBall(position, rotation, radius,
-                    Math.Max(0.01f, components.Rigidbody.Mass),
-                    components.Rigidbody.LinearDamping,
-                    components.Rigidbody.Restitution,
+                    Math.Max(0.01f, rigidbody.Mass),
+                    rigidbody.LinearDamping,
+                    rigidbody.Restitution,
                     staticRestitution,
                     PoolRack.BuildBall(pockets, isCue, position, trayIndex++),
                     tuning,
-                    friction: components.Rigidbody.Friction);
+                    friction: rigidbody.Friction);
                 simEntity = ball;
                 if (render is not null)
                 {
@@ -251,7 +254,7 @@ public static class SceneAssembler
 
             // Sprite animations and particle emitters spawn their own sim entities (independent
             // features, matching EcsSceneBridge) with dynamic-primitive render states.
-            if (components.SpriteAnimation is { } spriteData)
+            if (entity.Get<SpriteAnimationComponentData>() is { } spriteData)
             {
                 var normalized = spriteData with { };
                 normalized.ValidateAndNormalize();
@@ -260,7 +263,7 @@ public static class SceneAssembler
                 sprites.Add(new SpriteQuadState(pbr, normalized, SheetBytes(level, normalized.Sheet), spriteEntity));
             }
 
-            if (components.ParticleEmitter is { } emitterData)
+            if (entity.Get<ParticleEmitterComponentData>() is { } emitterData)
             {
                 var normalized = emitterData with { };
                 normalized.ValidateAndNormalize();
@@ -288,9 +291,9 @@ public static class SceneAssembler
     private static byte[]? SheetBytes(RuntimeLevel level, string? sheetField) =>
         sheetField is not null && level.SpriteSheets.TryGetValue(sheetField, out var bytes) ? bytes : null;
 
-    private static ColliderShapeData? FindShape(EntityComponentsData components, PhysicsShapeType type)
+    private static ColliderShapeData? FindShape(ColliderComponentData? collider, PhysicsShapeType type)
     {
-        foreach (var shape in components.Collider?.Colliders ?? [])
+        foreach (var shape in collider?.Colliders ?? [])
         {
             if (shape.ShapeType == type) return shape;
         }

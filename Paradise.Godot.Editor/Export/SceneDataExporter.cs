@@ -426,15 +426,18 @@ namespace ParadiseGodot.Export
                 Materials = materials.ExportMaterialSlots(entity.Node),
             };
 
-            // Authored components decide the rest — Kind, IsActive, every component slot. The
-            // router owns the id -> destination mapping so the editor never has to know it.
-            IReadOnlyList<string> failed =
+            // Authored components decide the rest — Kind, IsActive, and the component list itself.
+            // Identity is the only one the router still redirects (onto the entity's own fields);
+            // everything else lands in the list exactly as it was authored.
+            IReadOnlyList<AuthoredComponentData> dropped =
                 AuthoredComponentRouter.ApplyAll(data, entity.ExportAuthoredComponents());
-            foreach (string id in failed)
+            foreach (AuthoredComponentData component in dropped)
             {
+                // Only a payload with NEITHER an id nor a type name reaches here — there is
+                // nothing left to identify it by, so it says so with the entity's name instead.
                 GD.PushError(
-                    $"[Paradise.Export] Entity '{name}' authored '{id}' but it could not be read as "
-                    + "that component; it is missing from the export.");
+                    $"[Paradise.Export] Entity '{name}' authored a component with no id and no "
+                    + "type name; it is missing from the export.");
             }
 
             return data;
