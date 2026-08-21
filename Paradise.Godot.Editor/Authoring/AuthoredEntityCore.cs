@@ -135,7 +135,16 @@ namespace ParadiseGodot.Authoring
         /// <summary>One component, flattened for the inspector.</summary>
         private sealed class ComponentSchema
         {
+            /// <summary>The component's [Guid], canonical lowercase-hyphenated, kept as text
+            /// because every use here is a Godot property NAME (<c>&lt;id&gt;/&lt;Path&gt;</c>) and
+            /// those are strings. Parsed back to a Guid once, on export.</summary>
             public string Id = "";
+
+            /// <summary>Fully qualified CLR name, written beside the id on export. The only thing
+            /// in a payload a human can read, so it is carried even though nothing here uses
+            /// it.</summary>
+            public string Type = "";
+
             public string DisplayName = "";
             /// <summary>Host-object kind the WHOLE component is authored by, or null.</summary>
             public string? AuthoredBy;
@@ -303,8 +312,12 @@ namespace ParadiseGodot.Authoring
             {
                 var component = new ComponentSchema
                 {
-                    Id = source.Id,
-                    DisplayName = string.IsNullOrEmpty(source.DisplayName) ? source.Id : source.DisplayName,
+                    Id = source.Id.ToString(),
+                    Type = source.Type,
+                    // Falls back to the TYPE, not the id: a bare GUID is not a label.
+                    DisplayName = string.IsNullOrEmpty(source.DisplayName)
+                        ? source.Type
+                        : source.DisplayName,
                     AuthoredBy = source.AuthoredBy,
                     Gizmo = source.Gizmo is { Kind: "box" } gizmo ? gizmo : null,
                 };
@@ -756,11 +769,17 @@ namespace ParadiseGodot.Authoring
             }
         }
 
+        private Variant AuthoredValue(Guid componentId, string field) =>
+            AuthoredValue(componentId.ToString(), field);
+
         private Variant AuthoredValue(string componentId, string field)
         {
             EnsureSchema();
             return _values.TryGetValue(componentId + "/" + field, out Variant value) ? value : default;
         }
+
+        private void SetAuthored(Guid componentId, string field, Variant value) =>
+            SetAuthored(componentId.ToString(), field, value);
 
         private void SetAuthored(string componentId, string field, Variant value)
         {
@@ -883,7 +902,8 @@ namespace ParadiseGodot.Authoring
 
                 yield return new AuthoredComponentData
                 {
-                    Id = component.Id,
+                    Id = Guid.Parse(component.Id),
+                    Type = component.Type,
                     // Round-tripped through a document so the payload is a detached JsonElement:
                     // reading one after its owning JsonDocument is disposed throws.
                     Data = JsonDocument.Parse(payload.ToJsonString()).RootElement.Clone(),

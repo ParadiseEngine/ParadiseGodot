@@ -45,12 +45,12 @@ public static class LevelLoader
             {
                 if (slot is not null) LoadMaterial(dataDir, slot, materials);
             }
-            if (entity.Components.Renderable?.Mesh is { } meshField)
+            if (entity.Get<RenderableComponentData>()?.Mesh is { } meshField)
             {
                 LoadMesh(dataDir, meshField, meshAssets);
             }
-            LoadSpriteSheet(dataDir, entity.Components.SpriteAnimation?.Sheet, spriteSheets);
-            LoadSpriteSheet(dataDir, entity.Components.ParticleEmitter?.Sheet, spriteSheets);
+            LoadSpriteSheet(dataDir, entity.Get<SpriteAnimationComponentData>()?.Sheet, spriteSheets);
+            LoadSpriteSheet(dataDir, entity.Get<ParticleEmitterComponentData>()?.Sheet, spriteSheets);
         }
 
         var settingsPath = Path.Combine(dataDir, "ProjectSettings.json");

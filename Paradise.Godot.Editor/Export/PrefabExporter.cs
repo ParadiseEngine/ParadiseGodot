@@ -126,10 +126,12 @@ namespace ParadiseGodot.Export
                     LocalPosition = localPos,
                     LocalRotation = localRot,
                     LocalScale = new SN.Vector3(entity.Node.Scale.X, entity.Node.Scale.Y, entity.Node.Scale.Z),
-                    Components = new EntityComponentsData
-                    {
-                        Renderable = string.IsNullOrEmpty(entity.ModelPath) ? null : new RenderableComponentData(),
-                    },
+                    // A template says "this prefab renders", not what it renders — the placement's
+                    // own Renderable carries the mesh. No entry at all is what "no model" means
+                    // now, in place of a named slot holding null.
+                    Components = string.IsNullOrEmpty(entity.ModelPath)
+                        ? []
+                        : [LevelEntityExtensions.Entry(new RenderableComponentData())],
                 });
             }
 

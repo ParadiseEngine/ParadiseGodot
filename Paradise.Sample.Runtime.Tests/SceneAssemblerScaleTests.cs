@@ -17,10 +17,12 @@ public class SceneAssemblerScaleTests
     {
         Id = id,
         WorldMatrix = worldMatrix,
-        Components = new EntityComponentsData
+        Components =
         {
-            Rigidbody = new RigidbodyComponentData { BodyType = PhysicsBodyType.Static },
-            Collider = new ColliderComponentData { Colliders = { shape } },
+            LevelEntityExtensions.Entry(
+                new RigidbodyComponentData { BodyType = PhysicsBodyType.Static }),
+            LevelEntityExtensions.Entry(
+                new ColliderComponentData { Colliders = { shape } }),
         },
     };
 

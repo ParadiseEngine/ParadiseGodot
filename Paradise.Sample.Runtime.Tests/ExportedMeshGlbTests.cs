@@ -32,8 +32,7 @@ public class ExportedMeshGlbTests
         var checkedMeshes = 0;
         foreach (var entity in entities.EnumerateArray())
         {
-            var renderable = entity.GetProperty("Components").GetProperty("Renderable");
-            if (renderable.ValueKind == JsonValueKind.Null) continue;
+            if (Renderable(entity) is not { } renderable) continue;
             var meshField = renderable.GetProperty("Mesh").GetString();
             await Assert.That(meshField).IsNotNull();
 
@@ -76,8 +75,7 @@ public class ExportedMeshGlbTests
         var meshFields = new List<string>();
         foreach (var entity in document.RootElement.GetProperty("Entities").EnumerateArray())
         {
-            var renderable = entity.GetProperty("Components").GetProperty("Renderable");
-            if (renderable.ValueKind == JsonValueKind.Null) continue;
+            if (Renderable(entity) is not { } renderable) continue;
             meshFields.Add(renderable.GetProperty("Mesh").GetString()!);
         }
 
@@ -93,5 +91,21 @@ public class ExportedMeshGlbTests
             await Assert.That(field.StartsWith("Models/", StringComparison.Ordinal) ||
                               field.StartsWith("primitives/", StringComparison.Ordinal)).IsTrue();
         }
+    }
+
+    /// <summary>The entity's Renderable payload, or null when it authors none. Components are a
+    /// LIST now, so "no renderable" is an absent entry rather than a named key holding null —
+    /// and the entry is found by its type name, not by a position nothing guarantees.</summary>
+    private static JsonElement? Renderable(JsonElement entity)
+    {
+        foreach (var component in entity.GetProperty("Components").EnumerateArray())
+        {
+            if (component.TryGetProperty("Type", out var type)
+                && type.GetString() == "Paradise.Export.Data.RenderableComponentData")
+            {
+                return component.GetProperty("Data");
+            }
+        }
+        return null;
     }
 }

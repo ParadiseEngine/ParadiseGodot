@@ -84,7 +84,7 @@ namespace ParadiseGodot
             var checkedMeshes = new HashSet<string>(StringComparer.Ordinal);
             foreach (LevelEntityData entity in level.Entities)
             {
-                string? mesh = entity.Components.Renderable?.Mesh;
+                string? mesh = entity.Get<RenderableComponentData>()?.Mesh;
                 if (string.IsNullOrEmpty(mesh) || !checkedMeshes.Add(mesh))
                 {
                     continue;

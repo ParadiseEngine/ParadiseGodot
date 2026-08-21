@@ -125,7 +125,7 @@ public class PoolSceneTests
             if (entity.StableId == "CueBall") cue = entity;
         }
         await Assert.That(cue).IsNotNull();
-        var rigidbody = cue!.Components.Rigidbody!;
+        var rigidbody = cue!.Get<RigidbodyComponentData>()!;
         await Assert.That(rigidbody.BodyType).IsEqualTo(PhysicsBodyType.Dynamic);
         await Assert.That(MathF.Abs(rigidbody.LinearDamping - 0.6f)).IsLessThan(1e-4f);
         await Assert.That(MathF.Abs(rigidbody.Restitution - 0.92f)).IsLessThan(1e-4f);

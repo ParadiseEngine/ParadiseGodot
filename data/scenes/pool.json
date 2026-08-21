@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": 2,
+  "SchemaVersion": 3,
   "Camera": {
     "Position": [
       0,
@@ -50,30 +50,30 @@
             0.0014059391,
             0.0014165792,
             0.002118743,
-            -7.9612306E-05,
-            -7.930155E-05,
+            -7.9612306e-05,
+            -7.930155e-05,
             -0.0003237022,
             0.0001910559,
             0.0001697941,
             0.00013119378,
             -0.00011027883,
-            -9.8002965E-05,
-            -7.570783E-05,
-            -6.99689E-05,
-            -6.2168525E-05,
-            -4.7973143E-05,
+            -9.8002965e-05,
+            -7.570783e-05,
+            -6.99689e-05,
+            -6.2168525e-05,
+            -4.7973143e-05,
             0.000121187484,
             0.00010767731,
-            8.3087725E-05,
-            2.672378E-06,
-            2.0011687E-06,
-            2.5588843E-06,
-            -5.0719173E-05,
-            -4.505102E-05,
-            -3.469818E-05,
-            -5.443507E-05,
-            -4.9052294E-05,
-            -3.627554E-05
+            8.3087725e-05,
+            2.672378e-06,
+            2.0011687e-06,
+            2.5588843e-06,
+            -5.0719173e-05,
+            -4.505102e-05,
+            -3.469818e-05,
+            -5.443507e-05,
+            -4.9052294e-05,
+            -3.627554e-05
           ],
           "SkyReflections": true,
           "SkySunSizeCos": 1,
@@ -184,8 +184,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -298,58 +298,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "TableBed",
@@ -427,58 +434,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "CushionNW",
@@ -556,58 +570,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.75,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.75,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "CushionNE",
@@ -685,58 +706,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.75,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.75,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "CushionSW",
@@ -814,58 +842,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.75,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.75,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "CushionSE",
@@ -943,58 +978,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.75,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.75,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "CushionW",
@@ -1072,58 +1114,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.75,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.75,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "CushionE",
@@ -1201,58 +1250,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.75,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.75,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "FrameN",
@@ -1330,58 +1386,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.5,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.5,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "FrameS",
@@ -1459,58 +1522,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.5,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.5,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "FrameW",
@@ -1588,58 +1658,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.5,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.5,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "FrameE",
@@ -1717,58 +1794,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "StaticBody3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 1,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Box",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                1,
-                1,
-                1
-              ],
-              "Radius": 0,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "StaticBody3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 1,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Box",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  1,
+                  1,
+                  1
+                ],
+                "Radius": 0,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.5,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.5,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "LegNW",
@@ -1846,19 +1930,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "LegNE",
@@ -1936,19 +2017,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "LegSW",
@@ -2026,19 +2104,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "LegSE",
@@ -2116,19 +2191,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "TrayLedge",
@@ -2206,19 +2278,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "PocketNW",
@@ -2294,55 +2363,57 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": null,
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "Area3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": true,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.25,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+      "Components": [
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "Area3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": true,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.25,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "PocketNE",
@@ -2418,55 +2489,57 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": null,
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "Area3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": true,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.25,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+      "Components": [
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "Area3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": true,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.25,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "PocketSW",
@@ -2542,55 +2615,57 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": null,
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "Area3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": true,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.25,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+      "Components": [
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "Area3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": true,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.25,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "PocketSE",
@@ -2666,55 +2741,57 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": null,
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "Area3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": true,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.25,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+      "Components": [
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "Area3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": true,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.25,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "PocketN",
@@ -2790,55 +2867,57 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": null,
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "Area3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": true,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.22,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+      "Components": [
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "Area3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": true,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.22,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "PocketS",
@@ -2914,55 +2993,57 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": null,
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "Area3D/CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": true,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.22,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+      "Components": [
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "Area3D/CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": true,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.22,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Static",
-          "Mass": 0,
-          "LinearDamping": 0,
-          "Restitution": 0.2,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Static",
+            "Mass": 0,
+            "LinearDamping": 0,
+            "Restitution": 0.2,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "PocketCapNW",
@@ -3040,19 +3121,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "PocketCapNE",
@@ -3130,19 +3208,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "PocketCapSW",
@@ -3220,19 +3295,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "PocketCapSE",
@@ -3310,19 +3382,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "PocketCapN",
@@ -3400,19 +3469,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "PocketCapS",
@@ -3490,19 +3556,16 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/cube.glb",
-          "MeshNode": null
-        },
-        "Collider": null,
-        "Rigidbody": null,
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/cube.glb",
+            "MeshNode": null
+          }
+        }
+      ]
     },
     {
       "Id": "CueBall",
@@ -3580,58 +3643,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball1",
@@ -3709,58 +3779,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball9",
@@ -3838,58 +3915,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball2",
@@ -3967,58 +4051,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball3",
@@ -4096,58 +4187,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball8",
@@ -4225,58 +4323,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball10",
@@ -4354,58 +4459,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball11",
@@ -4483,58 +4595,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball4",
@@ -4612,58 +4731,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball12",
@@ -4741,58 +4867,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball5",
@@ -4870,58 +5003,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball6",
@@ -4999,58 +5139,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball13",
@@ -5128,58 +5275,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball14",
@@ -5257,58 +5411,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball7",
@@ -5386,58 +5547,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     },
     {
       "Id": "Ball15",
@@ -5515,58 +5683,65 @@
         "Colliders": [],
         "Metadata": []
       },
-      "Components": {
-        "Renderable": {
-          "Mesh": "primitives/sphere_ball.glb",
-          "MeshNode": null
+      "Components": [
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "Mesh": "primitives/sphere_ball.glb",
+            "MeshNode": null
+          }
         },
-        "Collider": {
-          "Colliders": [
-            {
-              "Id": "CollisionShape3D",
-              "Path": "CollisionShape3D",
-              "IsStatic": false,
-              "Layer": 0,
-              "LayerName": "",
-              "IsTrigger": false,
-              "ShapeType": "Sphere",
-              "LocalCenter": [
-                0,
-                0,
-                0
-              ],
-              "LocalRotation": [
-                0,
-                0,
-                0,
-                1
-              ],
-              "Size": [
-                0,
-                0,
-                0
-              ],
-              "Radius": 0.5,
-              "Height": 0,
-              "NavObstacle": null
-            }
-          ]
+        {
+          "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
+          "Type": "Paradise.Export.Data.ColliderComponentData",
+          "Data": {
+            "Colliders": [
+              {
+                "Id": "CollisionShape3D",
+                "Path": "CollisionShape3D",
+                "IsStatic": false,
+                "Layer": 0,
+                "LayerName": "",
+                "IsTrigger": false,
+                "ShapeType": "Sphere",
+                "LocalCenter": [
+                  0,
+                  0,
+                  0
+                ],
+                "LocalRotation": [
+                  0,
+                  0,
+                  0,
+                  1
+                ],
+                "Size": [
+                  0,
+                  0,
+                  0
+                ],
+                "Radius": 0.5,
+                "Height": 0,
+                "NavObstacle": null
+              }
+            ]
+          }
         },
-        "Rigidbody": {
-          "BodyType": "Dynamic",
-          "Mass": 1,
-          "LinearDamping": 0.6,
-          "Restitution": 0.92,
-          "Friction": 0.5,
-          "Layer": 0,
-          "LayerName": ""
-        },
-        "Interactable": null,
-        "Agent": null,
-        "SpriteAnimation": null,
-        "ParticleEmitter": null,
-        "AudioEmitter": null
-      }
+        {
+          "Id": "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11",
+          "Type": "Paradise.Export.Data.RigidbodyComponentData",
+          "Data": {
+            "BodyType": "Dynamic",
+            "Mass": 1,
+            "LinearDamping": 0.6,
+            "Restitution": 0.92,
+            "Friction": 0.5,
+            "Layer": 0,
+            "LayerName": ""
+          }
+        }
+      ]
     }
   ],
   "NavMeshFile": "pool.navmesh.bin",
