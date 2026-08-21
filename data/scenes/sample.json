@@ -184,8 +184,8 @@
               -3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -224,9 +224,9 @@
               2
             ],
             "Direction": [
-              0,
+              -0,
               -1,
-              0
+              -0
             ],
             "Color": {
               "r": 1,
@@ -264,8 +264,8 @@
               -6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -304,8 +304,8 @@
               -6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -344,8 +344,8 @@
               -6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -384,8 +384,8 @@
               -6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -424,8 +424,8 @@
               -6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -464,8 +464,8 @@
               -6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -504,8 +504,8 @@
               -3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -544,8 +544,8 @@
               -3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -584,8 +584,8 @@
               -3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -624,8 +624,8 @@
               -3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -664,8 +664,8 @@
               -3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -704,8 +704,8 @@
               -3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -744,8 +744,8 @@
               0
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -784,8 +784,8 @@
               0
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -824,8 +824,8 @@
               0
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -864,8 +864,8 @@
               0
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -904,8 +904,8 @@
               0
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -944,8 +944,8 @@
               0
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -984,8 +984,8 @@
               3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1024,8 +1024,8 @@
               3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1064,8 +1064,8 @@
               3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1104,8 +1104,8 @@
               3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1144,8 +1144,8 @@
               3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1184,8 +1184,8 @@
               3
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1224,8 +1224,8 @@
               6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1264,8 +1264,8 @@
               6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1304,8 +1304,8 @@
               6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1344,8 +1344,8 @@
               6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1384,8 +1384,8 @@
               6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1424,8 +1424,8 @@
               6
             ],
             "Direction": [
-              0,
-              0,
+              -0,
+              -0,
               -1
             ],
             "Color": {
@@ -1540,14 +1540,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/cube.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -1577,10 +1569,17 @@
                   1
                 ],
                 "Radius": 0,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/cube.glb"
           }
         },
         {
@@ -1676,14 +1675,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/cube.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -1713,10 +1704,17 @@
                   1
                 ],
                 "Radius": 0,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/cube.glb"
           }
         },
         {
@@ -1812,14 +1810,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/cube.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -1849,10 +1839,17 @@
                   1
                 ],
                 "Radius": 0,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/cube.glb"
           }
         },
         {
@@ -1948,14 +1945,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/cube.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -1985,10 +1974,17 @@
                   1
                 ],
                 "Radius": 0,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/cube.glb"
           }
         },
         {
@@ -2084,14 +2080,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/cube.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -2121,10 +2109,17 @@
                   1
                 ],
                 "Radius": 0,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/cube.glb"
           }
         },
         {
@@ -2220,14 +2215,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -2257,10 +2244,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -2356,14 +2350,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -2393,10 +2379,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -2492,14 +2485,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -2529,10 +2514,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -2628,14 +2620,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -2665,10 +2649,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -2764,14 +2755,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -2801,10 +2784,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -2900,14 +2890,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -2937,10 +2919,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -3036,14 +3025,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -3073,10 +3054,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -3172,14 +3160,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -3209,10 +3189,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -3308,14 +3295,6 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
-          "Data": {
-            "Mesh": "primitives/sphere_ball.glb",
-            "MeshNode": null
-          }
-        },
-        {
           "Id": "e1cd1bc8-86f2-4225-adc9-4a324c70ebf9",
           "Type": "Paradise.Export.Data.ColliderComponentData",
           "Data": {
@@ -3345,10 +3324,17 @@
                   0
                 ],
                 "Radius": 0.5,
-                "Height": 0,
-                "NavObstacle": null
+                "Height": 0
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/sphere_ball.glb"
           }
         },
         {
@@ -3444,11 +3430,13 @@
       },
       "Components": [
         {
-          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
-          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Id": "5801915b-3d0c-4940-8970-7d1487b991cf",
+          "Type": "Paradise.Export.Data.AgentComponentData",
           "Data": {
-            "Mesh": "primitives/capsule.glb",
-            "MeshNode": null
+            "MoveSpeed": 7,
+            "Acceleration": 40,
+            "IdleClip": "Idle",
+            "WalkClip": "Walk"
           }
         },
         {
@@ -3481,10 +3469,17 @@
                   0
                 ],
                 "Radius": 0.4,
-                "Height": 1.8,
-                "NavObstacle": null
+                "Height": 1.8
               }
             ]
+          }
+        },
+        {
+          "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
+          "Type": "Paradise.Export.Data.RenderableComponentData",
+          "Data": {
+            "MeshNode": null,
+            "Mesh": "primitives/capsule.glb"
           }
         },
         {
@@ -3498,16 +3493,6 @@
             "Friction": 0.5,
             "Layer": 0,
             "LayerName": ""
-          }
-        },
-        {
-          "Id": "5801915b-3d0c-4940-8970-7d1487b991cf",
-          "Type": "Paradise.Export.Data.AgentComponentData",
-          "Data": {
-            "MoveSpeed": 7,
-            "Acceleration": 40,
-            "IdleClip": "Idle",
-            "WalkClip": "Walk"
           }
         }
       ]
@@ -3594,8 +3579,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/knight.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/knight.glb"
           }
         }
       ]
@@ -3682,8 +3667,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/elf.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/elf.glb"
           }
         }
       ]
@@ -3769,8 +3754,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/player.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/player.glb"
           }
         }
       ]
@@ -3857,8 +3842,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/mage.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/mage.glb"
           }
         }
       ]
@@ -3945,8 +3930,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/nain.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/nain.glb"
           }
         }
       ]
@@ -4032,8 +4017,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/dragon.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/dragon.glb"
           }
         }
       ]
@@ -4119,8 +4104,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/waterbottle.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/waterbottle.glb"
           }
         }
       ]
@@ -4206,8 +4191,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/plants/plant_001.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/plants/plant_001.glb"
           }
         }
       ]
@@ -4293,8 +4278,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/plants/plant_005.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/plants/plant_005.glb"
           }
         }
       ]
@@ -4380,8 +4365,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/plants/plant_010.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/plants/plant_010.glb"
           }
         }
       ]
@@ -4467,8 +4452,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/plants/plant_015.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/plants/plant_015.glb"
           }
         }
       ]
@@ -4554,8 +4539,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/plants/plant_020.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/plants/plant_020.glb"
           }
         }
       ]
@@ -4641,8 +4626,8 @@
           "Id": "f2c0357e-94dd-4a5a-9803-518066cb54b2",
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
-            "Mesh": "Models/plants/plant.glb",
-            "MeshNode": null
+            "MeshNode": null,
+            "Mesh": "Models/plants/plant.glb"
           }
         }
       ]
