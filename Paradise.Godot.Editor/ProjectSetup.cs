@@ -18,11 +18,20 @@ namespace ParadiseGodot
     /// drift packaging removed. It now only warns about such a reference if it finds one.</summary>
     public static class ProjectSetup
     {
-        /// <summary>The Paradise.Export version this addon release is developed against. Kept in
-        /// lockstep with AddonVersion.props and plugin.cfg (addon minor tracks the
-        /// engine/data-contract minor). The load-time compatibility check warns when the resolved
-        /// assembly diverges from it on major.minor.</summary>
-        public const string SupportedExportVersion = "0.14.0";
+        /// <summary>The <c>Paradise.Export</c> version this addon was COMPILED against, read out
+        /// of the addon assembly's own reference table.
+        ///
+        /// It used to be a hand-typed constant kept "in lockstep" with the PackageReference by a
+        /// line in docs/publishing.md, which is the same shape of drift packaging the addon was
+        /// meant to end — and it drifted: 0.15.0 shipped declaring 0.14.0 while depending on
+        /// 0.17.0, so every consuming editor warned about a divergence that did not exist. The
+        /// compiler already records this number and cannot forget to; nothing is gained by
+        /// restating it. Null only if the reference were absent, which cannot happen while
+        /// <see cref="CheckExportVersion"/> below names a type from that assembly.</summary>
+        public static Version? TargetedExportVersion =>
+            typeof(ProjectSetup).Assembly
+                .GetReferencedAssemblies()
+                .FirstOrDefault(a => a.Name == "Paradise.Export")?.Version;
 
         public static void Run()
         {
@@ -35,23 +44,30 @@ namespace ParadiseGodot
                 : "[Paradise] Project Setup finished with warnings — see errors above.");
         }
 
-        /// <summary>Warn at plugin load when the compiled-in Paradise.Export diverges from the
-        /// addon's supported major.minor — the data contract tracks that version.</summary>
+        /// <summary>Warn at plugin load when the Paradise.Export the project actually LOADED
+        /// diverges on major.minor from the one this addon was built against — the data contract
+        /// tracks that version.
+        ///
+        /// Both numbers are now observed rather than declared, so the warning means exactly one
+        /// thing: the game forced a different Paradise.Export than the addon brought, and the
+        /// contract the addon writes may not be the contract the game reads. In particular it no
+        /// longer fires under an engine-SOURCE override, where both halves build from the same
+        /// tree and agree at whatever version that tree carries.</summary>
         public static void CheckExportVersion()
         {
             Version? actual = typeof(Paradise.Export.ParadiseExportInfo).Assembly.GetName().Version;
-            var supported = Version.Parse(SupportedExportVersion);
-            if (actual is null)
+            Version? targeted = TargetedExportVersion;
+            if (actual is null || targeted is null)
             {
                 return;
             }
-            if (actual.Major != supported.Major || actual.Minor != supported.Minor)
+            if (actual.Major != targeted.Major || actual.Minor != targeted.Minor)
             {
                 GD.PushWarning(
-                    $"[Paradise] This addon targets Paradise.Export {supported.Major}.{supported.Minor}.x " +
-                    $"but the project references {actual.ToString(3)}. The export contract follows " +
-                    "major.minor — align the package version (Project Setup pins the supported one) " +
-                    "or update the addon.");
+                    $"[Paradise] This addon was built against Paradise.Export {targeted.Major}.{targeted.Minor}.x " +
+                    $"but the project loaded {actual.ToString(3)}. The export contract follows " +
+                    "major.minor — drop the game's own Paradise.Export reference so the addon's " +
+                    "wins, or move to an addon built against that contract.");
             }
         }
 
@@ -86,7 +102,7 @@ namespace ParadiseGodot
                     GD.PushWarning(
                         $"[Paradise] {Path.GetFileName(csproj)} pins Paradise.Export " +
                         $"{(string?)pinned.Attribute("Version") ?? "?"} by hand. Paradise.Godot.Editor " +
-                        $"already brings {SupportedExportVersion}; remove the hand-written reference so " +
+                        $"already brings {TargetedExportVersion?.ToString(3)}; remove the hand-written reference so " +
                         "there is only one version to keep aligned.");
                 }
                 return true;

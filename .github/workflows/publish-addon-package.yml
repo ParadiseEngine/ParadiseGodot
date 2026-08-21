@@ -72,6 +72,13 @@ jobs:
           [[ "$cfg_version"   == "$ADDON_VERSION" ]] || { echo "::error::addon/plugin.cfg says '$cfg_version', expected '$ADDON_VERSION'"; fail=1; }
           exit $fail
 
+      # The step above compares the two in-repo versions against the TAG, which only exists here.
+      # This one checks what is true with or without a tag: that they agree with each other, that
+      # the addon's minor tracks the Paradise.Export minor it targets, and that the starter
+      # template pins an addon version that will exist once this publish succeeds.
+      - name: Version policy
+        run: bash scripts/check_version_policy.sh
+
       - name: Addon dependency allowlist
         run: bash scripts/check_addon_deps.sh
 

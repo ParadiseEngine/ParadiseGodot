@@ -52,8 +52,8 @@
     <PackageReference Include="Godot.SourceGenerators" Version="4.7.1" PrivateAssets="all" />
     <!-- Stated, not inherited. The addon writes the export contract these define; a consuming
          game no longer restates either version, which is the whole point of packaging this. -->
-    <PackageReference Include="Paradise.Export" Version="0.17.0" />
-    <PackageReference Include="Paradise.Authoring" Version="0.17.0" />
+    <PackageReference Include="Paradise.Export" Version="0.18.1" />
+    <PackageReference Include="Paradise.Authoring" Version="0.18.1" />
   </ItemGroup>
 
   <!-- The res:// payload and the targets that place it. None of it compiles into this assembly:

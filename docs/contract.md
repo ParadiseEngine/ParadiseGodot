@@ -72,7 +72,10 @@ at KTX2 sidecars (`<glbstem>_<i>.ktx2`) next to the GLB. Engine-side reading:
 
 ## Versioning
 
-- Contract version = `Paradise.Export` major.minor (currently **0.3**).
+- Contract version = `Paradise.Export` major.minor (currently **0.18**).
 - Additive fields: allowed within a minor (consumers default them).
-- Breaking changes bump the minor (pre-1.0) and will ship with migration notes; the addon's
-  Project Setup pins the version it supports and the plugin warns on mismatch.
+- Breaking changes bump the minor (pre-1.0) and will ship with migration notes. The addon does not
+  declare which contract it supports — it reads the `Paradise.Export` version it was compiled
+  against out of its own assembly metadata and warns at load when the version the project actually
+  LOADED differs on major.minor. So the warning means the game forced a different `Paradise.Export`
+  than the addon brought, and never anything else.
