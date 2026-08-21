@@ -1,0 +1,35 @@
+<Project>
+
+  <!--
+    Keep Godot out of obj/.
+
+    Godot scans the project directory for res:// content and does not know that obj/ is MSBuild's.
+    It imports the generated C# there as SCRIPTS — AssemblyInfo.cs, GlobalUsings.g.cs,
+    SelfRegisteredExtensions.cs — and mints a .cs.uid beside each one. That is ~40 files
+    identifying sources that are build output: not in the repo, different per configuration, and
+    regenerated whenever obj/ is.
+
+    A .gdignore stops the scan, the same mechanism Paradise.Godot.Editor/.gdignore uses. It cannot
+    simply be committed: obj/ is gitignored, and a fresh clone has no obj/ at all until the first
+    build creates one. So the build writes it, which means it exists exactly when the directory it
+    guards does.
+
+    WHY THIS IS A .props AND NOT A .targets. MSBuild walks up from the project directory and stops
+    at the FIRST Directory.Build.targets it finds. paradise-workspace/Directory.Build.targets —
+    outside this repo, uncommitted — is what swaps Paradise.* PackageReferences for ProjectReferences
+    into the engine source. A Directory.Build.targets here would shadow it, and the symptom is not a
+    build error: it is a green build against the published packages when you meant source. There is
+    no Directory.Build.props anywhere above this repo, so this file shadows nothing.
+  -->
+
+  <Target Name="ParadiseIgnoreIntermediateInGodot"
+          BeforeTargets="CoreCompile"
+          Condition="'$(BaseIntermediateOutputPath)' != ''">
+    <MakeDir Directories="$(BaseIntermediateOutputPath)" />
+    <WriteLinesToFile File="$(BaseIntermediateOutputPath).gdignore"
+                      Lines="Not res:// content. MSBuild's intermediate output; written by Directory.Build.props."
+                      Overwrite="true"
+                      WriteOnlyWhenDifferent="true" />
+  </Target>
+
+</Project>
