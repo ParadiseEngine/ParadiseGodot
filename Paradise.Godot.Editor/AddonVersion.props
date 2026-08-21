@@ -6,6 +6,6 @@
     Keep it aligned with the Paradise.Export contract version the addon writes.
   -->
   <PropertyGroup>
-    <ParadiseGodotAddonPackageVersion>0.14.0</ParadiseGodotAddonPackageVersion>
+    <ParadiseGodotAddonPackageVersion>0.15.0</ParadiseGodotAddonPackageVersion>
   </PropertyGroup>
 </Project>
