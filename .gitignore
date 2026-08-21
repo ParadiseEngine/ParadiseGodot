@@ -16,8 +16,11 @@ obj/
 # sidecars (data/Models/**/*.ktx2, <glbstem>_<i>.ktx2, from Paradise/Convert data GLBs → KTX2).
 # A GLB and its .ktx2 sidecars must be committed together (relative image URIs). These back
 # ParadiseExport.Tests / Paradise.Sample.Runtime(.Tests) and the engine's real-producer GLB cross-checks.
-# NOT tracked: Godot import sidecars (*.import, *.uid) and any extracted texture PNGs — regenerated
-# on import.
+# NOT tracked: *.import and any extracted texture PNGs — regenerated on import.
+# TRACKED (force-added): *.uid. An .import file is derived and disposable; a .uid is the opposite
+# — it is the identity Godot mints once and reads back so a re-import keeps the same id. Left out,
+# every fresh clone re-mints one, and any reference to the asset by uid:// resolves differently
+# per checkout. Nothing references these yet; committing them is what keeps that true.
 /data/
 
 # JetBrains IDE
