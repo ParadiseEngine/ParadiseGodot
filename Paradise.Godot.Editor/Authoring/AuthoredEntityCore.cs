@@ -123,6 +123,12 @@ namespace ParadiseGodot.Authoring
 
         private readonly List<ComponentSchema> _components = new();
         private readonly Dictionary<string, ComponentSchema> _byId = new(StringComparer.Ordinal);
+
+        /// <summary>Add-menu label -> component id. Godot hands back the chosen ITEM TEXT for a
+        /// String enum, so the menu's labels have to map home somehow. Rebuilt in
+        /// <see cref="BuildPropertyList"/> alongside the menu itself, never separately, because a
+        /// map that outlived its menu would resolve a label the author cannot see.</summary>
+        private readonly Dictionary<string, string> _byAddLabel = new(StringComparer.Ordinal);
         private readonly HashSet<string> _enabled = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Variant> _values = new(StringComparer.Ordinal);
         private bool _loaded;
@@ -445,6 +451,24 @@ namespace ParadiseGodot.Authoring
         // Inspector
         // ---------------------------------------------------------------------------------
 
+        /// <summary>A menu label for one component: its display name, qualified with the CLR type
+        /// when another component shares that name.
+        ///
+        /// Commas are stripped because a Godot enum hint_string is comma-JOINED — a display name
+        /// containing one would silently become two menu entries, one of which resolves to
+        /// nothing. And any label that still collides or comes out empty falls back to the id:
+        /// ugly, but an ambiguous menu entry is worse than an unreadable one, because picking it
+        /// adds a component the author did not choose.</summary>
+        private string AddLabel(ComponentSchema component)
+        {
+            string name = EnumSafe(component.DisplayName);
+            bool shared = _components.Count(c => EnumSafe(c.DisplayName) == name) > 1;
+            string label = shared ? EnumSafe($"{component.DisplayName} ({component.Type})") : name;
+            return label.Length > 0 && !_byAddLabel.ContainsKey(label) ? label : component.Id;
+        }
+
+        private static string EnumSafe(string text) => text.Replace(',', ' ').Trim();
+
         public global::Godot.Collections.Array<global::Godot.Collections.Dictionary> BuildPropertyList()
         {
             RefreshSchemaIfChanged();
@@ -455,13 +479,25 @@ namespace ParadiseGodot.Authoring
             // the engine or the game ever declares, so the wall only gets worse. What an entity
             // HAS should be what the inspector shows; the rest belongs behind a menu.
             //
-            // Ids rather than display names: two components may share a name, and the id is what
-            // the author is choosing. The group header below shows the friendly name.
-            string[] addable =
-            [
-                AddNone,
-                .. _components.Where(c => !_enabled.Contains(c.Id)).Select(c => c.Id),
-            ];
+            // Display names rather than ids. This read ids because an id USED to be a readable
+            // name — `paradise.identity` — and it has been a GUID since ParadiseEngine #151, which
+            // turned this menu into a list of `0c068bf4-495f-495b-…`. Nobody picks a component by
+            // its GUID. LoadSchema already drew this same conclusion for the group header ("a bare
+            // GUID is not a label"); the menu simply never followed.
+            //
+            // The original reason for ids — two components may share a display name — is real, so
+            // it is answered rather than dropped: a shared name is qualified with the CLR type,
+            // which is unique by construction. Falling back to an unreadable id for EVERY
+            // component to stay safe against a collision that almost never happens was the bad
+            // trade.
+            _byAddLabel.Clear();
+            var addable = new List<string> { AddNone };
+            foreach (ComponentSchema component in _components.Where(c => !_enabled.Contains(c.Id)))
+            {
+                string label = AddLabel(component);
+                _byAddLabel[label] = component.Id;
+                addable.Add(label);
+            }
             list.Add(new global::Godot.Collections.Dictionary
             {
                 { "name", AddProperty },
@@ -656,8 +692,14 @@ namespace ParadiseGodot.Authoring
             if (name == AddProperty)
             {
                 string chosen = value.AsString();
-                if (chosen != AddNone && _byId.TryGetValue(chosen, out ComponentSchema? added) &&
-                    _enabled.Add(chosen))
+                // A label from the menu, or an id — the latter both for a component whose label
+                // collided and fell back to one, and for anything driving this from a script.
+                if (!_byAddLabel.TryGetValue(chosen, out string? id))
+                {
+                    id = chosen;
+                }
+                if (id != AddNone && _byId.TryGetValue(id, out ComponentSchema? added) &&
+                    _enabled.Add(id))
                 {
                     SeedDefaults(added);
                     OnAuthoredChanged();
