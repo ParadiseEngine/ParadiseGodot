@@ -26,7 +26,7 @@ public class FancyMaterialTests
     private static LevelMaterialData BallMaterial(RuntimeLevel level, string stableId)
     {
         var entity = level.Level.Entities.First(e => e.StableId == stableId);
-        return level.Materials[entity.Materials[0]!];
+        return level.Materials[entity.Get<RenderableComponentData>()!.Materials[0]!];
     }
 
     [Test]

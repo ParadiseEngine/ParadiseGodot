@@ -31,7 +31,9 @@ public class PoolSceneTests
         await Assert.That(level.Level.Entities.Count).IsEqualTo(45);
         foreach (var entity in level.Level.Entities)
         {
-            foreach (var slot in entity.Materials)
+            // level.Materials is the runtime's loaded-document dictionary; the slots are the
+            // entity's overrides, which live on its Renderable as of contract v4.
+            foreach (var slot in entity.Get<RenderableComponentData>()?.Materials ?? [])
             {
                 if (slot is not null) await Assert.That(level.Materials.ContainsKey(slot)).IsTrue();
             }

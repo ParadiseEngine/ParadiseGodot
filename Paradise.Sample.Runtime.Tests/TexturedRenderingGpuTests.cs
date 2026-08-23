@@ -30,8 +30,12 @@ public class TexturedRenderingGpuTests
         // Ball2 references the shared textured sphere_ball.glb (external gradient KTX2) and carries
         // its own color-only slot override — the canonical "textured GLB + differing tint" case.
         var ball2 = level.Level.Entities.First(e => e.Id == "Ball2");
-        GltfAsset asset = level.MeshAssets[ball2.Get<RenderableComponentData>()!.Mesh!];
-        var overrideJson = level.Materials[ball2.Materials[0]!];
+        // Three different "Materials" meet in these two lines and they are not the same thing:
+        // the renderable's SLOTS (the entity's overrides), level.Materials (the loaded documents,
+        // keyed by slot), and asset.Materials (the GLB's own). Only the first moved in v4.
+        RenderableComponentData renderable = ball2.Get<RenderableComponentData>()!;
+        GltfAsset asset = level.MeshAssets[renderable.Mesh!];
+        var overrideJson = level.Materials[renderable.Materials[0]!];
         // Precondition: the GLB material this slot maps to is genuinely textured.
         await Assert.That(SceneAssembler.HasAnyTexture(in asset.Materials[0])).IsTrue();
 

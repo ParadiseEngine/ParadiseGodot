@@ -41,11 +41,15 @@ public static class LevelLoader
         var spriteSheets = new Dictionary<string, byte[]>(StringComparer.Ordinal);
         foreach (var entity in level.Entities)
         {
-            foreach (var slot in entity.Materials)
+            // One fetch, both halves: as of contract v4 the mesh and the slots that index its
+            // primitives are the same component, so there is nothing to read for an entity that
+            // does not render.
+            var renderable = entity.Get<RenderableComponentData>();
+            foreach (var slot in renderable?.Materials ?? [])
             {
                 if (slot is not null) LoadMaterial(dataDir, slot, materials);
             }
-            if (entity.Get<RenderableComponentData>()?.Mesh is { } meshField)
+            if (renderable?.Mesh is { } meshField)
             {
                 LoadMesh(dataDir, meshField, meshAssets);
             }

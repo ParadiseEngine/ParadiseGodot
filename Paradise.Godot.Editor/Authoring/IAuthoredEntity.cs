@@ -43,7 +43,7 @@ namespace ParadiseGodot.Authoring
         Guid EnsureEntityGuid();
 
         /// <summary>The components this node authors, ready for
-        /// <see cref="EntityComponentsData.Custom"/>. An empty sequence exports nothing.</summary>
+        /// <see cref="LevelEntityData.Components"/>. An empty sequence exports nothing.</summary>
         IEnumerable<AuthoredComponentData> ExportAuthoredComponents();
     }
 }

@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": 3,
+  "SchemaVersion": 4,
   "Camera": {
     "Position": [
       0,
@@ -50,30 +50,30 @@
             0.0014059391,
             0.0014165792,
             0.002118743,
-            -7.9612306E-05,
-            -7.930155E-05,
+            -7.9612306e-05,
+            -7.930155e-05,
             -0.0003237022,
             0.0001910559,
             0.0001697941,
             0.00013119378,
             -0.00011027883,
-            -9.8002965E-05,
-            -7.570783E-05,
-            -6.99689E-05,
-            -6.2168525E-05,
-            -4.7973143E-05,
+            -9.8002965e-05,
+            -7.570783e-05,
+            -6.99689e-05,
+            -6.2168525e-05,
+            -4.7973143e-05,
             0.000121187484,
             0.00010767731,
-            8.3087725E-05,
-            2.672378E-06,
-            2.0011687E-06,
-            2.5588843E-06,
-            -5.0719173E-05,
-            -4.505102E-05,
-            -3.469818E-05,
-            -5.443507E-05,
-            -4.9052294E-05,
-            -3.627554E-05
+            8.3087725e-05,
+            2.672378e-06,
+            2.0011687e-06,
+            2.5588843e-06,
+            -5.0719173e-05,
+            -4.505102e-05,
+            -3.469818e-05,
+            -5.443507e-05,
+            -4.9052294e-05,
+            -3.627554e-05
           ],
           "SkyReflections": true,
           "SkySunSizeCos": 1,
@@ -184,8 +184,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -289,9 +289,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_room_floor.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -339,7 +336,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_room_floor.json"
+            ]
           }
         },
         {
@@ -424,9 +424,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_felt.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -474,7 +471,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_felt.json"
+            ]
           }
         },
         {
@@ -559,9 +559,6 @@
         -1.575,
         1
       ],
-      "Materials": [
-        "materials/mat_cushion.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -609,7 +606,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_cushion.json"
+            ]
           }
         },
         {
@@ -694,9 +694,6 @@
         -1.575,
         1
       ],
-      "Materials": [
-        "materials/mat_cushion.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -744,7 +741,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_cushion.json"
+            ]
           }
         },
         {
@@ -829,9 +829,6 @@
         1.575,
         1
       ],
-      "Materials": [
-        "materials/mat_cushion.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -879,7 +876,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_cushion.json"
+            ]
           }
         },
         {
@@ -964,9 +964,6 @@
         1.575,
         1
       ],
-      "Materials": [
-        "materials/mat_cushion.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1014,7 +1011,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_cushion.json"
+            ]
           }
         },
         {
@@ -1099,9 +1099,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_cushion.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1149,7 +1146,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_cushion.json"
+            ]
           }
         },
         {
@@ -1234,9 +1234,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_cushion.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1284,7 +1281,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_cushion.json"
+            ]
           }
         },
         {
@@ -1369,9 +1369,6 @@
         -1.925,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1419,7 +1416,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         },
         {
@@ -1504,9 +1504,6 @@
         1.925,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1554,7 +1551,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         },
         {
@@ -1639,9 +1639,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1689,7 +1686,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         },
         {
@@ -1774,9 +1774,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1824,7 +1821,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         },
         {
@@ -1909,9 +1909,6 @@
         -1.7,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1924,7 +1921,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         }
       ]
@@ -1996,9 +1996,6 @@
         -1.7,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2011,7 +2008,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         }
       ]
@@ -2083,9 +2083,6 @@
         1.7,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2098,7 +2095,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         }
       ]
@@ -2170,9 +2170,6 @@
         1.7,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2185,7 +2182,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         }
       ]
@@ -2257,9 +2257,6 @@
         2.37,
         1
       ],
-      "Materials": [
-        "materials/mat_wood.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2272,7 +2269,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_wood.json"
+            ]
           }
         }
       ]
@@ -2344,7 +2344,6 @@
         -1.55,
         1
       ],
-      "Materials": [],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2469,7 +2468,6 @@
         -1.55,
         1
       ],
-      "Materials": [],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2594,7 +2592,6 @@
         1.55,
         1
       ],
-      "Materials": [],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2719,7 +2716,6 @@
         1.55,
         1
       ],
-      "Materials": [],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2844,7 +2840,6 @@
         -1.62,
         1
       ],
-      "Materials": [],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2969,7 +2964,6 @@
         1.62,
         1
       ],
-      "Materials": [],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3094,9 +3088,6 @@
         -1.55,
         1
       ],
-      "Materials": [
-        "materials/mat_pocket.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3109,7 +3100,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_pocket.json"
+            ]
           }
         }
       ]
@@ -3181,9 +3175,6 @@
         -1.55,
         1
       ],
-      "Materials": [
-        "materials/mat_pocket.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3196,7 +3187,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_pocket.json"
+            ]
           }
         }
       ]
@@ -3268,9 +3262,6 @@
         1.55,
         1
       ],
-      "Materials": [
-        "materials/mat_pocket.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3283,7 +3274,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_pocket.json"
+            ]
           }
         }
       ]
@@ -3355,9 +3349,6 @@
         1.55,
         1
       ],
-      "Materials": [
-        "materials/mat_pocket.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3370,7 +3361,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_pocket.json"
+            ]
           }
         }
       ]
@@ -3442,9 +3436,6 @@
         -1.62,
         1
       ],
-      "Materials": [
-        "materials/mat_pocket.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3457,7 +3448,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_pocket.json"
+            ]
           }
         }
       ]
@@ -3529,9 +3523,6 @@
         1.62,
         1
       ],
-      "Materials": [
-        "materials/mat_pocket.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3544,7 +3535,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_pocket.json"
+            ]
           }
         }
       ]
@@ -3616,9 +3610,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_cue.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3666,7 +3657,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_cue.json"
+            ]
           }
         },
         {
@@ -3751,9 +3745,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_1.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3801,7 +3792,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_1.json"
+            ]
           }
         },
         {
@@ -3886,9 +3880,6 @@
         -0.201,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_9.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3936,7 +3927,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_9.json"
+            ]
           }
         },
         {
@@ -4021,9 +4015,6 @@
         0.201,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_2.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4071,7 +4062,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_2.json"
+            ]
           }
         },
         {
@@ -4156,9 +4150,6 @@
         -0.402,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_3.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4206,7 +4197,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_3.json"
+            ]
           }
         },
         {
@@ -4291,9 +4285,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_8.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4341,7 +4332,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_8.json"
+            ]
           }
         },
         {
@@ -4426,9 +4420,6 @@
         0.402,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_10.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4476,7 +4467,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_10.json"
+            ]
           }
         },
         {
@@ -4561,9 +4555,6 @@
         -0.603,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_11.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4611,7 +4602,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_11.json"
+            ]
           }
         },
         {
@@ -4696,9 +4690,6 @@
         -0.201,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_4.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4746,7 +4737,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_4.json"
+            ]
           }
         },
         {
@@ -4831,9 +4825,6 @@
         0.201,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_12.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4881,7 +4872,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_12.json"
+            ]
           }
         },
         {
@@ -4966,9 +4960,6 @@
         0.603,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_5.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -5016,7 +5007,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_5.json"
+            ]
           }
         },
         {
@@ -5101,9 +5095,6 @@
         -0.804,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_6.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -5151,7 +5142,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_6.json"
+            ]
           }
         },
         {
@@ -5236,9 +5230,6 @@
         -0.402,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_13.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -5286,7 +5277,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_13.json"
+            ]
           }
         },
         {
@@ -5371,9 +5365,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_14.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -5421,7 +5412,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_14.json"
+            ]
           }
         },
         {
@@ -5506,9 +5500,6 @@
         0.402,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_7.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -5556,7 +5547,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_7.json"
+            ]
           }
         },
         {
@@ -5641,9 +5635,6 @@
         0.804,
         1
       ],
-      "Materials": [
-        "materials/mat_pool_15.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -5691,7 +5682,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_pool_15.json"
+            ]
           }
         },
         {

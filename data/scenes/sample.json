@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": 3,
+  "SchemaVersion": 4,
   "Camera": {
     "Position": [
       0,
@@ -184,8 +184,8 @@
               -3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -224,9 +224,9 @@
               2
             ],
             "Direction": [
-              -0,
+              0,
               -1,
-              -0
+              0
             ],
             "Color": {
               "r": 1,
@@ -264,8 +264,8 @@
               -6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -304,8 +304,8 @@
               -6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -344,8 +344,8 @@
               -6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -384,8 +384,8 @@
               -6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -424,8 +424,8 @@
               -6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -464,8 +464,8 @@
               -6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -504,8 +504,8 @@
               -3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -544,8 +544,8 @@
               -3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -584,8 +584,8 @@
               -3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -624,8 +624,8 @@
               -3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -664,8 +664,8 @@
               -3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -704,8 +704,8 @@
               -3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -744,8 +744,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -784,8 +784,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -824,8 +824,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -864,8 +864,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -904,8 +904,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -944,8 +944,8 @@
               0
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -984,8 +984,8 @@
               3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1024,8 +1024,8 @@
               3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1064,8 +1064,8 @@
               3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1104,8 +1104,8 @@
               3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1144,8 +1144,8 @@
               3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1184,8 +1184,8 @@
               3
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1224,8 +1224,8 @@
               6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1264,8 +1264,8 @@
               6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1304,8 +1304,8 @@
               6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1344,8 +1344,8 @@
               6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1384,8 +1384,8 @@
               6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1424,8 +1424,8 @@
               6
             ],
             "Direction": [
-              -0,
-              -0,
+              0,
+              0,
               -1
             ],
             "Color": {
@@ -1529,9 +1529,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_ground.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1579,7 +1576,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_ground.json"
+            ]
           }
         },
         {
@@ -1664,9 +1664,6 @@
         0,
         1
       ],
-      "Materials": [
-        "materials/mat_obstacle.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1714,7 +1711,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_obstacle.json"
+            ]
           }
         },
         {
@@ -1799,9 +1799,6 @@
         3,
         1
       ],
-      "Materials": [
-        "materials/mat_obstacle.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1849,7 +1846,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_obstacle.json"
+            ]
           }
         },
         {
@@ -1934,9 +1934,6 @@
         -3,
         1
       ],
-      "Materials": [
-        "materials/mat_crate.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -1984,7 +1981,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_crate.json"
+            ]
           }
         },
         {
@@ -2069,9 +2069,6 @@
         -2,
         1
       ],
-      "Materials": [
-        "materials/mat_crate.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2119,7 +2116,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/cube.glb"
+            "Mesh": "primitives/cube.glb",
+            "Materials": [
+              "materials/mat_crate.json"
+            ]
           }
         },
         {
@@ -2204,9 +2204,6 @@
         7.5,
         1
       ],
-      "Materials": [
-        "materials/mat_cue.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2254,7 +2251,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_cue.json"
+            ]
           }
         },
         {
@@ -2339,9 +2339,6 @@
         6,
         1
       ],
-      "Materials": [
-        "materials/mat_ball1.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2389,7 +2386,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball1.json"
+            ]
           }
         },
         {
@@ -2474,9 +2474,6 @@
         5.35,
         1
       ],
-      "Materials": [
-        "materials/mat_ball2.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2524,7 +2521,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball2.json"
+            ]
           }
         },
         {
@@ -2609,9 +2609,6 @@
         5.35,
         1
       ],
-      "Materials": [
-        "materials/mat_ball3.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2659,7 +2656,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball3.json"
+            ]
           }
         },
         {
@@ -2744,9 +2744,6 @@
         4.7,
         1
       ],
-      "Materials": [
-        "materials/mat_ball4.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2794,7 +2791,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball4.json"
+            ]
           }
         },
         {
@@ -2879,9 +2879,6 @@
         4.7,
         1
       ],
-      "Materials": [
-        "materials/mat_ball5.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -2929,7 +2926,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball5.json"
+            ]
           }
         },
         {
@@ -3014,9 +3014,6 @@
         2,
         1
       ],
-      "Materials": [
-        "materials/mat_ball1.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3064,7 +3061,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball1.json"
+            ]
           }
         },
         {
@@ -3149,9 +3149,6 @@
         1,
         1
       ],
-      "Materials": [
-        "materials/mat_ball2.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3199,7 +3196,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball2.json"
+            ]
           }
         },
         {
@@ -3284,9 +3284,6 @@
         -1.5,
         1
       ],
-      "Materials": [
-        "materials/mat_ball3.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3334,7 +3331,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/sphere_ball.glb"
+            "Mesh": "primitives/sphere_ball.glb",
+            "Materials": [
+              "materials/mat_ball3.json"
+            ]
           }
         },
         {
@@ -3419,9 +3419,6 @@
         4,
         1
       ],
-      "Materials": [
-        "materials/mat_agent.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3479,7 +3476,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "primitives/capsule.glb"
+            "Mesh": "primitives/capsule.glb",
+            "Materials": [
+              "materials/mat_agent.json"
+            ]
           }
         },
         {
@@ -3564,10 +3564,6 @@
         2,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_sxuas.json",
-        "materials/StandardMaterial3D_ptwso.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3580,7 +3576,11 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/knight.glb"
+            "Mesh": "Models/knight.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_sxuas.json",
+              "materials/StandardMaterial3D_ptwso.json"
+            ]
           }
         }
       ]
@@ -3652,10 +3652,6 @@
         5,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_a08xm.json",
-        "materials/StandardMaterial3D_urhvv.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3668,7 +3664,11 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/elf.glb"
+            "Mesh": "Models/elf.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_a08xm.json",
+              "materials/StandardMaterial3D_urhvv.json"
+            ]
           }
         }
       ]
@@ -3740,9 +3740,6 @@
         7,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_hbkt3.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3755,7 +3752,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/player.glb"
+            "Mesh": "Models/player.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_hbkt3.json"
+            ]
           }
         }
       ]
@@ -3827,10 +3827,6 @@
         -2,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_wcf2a.json",
-        "materials/StandardMaterial3D_abc2g.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3843,7 +3839,11 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/mage.glb"
+            "Mesh": "Models/mage.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_wcf2a.json",
+              "materials/StandardMaterial3D_abc2g.json"
+            ]
           }
         }
       ]
@@ -3915,10 +3915,6 @@
         1,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_shu20.json",
-        "materials/StandardMaterial3D_l1aav.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -3931,7 +3927,11 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/nain.glb"
+            "Mesh": "Models/nain.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_shu20.json",
+              "materials/StandardMaterial3D_l1aav.json"
+            ]
           }
         }
       ]
@@ -4003,9 +4003,6 @@
         -8,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_7hpfs.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4018,7 +4015,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/dragon.glb"
+            "Mesh": "Models/dragon.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_7hpfs.json"
+            ]
           }
         }
       ]
@@ -4090,9 +4090,6 @@
         3.8937478,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_jc2ne.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4105,7 +4102,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/waterbottle.glb"
+            "Mesh": "Models/waterbottle.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_jc2ne.json"
+            ]
           }
         }
       ]
@@ -4177,9 +4177,6 @@
         -6,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_0f24c.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4192,7 +4189,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/plants/plant_001.glb"
+            "Mesh": "Models/plants/plant_001.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_0f24c.json"
+            ]
           }
         }
       ]
@@ -4264,9 +4264,6 @@
         -6,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_g7qk0.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4279,7 +4276,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/plants/plant_005.glb"
+            "Mesh": "Models/plants/plant_005.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_g7qk0.json"
+            ]
           }
         }
       ]
@@ -4351,9 +4351,6 @@
         7,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_4m7ut.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4366,7 +4363,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/plants/plant_010.glb"
+            "Mesh": "Models/plants/plant_010.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_4m7ut.json"
+            ]
           }
         }
       ]
@@ -4438,9 +4438,6 @@
         8,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_ms0uw.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4453,7 +4450,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/plants/plant_015.glb"
+            "Mesh": "Models/plants/plant_015.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_ms0uw.json"
+            ]
           }
         }
       ]
@@ -4525,9 +4525,6 @@
         7,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_iu08j.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4540,7 +4537,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/plants/plant_020.glb"
+            "Mesh": "Models/plants/plant_020.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_iu08j.json"
+            ]
           }
         }
       ]
@@ -4612,9 +4612,6 @@
         8,
         1
       ],
-      "Materials": [
-        "materials/StandardMaterial3D_p8the.json"
-      ],
       "Overrides": {
         "Transform": false,
         "MaterialSlots": [],
@@ -4627,7 +4624,10 @@
           "Type": "Paradise.Export.Data.RenderableComponentData",
           "Data": {
             "MeshNode": null,
-            "Mesh": "Models/plants/plant.glb"
+            "Mesh": "Models/plants/plant.glb",
+            "Materials": [
+              "materials/StandardMaterial3D_p8the.json"
+            ]
           }
         }
       ]
