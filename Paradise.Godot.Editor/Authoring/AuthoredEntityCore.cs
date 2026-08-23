@@ -786,7 +786,7 @@ namespace ParadiseGodot.Authoring
         /// </summary>
         public string ModelPath
         {
-            get => AuthoredValue(ParadiseComponentIds.Identity, "Prefab").AsString();
+            get => AuthoredValue(typeof(IdentityComponentData).GUID, "Prefab").AsString();
 
             // Sets BOTH halves, because a model is two authored facts and code that has only a
             // path cannot be expected to know that. paradise.identity/Prefab is provenance — which
@@ -795,8 +795,8 @@ namespace ParadiseGodot.Authoring
             // GLB is native, and is INVISIBLE at runtime, which no export diff catches.
             set
             {
-                SetAuthored(ParadiseComponentIds.Identity, "Prefab", value);
-                SetAuthored(ParadiseComponentIds.Renderable, "Mesh", value);
+                SetAuthored(typeof(IdentityComponentData).GUID, "Prefab", value);
+                SetAuthored(typeof(RenderableComponentData).GUID, "Mesh", value);
             }
         }
 
@@ -806,7 +806,7 @@ namespace ParadiseGodot.Authoring
         {
             get
             {
-                string kind = AuthoredValue(ParadiseComponentIds.Identity, "Kind").AsString();
+                string kind = AuthoredValue(typeof(IdentityComponentData).GUID, "Kind").AsString();
                 return string.IsNullOrWhiteSpace(kind) ? "Prop" : kind;
             }
         }

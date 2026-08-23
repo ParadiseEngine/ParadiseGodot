@@ -403,8 +403,10 @@ namespace ParadiseGodot.Export
             PrefabExporter.Identity prefab = prefabs.ResolveAndExport(entity);
             string name = entity.Node.Name.ToString();
 
-            // Only what a HOST knows: identity, placement, provenance, material slots. Everything
-            // an entity HAS is authored, and arrives below through the router.
+            // Only what a HOST knows: identity, placement, provenance. Everything an entity HAS is
+            // authored, and arrives below through the router — material slots included, as of
+            // contract v4: they belong to the Renderable, which is authored, so they can only be
+            // written once the router has put it on the entity.
             var data = new LevelEntityData
             {
                 Id = name,
@@ -423,7 +425,6 @@ namespace ParadiseGodot.Export
                 LocalScale = localScale,
                 LocalMatrix = ContractMatrix.Trs(localPos, localRot, localScale),
                 WorldMatrix = ContractMatrix.Trs(worldPos, worldRot, worldScale),
-                Materials = materials.ExportMaterialSlots(entity.Node),
             };
 
             // Authored components decide the rest — Kind, IsActive, and the component list itself.
@@ -438,6 +439,21 @@ namespace ParadiseGodot.Export
                 GD.PushError(
                     $"[Paradise.Export] Entity '{name}' authored a component with no id and no "
                     + "type name; it is missing from the export.");
+            }
+
+            // The material slots, LAST — they are host-derived (read off the MeshInstance3D's
+            // surfaces) but they live on an AUTHORED component, so there is nothing to write them
+            // onto until ApplyAll above has put the Renderable on the entity. An entity that
+            // authors no Renderable has no slots to record: they index that component's GLB
+            // primitives, and without it they would name nothing.
+            //
+            // Get/Set rather than editing the payload: Set replaces the entry in place, keeping
+            // the component order the author's own, and re-serializes through the same writer the
+            // rest of the document uses.
+            if (data.Get<RenderableComponentData>() is { } renderable)
+            {
+                renderable.Materials = materials.ExportMaterialSlots(entity.Node);
+                data.Set(renderable);
             }
 
             return data;

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Paradise.Ui;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -10,9 +11,9 @@ public class CompositeUiInputTests
 {
     private sealed class RecordingInput(bool consumes) : IUiInput
     {
-        public readonly List<UiEvent> Events = new();
+        public readonly List<WindowEvent> Events = new();
         public readonly List<double> Ticks = new();
-        public bool Handle(in UiEvent uiEvent) { Events.Add(uiEvent); return consumes; }
+        public bool Handle(in WindowEvent uiEvent) { Events.Add(uiEvent); return consumes; }
         public void Tick(double simTimeSeconds) => Ticks.Add(simTimeSeconds);
     }
 
@@ -23,7 +24,7 @@ public class CompositeUiInputTests
         var second = new RecordingInput(consumes: true);
         var composite = new CompositeUiInput(first, second);
 
-        var consumed = composite.Handle(UiEvent.PointerUp(1, 2, UiPointerButton.Left));
+        var consumed = composite.Handle(WindowEvent.Mouse(PointerButton.Left, pressed: false, 1, 2));
         await Assert.That(consumed).IsTrue();
         await Assert.That(first.Events.Count).IsEqualTo(1);
         await Assert.That(second.Events.Count).IsEqualTo(0); // never reached
@@ -36,7 +37,7 @@ public class CompositeUiInputTests
         var second = new RecordingInput(consumes: false);
         var composite = new CompositeUiInput(first, second);
 
-        var consumed = composite.Handle(UiEvent.PointerUp(1, 2, UiPointerButton.Left));
+        var consumed = composite.Handle(WindowEvent.Mouse(PointerButton.Left, pressed: false, 1, 2));
         await Assert.That(consumed).IsFalse();
         await Assert.That(first.Events.Count).IsEqualTo(1);
         await Assert.That(second.Events.Count).IsEqualTo(1);
@@ -49,8 +50,8 @@ public class CompositeUiInputTests
         var second = new RecordingInput(consumes: false);
         var composite = new CompositeUiInput(first, second);
 
-        var consumed = composite.Handle(UiEvent.PointerMove(3, 4));
-        composite.Handle(UiEvent.Resize(800, 600));
+        var consumed = composite.Handle(WindowEvent.PointerMove(3, 4));
+        composite.Handle(WindowEvent.Resize(800, 600));
 
         await Assert.That(consumed).IsTrue(); // any consumer marks the move consumed…
         await Assert.That(first.Events.Count).IsEqualTo(2);

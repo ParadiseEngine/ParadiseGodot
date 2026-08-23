@@ -43,7 +43,8 @@ public sealed class GameSimulation : IDisposable
         // The single score entity for the ScoreSystem reactor demo (fed only by the SystemEvents bus).
         World.CreateEntity(EntityBuilder.Create().Add(new Score()));
 
-        var schedule = SystemSchedule.Create(World)
+        // Worldless since engine 0.19; the write world moves into the delegate below.
+        var schedule = SystemSchedule.Create()
             .AddWorld<MovementSystem>()
             .AddWorld<SpriteAnimationSystem>()
             .AddWorld<ParticleSystem>()
@@ -51,7 +52,7 @@ public sealed class GameSimulation : IDisposable
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
         SimulationTick.WarmSystemQueries(World);
         _schedule = schedule;
-        _runSchedule = schedule.Run;
+        _runSchedule = read => schedule.Run(World, read);
     }
 
     /// <summary>

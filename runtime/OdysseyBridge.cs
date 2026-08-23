@@ -8,6 +8,7 @@ using Paradise.Ui;
 using Paradise.Sample.Ui;
 using ParadiseGodot.Runtime.Ui;
 using SN = System.Numerics;
+using Paradise.Windowing;
 
 namespace ParadiseGodot.Runtime
 {
@@ -202,7 +203,7 @@ namespace ParadiseGodot.Runtime
         {
             if (_pump is null) return;
             var size = (Vector2I)GetViewport().GetVisibleRect().Size;
-            _pump.EnqueueUiEvent(UiEvent.Resize(size.X, size.Y));
+            _pump.EnqueueUiEvent(WindowEvent.Resize(size.X, size.Y));
         }
 
         public override void _Process(double delta)
@@ -298,42 +299,42 @@ namespace ParadiseGodot.Runtime
             switch (@event)
             {
                 case InputEventMouseMotion motion:
-                    _pump.EnqueueUiEvent(UiEvent.PointerMove(motion.Position.X, motion.Position.Y));
+                    _pump.EnqueueUiEvent(WindowEvent.PointerMove(motion.Position.X, motion.Position.Y));
                     break;
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true } wheelUp:
-                    _pump.EnqueueUiEvent(UiEvent.Scroll(0f, wheelUp.Factor));
+                    _pump.EnqueueUiEvent(WindowEvent.Scroll(0f, wheelUp.Factor));
                     break;
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelDown, Pressed: true } wheelDown:
-                    _pump.EnqueueUiEvent(UiEvent.Scroll(0f, -wheelDown.Factor));
+                    _pump.EnqueueUiEvent(WindowEvent.Scroll(0f, -wheelDown.Factor));
                     break;
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelRight, Pressed: true } wheelRight:
-                    _pump.EnqueueUiEvent(UiEvent.Scroll(wheelRight.Factor, 0f));
+                    _pump.EnqueueUiEvent(WindowEvent.Scroll(wheelRight.Factor, 0f));
                     break;
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelLeft, Pressed: true } wheelLeft:
-                    _pump.EnqueueUiEvent(UiEvent.Scroll(-wheelLeft.Factor, 0f));
+                    _pump.EnqueueUiEvent(WindowEvent.Scroll(-wheelLeft.Factor, 0f));
                     break;
                 // A precise pointing device (MacBook trackpad, Magic Mouse) never produces the
                 // wheel buttons above: Godot's macOS backend routes any scroll that carries a
                 // gesture phase to a pan gesture instead, with the delta negated relative to the
                 // wheel axes (+delta.y is a scroll DOWN).
                 case InputEventPanGesture pan:
-                    _pump.EnqueueUiEvent(UiEvent.Scroll(pan.Delta.X, -pan.Delta.Y));
+                    _pump.EnqueueUiEvent(WindowEvent.Scroll(pan.Delta.X, -pan.Delta.Y));
                     break;
                 case InputEventMouseButton { Pressed: true } down when ToUiButton(down.ButtonIndex) is { } downButton:
-                    _pump.EnqueueUiEvent(new UiEvent(
-                        UiEventKind.PointerDown, down.Position.X, down.Position.Y, downButton, default, default, false));
+                    _pump.EnqueueUiEvent(
+                        WindowEvent.Mouse(downButton, pressed: true, down.Position.X, down.Position.Y));
                     break;
                 case InputEventMouseButton { Pressed: false } up when ToUiButton(up.ButtonIndex) is { } upButton:
-                    _pump.EnqueueUiEvent(UiEvent.PointerUp(up.Position.X, up.Position.Y, upButton));
+                    _pump.EnqueueUiEvent(WindowEvent.Mouse(upButton, pressed: false, up.Position.X, up.Position.Y));
                     break;
             }
         }
 
-        private static UiPointerButton? ToUiButton(MouseButton button) => button switch
+        private static PointerButton? ToUiButton(MouseButton button) => button switch
         {
-            MouseButton.Left => UiPointerButton.Left,
-            MouseButton.Right => UiPointerButton.Right,
-            MouseButton.Middle => UiPointerButton.Middle,
+            MouseButton.Left => PointerButton.Left,
+            MouseButton.Right => PointerButton.Right,
+            MouseButton.Middle => PointerButton.Middle,
             _ => null,
         };
 

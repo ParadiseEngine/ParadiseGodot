@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.Sample.Pool;
 using Paradise.Ui;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -13,14 +14,14 @@ public class UiInputRoutingTests
 {
     private sealed class RecordingUi : IUiInput
     {
-        public readonly List<UiEvent> Handled = new();
+        public readonly List<WindowEvent> Handled = new();
         public readonly List<double> Ticks = new();
         public bool ConsumePointerDown;
 
-        public bool Handle(in UiEvent uiEvent)
+        public bool Handle(in WindowEvent uiEvent)
         {
             Handled.Add(uiEvent);
-            return uiEvent.Kind == UiEventKind.PointerDown && ConsumePointerDown;
+            return uiEvent is { Kind: WindowEventKind.Button, Source: EventSource.Mouse, Pressed: true } && ConsumePointerDown;
         }
 
         public void Tick(double simTimeSeconds) => Ticks.Add(simTimeSeconds);
@@ -33,14 +34,15 @@ public class UiInputRoutingTests
         var ui = new RecordingUi();
         runner.UiInput = ui;
 
-        runner.EnqueueUiEvent(UiEvent.PointerMove(10, 20));
-        runner.EnqueueUiEvent(UiEvent.PointerUp(10, 20, UiPointerButton.Left));
+        runner.EnqueueUiEvent(WindowEvent.PointerMove(10, 20));
+        runner.EnqueueUiEvent(WindowEvent.Mouse(PointerButton.Left, pressed: false, 10, 20));
         runner.TickOnce();
         runner.TickOnce();
 
         await Assert.That(ui.Handled.Count).IsEqualTo(2);
-        await Assert.That(ui.Handled[0].Kind).IsEqualTo(UiEventKind.PointerMove);
-        await Assert.That(ui.Handled[1].Kind).IsEqualTo(UiEventKind.PointerUp);
+        await Assert.That(ui.Handled[0].Kind).IsEqualTo(WindowEventKind.PointerMove);
+        await Assert.That(ui.Handled[1]).IsEqualTo(
+            WindowEvent.Mouse(PointerButton.Left, pressed: false, 10, 20));
         await Assert.That(ui.Ticks.Count).IsEqualTo(2);
         await Assert.That(ui.Ticks[0]).IsEqualTo(SimulationRunner.FixedDeltaSeconds);
         await Assert.That(ui.Ticks[1]).IsEqualTo(2 * SimulationRunner.FixedDeltaSeconds);
@@ -51,11 +53,11 @@ public class UiInputRoutingTests
     {
         using var runner = new SimulationRunner();
         var ui = new RecordingUi { ConsumePointerDown = true };
-        var worldClicks = new List<UiEvent>();
+        var worldClicks = new List<WorldPointerEvent>();
         runner.UiInput = ui;
         runner.UiUnhandledPointerDown = worldClicks.Add;
 
-        runner.EnqueueUiEvent(UiEvent.PointerDown(5, 5, UiPointerButton.Left, new Vector3(0, 5, 0), -Vector3.UnitY));
+        runner.EnqueueUiEvent(new WorldPointerEvent(WindowEvent.Mouse(PointerButton.Left, pressed: true, 5, 5), new Vector3(0, 5, 0), -Vector3.UnitY, true));
         runner.TickOnce();
 
         await Assert.That(ui.Handled.Count).IsEqualTo(1);
@@ -67,13 +69,13 @@ public class UiInputRoutingTests
     {
         using var runner = new SimulationRunner();
         var ui = new RecordingUi { ConsumePointerDown = false };
-        var worldClicks = new List<UiEvent>();
+        var worldClicks = new List<WorldPointerEvent>();
         runner.UiInput = ui;
         runner.UiUnhandledPointerDown = worldClicks.Add;
 
-        runner.EnqueueUiEvent(UiEvent.PointerDown(5, 5, UiPointerButton.Left, new Vector3(1, 5, 2), -Vector3.UnitY));
+        runner.EnqueueUiEvent(new WorldPointerEvent(WindowEvent.Mouse(PointerButton.Left, pressed: true, 5, 5), new Vector3(1, 5, 2), -Vector3.UnitY, true));
         // A rayless pointer-down (e.g. synthesized) must NOT fire the world hook even unconsumed.
-        runner.EnqueueUiEvent(new UiEvent(UiEventKind.PointerDown, 6, 6, UiPointerButton.Left, default, default, false));
+        runner.EnqueueUiEvent(new WorldPointerEvent(WindowEvent.Mouse(PointerButton.Left, pressed: true, 6, 6)));
         runner.TickOnce();
 
         await Assert.That(worldClicks.Count).IsEqualTo(1);
@@ -92,7 +94,7 @@ public class UiInputRoutingTests
         // The host pattern: an unconsumed world click drives a world action (here, a cue strike).
         runner.UiUnhandledPointerDown = e => runner.EnqueueBallImpulse(ball, new Vector3(3f, 0f, 0f));
 
-        runner.EnqueueUiEvent(UiEvent.PointerDown(5, 5, UiPointerButton.Left, new Vector3(18, 5, 18), -Vector3.UnitY));
+        runner.EnqueueUiEvent(new WorldPointerEvent(WindowEvent.Mouse(PointerButton.Left, pressed: true, 5, 5), new Vector3(18, 5, 18), -Vector3.UnitY, true));
         for (var i = 0; i < 60; i++) runner.TickOnce();
 
         runner.TrySampleInterpolation(double.MaxValue, out var latest, out _, out _);

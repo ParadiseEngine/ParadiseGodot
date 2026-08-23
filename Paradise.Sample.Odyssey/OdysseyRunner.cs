@@ -534,7 +534,9 @@ public sealed class OdysseyRunner : IDisposable
     private World CreateWorldWithSchedule()
     {
         World world = _shared.CreateWorld();
-        var schedule = SystemSchedule.Create(world)
+        // Worldless since engine 0.19: the schedule is a program over systems, and every Run
+        // names both worlds. The write world it used to be bound to moves into the delegate below.
+        var schedule = SystemSchedule.Create()
             .AddWorld<MotionSystem>()
             .AddWorld<ChargeSystem>()
             .AddWorld<WarpSystem>()
@@ -542,7 +544,9 @@ public sealed class OdysseyRunner : IDisposable
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
         SimulationTick.WarmSystemQueries(world);
         _schedules.Add(schedule);
-        _runByWorld[world] = schedule.Run;
+        // Captures the WRITE world this schedule was made for, so the stored delegate keeps its
+        // shape: call it with the read twin and it steps that world.
+        _runByWorld[world] = read => schedule.Run(world, read);
         return world;
     }
 

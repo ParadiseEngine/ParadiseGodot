@@ -196,7 +196,7 @@ public static class SceneAssembler
             var model = ToModelMatrix(entity.WorldMatrix);
             PbrInstance? render = null;
             SkinnedMeshState? skinned = null;
-            if (entity.Get<RenderableComponentData>()?.Mesh is { } meshField)
+            if (entity.Get<RenderableComponentData>() is { Mesh: { } meshField } renderable)
             {
                 var asset = level.MeshAssets[meshField];
                 // Entities that author InitialAnimation get PRIVATE dynamic buffers for their
@@ -204,12 +204,12 @@ public static class SceneAssembler
                 // the static per-asset uploads. A missing clip name falls back to static.
                 if (entity.InitialAnimation is { Length: > 0 } clipName && asset.Skins.Length > 0)
                 {
-                    (var mesh, skinned) = geometry.InstantiateSkinnedMesh(asset, entity.Materials, level, clipName);
+                    (var mesh, skinned) = geometry.InstantiateSkinnedMesh(asset, renderable.Materials, level, clipName);
                     render = new PbrInstance { Mesh = mesh, Model = model };
                 }
                 else
                 {
-                    var mesh = geometry.InstantiateMesh(asset, entity.Materials, level);
+                    var mesh = geometry.InstantiateMesh(asset, renderable.Materials, level);
                     render = new PbrInstance { Mesh = mesh, Model = model };
                 }
             }

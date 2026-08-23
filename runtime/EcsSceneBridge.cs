@@ -7,13 +7,14 @@ using Paradise.Export.Geometry;
 using Paradise.Sample.Pool;
 using Paradise.Sample.Pool.Physics;
 using Paradise.Ui;
-using Paradise.Ui.Noesis.Host;
+using Paradise.Ui.Noesis;
 using ParadiseGodot.Runtime.Ui;
 using Paradise.Sample.Ui;
 using SN = System.Numerics;
 // The source-generated `World` alias only exists inside Paradise.Sample.Pool (per-assembly generator
 // output); this assembly names the closed generic type explicitly.
 using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Pool.GameConfig>;
+using Paradise.Windowing;
 
 namespace ParadiseGodot.Runtime
 {
@@ -285,7 +286,7 @@ namespace ParadiseGodot.Runtime
         {
             if (_runner is null) return;
             var size = (Vector2I)GetViewport().GetVisibleRect().Size;
-            _runner.EnqueueUiEvent(UiEvent.Resize(size.X, size.Y));
+            _runner.EnqueueUiEvent(WindowEvent.Resize(size.X, size.Y));
             _noesisOverlay?.OnResize(size);
         }
 
@@ -304,7 +305,7 @@ namespace ParadiseGodot.Runtime
             ImGuiNET.ImGui.End();
         }
 
-        /// <summary>Mouse events become <see cref="UiEvent"/>s drained on the sim thread: UI
+        /// <summary>Mouse events become <see cref="WindowEvent"/>s drained on the sim thread: UI
         /// gets first claim (ImGui panels, then Noesis). Pointer-downs carry the camera pick ray
         /// so the sim needs no camera state — Godot's physics server is Dummy, so picking runs
         /// against the sim's own immutable CollisionWorld.</summary>
@@ -321,20 +322,20 @@ namespace ParadiseGodot.Runtime
                     // Aim update runs HERE on the main thread (camera access); the controller caches
                     // the screen-space endpoints its sim-thread DrawPanel reads.
                     _pool?.UpdateAim(new SN.Vector2(motion.Position.X, motion.Position.Y));
-                    _runner.EnqueueUiEvent(UiEvent.PointerMove(motion.Position.X, motion.Position.Y));
+                    _runner.EnqueueUiEvent(WindowEvent.PointerMove(motion.Position.X, motion.Position.Y));
                     break;
 
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelUp, Pressed: true } wheelUp:
-                    _runner.EnqueueUiEvent(UiEvent.Scroll(0f, wheelUp.Factor));
+                    _runner.EnqueueUiEvent(WindowEvent.Scroll(0f, wheelUp.Factor));
                     break;
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelDown, Pressed: true } wheelDown:
-                    _runner.EnqueueUiEvent(UiEvent.Scroll(0f, -wheelDown.Factor));
+                    _runner.EnqueueUiEvent(WindowEvent.Scroll(0f, -wheelDown.Factor));
                     break;
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelRight, Pressed: true } wheelRight:
-                    _runner.EnqueueUiEvent(UiEvent.Scroll(wheelRight.Factor, 0f));
+                    _runner.EnqueueUiEvent(WindowEvent.Scroll(wheelRight.Factor, 0f));
                     break;
                 case InputEventMouseButton { ButtonIndex: MouseButton.WheelLeft, Pressed: true } wheelLeft:
-                    _runner.EnqueueUiEvent(UiEvent.Scroll(-wheelLeft.Factor, 0f));
+                    _runner.EnqueueUiEvent(WindowEvent.Scroll(-wheelLeft.Factor, 0f));
                     break;
 
                 // A precise pointing device (MacBook trackpad, Magic Mouse) never produces the
@@ -342,13 +343,13 @@ namespace ParadiseGodot.Runtime
                 // gesture phase to a pan gesture instead, with the delta negated relative to the
                 // wheel axes (+delta.y is a scroll DOWN).
                 case InputEventPanGesture pan:
-                    _runner.EnqueueUiEvent(UiEvent.Scroll(pan.Delta.X, -pan.Delta.Y));
+                    _runner.EnqueueUiEvent(WindowEvent.Scroll(pan.Delta.X, -pan.Delta.Y));
                     break;
 
                 case InputEventMouseButton { Pressed: true } down when ToUiButton(down.ButtonIndex) is { } button:
                     // The cue ball claims a left-click first (start aiming); if it does, the click is
                     // consumed and does NOT fall through to the UI/click-move path (parity with Program).
-                    if (button == UiPointerButton.Left &&
+                    if (button == PointerButton.Left &&
                         _pool?.TryBeginAim(new SN.Vector2(down.Position.X, down.Position.Y)) == true)
                     {
                         break;
@@ -357,32 +358,33 @@ namespace ParadiseGodot.Runtime
                     {
                         Vector3 origin = _camera.ProjectRayOrigin(down.Position);
                         Vector3 direction = _camera.ProjectRayNormal(down.Position);
-                        _runner.EnqueueUiEvent(UiEvent.PointerDown(
-                            down.Position.X, down.Position.Y, button, ToSN(origin), ToSN(direction)));
+                        _runner.EnqueueUiEvent(new WorldPointerEvent(
+                            WindowEvent.Mouse(button, pressed: true, down.Position.X, down.Position.Y),
+                            ToSN(origin), ToSN(direction), true));
                     }
                     else
                     {
-                        _runner.EnqueueUiEvent(new UiEvent(
-                            UiEventKind.PointerDown, down.Position.X, down.Position.Y, button,
-                            default, default, false));
+                        // No camera yet, so no ray to project — still a real pointer-down.
+                        _runner.EnqueueUiEvent(new WorldPointerEvent(
+                            WindowEvent.Mouse(button, pressed: true, down.Position.X, down.Position.Y)));
                     }
                     break;
 
                 case InputEventMouseButton { Pressed: false } up when ToUiButton(up.ButtonIndex) is { } button:
-                    if (button == UiPointerButton.Left)
+                    if (button == PointerButton.Left)
                     {
                         _pool?.ReleaseAim(); // slingshot fire (or stage while paused)
                     }
-                    _runner.EnqueueUiEvent(UiEvent.PointerUp(up.Position.X, up.Position.Y, button));
+                    _runner.EnqueueUiEvent(WindowEvent.Mouse(button, pressed: false, up.Position.X, up.Position.Y));
                     break;
             }
         }
 
-        private static UiPointerButton? ToUiButton(MouseButton button) => button switch
+        private static PointerButton? ToUiButton(MouseButton button) => button switch
         {
-            MouseButton.Left => UiPointerButton.Left,
-            MouseButton.Right => UiPointerButton.Right,
-            MouseButton.Middle => UiPointerButton.Middle,
+            MouseButton.Left => PointerButton.Left,
+            MouseButton.Right => PointerButton.Right,
+            MouseButton.Middle => PointerButton.Middle,
             _ => null,
         };
 

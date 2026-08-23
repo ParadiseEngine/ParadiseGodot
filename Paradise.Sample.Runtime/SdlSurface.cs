@@ -1,6 +1,7 @@
 using Paradise.Rendering;
 using static SDL.SDL3;
 using SDL;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Runtime;
 

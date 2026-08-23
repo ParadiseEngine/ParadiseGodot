@@ -88,17 +88,19 @@ material under `data/materials/`. Mapping:
   `Blend`; also `Blend` when albedo alpha < 1 (mirrors the Unity resolution).
 - Textures — referenced by **project-relative source path** (`res://` stripped). Actual texture
   **conversion (PNG/KTX2)** is the asset pipeline's job (Phase 6), not the material exporter.
-- Entity `Materials` slot lists are filled from the entity's `MeshInstance3D` surfaces; the
-  top-level `LevelData.Materials` stays empty (matches the Unity baseline).
+- `Renderable.Materials` slot lists are filled from the entity's `MeshInstance3D` surfaces; the
+  top-level `LevelData.Materials` stays empty (matches the Unity baseline). The slots sat on the
+  ENTITY until contract v4 moved them onto the component whose GLB they index — three different
+  things are called `Materials` in this pipeline, and only that one moved.
 
-## Meshes & environment (schema v2)
+## Meshes & environment (schema v4)
 
 - **`Renderable.Mesh`** — each entity with visuals exports its subtree to
   `data/meshes/<content-key>.glb` via Godot's native `GltfDocument` (no Blender round-trip for
   scene-authored meshes), in ENTITY-LOCAL space (the entity's `WorldMatrix` places it).
   Content-keyed dedupe: identical visual compositions (the two crates, the three balls) share
-  one GLB; per-entity looks come from the `Materials` slot overrides.
-- **Slot order contract** — the GLB's primitive order equals the entity's `Materials` slot
+  one GLB; per-entity looks come from the `Renderable.Materials` slot overrides.
+- **Slot order contract** — the GLB's primitive order equals the renderable's `Materials` slot
   order (both walk the same depth-first `MeshInstance3D` traversal). A null slot means the
   GLB's own embedded material is authoritative; non-null slots override with
   `materials/*.json` (factor-only at runtime — material-JSON texture paths reference Godot

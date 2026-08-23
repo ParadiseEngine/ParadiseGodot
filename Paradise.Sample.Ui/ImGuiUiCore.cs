@@ -2,6 +2,7 @@ using System.Numerics;
 using ImGuiNET;
 using Paradise.Ui.ImGui;
 using Paradise.Ui;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Ui;
 
@@ -99,64 +100,65 @@ public sealed class ImGuiUiCore
 
     private sealed class UiInputHalf(ImGuiUiCore owner) : IUiInput
     {
-        public bool Handle(in UiEvent uiEvent)
+        public bool Handle(in WindowEvent input)
         {
             var io = ImGui.GetIO();
-            switch (uiEvent.Kind)
+            switch (input.Kind)
             {
-                case UiEventKind.PointerMove:
-                    io.AddMousePosEvent(uiEvent.X, uiEvent.Y);
+                case WindowEventKind.PointerMove:
+                    io.AddMousePosEvent(input.X, input.Y);
                     return io.WantCaptureMouse;
-                case UiEventKind.PointerDown:
-                    io.AddMouseButtonEvent(ToImGui(uiEvent.Button), true);
+                // Pointer down and up used to be separate kinds. WindowEvent folds every
+                // transition into Button + Pressed and says WHICH DEVICE in Source, so the two
+                // cases become one and the direction rides in the bool.
+                case WindowEventKind.Button when input.Source == EventSource.Mouse:
+                    io.AddMouseButtonEvent(ToImGui((PointerButton)input.Code), input.Pressed);
                     return io.WantCaptureMouse;
-                case UiEventKind.PointerUp:
-                    io.AddMouseButtonEvent(ToImGui(uiEvent.Button), false);
-                    return io.WantCaptureMouse;
-                case UiEventKind.Resize:
-                    io.DisplaySize = new Vector2(uiEvent.X, uiEvent.Y);
+                case WindowEventKind.Button when input.Source == EventSource.Keyboard
+                        && ToImGui((KeyboardKey)input.Code) is { } key:
+                    io.AddKeyEvent(key, input.Pressed);
+                    return io.WantCaptureKeyboard;
+                case WindowEventKind.Resize:
+                    io.DisplaySize = new Vector2(input.X, input.Y);
                     return false;
-                case UiEventKind.Scroll:
-                    io.AddMouseWheelEvent(uiEvent.X, uiEvent.Y);
+                case WindowEventKind.Scroll:
+                    io.AddMouseWheelEvent(input.X, input.Y);
                     return io.WantCaptureMouse;
-                case UiEventKind.KeyDown when ToImGui(uiEvent.Key) is { } downKey:
-                    io.AddKeyEvent(downKey, true);
-                    return io.WantCaptureKeyboard;
-                case UiEventKind.KeyUp when ToImGui(uiEvent.Key) is { } upKey:
-                    io.AddKeyEvent(upKey, false);
-                    return io.WantCaptureKeyboard;
-                case UiEventKind.Text:
-                    io.AddInputCharacter(uiEvent.Character);
+                case WindowEventKind.Text:
+                    io.AddInputCharacter(input.Character);
                     return io.WantCaptureKeyboard;
                 default:
+                    // Gamepad, axis and touch reach ImGui through none of this — a button case
+                    // that did not match Source above lands here rather than being mistaken for
+                    // a mouse click.
                     return false;
             }
         }
 
-        private static ImGuiKey? ToImGui(UiKey key) => key switch
+        private static ImGuiKey? ToImGui(KeyboardKey key) => key switch
         {
-            UiKey.Enter => ImGuiKey.Enter,
-            UiKey.Escape => ImGuiKey.Escape,
-            UiKey.Backspace => ImGuiKey.Backspace,
-            UiKey.Delete => ImGuiKey.Delete,
-            UiKey.Tab => ImGuiKey.Tab,
-            UiKey.Left => ImGuiKey.LeftArrow,
-            UiKey.Right => ImGuiKey.RightArrow,
-            UiKey.Up => ImGuiKey.UpArrow,
-            UiKey.Down => ImGuiKey.DownArrow,
-            UiKey.Home => ImGuiKey.Home,
-            UiKey.End => ImGuiKey.End,
-            UiKey.Ctrl => ImGuiKey.ModCtrl,
-            UiKey.Shift => ImGuiKey.ModShift,
-            UiKey.A => ImGuiKey.A,
-            UiKey.C => ImGuiKey.C,
-            UiKey.D => ImGuiKey.D,
-            UiKey.S => ImGuiKey.S,
-            UiKey.V => ImGuiKey.V,
-            UiKey.W => ImGuiKey.W,
-            UiKey.X => ImGuiKey.X,
-            UiKey.Y => ImGuiKey.Y,
-            UiKey.Z => ImGuiKey.Z,
+            KeyboardKey.Enter => ImGuiKey.Enter,
+            KeyboardKey.Escape => ImGuiKey.Escape,
+            KeyboardKey.Backspace => ImGuiKey.Backspace,
+            KeyboardKey.Delete => ImGuiKey.Delete,
+            KeyboardKey.Tab => ImGuiKey.Tab,
+            KeyboardKey.Left => ImGuiKey.LeftArrow,
+            KeyboardKey.Right => ImGuiKey.RightArrow,
+            KeyboardKey.Up => ImGuiKey.UpArrow,
+            KeyboardKey.Down => ImGuiKey.DownArrow,
+            KeyboardKey.Home => ImGuiKey.Home,
+            KeyboardKey.End => ImGuiKey.End,
+            KeyboardKey.LeftControl => ImGuiKey.ModCtrl,
+            KeyboardKey.LeftShift => ImGuiKey.ModShift,
+            KeyboardKey.A => ImGuiKey.A,
+            KeyboardKey.C => ImGuiKey.C,
+            KeyboardKey.D => ImGuiKey.D,
+            KeyboardKey.S => ImGuiKey.S,
+            KeyboardKey.V => ImGuiKey.V,
+            KeyboardKey.W => ImGuiKey.W,
+            KeyboardKey.X => ImGuiKey.X,
+            KeyboardKey.Y => ImGuiKey.Y,
+            KeyboardKey.Z => ImGuiKey.Z,
             _ => null,
         };
 
@@ -190,10 +192,10 @@ public sealed class ImGuiUiCore
             }
         }
 
-        private static int ToImGui(UiPointerButton button) => button switch
+        private static int ToImGui(PointerButton button) => button switch
         {
-            UiPointerButton.Right => 1,
-            UiPointerButton.Middle => 2,
+            PointerButton.Right => 1,
+            PointerButton.Middle => 2,
             _ => 0,
         };
     }
