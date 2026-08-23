@@ -48,7 +48,9 @@ public class ExportedMeshGlbTests
             {
                 primitiveCount += asset.Meshes[instance.MeshIndex].Primitives.Length;
             }
-            var slotCount = entity.GetProperty("Materials").GetArrayLength();
+            // On the RENDERABLE as of contract v4, not on the entity — and this reads raw JSON,
+            // so the old path threw KeyNotFoundException rather than failing to compile.
+            var slotCount = renderable.GetProperty("Materials").GetArrayLength();
             await Assert.That(primitiveCount).IsEqualTo(slotCount);
 
             // Geometry sanity: real vertices with normals, non-degenerate.
