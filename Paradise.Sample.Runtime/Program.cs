@@ -5,6 +5,7 @@ using Paradise.Rendering.WebGPU;
 using Paradise.Ui;
 using static SDL.SDL3;
 using SDL;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Runtime;
 
@@ -318,7 +319,7 @@ internal static class Program
                                 if (pw > 0 && ph > 0)
                                 {
                                     uiScale = lw > 0 ? pw / (float)lw : 1f;
-                                    loop.EnqueueUiEvent(Paradise.Ui.UiEventKind.Resize, new Vector2(pw, ph));
+                                    loop.EnqueueUiEvent(WindowEventKind.Resize, new Vector2(pw, ph));
                                 }
                             }
                         }
@@ -328,7 +329,7 @@ internal static class Program
                         loop.UpdateAim(new Vector2(ev.motion.x, ev.motion.y) * uiScale);
                         if (ui is not null || imgui is not null)
                         {
-                            loop.EnqueueUiEvent(Paradise.Ui.UiEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
+                            loop.EnqueueUiEvent(WindowEventKind.PointerMove, new Vector2(ev.motion.x, ev.motion.y) * uiScale);
                         }
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP &&
@@ -337,7 +338,7 @@ internal static class Program
                         loop.ReleaseAim();
                         if (ui is not null || imgui is not null)
                         {
-                            loop.EnqueueUiEvent(Paradise.Ui.UiEventKind.PointerUp, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                            loop.EnqueueUiEvent(WindowEventKind.Button, new Vector2(ev.button.x, ev.button.y) * uiScale, pressed: false);
                         }
                     }
                     else if (type == SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN &&
@@ -348,7 +349,7 @@ internal static class Program
                         if (!loop.TryBeginAim(new Vector2(ev.button.x, ev.button.y) * uiScale) &&
                             (ui is not null || imgui is not null))
                         {
-                            loop.EnqueueUiEvent(Paradise.Ui.UiEventKind.PointerDown, new Vector2(ev.button.x, ev.button.y) * uiScale);
+                            loop.EnqueueUiEvent(WindowEventKind.Button, new Vector2(ev.button.x, ev.button.y) * uiScale, pressed: true);
                         }
                     }
                 }

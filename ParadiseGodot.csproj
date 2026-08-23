@@ -55,7 +55,6 @@
     <!-- The shared sim-thread NoesisViewCore. This host does NOT use the package's
          NoesisOverlayRenderer: NoesisTextureOverlay drives the render device itself, on its
          own headless Dawn device with a CPU readback into a Godot ImageTexture. -->
-    <PackageReference Include="Paradise.Ui.Noesis.Host" Version="0.17.0" />
     <!-- The managed Noesis WebGPU render device NoesisTextureOverlay owns directly. -->
     <PackageReference Include="Paradise.Ui.Noesis" Version="0.21.0" />
   </ItemGroup>

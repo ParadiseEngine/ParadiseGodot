@@ -1,5 +1,6 @@
 using Paradise.Ui;
 using Paradise.Sample.Ui;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Ui.Tests;
 
@@ -87,13 +88,13 @@ public class ImGuiUiCoreTests
     public async Task resize_updates_display_size_without_consuming()
     {
         var core = Core();
-        var consumed = core.Input.Handle(UiEvent.Resize(800, 600));
+        var consumed = core.Input.Handle(WindowEvent.Resize(800, 600));
         await Assert.That(consumed).IsFalse();
 
         core.Input.Tick(20.0);
         var snapshot = core.AcquireSnapshotForRender(out _);
         await Assert.That(snapshot!.DisplaySize.X).IsEqualTo(800f);
         await Assert.That(snapshot.DisplaySize.Y).IsEqualTo(600f);
-        core.Input.Handle(UiEvent.Resize(640, 360)); // restore for other tests
+        core.Input.Handle(WindowEvent.Resize(640, 360)); // restore for other tests
     }
 }

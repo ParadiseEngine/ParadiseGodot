@@ -7,6 +7,7 @@ using System.Threading;
 using Paradise.Physics;
 using Paradise.Sample.Pool.Audio;
 using Paradise.Ui;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Pool;
 
@@ -43,7 +44,7 @@ public sealed class SimulationRunner : IDisposable
     private readonly Paradise.Physics.CollisionWorld? _collisionWorld;
     private readonly ConcurrentQueue<(Entity Entity, Vector3 VelocityDelta, Vector3? Angular)> _impulses = new();
     private readonly RewindBuffer _rewind = new();
-    private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
+    private readonly ConcurrentQueue<WorldPointerEvent> _uiEvents = new();
     private readonly object _lock = new();
     private readonly Stopwatch _clock = new();
 
@@ -167,12 +168,15 @@ public sealed class SimulationRunner : IDisposable
 
     /// <summary>Invoked ON THE SIM THREAD for pointer-downs the UI did not consume and that
     /// carry a world-space pick ray — the game-side "clicked the world" hook.</summary>
-    public Action<UiEvent>? UiUnhandledPointerDown { get; set; }
+    public Action<WorldPointerEvent>? UiUnhandledPointerDown { get; set; }
 
     /// <summary>Queue a UI event from the platform/render thread; drained on the sim thread
     /// each tick, before movement input, so a click consumed by a UI panel never leaks into
     /// world interaction on the same tick.</summary>
-    public void EnqueueUiEvent(in UiEvent uiEvent) => _uiEvents.Enqueue(uiEvent);
+    public void EnqueueUiEvent(in WorldPointerEvent uiEvent) => _uiEvents.Enqueue(uiEvent);
+
+    /// <summary>Queue a plain window input, for a producer with no camera to project a ray with.</summary>
+    public void EnqueueUiEvent(in WindowEvent input) => _uiEvents.Enqueue(new WorldPointerEvent(input));
 
     /// <summary>The optional sim-thread audio half (mirror of <see cref="UiInput"/>, data
     /// flowing the other way): game logic posts events/parameters through it on the sim
@@ -449,8 +453,11 @@ public sealed class SimulationRunner : IDisposable
         var ui = UiInput;
         while (_uiEvents.TryDequeue(out var uiEvent))
         {
-            var consumed = ui?.Handle(in uiEvent) ?? false;
-            if (!consumed && uiEvent is { Kind: UiEventKind.PointerDown, HasWorldRay: true })
+            // The UI half sees the WINDOW event; the ray is the sample's own business. Copied to
+            // a local first because Handle takes it by `in` and a property cannot be passed by ref.
+            var input = uiEvent.Input;
+            var consumed = ui?.Handle(in input) ?? false;
+            if (!consumed && uiEvent is { IsPointerDown: true, HasWorldRay: true })
             {
                 UiUnhandledPointerDown?.Invoke(uiEvent);
             }
@@ -561,7 +568,8 @@ public sealed class SimulationRunner : IDisposable
     private World CreateWorldWithSchedule()
     {
         World world = _shared.CreateWorld();
-        var schedule = SystemSchedule.Create(world)
+        // Worldless since engine 0.19; the write world moves into the delegate below.
+        var schedule = SystemSchedule.Create()
             .AddWorld<MovementSystem>()
             .AddWorld<SpriteAnimationSystem>()
             .AddWorld<ParticleSystem>()
@@ -569,7 +577,11 @@ public sealed class SimulationRunner : IDisposable
             .Build(new SnapshotDagScheduler(), new ParallelWaveScheduler());
         SimulationTick.WarmSystemQueries(world);
         _schedules.Add(schedule);
-        _runByWorld[world] = schedule.Run;
+        // NOT `schedule.Run` as a method group: that still compiles, binding to the one-argument
+        // Run(world) overload, and the delegate is invoked with the READ twin — so the schedule
+        // would step the read world and leave the write world untouched. Silent, and wrong. The
+        // write world is captured explicitly instead.
+        _runByWorld[world] = read => schedule.Run(world, read);
         return world;
     }
 

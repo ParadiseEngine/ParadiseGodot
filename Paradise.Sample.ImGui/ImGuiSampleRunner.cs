@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using Paradise.Ui;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.ImGui;
 
@@ -12,7 +13,7 @@ namespace Paradise.Sample.ImGui;
 /// </summary>
 public sealed class ImGuiSampleRunner : IDisposable
 {
-    private readonly ConcurrentQueue<UiEvent> _uiEvents = new();
+    private readonly ConcurrentQueue<WindowEvent> _uiEvents = new();
     private readonly Stopwatch _clock = Stopwatch.StartNew();
     private Thread? _thread;
     private volatile bool _stop;
@@ -36,7 +37,7 @@ public sealed class ImGuiSampleRunner : IDisposable
     public long Frame => Interlocked.Read(ref _frame);
 
     /// <summary>Called from the host's input thread; events apply on the next sim tick.</summary>
-    public void EnqueueUiEvent(in UiEvent uiEvent) => _uiEvents.Enqueue(uiEvent);
+    public void EnqueueUiEvent(in WindowEvent uiEvent) => _uiEvents.Enqueue(uiEvent);
 
     public void Start()
     {

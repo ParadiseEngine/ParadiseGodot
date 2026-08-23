@@ -10,6 +10,7 @@ using Paradise.Ui;
 using Paradise.Sample.Ui;
 using static SDL.SDL3;
 using SDL;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Runtime;
 
@@ -186,18 +187,18 @@ internal static class OdysseyHost
                                 renderer.Resize(width, height);
                                 c.Pbr.Resize(width, height);
                                 uiScale = lw > 0 ? pw / (float)lw : 1f;
-                                pump.EnqueueUiEvent(UiEvent.Resize(pw, ph));
+                                pump.EnqueueUiEvent(WindowEvent.Resize(pw, ph));
                             }
                             break;
                         }
                         case SDL_EventType.SDL_EVENT_MOUSE_MOTION:
-                            pump.EnqueueUiEvent(UiEvent.PointerMove(ev.motion.x * uiScale, ev.motion.y * uiScale));
+                            pump.EnqueueUiEvent(WindowEvent.PointerMove(ev.motion.x * uiScale, ev.motion.y * uiScale));
                             break;
                         case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN when ToButton(ev.button.button) is { } db:
-                            pump.EnqueueUiEvent(new UiEvent(UiEventKind.PointerDown, ev.button.x * uiScale, ev.button.y * uiScale, db, default, default, false));
+                            pump.EnqueueUiEvent(WindowEvent.Mouse(db, pressed: true, ev.button.x * uiScale, ev.button.y * uiScale));
                             break;
                         case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP when ToButton(ev.button.button) is { } ub:
-                            pump.EnqueueUiEvent(UiEvent.PointerUp(ev.button.x * uiScale, ev.button.y * uiScale, ub));
+                            pump.EnqueueUiEvent(WindowEvent.Mouse(ub, pressed: false, ev.button.x * uiScale, ev.button.y * uiScale));
                             break;
                         case SDL_EventType.SDL_EVENT_KEY_DOWN:
                         case SDL_EventType.SDL_EVENT_KEY_UP:
@@ -414,11 +415,11 @@ internal static class OdysseyHost
         return count;
     }
 
-    private static UiPointerButton? ToButton(byte sdlButton) => sdlButton switch
+    private static PointerButton? ToButton(byte sdlButton) => sdlButton switch
     {
-        (byte)SDL_BUTTON_LEFT => UiPointerButton.Left,
-        (byte)SDL_BUTTON_RIGHT => UiPointerButton.Right,
-        (byte)SDL_BUTTON_MIDDLE => UiPointerButton.Middle,
+        (byte)SDL_BUTTON_LEFT => PointerButton.Left,
+        (byte)SDL_BUTTON_RIGHT => PointerButton.Right,
+        (byte)SDL_BUTTON_MIDDLE => PointerButton.Middle,
         _ => null,
     };
 }

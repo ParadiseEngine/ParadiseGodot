@@ -12,6 +12,7 @@ using Paradise.Sample.Ui;
 // The source-generated `World` alias only exists inside Paradise.Sample.Pool (per-assembly generator
 // output); this assembly names the closed generic type explicitly.
 using SimWorld = Paradise.ECS.World<Paradise.ECS.SmallBitSet<uint>, Paradise.Sample.Pool.GameConfig>;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Runtime;
 
@@ -214,29 +215,33 @@ public sealed class RuntimeLoop : IDisposable
     /// <summary>Queue a UI pointer/resize event for the sim thread. Pointer-downs get a world
     /// pick ray attached (computed here, on the render thread, where the camera lives) so the
     /// sim can route unconsumed clicks to world interaction.</summary>
-    public void EnqueueUiEvent(UiEventKind kind, Vector2 pixel, UiPointerButton button = UiPointerButton.Left)
+    public void EnqueueUiEvent(WindowEventKind kind, Vector2 pixel, PointerButton button = PointerButton.Left,
+        bool pressed = true)
     {
         switch (kind)
         {
-            case UiEventKind.PointerDown:
+            // Button + Pressed replaced the separate PointerDown/PointerUp kinds; the ray is
+            // still attached here, on the render thread, because this is where the camera lives.
+            case WindowEventKind.Button when pressed:
             {
                 var camera = _camera.Build(_width / (float)_height);
                 var viewProjection = PbrMath.ViewProjection(camera.View, camera.Projection);
                 var hasRay = PbrMath.TryScreenPointToRay(
                     pixel, new Vector2(_width, _height), viewProjection, out var origin, out var direction);
+                var down = WindowEvent.Mouse(button, pressed: true, pixel.X, pixel.Y);
                 _runner.EnqueueUiEvent(hasRay
-                    ? UiEvent.PointerDown(pixel.X, pixel.Y, button, origin, direction)
-                    : new UiEvent(UiEventKind.PointerDown, pixel.X, pixel.Y, button, default, default, false));
+                    ? new WorldPointerEvent(down, origin, direction, true)
+                    : new WorldPointerEvent(down));
                 break;
             }
-            case UiEventKind.PointerUp:
-                _runner.EnqueueUiEvent(UiEvent.PointerUp(pixel.X, pixel.Y, button));
+            case WindowEventKind.Button:
+                _runner.EnqueueUiEvent(WindowEvent.Mouse(button, pressed: false, pixel.X, pixel.Y));
                 break;
-            case UiEventKind.Resize:
-                _runner.EnqueueUiEvent(UiEvent.Resize(pixel.X, pixel.Y));
+            case WindowEventKind.Resize:
+                _runner.EnqueueUiEvent(WindowEvent.Resize(pixel.X, pixel.Y));
                 break;
             default:
-                _runner.EnqueueUiEvent(UiEvent.PointerMove(pixel.X, pixel.Y));
+                _runner.EnqueueUiEvent(WindowEvent.PointerMove(pixel.X, pixel.Y));
                 break;
         }
     }

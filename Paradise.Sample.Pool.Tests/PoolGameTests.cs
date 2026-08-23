@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
+using Paradise.Windowing;
 
 namespace Paradise.Sample.Pool.Tests;
 
@@ -195,8 +196,8 @@ public class PoolGameTests
             Thread.Sleep(80); // let an in-flight tick drain
             ticksBefore = ui.Ticks.Count;
             var handledBefore = ui.Handled.Count;
-            runner.EnqueueUiEvent(Paradise.Ui.UiEvent.PointerMove(10, 10));
-            runner.EnqueueUiEvent(Paradise.Ui.UiEvent.PointerUp(10, 10, Paradise.Ui.UiPointerButton.Left));
+            runner.EnqueueUiEvent(WindowEvent.PointerMove(10, 10));
+            runner.EnqueueUiEvent(WindowEvent.Mouse(PointerButton.Left, pressed: false, 10, 10));
             WaitUntil(() => ui.Handled.Count >= handledBefore + 2, "paused UI events to drain");
             handledWhilePaused = ui.Handled.Count - handledBefore;
             WaitUntil(() => ui.Ticks.Count > ticksBefore, "UI time to keep flowing while paused");
@@ -210,9 +211,9 @@ public class PoolGameTests
 
     private sealed class RecordingUi : Paradise.Ui.IUiInput
     {
-        public readonly List<Paradise.Ui.UiEvent> Handled = new();
+        public readonly List<WindowEvent> Handled = new();
         public readonly List<double> Ticks = new();
-        public bool Handle(in Paradise.Ui.UiEvent uiEvent) { Handled.Add(uiEvent); return false; }
+        public bool Handle(in WindowEvent uiEvent) { Handled.Add(uiEvent); return false; }
         public void Tick(double simTimeSeconds) => Ticks.Add(simTimeSeconds);
     }
 
