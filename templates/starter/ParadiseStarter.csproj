@@ -12,7 +12,7 @@
          built against, and on first build it places its own res:// half into addons/paradise -
          plugin.cfg plus the two scripts scenes bind to. Commit what it writes; Godot mints the
          .uid files beside them on first import, and those belong in the repo too. -->
-    <PackageReference Include="Paradise.Godot.Editor" Version="0.17.0" />
+    <PackageReference Include="Paradise.Godot.Editor" Version="0.18.0" />
   </ItemGroup>
 
 </Project>

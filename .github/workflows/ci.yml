@@ -54,6 +54,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      # Cheapest gate in the file and the one that catches the mistake nobody notices: the addon
+      # states its version in two files and targets a contract stated in a third. Runs here rather
+      # than only at publish because it needs no tag — a PR that lets them drift fails now, not
+      # when someone is trying to cut a release.
+      - name: Version policy
+        run: bash scripts/check_version_policy.sh
+
       - name: Addon dependency allowlist
         run: bash scripts/check_addon_deps.sh
 

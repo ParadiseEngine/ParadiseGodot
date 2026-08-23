@@ -19,11 +19,11 @@
 
   <ItemGroup>
     <!-- Published engine packages; Paradise.ECS ships its source generator as an analyzer. -->
-    <PackageReference Include="Paradise.ECS" Version="0.17.0" />
-    <PackageReference Include="Paradise.Physics" Version="0.17.0" />
+    <PackageReference Include="Paradise.ECS" Version="0.18.1" />
+    <PackageReference Include="Paradise.Physics" Version="0.18.1" />
     <!-- The engine-neutral UI input contract (UiEvent/IUiInput/CompositeUiInput) the
          SimulationRunner drains on the sim thread. Flows on to every consumer of this project. -->
-    <PackageReference Include="Paradise.Ui" Version="0.17.0" />
+    <PackageReference Include="Paradise.Ui" Version="0.18.1" />
   </ItemGroup>
 
   <ItemGroup>

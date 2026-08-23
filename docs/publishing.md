@@ -42,17 +42,29 @@ and the package-contents gate in `publish-addon-package.yml` both enforce this.
 
 ## Cutting an addon release
 
-1. Bump the version in **both** places, to the same value:
+1. Bump the version in **three** places, and let CI tell you if you missed one:
    - `Paradise.Godot.Editor/AddonVersion.props` (`ParadiseGodotAddonPackageVersion`) — the package
      version and the marker consumers compare against.
    - `Paradise.Godot.Editor/addon/plugin.cfg` (`version=`) — what Godot displays.
+   - `templates/starter/ParadiseStarter.csproj` — what a brand-new project restores.
 
-   Also bump `ProjectSetup.SupportedExportVersion` if the targeted `Paradise.Export` changed.
+   There is no fourth number: the contract the addon targets is READ from the addon assembly's own
+   reference to `Paradise.Export`, so bumping that PackageReference is the whole edit.
    Policy: **addon minor tracks the `Paradise.Export`/contract minor** it targets.
 
-   `publish-addon-package.yml` refuses to publish if the tag and those two disagree. That guard is
-   not cosmetic: a marker that never matches the installed package makes the payload
-   re-materialize on every build in every consuming repo.
+   Two guards, neither cosmetic:
+
+   - `scripts/check_version_policy.sh` (run by **`ci.yml` on every PR** and again at publish)
+     enforces the three-way agreement above and the minor-tracks-contract policy. It needs no tag,
+     which is the point — drift fails on the PR that introduces it rather than on the day you try
+     to release. It also refuses to run on a file whose format it can no longer parse, so a
+     renamed property cannot turn it into a no-op.
+   - `publish-addon-package.yml` additionally refuses to publish if the **tag** disagrees with
+     `AddonVersion.props`/`plugin.cfg`. A marker that never matches the installed package makes
+     the payload re-materialize on every build in every consuming repo.
+
+   Both of these exist because all three drifts happened: 0.15.0 shipped against a 0.17.0
+   contract, and the starter template pinned an addon 0.17.0 that was never published.
 
 2. Merge to `main` with green CI. Two jobs are the real gate — `export-smoke` (a real headless
    Godot editor runs the plugin and exports a scene) and `addon-nuget` (packs, checks the package
@@ -75,6 +87,7 @@ the payload.
 ## Local checks before tagging
 
 ```bash
+bash scripts/check_version_policy.sh
 bash scripts/check_addon_deps.sh
 bash Paradise.Godot.Editor/tests/materialize-tests.sh
 # Packing locally needs the engine-source override OFF, or the package records the local
@@ -124,7 +137,7 @@ Optionally set the `NUGET_USER` repository variable (defaults to the repo owner)
 | Thing | Version source |
 | --- | --- |
 | Contract | `Paradise.Export` major.minor |
-| Addon package | `AddonVersion.props` + `addon/plugin.cfg` + `addon-v*` tag (all three must match) |
-| Addon's targeted contract | `ProjectSetup.SupportedExportVersion` |
+| Addon package | `AddonVersion.props` + `addon/plugin.cfg` + `templates/starter` pin + `addon-v*` tag (all four must match; `check_version_policy.sh` guards the first three, the publish workflow adds the tag) |
+| Addon's targeted contract | the `Paradise.Export` PackageReference in `Paradise.Godot.Editor.csproj` (read back at runtime from assembly metadata — nothing restates it) |
 | Runtime tool | `runtime-v*` tag |
 | Engine packages | engine `v*` tag |

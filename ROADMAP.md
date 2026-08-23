@@ -73,8 +73,9 @@ dependency is the `Paradise.Export` package. Next: productize that plugin into a
 - [~] **Phase 5 — Post-v1**
   - [x] In-editor contract validator (**Paradise/Validate Export**): missing mesh refs,
         absent KTX2 sidecars via GLB image-uri scan, stale export/navmesh, non-identity root
-  - [x] Version policy: contract = `Paradise.Export` major.minor; addon pins
-        `SupportedExportVersion`, warns on mismatch (documented in `docs/contract.md`)
+  - [x] Version policy: contract = `Paradise.Export` major.minor; the addon reads the contract it
+        was built against from its own assembly metadata and warns on mismatch (documented in
+        `docs/contract.md`)
   - [ ] Play-mode preview framework: generalize the bridges (`EcsSceneBridge`,
         `ImGuiCanvasRenderer`, `NoesisTextureOverlay`) into an optional addon module.
         **Blocked on publishing the UI cores** (`Paradise.Sample.Ui`-equivalent) as packages —
