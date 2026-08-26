@@ -37,21 +37,21 @@
     <ProjectReference Include="..\Paradise.Sample.Pool\Paradise.Sample.Pool.csproj" />
     <ProjectReference Include="..\Paradise.Sample.ImGui\Paradise.Sample.ImGui.csproj" />
     <ProjectReference Include="..\Paradise.Sample.Ui\Paradise.Sample.Ui.csproj" />
-    <PackageReference Include="Paradise.Export" Version="0.21.0" />
+    <PackageReference Include="Paradise.Export" Version="0.25.0" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Published engine packages. -->
-    <PackageReference Include="Paradise.Rendering" Version="0.21.0" />
-    <PackageReference Include="Paradise.Rendering.WebGPU" Version="0.21.0" />
-    <PackageReference Include="Paradise.Rendering.Pbr" Version="0.21.0" />
-    <PackageReference Include="Paradise.Assets.Gltf" Version="0.21.0" />
-    <PackageReference Include="Paradise.Assets.Textures" Version="0.21.0" />
-    <PackageReference Include="Paradise.Ui" Version="0.21.0" />
-    <PackageReference Include="Paradise.Ui.ImGui" Version="0.21.0" />
+    <PackageReference Include="Paradise.Rendering" Version="0.25.0" />
+    <PackageReference Include="Paradise.Rendering.WebGPU" Version="0.25.0" />
+    <PackageReference Include="Paradise.Rendering.Pbr" Version="0.25.0" />
+    <PackageReference Include="Paradise.Assets.Gltf" Version="0.25.0" />
+    <PackageReference Include="Paradise.Assets.Textures" Version="0.25.0" />
+    <PackageReference Include="Paradise.Ui" Version="0.25.0" />
+    <PackageReference Include="Paradise.Ui.ImGui" Version="0.25.0" />
     <!-- Both Noesis halves (NoesisViewCore + NoesisOverlayRenderer); brings the
          Paradise.Ui.Noesis render device and Noesis.GUI transitively. -->
-    <PackageReference Include="Paradise.Ui.Noesis.Host" Version="0.17.0" />
+    <PackageReference Include="Paradise.Ui.Noesis.Host" Version="0.19.0" />
     <PackageReference Include="ppy.SDL3-CS" Version="2026.320.0" />
   </ItemGroup>
 
