@@ -48,9 +48,9 @@ public class ExportedMeshGlbTests
             {
                 primitiveCount += asset.Meshes[instance.MeshIndex].Primitives.Length;
             }
-            // On the RENDERABLE as of contract v4, not on the entity — and this reads raw JSON,
-            // so the old path threw KeyNotFoundException rather than failing to compile.
-            var slotCount = renderable.GetProperty("Materials").GetArrayLength();
+            // v5: material slots moved off RenderableComponentData onto their own
+            // MaterialsComponentData entry in the same component list.
+            var slotCount = Materials(entity)?.GetArrayLength() ?? 0;
             await Assert.That(primitiveCount).IsEqualTo(slotCount);
 
             // Geometry sanity: real vertices with normals, non-degenerate.
@@ -95,19 +95,25 @@ public class ExportedMeshGlbTests
         }
     }
 
-    /// <summary>The entity's Renderable payload, or null when it authors none. Components are a
-    /// LIST now, so "no renderable" is an absent entry rather than a named key holding null —
-    /// and the entry is found by its type name, not by a position nothing guarantees.</summary>
-    private static JsonElement? Renderable(JsonElement entity)
+    /// <summary>The component payload for <paramref name="typeName"/> on this entity, or null
+    /// when it authors none. In v5 an entity IS the array of components — there is no wrapping
+    /// object — so the entry is found by its type name, not by a position.</summary>
+    private static JsonElement? Component(JsonElement entity, string typeName)
     {
-        foreach (var component in entity.GetProperty("Components").EnumerateArray())
+        foreach (var component in entity.EnumerateArray())
         {
             if (component.TryGetProperty("Type", out var type)
-                && type.GetString() == "Paradise.Export.Data.RenderableComponentData")
+                && type.GetString() == typeName)
             {
                 return component.GetProperty("Data");
             }
         }
         return null;
     }
+
+    private static JsonElement? Renderable(JsonElement entity) =>
+        Component(entity, "Paradise.Export.Data.RenderableComponentData");
+
+    private static JsonElement? Materials(JsonElement entity) =>
+        Component(entity, "Paradise.Export.Data.MaterialsComponentData")?.GetProperty("Slots");
 }

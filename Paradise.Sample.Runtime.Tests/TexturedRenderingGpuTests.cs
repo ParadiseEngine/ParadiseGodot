@@ -29,13 +29,13 @@ public class TexturedRenderingGpuTests
         var level = LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
         // Ball2 references the shared textured sphere_ball.glb (external gradient KTX2) and carries
         // its own color-only slot override — the canonical "textured GLB + differing tint" case.
-        var ball2 = level.Level.Entities.First(e => e.Id == "Ball2");
+        var ball2 = level.Level.Entities.First(e => e.Get<NameComponentData>()?.Value == "Ball2");
         // Three different "Materials" meet in these two lines and they are not the same thing:
         // the renderable's SLOTS (the entity's overrides), level.Materials (the loaded documents,
         // keyed by slot), and asset.Materials (the GLB's own). Only the first moved in v4.
         RenderableComponentData renderable = ball2.Get<RenderableComponentData>()!;
         GltfAsset asset = level.MeshAssets[renderable.Mesh!];
-        var overrideJson = level.Materials[renderable.Materials[0]!];
+        var overrideJson = level.Materials[ball2.Get<MaterialsComponentData>()!.Slots[0]!];
         // Precondition: the GLB material this slot maps to is genuinely textured.
         await Assert.That(SceneAssembler.HasAnyTexture(in asset.Materials[0])).IsTrue();
 
@@ -55,7 +55,7 @@ public class TexturedRenderingGpuTests
     {
         var level = LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
         // Dragon references a single-material, single-KTX2-image source GLB.
-        var meshField = level.Level.Entities.First(e => e.Id == "Dragon").Get<RenderableComponentData>()!.Mesh!;
+        var meshField = level.Level.Entities.First(e => e.Get<NameComponentData>()?.Value == "Dragon").Get<RenderableComponentData>()!.Mesh!;
         GltfAsset ball = level.MeshAssets[meshField];
 
         // The fixture really is textured: one KTX2 image, referenced as the base color.

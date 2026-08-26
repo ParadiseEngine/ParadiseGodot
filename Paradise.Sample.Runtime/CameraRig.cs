@@ -1,14 +1,12 @@
 using System.Numerics;
 using Paradise.Rendering.Pbr;
-using Paradise.Export.Data;
 
 namespace Paradise.Sample.Runtime;
 
-/// <summary>Fixed scene camera from the exported <see cref="CameraData"/> (position + Godot
-/// YXZ Euler degrees). The contract carries no projection-mode/FOV field (schema v3
-/// candidate) — Godot's Camera3D default is perspective 75° vertical, so that is the default
-/// here; <c>--ortho</c> switches to <see cref="CameraData.OrthographicSize"/>, <c>--fov N</c>
-/// overrides the angle.</summary>
+/// <summary>Fixed scene camera. Schema v5 dropped the viewport-camera block, so the camera is no
+/// longer authored in the scene — the host supplies its own position/rotation defaults (Godot's
+/// Camera3D defaults: perspective 75° vertical, positioned at (0,10,10) looking at -45°).
+/// <c>--ortho</c> switches to orthographic, <c>--fov N</c> overrides the angle.</summary>
 public sealed class CameraRig
 {
     private readonly Vector3 _position;
@@ -17,16 +15,16 @@ public sealed class CameraRig
     private readonly bool _useOrthographic;
     private readonly float _fovDegrees;
 
-    public CameraRig(CameraData? camera, bool useOrthographic, float fovDegrees)
+    public CameraRig(bool useOrthographic, float fovDegrees)
     {
-        _position = camera?.Position ?? new Vector3(0f, 10f, 10f);
-        var euler = camera?.Rotation ?? new Vector3(-45f, 0f, 0f);
+        _position = new Vector3(0f, 10f, 10f);
+        var euler = new Vector3(-45f, 0f, 0f);
         // Godot composes Euler YXZ (column-vector Y·X·Z) = row-vector Z then X then Y.
         _rotation =
             Matrix4x4.CreateRotationZ(Radians(euler.Z)) *
             Matrix4x4.CreateRotationX(Radians(euler.X)) *
             Matrix4x4.CreateRotationY(Radians(euler.Y));
-        _orthographicSize = Math.Max(0.01f, camera?.OrthographicSize ?? 5f);
+        _orthographicSize = 5f;
         _useOrthographic = useOrthographic;
         _fovDegrees = fovDegrees;
     }

@@ -97,13 +97,7 @@ public sealed class RuntimeLoop : IDisposable
         foreach (var sprite in _sprites) _scene.Instances.Add(sprite.Instance);
         foreach (var batch in _particleBatches) _scene.Instances.Add(batch.Instance);
 
-        _camera = new CameraRig(level.Level.Camera, orthographic, fovDegrees);
-        // Camera background is the fallback clear; PopulateLighting overrides it with the exported
-        // environment background (the sky tone) when one is present.
-        if (level.Level.Camera?.BackgroundColor is { } clear)
-        {
-            _scene.ClearColor = new ColorRgba(clear.R, clear.G, clear.B, 1f);
-        }
+        _camera = new CameraRig(orthographic, fovDegrees);
         SceneAssembler.PopulateLighting(level, _scene); // sets _scene.Bloom from the exported glow
 
         // Pool controller: shared cue-aim/strike/rewind + ImGui panel. Only when a cue exists.

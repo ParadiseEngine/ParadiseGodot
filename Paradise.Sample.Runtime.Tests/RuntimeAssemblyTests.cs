@@ -28,7 +28,7 @@ public class RuntimeAssemblyTests
     public async Task loader_reads_the_committed_sample_scene()
     {
         var level = LoadSample();
-        await Assert.That(level.Level.Entities.Count).IsEqualTo(28);
+        await Assert.That(level.Level.Entities.Count).IsEqualTo(62);
         // Source-GLB references (no per-entity bake): cube (Ground+2 obstacles+2 crates),
         // sphere (3 balls), capsule (guard) + 11 unique character/plant GLBs = 14 distinct.
         await Assert.That(level.MeshAssets.Count).IsEqualTo(16);
@@ -37,7 +37,7 @@ public class RuntimeAssemblyTests
         {
             // level.Materials is the runtime's loaded-document dictionary; the slots are the
             // entity's overrides, which live on its Renderable as of contract v4.
-            foreach (var slot in entity.Get<RenderableComponentData>()?.Materials ?? [])
+            foreach (var slot in entity.Get<MaterialsComponentData>()?.Slots ?? [])
             {
                 if (slot is not null) await Assert.That(level.Materials.ContainsKey(slot)).IsTrue();
             }
@@ -48,14 +48,14 @@ public class RuntimeAssemblyTests
     public async Task contract_world_matrix_transposes_to_the_numerics_model_matrix()
     {
         var level = LoadSample();
-        LevelEntityData? ball = null;
+        List<AuthoredComponentData>? ball = null;
         foreach (var entity in level.Level.Entities)
         {
-            if (entity.Id == "Ball1") ball = entity;
+            if (entity.Get<NameComponentData>()?.Value == "Ball1") ball = entity;
         }
         // Ball1 was authored at (1, 0.85, 2) — the contract stores translation at flat 12–14
         // (column-vector layout); the transpose puts it in the numerics Translation.
-        var model = SceneAssembler.ToModelMatrix(ball!.WorldMatrix);
+        var model = SceneAssembler.ToModelMatrix(ball!.Get<TransformComponentData>()?.World);
         await Assert.That((model.Translation - new Vector3(1f, 0.85f, 2f)).Length()).IsLessThan(1e-5f);
     }
 
@@ -116,7 +116,7 @@ public class RuntimeAssemblyTests
     {
         var level = LoadSample();
         using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
-        var rig = new CameraRig(level.Level.Camera, useOrthographic: false, fovDegrees: 75f);
+        var rig = new CameraRig(useOrthographic: false, fovDegrees: 75f);
         var camera = rig.Build(aspect: 16f / 9f);
         var viewProjection = PbrMath.ViewProjection(camera.View, camera.Projection);
 
@@ -159,7 +159,7 @@ public class RuntimeAssemblyTests
     public async Task planar_basis_is_horizontal_and_orthonormal()
     {
         var level = LoadSample();
-        var rig = new CameraRig(level.Level.Camera, useOrthographic: false, fovDegrees: 75f);
+        var rig = new CameraRig(useOrthographic: false, fovDegrees: 75f);
         var (forward, right) = rig.PlanarBasis();
         await Assert.That(MathF.Abs(forward.Y)).IsLessThan(1e-5f);
         await Assert.That(MathF.Abs(right.Y)).IsLessThan(1e-5f);
