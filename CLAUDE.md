@@ -17,4 +17,6 @@ decisions; the code should not repeat it.
 ## Git conventions
 
 Independent repository with its own remote. Never create a commit spanning repos. Do not commit
-or push unless asked.
+or push unless asked. PRs are assigned to quabug; a PR that fixes an issue carries `Closes #NNN`
+(one line per issue) at the top of its body and in the commit message so merging closes it, with
+`Towards #NNN` only for deliberately partial work.
