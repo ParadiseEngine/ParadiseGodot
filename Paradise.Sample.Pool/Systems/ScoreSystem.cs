@@ -19,7 +19,7 @@ namespace Paradise.Sample.Pool;
 public ref partial struct ScoreSystem : IWorldSystem
 {
     /// <summary>The single score entity's writable <see cref="Score"/> (sole writer).</summary>
-    public ScoresSegments Score;
+    public Scores.Segments Score;
 
     /// <summary>Last frame's deferred events (reset + pocket announcements). Binds to the read
     /// (previous-tick) snapshot — the one-frame-deferred delivery the bus guarantees.</summary>
