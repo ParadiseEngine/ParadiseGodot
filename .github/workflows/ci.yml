@@ -69,10 +69,14 @@ jobs:
           name: paradise-godot-editor-nupkg
           path: artifacts/nuget/*.nupkg
 
-  # The gate that protects addon users: import the project with a real headless Godot
-  # editor, run the scene export through the plugin, and require (a) the export to succeed
-  # and (b) the runtime contract tests to pass against the freshly exported data/.
-  export-smoke:
+  # The gate that protects addon users: import the project with a real headless Godot editor and
+  # require the C# assembly to RELOAD cleanly with the addon enabled.
+  #
+  # It used to also run a scene export and check the runtime contract tests against the freshly
+  # written data/. That went with the exporter itself at contract v6 — assets/ is the source of
+  # truth now and `paradise assets build` writes what a runtime reads. The document round-trip is
+  # what replaces it as this job's second half, once there is one to test.
+  editor-smoke:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -133,14 +137,3 @@ jobs:
             exit 1
           fi
           echo "Assembly reload clean."
-
-      - name: Headless scene export
-        run: PARADISE_EXPORT_SCENE=res://scenes/sample.tscn $GODOT_BIN --headless --editor --path .
-
-      - name: Show export drift (informational)
-        run: git diff --stat -- data/ || true
-
-      - name: Contract tests against fresh export
-        run: |
-          dotnet build Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj
-          dotnet test --project Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj --no-build --output normal

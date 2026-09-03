@@ -2,7 +2,7 @@
 using System.IO;
 using Godot;
 using Paradise.Export.Data;
-using Paradise.Export.Pipeline;
+using Paradise.Assets.Pipeline;
 
 namespace ParadiseGodot
 {
@@ -113,7 +113,7 @@ namespace ParadiseGodot
         /// settings take effect every session (including headless exports) and after Save.</summary>
         public static void ApplySavedSettings()
         {
-            ApplyOne(ReadSetting(KtxSetting), KtxCreate.KtxPathEnvironmentVariable, ref _appliedKtx);
+            ApplyOne(ReadSetting(KtxSetting), KtxTool.PathEnvironmentVariable, ref _appliedKtx);
             ApplyOne(ReadSetting(BlenderSetting), BlenderFbxGlb.BlenderPathEnvironmentVariable, ref _appliedBlender);
         }
 
@@ -351,7 +351,7 @@ namespace ParadiseGodot
 
         private void RefreshStatus()
         {
-            Describe(_ktxEdit, _ktxStatus, "ktx", () => KtxCreate.FindKtx());
+            Describe(_ktxEdit, _ktxStatus, "ktx", () => KtxTool.Find());
             Describe(_blenderEdit, _blenderStatus, "Blender", BlenderFbxGlb.FindBlender);
             DescribeRuntimeHost();
         }

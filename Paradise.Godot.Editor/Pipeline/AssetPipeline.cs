@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using Paradise.Export.Pipeline;
+using Paradise.Assets.Pipeline;
 
 namespace ParadiseGodot.Pipeline
 {
@@ -28,7 +28,9 @@ namespace ParadiseGodot.Pipeline
                 string glbFull = ProjectSettings.GlobalizePath(GlbPathFor(fbxRes));
 
                 BlenderFbxGlb.Result blender = BlenderFbxGlb.Convert(
-                    fbxFull, glbFull, force: false, msg => GD.Print($"[Paradise.Export] {msg}"), msg => GD.PushError($"[Paradise.Export] {msg}"));
+                    fbxFull, glbFull, force: false,
+                    log: msg => GD.Print($"[Paradise.Assets] {msg}"),
+                    error: msg => GD.PushError($"[Paradise.Assets] {msg}"));
 
                 if (blender is not (BlenderFbxGlb.Result.Converted or BlenderFbxGlb.Result.UpToDate))
                 {
@@ -36,14 +38,15 @@ namespace ParadiseGodot.Pipeline
                 }
 
                 glbCount++;
-                KtxCreate.ConversionResult ktx2 = KtxCreate.ConvertEmbeddedTextures(
+                // The externalTextureRoot argument is gone: 0.34's split has the rewriter place
+                // sidecars beside the GLB itself, which is where this always pointed it anyway.
+                ConversionResult ktx2 = GlbTextureWorkflows.ConvertEmbeddedTextures(
                     glbFull,
                     repoRoot,
-                    Path.GetDirectoryName(glbFull),
-                    msg => GD.Print($"[Paradise.Export] {msg}"),
-                    msg => GD.PushError($"[Paradise.Export] {msg}"));
+                    log: msg => GD.Print($"[Paradise.Assets] {msg}"),
+                    error: msg => GD.PushError($"[Paradise.Assets] {msg}"));
 
-                if (ktx2 == KtxCreate.ConversionResult.ConvertedAllTextures)
+                if (ktx2 == ConversionResult.ConvertedAllTextures)
                 {
                     ktx2Count++;
                 }

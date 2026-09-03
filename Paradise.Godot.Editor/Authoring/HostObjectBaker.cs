@@ -1,5 +1,7 @@
 #if TOOLS
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json.Nodes;
 using Godot;
 using Paradise.Export.Data;
 using Paradise.Export.Geometry;
@@ -111,9 +113,12 @@ namespace ParadiseGodot.Authoring
 
         /// <summary>Read the geometry half of a sprite animation off the Sprite3D itself — the node
         /// Godot renders natively. Frame pixels × pixel_size is Godot's own world size for the quad.
-        /// The playback clock (fps, loop, frame count) stays authored.</summary>
-        public static void BakeSprite(
-            Node3D entity, Sprite3D sprite, ExportPaths paths, SpriteAnimationComponentData data)
+        /// The playback clock (fps, loop, frame count) stays authored, because no sprite object
+        /// holds a frame rate.</summary>
+        /// <remarks>A <see cref="JsonObject"/> rather than a contract record: contract v6 deleted
+        /// the engine's authored components, so what a bake produces is a payload shaped like the
+        /// host kind, and the GAME's record is what gives those field names meaning.</remarks>
+        public static JsonObject BakeSprite(Node3D entity, Sprite3D sprite, ExportPaths paths)
         {
             float frameWidth = sprite.Texture is { } texture
                 ? texture.GetWidth() / (float)System.Math.Max(1, sprite.Hframes)
@@ -122,11 +127,16 @@ namespace ParadiseGodot.Authoring
                 ? tex2.GetHeight() / (float)System.Math.Max(1, sprite.Vframes)
                 : 0f;
 
-            data.Sheet = SheetField(entity, sprite.Texture?.ResourcePath, paths);
-            data.Columns = sprite.Hframes;
-            data.Rows = sprite.Vframes;
-            data.QuadSize = new SN.Vector2(frameWidth * sprite.PixelSize, frameHeight * sprite.PixelSize);
-            data.Billboard = sprite.Billboard != BaseMaterial3D.BillboardModeEnum.Disabled;
+            string? sheet = SheetField(entity, sprite.Texture?.ResourcePath, paths);
+            return new JsonObject
+            {
+                ["Sheet"] = sheet is null ? null : JsonValue.Create(sheet),
+                ["Columns"] = JsonValue.Create(sprite.Hframes),
+                ["Rows"] = JsonValue.Create(sprite.Vframes),
+                ["QuadSize"] = Floats(frameWidth * sprite.PixelSize, frameHeight * sprite.PixelSize),
+                ["Billboard"] = JsonValue.Create(
+                    sprite.Billboard != BaseMaterial3D.BillboardModeEnum.Disabled),
+            };
         }
 
         // ---- collision shapes -----------------------------------------------------------
@@ -228,44 +238,66 @@ namespace ParadiseGodot.Authoring
 
         // ---- lights ---------------------------------------------------------------------
 
-        /// <summary>Read a light into the contract. Shared by the scene-level walk and by an entity
-        /// that AUTHORED the light by pointing at it, so one light cannot describe itself two
-        /// different ways depending on which path found it.</summary>
-        public static SceneLightData BakeLight(Light3D light)
+        /// <summary>
+        /// Read a light into a payload shaped like <c>HostLight</c>.
+        /// </summary>
+        /// <remarks>
+        /// A <see cref="JsonObject"/> rather than a contract record: v6 deleted
+        /// <c>SceneLightData</c> along with every other engine-declared component, so a bake now
+        /// produces the host kind's field names and the GAME's record is what reads them. The
+        /// light's identity is gone with it — an object's identity travels in the format's
+        /// <c>meta</c>, never in a component payload.
+        /// </remarks>
+        public static JsonObject BakeLight(Light3D light)
         {
             // Godot lights aim down their local -Z; the contract is right-handed, so this world-space
             // forward is stored verbatim.
             SN.Vector3 forward = ToSN(-light.GlobalTransform.Basis.Z);
+            Vector3 position = light.GlobalPosition;
             Color color = light.LightColor;
-            return new SceneLightData
+            return new JsonObject
             {
-                Id = light.Name.ToString(),
-                Type = LightTypeName(light),
-                Position = ToSN(light.GlobalPosition),
-                Direction = forward,
-                Color = Color32.FromRgba(color.R, color.G, color.B, color.A),
-                Enabled = light.Visible,
-                Intensity = light.LightEnergy,
-                ShadowsEnabled = light.ShadowEnabled,
-                Specular = light.GetParam(Light3D.Param.Specular),
-                Size = light.GetParam(Light3D.Param.Size),
-                // Godot's shadow_opacity (1 = fully dark) maps to the contract's shadow strength.
-                ShadowStrength = light.ShadowOpacity,
+                ["Type"] = JsonValue.Create(LightTypeName(light)),
+                ["Position"] = Floats(position.X, position.Y, position.Z),
+                ["Direction"] = Floats(forward.X, forward.Y, forward.Z),
+                ["Color"] = Rgba(color),
+                ["Enabled"] = JsonValue.Create(light.Visible),
+                ["Intensity"] = JsonValue.Create(light.LightEnergy),
+                ["ShadowsEnabled"] = JsonValue.Create(light.ShadowEnabled),
+                // Godot's shadow_opacity (1 = fully dark) maps to the kind's shadow strength.
+                ["ShadowStrength"] = JsonValue.Create(light.ShadowOpacity),
+                ["Specular"] = JsonValue.Create(light.GetParam(Light3D.Param.Specular)),
+                ["Size"] = JsonValue.Create(light.GetParam(Light3D.Param.Size)),
                 // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis→edge); the
-                // contract/shader use the FULL cone angle, so double it.
-                Range = light switch
+                // kind and the shader use the FULL cone angle, so double it.
+                ["Range"] = JsonValue.Create(light switch
                 {
                     OmniLight3D omni => omni.OmniRange,
                     SpotLight3D spot => spot.SpotRange,
                     _ => 0f,
-                },
-                SpotAngle = light is SpotLight3D s ? s.SpotAngle * 2f : 0f,
+                }),
+                ["SpotAngle"] = JsonValue.Create(light is SpotLight3D s ? s.SpotAngle * 2f : 0f),
                 // Distance-falloff exponent (Godot's LIGHT_PARAM_ATTENUATION, i.e. omni_/spot_attenuation).
                 // Godot's default 1.0 is inverse-linear; the shader applies pow(distance, -exponent).
-                // Directionals have no range falloff, so the value is exported but unused for them.
-                AttenuationExponent = (float)light.GetParam(Light3D.Param.Attenuation),
+                // Directionals have no range falloff, so the value is written but unused for them.
+                ["AttenuationExponent"] = JsonValue.Create(light.GetParam(Light3D.Param.Attenuation)),
             };
         }
+
+        /// <summary>A float array, the shape every multi-float leaf takes on the wire.</summary>
+        internal static JsonArray Floats(params float[] values) =>
+            new(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
+
+        /// <summary>A colour as <c>{ r, g, b, a }</c> — the shape the generated authored-component
+        /// reader parses (<c>ReadRgba</c>), which is NOT the float array the export contract's own
+        /// records use for a Vector4.</summary>
+        internal static JsonObject Rgba(Color c) => new()
+        {
+            ["r"] = JsonValue.Create(c.R),
+            ["g"] = JsonValue.Create(c.G),
+            ["b"] = JsonValue.Create(c.B),
+            ["a"] = JsonValue.Create(c.A),
+        };
 
         private static string LightTypeName(Light3D light) => light switch
         {
