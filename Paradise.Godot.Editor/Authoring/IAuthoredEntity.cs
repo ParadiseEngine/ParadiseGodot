@@ -2,7 +2,9 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using Paradise.Assets.Documents;
 using Paradise.Export.Data;
+using ParadiseGodot.Documents;
 
 namespace ParadiseGodot.Authoring
 {
@@ -35,6 +37,15 @@ namespace ParadiseGodot.Authoring
         /// Reading never mints one - the uniqueness scan compares every sibling through this, and
         /// must not write to nodes it is merely looking at.</summary>
         Guid EntityGuid { get; }
+
+        /// <summary>Show the components this entity carries in its DOCUMENT. Seeding, not editing:
+        /// an entity opened and closed without an author typing anything has nothing to write
+        /// back.</summary>
+        void AdoptDocumentComponents(IReadOnlyList<PrefabComponent> components);
+
+        /// <summary>What the author has changed since this entity was materialized — the overlay a
+        /// save applies over the document it re-reads.</summary>
+        AuthoredEdits Edits { get; }
 
         /// <summary>Adopt a GUID the caller already has, rather than minting one. What the document
         /// loader uses: identity belongs to the document, and a node built from one that minted its

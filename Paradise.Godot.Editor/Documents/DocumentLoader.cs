@@ -35,8 +35,9 @@ namespace ParadiseGodot.Documents
         /// <summary>What a build produced, for the caller to report.</summary>
         /// <param name="Root">The scene root, or null when nothing could be built.</param>
         /// <param name="Objects">Nodes created.</param>
-        /// <param name="Components">Component payloads seen. Not yet placed on the nodes — the
-        /// inspector binds to the document rather than to a copy of it.</param>
+        /// <param name="Components">Component payloads seen, including the format's own two. A
+        /// payload the schema does not describe is counted but not shown: it cannot be drawn, and
+        /// the writer preserves it by re-reading the document rather than by echoing it here.</param>
         /// <param name="Problems">Everything that could not be honoured, phrased for an author.</param>
         public readonly record struct Result(
             Node3D? Root, int Objects, int Components, IReadOnlyList<string> Problems);
@@ -123,6 +124,8 @@ namespace ParadiseGodot.Documents
             {
                 Place(node, LocalTransformCodec.Read(transform.Data));
             }
+
+            entity.AdoptDocumentComponents(entry.Components);
 
             // An override carrier addresses a prefab child rather than being one, and a resolved
             // instance's children are the resolver's rather than the document's. Both are marked so
