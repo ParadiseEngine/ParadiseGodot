@@ -54,6 +54,11 @@
          game no longer restates either version, which is the whole point of packaging this. -->
     <PackageReference Include="Paradise.Export" Version="0.25.0" />
     <PackageReference Include="Paradise.Authoring" Version="0.25.0" />
+    <!-- Where an asset project IS: AssetProjectLayout, ProjectMounts. Deliberately the only
+         Paradise.Assets.* package here for now, because it depends on Zio and Tomlyn alone — no
+         Paradise.* of its own — so the addon learns the project layout without dragging the
+         contract to 0.35 before the exporter is ready to move with it. -->
+    <PackageReference Include="Paradise.Assets.Project" Version="0.35.0" />
   </ItemGroup>
 
   <!-- The res:// payload and the targets that place it. None of it compiles into this assembly:

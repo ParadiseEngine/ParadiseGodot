@@ -34,6 +34,7 @@
          the addon is addons/paradise/*.cs - the two res:// shims, which have to live in the
          Godot project because scenes bind scripts by path. -->
     <Compile Remove="Paradise.Godot.Editor/**/*.cs" />
+    <Compile Remove="Paradise.Godot.Editor.Tests/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
