@@ -11,7 +11,7 @@ namespace Paradise.Sample.Odyssey;
 /// </summary>
 public ref partial struct WarpSystem : IWorldSystem
 {
-    public WarpersSegments Ship;
+    public Warpers.Segments Ship;
 
     /// <summary>Appends the <see cref="WarpResolved"/> outcome for next frame's reactors.</summary>
     public SystemEventWriter Events;

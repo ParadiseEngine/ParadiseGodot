@@ -32,7 +32,7 @@ public static class SceneAssembler
 
     // -------- collision --------
 
-    public static CollisionWorld? BuildCollisionWorld(LevelData level)
+    public static CollisionWorld? BuildCollisionWorld(AuthoredScene level)
     {
         var colliders = new List<Collider>();
         var transforms = new List<RigidTransform>();
@@ -42,7 +42,7 @@ public static class SceneAssembler
             // Only truly static bodies join the static world — kinematic agents and dynamic
             // balls are simulated, exactly like the Godot bridge's navigation_source harvest.
             if (entity.Get<RigidbodyComponentData>()?.BodyType != PhysicsBodyType.Static) continue;
-            var model = ToModelMatrix(entity.Get<TransformComponentData>()?.World);
+            var model = entity.World;
             foreach (var shape in entity.Get<ColliderComponentData>()?.Colliders ?? [])
             {
                 // Triggers are sensors (pool-pocket capture regions), never solid geometry —
@@ -119,13 +119,13 @@ public static class SceneAssembler
     /// <summary>Pocket capture regions: every trigger sphere on a static entity, in world
     /// space (the same transform/scale folding as <see cref="AppendCollider"/>). Pure over the
     /// level data — unit-testable without a renderer.</summary>
-    public static List<(Vector3 Center, float Radius)> ExtractPockets(LevelData level)
+    public static List<(Vector3 Center, float Radius)> ExtractPockets(AuthoredScene level)
     {
         var pockets = new List<(Vector3, float)>();
         foreach (var entity in level.Entities)
         {
             if (entity.Get<RigidbodyComponentData>()?.BodyType != PhysicsBodyType.Static) continue;
-            var model = ToModelMatrix(entity.Get<TransformComponentData>()?.World);
+            var model = entity.World;
             var ownerScale = OwnerScale(model);
             foreach (var shape in entity.Get<ColliderComponentData>()?.Colliders ?? [])
             {
@@ -142,10 +142,10 @@ public static class SceneAssembler
     /// bounce off. Falls back to the project-settings default when the scene authors none.
     /// The max/fallback reduction is shared with the Godot bridge via <see cref="StaticSurfaces"/>;
     /// this method only gathers the surfaces from the exported contract.</summary>
-    public static float StaticSurfaceRestitution(LevelData level, float fallback = 0.4f) =>
+    public static float StaticSurfaceRestitution(AuthoredScene level, float fallback = 0.4f) =>
         StaticSurfaces.BounceRestitution(GatherStaticSurfaces(level), fallback);
 
-    private static IEnumerable<StaticSurfaces.Surface> GatherStaticSurfaces(LevelData level)
+    private static IEnumerable<StaticSurfaces.Surface> GatherStaticSurfaces(AuthoredScene level)
     {
         foreach (var entity in level.Entities)
         {
@@ -184,16 +184,16 @@ public static class SceneAssembler
         var poolBalls = new List<(Entity, int)>();
         var sprites = new List<SpriteQuadState>();
         var particleBatches = new List<ParticleBatchState>();
-        var pockets = ExtractPockets(level.Level);
+        var pockets = ExtractPockets(level.Scene);
         var dynamics = level.PhysicsDynamics;
-        var staticRestitution = StaticSurfaceRestitution(level.Level, dynamics.DefaultStaticRestitution);
+        var staticRestitution = StaticSurfaceRestitution(level.Scene, dynamics.DefaultStaticRestitution);
         var tuning = new PhysicsTuning(dynamics.MinSpeed, dynamics.Skin, dynamics.PushStrength,
             new Vector3(0f, dynamics.GravityY, 0f), dynamics.StaticFriction, dynamics.MinAngularSpeed);
         var trayIndex = 0;
 
-        foreach (var entity in level.Level.Entities)
+        foreach (var entity in level.Scene.Entities)
         {
-            var model = ToModelMatrix(entity.Get<TransformComponentData>()?.World);
+            var model = entity.World;
             PbrInstance? render = null;
             SkinnedMeshState? skinned = null;
             if (entity.Get<RenderableComponentData>() is { Mesh: { } meshField } renderable)
@@ -219,7 +219,7 @@ public static class SceneAssembler
                 // simulates 43% too fat and racks placed at visual spacing explode apart.
                 var ownerScale = OwnerScale(model);
                 var radius = (sphere?.Radius ?? 0.5f) * ownerScale.X;
-                var isCue = string.Equals(entity.Get<NameComponentData>()?.Value, "CueBall", StringComparison.OrdinalIgnoreCase);
+                var isCue = string.Equals(entity.Name, "CueBall", StringComparison.OrdinalIgnoreCase);
                 var ball = runner.SpawnBall(position, rotation, radius,
                     Math.Max(0.01f, rigidbody.Mass),
                     rigidbody.LinearDamping,
@@ -301,7 +301,7 @@ public static class SceneAssembler
         // on the entity that IS it — gather them from the entity component lists.
         EnvironmentData? environment = null;
         var lights = new List<SceneLightData>();
-        foreach (var entity in level.Level.Entities)
+        foreach (var entity in level.Scene.Entities)
         {
             if (entity.Get<EnvironmentData>() is { } env) environment = env;
             if (entity.Get<SceneLightData>() is { } light) lights.Add(light);

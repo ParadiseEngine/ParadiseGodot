@@ -1,4 +1,6 @@
+using System.Linq;
 using Paradise.Assets.Gltf;
+using Paradise.Authoring;
 using Paradise.Export.Data;
 using Paradise.Export.Serialization;
 
@@ -9,7 +11,7 @@ namespace Paradise.Sample.Runtime;
 /// physics settings.</summary>
 public sealed record RuntimeLevel(
     string DataDir,
-    LevelData Level,
+    AuthoredScene Scene,
     Dictionary<string, LevelMaterialData> Materials,
     Dictionary<string, GltfAsset> MeshAssets,
     RenderSettingsData RenderSettings,
@@ -34,12 +36,24 @@ public static class LevelLoader
         var dataDir = Path.GetDirectoryName(Path.GetDirectoryName(sceneFullPath))
             ?? throw new InvalidOperationException($"Cannot resolve the data directory from '{sceneFullPath}'.");
 
-        var level = ExportJsonReader.ReadLevel(File.ReadAllText(sceneFullPath));
+        var document = ExportJsonReader.ReadLevel(File.ReadAllText(sceneFullPath));
+        // Materialized ONCE, here, through this assembly's generated registry — since v6 there is
+        // no engine tier to fall back on, so a game that passes no registry gets nothing back.
+        var unresolved = new List<AuthoredComponentData>();
+        var scene = AuthoredScene.Read(document, AuthoredComponents.Default, unresolved);
+        if (unresolved.Count > 0)
+        {
+            // Loud, because the symptom of a silently dropped payload is "my prop has no
+            // collider", which gives nobody anything to go on.
+            var names = string.Join(", ", unresolved.Select(c => c.Type ?? c.Id.ToString()).Distinct());
+            Console.Error.WriteLine(
+                $"[Paradise.Sample.Runtime] {sceneFullPath}: {unresolved.Count} payload(s) no registry could read ({names}).");
+        }
 
         var materials = new Dictionary<string, LevelMaterialData>(StringComparer.Ordinal);
         var meshAssets = new Dictionary<string, GltfAsset>(StringComparer.Ordinal);
         var spriteSheets = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        foreach (var entity in level.Entities)
+        foreach (var entity in scene.Entities)
         {
             // v5: material slots moved off RenderableComponentData onto their own
             // MaterialsComponentData; the renderable only carries the mesh reference now.
@@ -63,7 +77,7 @@ public static class LevelLoader
         physicsDynamics.ValidateAndNormalize();
 
         return new RuntimeLevel(
-            dataDir, level, materials, meshAssets, projectSettings.Rendering, physicsDynamics)
+            dataDir, scene, materials, meshAssets, projectSettings.Rendering, physicsDynamics)
         {
             SpriteSheets = spriteSheets,
         };

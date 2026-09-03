@@ -13,12 +13,15 @@ public class SceneAssemblerScaleTests
 {
     private static readonly CollisionFilter HitAnything = new() { BelongsTo = ~0u, CollidesWith = ~0u };
 
-    private static List<AuthoredComponentData> StaticEntity(string id, Matrix4x4 worldMatrix, ColliderShapeData shape) => new()
+    /// <summary>A static entity at a LOCAL pose. v6 carries no baked world matrix, so what these
+    /// tests once passed as one is now the TRS the loader composes from.</summary>
+    private static List<AuthoredComponentData> StaticEntity(
+        string id, Vector3 position, Quaternion rotation, Vector3 scale, ColliderShapeData shape) => new()
     {
-        AuthoredComponentList.Entry(new NameComponentData { Value = id }),
-        AuthoredComponentList.Entry(new TransformComponentData { World = worldMatrix }),
-        AuthoredComponentList.Entry(new RigidbodyComponentData { BodyType = PhysicsBodyType.Static }),
-        AuthoredComponentList.Entry(new ColliderComponentData { Colliders = { shape } }),
+        AuthoredDocuments.Meta(id),
+        AuthoredDocuments.Transform(position, rotation, scale),
+        AuthoredDocuments.Entry(new RigidbodyComponentData { BodyType = PhysicsBodyType.Static }),
+        AuthoredDocuments.Entry(new ColliderComponentData { Colliders = { shape } }),
     };
 
     private static bool CastDown(CollisionWorld world, float x, float z, out RaycastHit hit)
@@ -37,10 +40,9 @@ public class SceneAssemblerScaleTests
     {
         // Unit cube at LocalCenter (1,0,0) on a root scaled ×2: the world box is centred at
         // (2,0,0) with half-extents (1,1,1) — a z=0.9 ray only hits once the scale is folded.
-        var level = new LevelData();
-        level.Entities.Add(StaticEntity(
+        var level = AuthoredDocuments.Scene(StaticEntity(
             "ScaledBox",
-            ContractMatrix.Trs(Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f)),
+            Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f),
             new ColliderShapeData
             {
                 ShapeType = PhysicsShapeType.Box,
@@ -59,10 +61,9 @@ public class SceneAssemblerScaleTests
     public async Task entity_scale_folds_into_sphere_radius()
     {
         // r=0.35 sphere on a root scaled ×3 → world radius 1.05 at (5,0,0).
-        var level = new LevelData();
-        level.Entities.Add(StaticEntity(
+        var level = AuthoredDocuments.Scene(StaticEntity(
             "ScaledSphere",
-            ContractMatrix.Trs(new Vector3(5f, 0f, 0f), Quaternion.Identity, new Vector3(3f, 3f, 3f)),
+            new Vector3(5f, 0f, 0f), Quaternion.Identity, new Vector3(3f, 3f, 3f),
             new ColliderShapeData
             {
                 ShapeType = PhysicsShapeType.Sphere,
@@ -97,13 +98,11 @@ public class SceneAssemblerScaleTests
         // Unit cube on a root with scale (2,1,1) THEN a 90° yaw: the ×2 long axis (local X)
         // must end up along world Z. CreateFromRotationMatrix on the scaled basis produces a
         // garbage quaternion here; only a proper decomposition orients the box correctly.
-        var level = new LevelData();
-        level.Entities.Add(StaticEntity(
+        var level = AuthoredDocuments.Scene(StaticEntity(
             "ScaledRotatedBox",
-            ContractMatrix.Trs(
-                Vector3.Zero,
-                Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2f),
-                new Vector3(2f, 1f, 1f)),
+            Vector3.Zero,
+            Quaternion.CreateFromAxisAngle(Vector3.UnitY, MathF.PI / 2f),
+            new Vector3(2f, 1f, 1f),
             new ColliderShapeData
             {
                 ShapeType = PhysicsShapeType.Box,

@@ -28,12 +28,12 @@ public class RuntimeAssemblyTests
     public async Task loader_reads_the_committed_sample_scene()
     {
         var level = LoadSample();
-        await Assert.That(level.Level.Entities.Count).IsEqualTo(62);
+        await Assert.That(level.Scene.Entities.Count).IsEqualTo(62);
         // Source-GLB references (no per-entity bake): cube (Ground+2 obstacles+2 crates),
         // sphere (3 balls), capsule (guard) + 11 unique character/plant GLBs = 14 distinct.
         await Assert.That(level.MeshAssets.Count).IsEqualTo(16);
         // Every referenced material slot resolved.
-        foreach (var entity in level.Level.Entities)
+        foreach (var entity in level.Scene.Entities)
         {
             // level.Materials is the runtime's loaded-document dictionary; the slots are the
             // entity's overrides, which live on its Renderable as of contract v4.
@@ -45,25 +45,25 @@ public class RuntimeAssemblyTests
     }
 
     [Test]
-    public async Task contract_world_matrix_transposes_to_the_numerics_model_matrix()
+    public async Task the_local_transform_composes_to_the_numerics_model_matrix()
     {
         var level = LoadSample();
-        List<AuthoredComponentData>? ball = null;
-        foreach (var entity in level.Level.Entities)
+        AuthoredEntity? ball = null;
+        foreach (var entity in level.Scene.Entities)
         {
-            if (entity.Get<NameComponentData>()?.Value == "Ball1") ball = entity;
+            if (entity.Name == "Ball1") ball = entity;
         }
-        // Ball1 was authored at (1, 0.85, 2) — the contract stores translation at flat 12–14
-        // (column-vector layout); the transpose puts it in the numerics Translation.
-        var model = SceneAssembler.ToModelMatrix(ball!.Get<TransformComponentData>()?.World);
-        await Assert.That((model.Translation - new Vector3(1f, 0.85f, 2f)).Length()).IsLessThan(1e-5f);
+        // Ball1 was authored at (1, 0.85, 2). v5 stored a baked world matrix in column-vector
+        // layout that had to be transposed; v6 carries LOCAL TRS and the loader composes, so what
+        // this now pins is that composition landing in the numerics Translation directly.
+        await Assert.That((ball!.World.Translation - new Vector3(1f, 0.85f, 2f)).Length()).IsLessThan(1e-5f);
     }
 
     [Test]
     public async Task collision_world_builds_from_data_and_answers_the_click_ray()
     {
         var level = LoadSample();
-        using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
+        using var world = SceneAssembler.BuildCollisionWorld(level.Scene)!;
         await Assert.That(world).IsNotNull();
         // 5 static entities × 1 box each: ground, 2 obstacles, 2 crates.
         await Assert.That(world.NumBodies).IsEqualTo(5);
@@ -87,7 +87,7 @@ public class RuntimeAssemblyTests
         // the Floor bit, so the character's Obstacle-only movement cast passes straight through
         // obstacles — "no collider on obstacles in .NET". Guard both directions of the filter.
         var level = LoadSample();
-        using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
+        using var world = SceneAssembler.BuildCollisionWorld(level.Scene)!;
 
         // Horizontal cast at obstacle height toward Obstacle1 (authored at x=5, box half-extent 1
         // → near face at x=4), filtered to the Obstacle layer only (the movement-capsule filter).
@@ -115,7 +115,7 @@ public class RuntimeAssemblyTests
     public async Task camera_ray_through_screen_center_hits_the_walkable_ground()
     {
         var level = LoadSample();
-        using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
+        using var world = SceneAssembler.BuildCollisionWorld(level.Scene)!;
         var rig = new CameraRig(useOrthographic: false, fovDegrees: 75f);
         var camera = rig.Build(aspect: 16f / 9f);
         var viewProjection = PbrMath.ViewProjection(camera.View, camera.Projection);
