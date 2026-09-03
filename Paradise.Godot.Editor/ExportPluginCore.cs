@@ -105,6 +105,9 @@ namespace ParadiseGodot
             };
             _playDotnetButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnPlayDotnet"));
             _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
+            // Ctrl+S has to reach the document, or the author's edits live only in a cache that the
+            // next open overwrites.
+            _host.SceneSaved += OnSceneSaved;
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
             ProjectSetup.CheckExportVersion();
 
@@ -139,6 +142,7 @@ namespace ParadiseGodot
             _host.RemoveToolMenuItem(ConvertDataGlbsMenuItem);
             _host.RemoveToolMenuItem(ProjectSetupMenuItem);
             _host.RemoveToolMenuItem(SettingsMenuItem);
+            _host.SceneSaved -= OnSceneSaved;
             EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported -= _dataGlbHook.OnResourcesReimported;
             if (_settingsDialog is not null)
             {
@@ -364,6 +368,33 @@ namespace ParadiseGodot
             using (project)
             {
                 DocumentWorkfile.Open(project, project.Files.ConvertPathFromInternal(hostPath));
+            }
+        }
+
+        /// <summary>
+        /// Godot has written the working scene; write the document it came from.
+        /// </summary>
+        /// <remarks>
+        /// After the <c>.tscn</c> rather than before it, which is the opposite of what the Blender
+        /// host does — and for the opposite reason. Blender saves pre-write so the fresh stamp lands
+        /// INSIDE the .blend it is about to write; Godot's stamp lives in this process, so there is
+        /// nothing to get into the file, and running after means a refusal never costs the author
+        /// their working scene.
+        /// </remarks>
+        private void OnSceneSaved(string filePath)
+        {
+            var root = EditorInterface.Singleton.GetEditedSceneRoot();
+            if (DocumentSession.DocumentOf(root) is null) return;
+
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            {
+                GD.PushError($"[Paradise] The scene saved, but its document did not: {problem}");
+                return;
+            }
+
+            using (project)
+            {
+                DocumentWriter.Save(project, root!);
             }
         }
 

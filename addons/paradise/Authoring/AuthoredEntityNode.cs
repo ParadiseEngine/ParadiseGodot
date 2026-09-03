@@ -46,6 +46,9 @@ namespace ParadiseGodot.Authoring
 
         public ParadiseGodot.Documents.AuthoredEdits Edits => Core.Edits;
 
+        public System.Collections.Generic.IReadOnlyDictionary<string, ParadiseGodot.Documents.AuthoredValue>
+            AuthoredValues() => Core.AuthoredValues();
+
         public bool RestoreEntityGuid(Guid value) => Core.RestoreEntityGuid(value);
 
         public Guid EnsureEntityGuid() => Core.EnsureEntityGuid();

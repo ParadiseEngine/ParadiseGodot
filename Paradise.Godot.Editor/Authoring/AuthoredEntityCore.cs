@@ -858,6 +858,53 @@ namespace ParadiseGodot.Authoring
             _host.NotifyPropertyListChanged();
         }
 
+        /// <summary>
+        /// Every authored value this entity holds, keyed <c>&lt;componentId&gt;/&lt;path&gt;</c>.
+        /// </summary>
+        /// <remarks>The other side of the edge: values leave as <see cref="AuthoredValue"/> so the
+        /// merge that writes them into a document can be tested, which a <c>Variant</c> would
+        /// prevent. Only ENABLED components are included — a component the entity does not carry
+        /// has no values to write.</remarks>
+        public IReadOnlyDictionary<string, AuthoredValue> AuthoredValues()
+        {
+            EnsureSchema();
+            var values = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal);
+            foreach (ComponentSchema component in _components)
+            {
+                if (!_enabled.Contains(component.Id)) continue;
+
+                foreach (SchemaField field in component.Fields)
+                {
+                    string key = component.Id + "/" + field.Path;
+                    Variant value = _values.TryGetValue(key, out Variant stored) ? stored : field.Default;
+                    values[key] = FromVariant(value, field.Type);
+                }
+            }
+
+            return values;
+        }
+
+        /// <summary>The one place a document value is read OUT of a <see cref="Variant"/>.</summary>
+        private static AuthoredValue FromVariant(Variant value, Variant.Type type) => type switch
+        {
+            Variant.Type.Bool => new AuthoredValue(AuthoredValueKind.Bool, Bool: value.AsBool()),
+            Variant.Type.Int => new AuthoredValue(AuthoredValueKind.Integer, Integer: value.AsInt64()),
+            Variant.Type.Float => new AuthoredValue(AuthoredValueKind.Number, Number: value.AsDouble()),
+            Variant.Type.String => new AuthoredValue(AuthoredValueKind.Text, Text: value.AsString()),
+            Variant.Type.Vector2 => Numbers(value.AsVector2().X, value.AsVector2().Y),
+            Variant.Type.Vector3 => Numbers(value.AsVector3().X, value.AsVector3().Y, value.AsVector3().Z),
+            Variant.Type.Quaternion => Numbers(
+                value.AsQuaternion().X, value.AsQuaternion().Y,
+                value.AsQuaternion().Z, value.AsQuaternion().W),
+            Variant.Type.Color => new AuthoredValue(
+                AuthoredValueKind.Rgba,
+                Numbers: [value.AsColor().R, value.AsColor().G, value.AsColor().B, value.AsColor().A]),
+            _ => AuthoredValue.None,
+        };
+
+        private static AuthoredValue Numbers(params float[] values) =>
+            new(AuthoredValueKind.Numbers, Numbers: values);
+
         /// <summary>The one place a <see cref="Variant"/> is built from a document value. Kept to a
         /// switch because a Variant cannot exist in a unit test — constructing one outside a running
         /// Godot process segfaults the host — so everything decidable lives in
@@ -901,7 +948,7 @@ namespace ParadiseGodot.Authoring
         /// </remarks>
         public string ModelPath
         {
-            get => ModelField() is { } slot ? AuthoredValue(slot.Component, slot.Path).AsString() : "";
+            get => ModelField() is { } slot ? StoredValue(slot.Component, slot.Path).AsString() : "";
             set
             {
                 if (ModelField() is not { } slot)
@@ -940,10 +987,10 @@ namespace ParadiseGodot.Authoring
                 kind.Equals(".glb", StringComparison.OrdinalIgnoreCase) ||
                 kind.Equals(".gltf", StringComparison.OrdinalIgnoreCase));
 
-        private Variant AuthoredValue(Guid componentId, string field) =>
-            AuthoredValue(componentId.ToString(), field);
+        private Variant StoredValue(Guid componentId, string field) =>
+            StoredValue(componentId.ToString(), field);
 
-        private Variant AuthoredValue(string componentId, string field)
+        private Variant StoredValue(string componentId, string field)
         {
             EnsureSchema();
             return _values.TryGetValue(componentId + "/" + field, out Variant value) ? value : default;

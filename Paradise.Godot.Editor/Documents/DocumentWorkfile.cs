@@ -18,8 +18,8 @@ namespace ParadiseGodot.Documents
     /// The <c>.tscn</c> under <c>.editor/tscn/</c> is a CACHE, not a source. It is rewritten from
     /// the document on every open, which is why nothing here checks whether it is up to date: the
     /// document is the truth, and re-materializing costs an import Godot was going to do anyway.
-    /// The freshness stamp Blender's workfile carries exists to protect a SAVE — it belongs with
-    /// the writer, which does not exist yet.
+    /// The freshness stamp taken here protects the SAVE instead (<see cref="DocumentSession"/>):
+    /// what it guards against is writing over a document something else changed meanwhile.
     /// </para>
     /// <para>
     /// Instances are expanded before the scene is built, so what an author sees is the whole scene
@@ -83,6 +83,13 @@ namespace ParadiseGodot.Documents
             if (!Save(root, resPath)) return false;
 
             EditorInterface.Singleton.OpenSceneFromPath(resPath);
+            // Recorded on the root the EDITOR now holds, not on the detached one that was packed:
+            // the writer reads this off the edited scene, and the packed node is already freed.
+            if (project.Paths.ToAssetReferencePath(documentPath) is { } authoringPath &&
+                EditorInterface.Singleton.GetEditedSceneRoot() is { } opened)
+            {
+                DocumentSession.Remember(opened, project.Files, documentPath, authoringPath);
+            }
             GD.Print(
                 $"[Paradise] Opened '{documentPath}': {built.Objects} object(s), " +
                 $"{built.Components} component payload(s), {resolved.Expanded} instance(s) expanded.");
