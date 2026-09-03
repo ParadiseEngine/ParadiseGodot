@@ -13,11 +13,19 @@
 # any project that can use this addon at all — it adds nothing to what a user must install. It is
 # a separate package only so that a game's simulation assembly can carry [Authored] attributes
 # without inheriting the export core's DotRecast and Blender/KTX dependencies.
+#
+# Paradise.Assets.Project and Zio are allowed as of the move to the document model: assets/ is the
+# source of truth, and locating a project (AssetProjectLayout, ProjectMounts) and addressing files
+# inside it (UPath) is how every part of the addon now reaches one. Unlike Paradise.Authoring these
+# are a REAL addition to a user's closure — Paradise.Assets.Project brings Zio, Tomlyn and
+# Microsoft.Extensions.Logging.Abstractions — and that cost is accepted rather than overlooked,
+# because the authoring format is TOML read through a mounted file system and no smaller dependency
+# expresses it. Zio is listed separately because it arrives transitively and is used by name.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-allowed='^using ([A-Za-z0-9_.]+ = )?(System|Godot|Paradise\.Export|Paradise\.Authoring|ParadiseGodot)([.;]|$)'
+allowed='^using ([A-Za-z0-9_.]+ = )?(System|Godot|Zio|Paradise\.Export|Paradise\.Authoring|Paradise\.Assets\.Project|ParadiseGodot)([.;]|$)'
 violations=0
 
 while IFS= read -r file; do

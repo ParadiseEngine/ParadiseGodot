@@ -8,6 +8,7 @@
   <Project Path="Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj" />
   <Project Path="Paradise.Sample.Ui.Tests/Paradise.Sample.Ui.Tests.csproj" />
   <Project Path="Paradise.Sample.Ui/Paradise.Sample.Ui.csproj" />
+  <Project Path="Paradise.Godot.Editor.Tests/Paradise.Godot.Editor.Tests.csproj" />
   <Project Path="Paradise.Godot.Editor/Paradise.Godot.Editor.csproj" />
   <Project Path="ParadiseGodot.csproj" />
 </Solution>
