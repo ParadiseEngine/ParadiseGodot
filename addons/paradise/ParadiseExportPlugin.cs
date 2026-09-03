@@ -28,6 +28,12 @@ namespace ParadiseGodot
 
         public override void _ExitTree() => Core.ExitTree();
 
+        public void OnOpenDocument() => Core.OnOpenDocument();
+
+        public void OnDocumentChosen(string path) => Core.OnDocumentChosen(path);
+
+        public void OnDocumentDialogClosed() => Core.OnDocumentDialogClosed();
+
         public void OnGenerateModelPrefabs() => Core.OnGenerateModelPrefabs();
 
         public void OnGeneratePrimitives() => Core.OnGeneratePrimitives();
