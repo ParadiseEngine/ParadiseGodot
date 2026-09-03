@@ -124,6 +124,33 @@ public class AssetProjectPathsTests
             .Throws<ArgumentException>();
     }
 
+    /// <summary>The workfile mirrors the document's place under assets/, so two documents with the
+    /// same basename in different folders cannot collide on one cache file.</summary>
+    [Test]
+    public async Task a_document_gets_a_workfile_mirroring_its_path()
+    {
+        await Assert.That(Coincident().WorkfileFor("/repo/Pingu/assets/scenes/pool.prefab"))
+            .IsEqualTo((UPath)"/repo/Pingu/.editor/tscn/scenes/pool.tscn");
+        await Assert.That(Coincident().WorkfileFor("/repo/Pingu/assets/props/scenes/pool.prefab"))
+            .IsEqualTo((UPath)"/repo/Pingu/.editor/tscn/props/scenes/pool.tscn");
+    }
+
+    /// <summary>The workfile follows the ASSET project, not the Godot one — they are allowed to
+    /// differ, and the cache belongs to the thing being edited.</summary>
+    [Test]
+    public async Task the_workfile_lives_under_the_asset_projects_editor_directory()
+    {
+        await Assert.That(Nested().WorkfileFor("/repo/Pingu/assets/scenes/pool.prefab"))
+            .IsEqualTo((UPath)"/repo/Pingu/.editor/tscn/scenes/pool.tscn");
+    }
+
+    [Test]
+    public async Task a_file_outside_assets_gets_no_workfile()
+    {
+        await Assert.That(Coincident().WorkfileFor("/repo/Pingu/scenes/pool.prefab")).IsNull();
+        await Assert.That(Coincident().WorkfileFor("/repo/Elsewhere/pool.prefab")).IsNull();
+    }
+
     [Test]
     public async Task the_scheme_is_recognised_by_spelling_alone()
     {

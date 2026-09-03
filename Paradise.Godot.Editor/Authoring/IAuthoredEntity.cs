@@ -36,6 +36,12 @@ namespace ParadiseGodot.Authoring
         /// must not write to nodes it is merely looking at.</summary>
         Guid EntityGuid { get; }
 
+        /// <summary>Adopt a GUID the caller already has, rather than minting one. What the document
+        /// loader uses: identity belongs to the document, and a node built from one that minted its
+        /// own would orphan every reference pointing at it.</summary>
+        /// <returns>False for <see cref="Guid.Empty"/>, which is not an identity.</returns>
+        bool RestoreEntityGuid(Guid value);
+
         /// <summary>Ensure a stable GUID exists, minting and persisting one if the node has none.
         /// Without it every headless re-export mints a fresh id and the exported scene churns in
         /// git while nothing has actually changed.</summary>

@@ -58,6 +58,7 @@
          into it. Paradise.Assets.Pipeline is where Paradise.Export's own Pipeline/ went at 0.34:
          KtxCreate split into KtxTool plus GlbTextureWorkflows, BlenderFbxGlb carried over. -->
     <PackageReference Include="Paradise.Assets.Project" Version="0.35.0" />
+    <PackageReference Include="Paradise.Assets.Documents" Version="0.35.0" />
     <PackageReference Include="Paradise.Assets.Pipeline" Version="0.35.0" />
   </ItemGroup>
 

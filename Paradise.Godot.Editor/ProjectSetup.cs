@@ -22,7 +22,7 @@ namespace ParadiseGodot
         /// lockstep with AddonVersion.props and plugin.cfg (addon minor tracks the
         /// engine/data-contract minor). The load-time compatibility check warns when the resolved
         /// assembly diverges from it on major.minor.</summary>
-        public const string SupportedExportVersion = "0.25.0";
+        public const string SupportedExportVersion = "0.35.0";
 
         public static void Run()
         {

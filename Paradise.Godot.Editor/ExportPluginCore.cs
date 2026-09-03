@@ -1,6 +1,8 @@
 #if TOOLS
 using Godot;
 using Paradise.Export;
+using ParadiseGodot.Documents;
+using ParadiseGodot.Project;
 
 namespace ParadiseGodot
 {
@@ -27,6 +29,7 @@ namespace ParadiseGodot
         // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNode nodes.
         private const string GameMetaKey = "paradise_game";
 
+        private const string OpenDocumentMenuItem = "Paradise/Open Document…";
         private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
         private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
         private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
@@ -49,6 +52,9 @@ namespace ParadiseGodot
         /// </summary>
         private static readonly string[] ForwardedMethods =
         [
+            "OnOpenDocument",
+            "OnDocumentChosen",
+            "OnDocumentDialogClosed",
             "OnGenerateModelPrefabs",
             "OnGeneratePrimitives",
             "OnConvertModels",
@@ -59,6 +65,7 @@ namespace ParadiseGodot
         ];
 
         private ParadiseSettingsDialog? _settingsDialog;
+        private FileDialog? _documentDialog;
         private readonly Pipeline.DataGlbImportHook _dataGlbHook = new();
 
         public void EnterTree()
@@ -80,6 +87,7 @@ namespace ParadiseGodot
                 }
             }
 
+            _host.AddToolMenuItem(OpenDocumentMenuItem, new Callable(_host, "OnOpenDocument"));
             _host.AddToolMenuItem(GeneratePrefabsMenuItem, new Callable(_host, "OnGenerateModelPrefabs"));
             _host.AddToolMenuItem(GeneratePrimitivesMenuItem, new Callable(_host, "OnGeneratePrimitives"));
             _host.AddToolMenuItem(ConvertModelsMenuItem, new Callable(_host, "OnConvertModels"));
@@ -123,6 +131,8 @@ namespace ParadiseGodot
                 _playDotnetButton.QueueFree();
                 _playDotnetButton = null;
             }
+            OnDocumentDialogClosed();
+            _host.RemoveToolMenuItem(OpenDocumentMenuItem);
             _host.RemoveToolMenuItem(GeneratePrefabsMenuItem);
             _host.RemoveToolMenuItem(GeneratePrimitivesMenuItem);
             _host.RemoveToolMenuItem(ConvertModelsMenuItem);
@@ -300,6 +310,67 @@ namespace ParadiseGodot
             }
 
             return "dotnet";
+        }
+
+        /// <summary>Pick a <c>*.prefab</c> under assets/ and open it as a scene.</summary>
+        /// <remarks>A dialog rather than the FileSystem dock: documents live under
+        /// <c>assets/</c>, which a Godot project marks <c>.gdignore</c> precisely so Godot does not
+        /// try to import the source tree. The dock cannot show what it is told to ignore.</remarks>
+        public void OnOpenDocument()
+        {
+            if (!ParadiseProject.TryOpen(out var opened, out var problem) || opened is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return;
+            }
+
+            string assets;
+            using (opened)
+            {
+                assets = opened.Files.ConvertPathToInternal(opened.Layout.Assets);
+            }
+
+            _documentDialog?.QueueFree();
+            _documentDialog = new FileDialog
+            {
+                Title = "Open Paradise document",
+                FileMode = FileDialog.FileModeEnum.OpenFile,
+                Access = FileDialog.AccessEnum.Filesystem,
+                CurrentDir = assets,
+                Filters = [$"*{AssetProjectPaths.DocumentSuffix} ; Paradise documents"],
+            };
+            // Name-based, like every other callable here: a delegate-backed one holds a GC handle
+            // into the current assembly, and a rebuild between opening this dialog and choosing a
+            // file would leave the selection firing into nothing.
+            _documentDialog.Connect(
+                FileDialog.SignalName.FileSelected, new Callable(_host, "OnDocumentChosen"));
+            _documentDialog.Connect(
+                Window.SignalName.CloseRequested, new Callable(_host, "OnDocumentDialogClosed"));
+            EditorInterface.Singleton.GetBaseControl().AddChild(_documentDialog);
+            _documentDialog.PopupCentered(new Vector2I(900, 640));
+        }
+
+        /// <summary>The project is reopened here rather than captured: the dialog is modal to the
+        /// author, not to this method, and a disposed mount would be waiting on the other side.</summary>
+        public void OnDocumentChosen(string hostPath)
+        {
+            OnDocumentDialogClosed();
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return;
+            }
+
+            using (project)
+            {
+                DocumentWorkfile.Open(project, project.Files.ConvertPathFromInternal(hostPath));
+            }
+        }
+
+        public void OnDocumentDialogClosed()
+        {
+            _documentDialog?.QueueFree();
+            _documentDialog = null;
         }
 
         public void OnGenerateModelPrefabs()
