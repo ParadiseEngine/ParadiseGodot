@@ -47,6 +47,11 @@ namespace ParadiseGodot.Authoring
         /// save applies over the document it re-reads.</summary>
         AuthoredEdits Edits { get; }
 
+        /// <summary>Every authored value this entity holds, keyed
+        /// <c>&lt;componentId&gt;/&lt;path&gt;</c>. Neutral values rather than Godot ones, so the
+        /// merge that writes them into a document stays testable.</summary>
+        IReadOnlyDictionary<string, AuthoredValue> AuthoredValues();
+
         /// <summary>Adopt a GUID the caller already has, rather than minting one. What the document
         /// loader uses: identity belongs to the document, and a node built from one that minted its
         /// own would orphan every reference pointing at it.</summary>
