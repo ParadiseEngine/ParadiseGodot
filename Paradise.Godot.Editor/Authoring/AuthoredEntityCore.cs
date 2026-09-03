@@ -9,6 +9,8 @@ using Godot;
 using Paradise.Authoring;
 using Paradise.Export.Data;
 using Paradise.Export.Paths;
+using Paradise.Assets.Documents;
+using ParadiseGodot.Documents;
 
 namespace ParadiseGodot.Authoring
 {
@@ -60,6 +62,25 @@ namespace ParadiseGodot.Authoring
         private readonly Node3D _host;
 
         public AuthoredEntityCore(Node3D host) => _host = host;
+
+        /// <summary>What this entity's author has changed since it was materialized.</summary>
+        public AuthoredEdits Edits => _edits;
+
+        /// <summary>
+        /// Whether a write to this node is an AUTHOR's rather than Godot's.
+        /// </summary>
+        /// <remarks>
+        /// Authored values carry <c>PropertyUsageFlags.Default</c>, which includes STORAGE, so they
+        /// are written into the working <c>.tscn</c> and replayed through <c>_Set</c> when it is
+        /// loaded again. Without this every reopen looked like the author had retyped every field,
+        /// and the overlay a save applies would have rewritten payloads nobody touched — the exact
+        /// thing it exists to prevent.
+        ///
+        /// The discriminator is tree membership: Godot applies stored properties while
+        /// instantiating a PackedScene, BEFORE the node is added to a tree, and an author using the
+        /// inspector is by definition looking at a node that is in one.
+        /// </remarks>
+        private bool IsAuthorEdit => _host.IsInsideTree();
 
         private const string GuidMetaKey = "paradise_entity_guid";
         private const string SchemaFileName = "authoring-schema.json";
@@ -131,6 +152,11 @@ namespace ParadiseGodot.Authoring
         private readonly Dictionary<string, string> _byAddLabel = new(StringComparer.Ordinal);
         private readonly HashSet<string> _enabled = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Variant> _values = new(StringComparer.Ordinal);
+
+        /// <summary>What the AUTHOR changed, as opposed to what the document said. The writer
+        /// applies this over the file it re-reads; see <see cref="AuthoredEdits"/> for why the
+        /// values themselves are not what travels.</summary>
+        private readonly AuthoredEdits _edits = new();
         private bool _loaded;
 
         /// <summary>Modified time of the game's schema file when it was last read, so a re-dump is
@@ -699,6 +725,7 @@ namespace ParadiseGodot.Authoring
                     _enabled.Add(id))
                 {
                     SeedDefaults(added);
+                    if (IsAuthorEdit) _edits.ComponentAdded(id);
                     OnAuthoredChanged();
                 }
                 // Always redraw: the picker has to fall back to its resting value and drop the id
@@ -719,10 +746,12 @@ namespace ParadiseGodot.Authoring
                     if (_enabled.Add(id))
                     {
                         SeedDefaults(component);
+                        if (IsAuthorEdit) _edits.ComponentAdded(id);
                     }
                 }
                 else if (_enabled.Remove(id))
                 {
+                    if (IsAuthorEdit) _edits.ComponentRemoved(id);
                     // Forget the component's values with it. Keeping them would resurrect numbers
                     // an author removed the moment the box was ticked again.
                     foreach (string key in _values.Keys
@@ -742,6 +771,10 @@ namespace ParadiseGodot.Authoring
                 return false;
             }
             _values[name] = value;
+            if (IsAuthorEdit)
+            {
+                _edits.FieldChanged(name[..name.IndexOf('/')], name[(name.IndexOf('/') + 1)..]);
+            }
             // A guard field changing reveals or hides its dependants.
             _host.NotifyPropertyListChanged();
             OnAuthoredChanged();
@@ -768,6 +801,84 @@ namespace ParadiseGodot.Authoring
                 _values[component.Id + "/" + field.Path] = field.Default;
             }
         }
+
+        /// <summary>
+        /// Show the components this entity carries in its DOCUMENT.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Seeding, not editing: nothing here touches <see cref="Edits"/>, so an entity opened and
+        /// closed without an author typing anything has no changes to write back. That is what
+        /// keeps a save from rewriting payloads nobody touched.
+        /// </para>
+        /// <para>
+        /// A component the schema does not describe is SKIPPED rather than dropped. It cannot be
+        /// drawn — there is nothing to draw it from — but the writer re-reads the document and only
+        /// applies the overlay, so an unknown payload is never in a position to be lost. A game
+        /// whose schema is simply out of date must not have its data quietly deleted by opening a
+        /// scene.
+        /// </para>
+        /// <para>
+        /// <c>meta</c> and <c>transform</c> are the format's own vocabulary and belong to the node
+        /// — identity is the node's metadata, placement is its channels — so they are not
+        /// components the inspector has any business showing.
+        /// </para>
+        /// </remarks>
+        public void AdoptDocumentComponents(IReadOnlyList<PrefabComponent> components)
+        {
+            ArgumentNullException.ThrowIfNull(components);
+            EnsureSchema();
+
+            foreach (PrefabComponent component in components)
+            {
+                if (component.Id == WellKnownComponents.MetaId ||
+                    component.Id == WellKnownComponents.TransformId)
+                {
+                    continue;
+                }
+
+                string id = component.Id.ToString();
+                if (!_byId.TryGetValue(id, out ComponentSchema? schema))
+                {
+                    continue;
+                }
+
+                _enabled.Add(id);
+                foreach (SchemaField field in schema.Fields)
+                {
+                    AuthoredValue read = AuthoredPayload.Read(component.Data, field.Path, field.Type);
+                    // Absent, or in a shape this field cannot take: the schema's own default, never
+                    // a zero. A payload from a newer build must not blank what an author set.
+                    _values[id + "/" + field.Path] = read.Kind == AuthoredValueKind.None
+                        ? field.Default
+                        : ToVariant(read, field.Type, field.Default);
+                }
+            }
+
+            _host.NotifyPropertyListChanged();
+        }
+
+        /// <summary>The one place a <see cref="Variant"/> is built from a document value. Kept to a
+        /// switch because a Variant cannot exist in a unit test — constructing one outside a running
+        /// Godot process segfaults the host — so everything decidable lives in
+        /// <see cref="AuthoredPayload"/> instead.</summary>
+        private static Variant ToVariant(AuthoredValue value, Variant.Type type, Variant fallback) =>
+            (type, value.Kind) switch
+            {
+                (Variant.Type.Bool, AuthoredValueKind.Bool) => value.Bool,
+                (Variant.Type.Int, AuthoredValueKind.Integer) => value.Integer,
+                (Variant.Type.Float, AuthoredValueKind.Number) => value.Number,
+                (Variant.Type.String, AuthoredValueKind.Text) => value.Text ?? "",
+                (Variant.Type.Vector2, AuthoredValueKind.Numbers) =>
+                    new Vector2(value.Numbers![0], value.Numbers[1]),
+                (Variant.Type.Vector3, AuthoredValueKind.Numbers) =>
+                    new Vector3(value.Numbers![0], value.Numbers[1], value.Numbers[2]),
+                (Variant.Type.Quaternion, AuthoredValueKind.Numbers) =>
+                    new Quaternion(value.Numbers![0], value.Numbers[1], value.Numbers[2], value.Numbers[3]),
+                (Variant.Type.Color, AuthoredValueKind.Rgba) =>
+                    new Color(value.Numbers![0], value.Numbers[1], value.Numbers[2], value.Numbers[3]),
+                _ => fallback,
+            };
 
         // ---------------------------------------------------------------------------------
         // Model path — the one thing a schema cannot carry
@@ -851,8 +962,10 @@ namespace ParadiseGodot.Authoring
             if (_enabled.Add(componentId))
             {
                 SeedDefaults(component);
+                if (IsAuthorEdit) _edits.ComponentAdded(componentId);
             }
             _values[componentId + "/" + field] = value;
+            if (IsAuthorEdit) _edits.FieldChanged(componentId, field);
         }
 
         /// <summary>Stable per-placement identity; <see cref="Guid.Empty"/> until minted.</summary>
