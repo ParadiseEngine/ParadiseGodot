@@ -113,6 +113,45 @@ namespace ParadiseGodot.Project
         public string? ToAssetReferencePath(UPath path) =>
             path.IsInDirectory(Layout.Assets, recursive: true) ? Relative(path, Layout.Assets) : null;
 
+        /// <summary>
+        /// Where the Godot workfile for a document belongs: <c>.editor/tscn/&lt;path&gt;.tscn</c>,
+        /// mirroring the document's own place under <c>assets/</c>. Null when the document is not
+        /// under <c>assets/</c> and so is not this project's to open.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A <c>.tscn</c> is a CACHE of a document, the way <c>.editor/blend/</c> holds Blender's.
+        /// It keeps what a document has no place for — the editor camera, the selection — and is
+        /// disposable: the document is the source of truth and re-materializing is always correct.
+        /// </para>
+        /// <para>
+        /// Under <c>.editor/</c> even though Godot's FileSystem dock does not show dot-prefixed
+        /// directories, because the addon opens documents from its own panel and
+        /// <c>EditorInterface.OpenSceneFromPath</c> resolves such a path fine (verified against
+        /// 4.7.1). A cache the author can browse and edit as an ordinary scene would invite exactly
+        /// the confusion the workfile exists to prevent.
+        /// </para>
+        /// </remarks>
+        public UPath? WorkfileFor(UPath documentPath)
+        {
+            if (ToAssetReferencePath(documentPath) is not { } relative) return null;
+
+            var withoutSuffix = relative.EndsWith(DocumentSuffix, StringComparison.OrdinalIgnoreCase)
+                ? relative[..^DocumentSuffix.Length]
+                : relative;
+            return Layout.Editor / WorkfileDirectoryName / (withoutSuffix + WorkfileSuffix);
+        }
+
+        /// <summary>The authoring document suffix — <c>AssetClassifier.PrefabSuffix</c>'s spelling,
+        /// restated because taking Paradise.Assets.Pipeline for one constant would put the whole
+        /// build pipeline in the addon's closure for nothing.</summary>
+        public const string DocumentSuffix = ".prefab";
+
+        /// <summary>Where workfiles live under <c>.editor/</c>, beside Blender's <c>blend/</c>.</summary>
+        public const string WorkfileDirectoryName = "tscn";
+
+        private const string WorkfileSuffix = ".tscn";
+
         /// <summary>The inverse: an <c>AssetReference</c>'s authoring path, back to a physical one.</summary>
         public UPath FromAssetReferencePath(string authoringPath)
         {
