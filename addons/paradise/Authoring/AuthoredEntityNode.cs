@@ -40,6 +40,12 @@ namespace ParadiseGodot.Authoring
 
         public Guid EntityGuid => Core.EntityGuid;
 
+        public void AdoptDocumentComponents(
+            System.Collections.Generic.IReadOnlyList<Paradise.Assets.Documents.PrefabComponent> components) =>
+            Core.AdoptDocumentComponents(components);
+
+        public ParadiseGodot.Documents.AuthoredEdits Edits => Core.Edits;
+
         public bool RestoreEntityGuid(Guid value) => Core.RestoreEntityGuid(value);
 
         public Guid EnsureEntityGuid() => Core.EnsureEntityGuid();
