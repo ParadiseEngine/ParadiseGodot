@@ -10,7 +10,7 @@ namespace Paradise.Sample.Odyssey;
 /// </summary>
 public ref partial struct ChargeSystem : IWorldSystem
 {
-    public ChargersSegments Ship;
+    public Chargers.Segments Ship;
 
     /// <summary>Last frame's deferred events (warp outcomes + new-voyage). One-frame-deferred.</summary>
     public SystemEventReader Inbox;

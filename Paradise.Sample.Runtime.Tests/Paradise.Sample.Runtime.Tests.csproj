@@ -21,6 +21,9 @@
 
   <ItemGroup>
     <PackageReference Include="TUnit" Version="1.11.16" />
+    <!-- KtxV5CompatibilityTests drives the export-side GLB texture pass directly. It moved out of
+         Paradise.Export at 0.34, so it no longer arrives through the runtime project. -->
+    <PackageReference Include="Paradise.Assets.Pipeline" Version="0.35.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -97,7 +97,7 @@ internal static class Program
 
             var level = LevelLoader.Load(scenePath);
             Console.WriteLine(
-                $"[Paradise.Sample.Runtime] {scenePath}: {level.Level.Entities.Count} entities, " +
+                $"[Paradise.Sample.Runtime] {scenePath}: {level.Scene.Entities.Count} entities, " +
                 $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
             return headlessFrames is { } n
                 ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime, uiXamlPath, enableImGui, audioBanksPath)

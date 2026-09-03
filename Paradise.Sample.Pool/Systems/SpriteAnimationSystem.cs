@@ -10,7 +10,7 @@ namespace Paradise.Sample.Pool;
 /// </summary>
 public ref partial struct SpriteAnimationSystem : IWorldSystem
 {
-    public SpriteAnimationsSegments Sprites;
+    public SpriteAnimations.Segments Sprites;
 
     public void Execute()
     {

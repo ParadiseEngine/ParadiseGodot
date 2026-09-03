@@ -112,8 +112,8 @@ public class ExportedMeshGlbTests
     }
 
     private static JsonElement? Renderable(JsonElement entity) =>
-        Component(entity, "Paradise.Export.Data.RenderableComponentData");
+        Component(entity, "Paradise.Sample.Runtime.RenderableComponentData");
 
     private static JsonElement? Materials(JsonElement entity) =>
-        Component(entity, "Paradise.Export.Data.MaterialsComponentData")?.GetProperty("Slots");
+        Component(entity, "Paradise.Sample.Runtime.MaterialsComponentData")?.GetProperty("Slots");
 }

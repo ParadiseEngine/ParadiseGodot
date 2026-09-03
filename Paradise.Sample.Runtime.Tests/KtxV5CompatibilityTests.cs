@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 using Paradise.Assets.Textures;
-using Paradise.Export.Pipeline;
+using Paradise.Assets.Pipeline;
 
 namespace Paradise.Sample.Runtime.Tests;
 
@@ -49,8 +49,8 @@ public class KtxV5CompatibilityTests
     public async Task v5_encoded_ktx2_transcodes_with_the_engine_transcoder()
     {
         string? repoRoot = FindRepoRoot();
-        string? ktxPath = repoRoot is null ? null : KtxCreate.FindKtx(repoRoot);
-        // FindKtx is not platform-aware: on Linux CI it happily returns the vendored
+        string? ktxPath = repoRoot is null ? null : KtxTool.Find(repoRoot);
+        // KtxTool.Find is not platform-aware: on Linux CI it happily returns the vendored
         // Darwin-arm64 binary, which then fails with "Exec format error". Probe with
         // `ktx --version` so the skip guard means "runnable here", not merely "present".
         if (ktxPath is null || !KtxToolRuns(ktxPath))
@@ -82,8 +82,8 @@ public class KtxV5CompatibilityTests
         try
         {
             GlbBinary.Write(path, gltf, png);
-            var result = KtxCreate.ConvertEmbeddedTextures(path, repoRoot);
-            await Assert.That(result).IsEqualTo(KtxCreate.ConversionResult.ConvertedAllTextures);
+            var result = GlbTextureWorkflows.ConvertEmbeddedTextures(path, repoRoot);
+            await Assert.That(result).IsEqualTo(ConversionResult.ConvertedAllTextures);
 
             await Assert.That(GlbBinary.TryRead(path, out JsonObject converted, out byte[] bin)).IsTrue();
             var image = (JsonObject)converted["images"]![0]!;

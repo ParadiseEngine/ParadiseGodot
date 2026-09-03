@@ -8,6 +8,7 @@ using Paradise.Sample.Pool;
 using Paradise.Sample.Pool.Physics;
 using Paradise.Ui;
 using Paradise.Ui.Noesis;
+using Zio.FileSystems;
 using ParadiseGodot.Runtime.Ui;
 using Paradise.Sample.Ui;
 using SN = System.Numerics;
@@ -83,6 +84,11 @@ namespace ParadiseGodot.Runtime
         private int _ballCount;
         private ImGuiUiCore? _imgui;
         private NoesisViewCore? _noesis;
+
+        /// <summary>The mount the view core reads its XAML through. Held for the core's lifetime:
+        /// 0.34 moved NoesisViewCore onto Zio, and it resolves the document lazily on the SIM
+        /// thread, long after this method returns.</summary>
+        private PhysicalFileSystem? _noesisContent;
         private NoesisTextureOverlay? _noesisOverlay;
 
         public override void _Ready()
@@ -221,8 +227,11 @@ namespace ParadiseGodot.Runtime
                     // Paused the ImGui panel shows.
                     PoolGameController? pool = _pool;
                     PoolOverlayViewModel? vm = pool is null ? null : new PoolOverlayViewModel(_ballCount);
+                    _noesisContent = new PhysicalFileSystem();
                     _noesis = new NoesisViewCore(
-                        ProjectSettings.GlobalizePath(UiXaml), (uint)size.X, (uint)size.Y,
+                        _noesisContent,
+                        _noesisContent.ConvertPathFromInternal(ProjectSettings.GlobalizePath(UiXaml)),
+                        (uint)size.X, (uint)size.Y,
                         vm, vm is null ? null : () => vm.Refresh(pool!.SunkCount, pool.Paused));
                 }
                 else
@@ -263,6 +272,8 @@ namespace ParadiseGodot.Runtime
                 {
                     overlay.QueueFree();
                     _noesis = null;
+                    _noesisContent?.Dispose();
+                    _noesisContent = null;
                     _runner!.UiInput = _imgui?.Input; // drop the unrenderable half
                 }
             }

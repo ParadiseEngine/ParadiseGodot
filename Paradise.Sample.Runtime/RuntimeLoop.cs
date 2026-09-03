@@ -69,7 +69,7 @@ public sealed class RuntimeLoop : IDisposable
         _width = Math.Max(1, width);
         _height = Math.Max(1, height);
 
-        _collisionWorld = SceneAssembler.BuildCollisionWorld(level.Level);
+        _collisionWorld = SceneAssembler.BuildCollisionWorld(level.Scene);
         _runner = new SimulationRunner(_collisionWorld);
         if (audio is not null)
         {

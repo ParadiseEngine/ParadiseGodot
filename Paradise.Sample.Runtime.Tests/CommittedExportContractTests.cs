@@ -12,7 +12,7 @@ public class CommittedExportContractTests
     {
         var root = FindRepoRoot();
         var level = ExportJsonReader.ReadLevel(File.ReadAllText(Path.Combine(root, "data", "scenes", "sample.json")));
-        await Assert.That(level.SchemaVersion).IsEqualTo(5);
+        await Assert.That(level.SchemaVersion).IsEqualTo(6);
         await Assert.That(level.Entities.Count).IsEqualTo(62);
 
         var settings = ExportJsonReader.ReadProjectSettings(File.ReadAllText(Path.Combine(root, "data", "ProjectSettings.json")));

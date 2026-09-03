@@ -28,8 +28,8 @@ public class PoolSceneTests
     public async Task loader_reads_the_committed_pool_scene()
     {
         var level = LoadPool();
-        await Assert.That(level.Level.Entities.Count).IsEqualTo(48);
-        foreach (var entity in level.Level.Entities)
+        await Assert.That(level.Scene.Entities.Count).IsEqualTo(48);
+        foreach (var entity in level.Scene.Entities)
         {
             // level.Materials is the runtime's loaded-document dictionary; the slots are the
             // entity's overrides, which live on its Renderable as of contract v4.
@@ -44,7 +44,7 @@ public class PoolSceneTests
     public async Task trigger_pockets_stay_out_of_the_solid_collision_world()
     {
         var level = LoadPool();
-        using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
+        using var world = SceneAssembler.BuildCollisionWorld(level.Scene)!;
         // 12 solid statics: room floor, table bed, 6 cushion segments, 4 frame rails.
         // The 6 pocket trigger spheres must NOT become bodies (they'd plug the pocket mouths).
         await Assert.That(world.NumBodies).IsEqualTo(12);
@@ -54,7 +54,7 @@ public class PoolSceneTests
     public async Task extract_pockets_returns_the_six_authored_mouths()
     {
         var level = LoadPool();
-        var pockets = SceneAssembler.ExtractPockets(level.Level);
+        var pockets = SceneAssembler.ExtractPockets(level.Scene);
         await Assert.That(pockets.Count).IsEqualTo(6);
 
         // 4 corner pockets (r 0.25) + 2 side pockets (r 0.22) at the authored mouth centers.
@@ -78,7 +78,7 @@ public class PoolSceneTests
     public async Task cushions_block_at_the_play_field_edge_and_pocket_mouths_stay_open()
     {
         var level = LoadPool();
-        using var world = SceneAssembler.BuildCollisionWorld(level.Level)!;
+        using var world = SceneAssembler.BuildCollisionWorld(level.Scene)!;
 
         // A ball-height cast (the DynamicBodyCast obstacle filter) into a cushion stops at the
         // authored inner face z = 1.5.
@@ -121,10 +121,10 @@ public class PoolSceneTests
     public async Task authored_physics_material_params_survive_the_export_round_trip()
     {
         var level = LoadPool();
-        List<AuthoredComponentData>? cue = null;
-        foreach (var entity in level.Level.Entities)
+        AuthoredEntity? cue = null;
+        foreach (var entity in level.Scene.Entities)
         {
-            if (entity.Get<NameComponentData>()?.Value == "CueBall") cue = entity;
+            if (entity.Name == "CueBall") cue = entity;
         }
         await Assert.That(cue).IsNotNull();
         var rigidbody = cue!.Get<RigidbodyComponentData>()!;
@@ -134,6 +134,6 @@ public class PoolSceneTests
 
         // Scene cushion bounce = the liveliest obstacle-layer static (the cushions' 0.75, not
         // the frame rails' 0.5, and never the trigger pockets).
-        await Assert.That(MathF.Abs(SceneAssembler.StaticSurfaceRestitution(level.Level) - 0.75f)).IsLessThan(1e-4f);
+        await Assert.That(MathF.Abs(SceneAssembler.StaticSurfaceRestitution(level.Scene) - 0.75f)).IsLessThan(1e-4f);
     }
 }
