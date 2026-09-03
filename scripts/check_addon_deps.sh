@@ -21,11 +21,16 @@
 # Microsoft.Extensions.Logging.Abstractions — and that cost is accepted rather than overlooked,
 # because the authoring format is TOML read through a mounted file system and no smaller dependency
 # expresses it. Zio is listed separately because it arrives transitively and is used by name.
+#
+# Paradise.Assets.Pipeline is allowed because it is where Paradise.Export's own Pipeline/ WENT at
+# 0.34: KtxCreate split into KtxTool plus GlbTextureWorkflows, BlenderFbxGlb carried across
+# unchanged. The addon has always depended on that code; only the package it lives in changed, so
+# this widens the spelling rather than the closure.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-allowed='^using ([A-Za-z0-9_.]+ = )?(System|Godot|Zio|Paradise\.Export|Paradise\.Authoring|Paradise\.Assets\.Project|ParadiseGodot)([.;]|$)'
+allowed='^using ([A-Za-z0-9_.]+ = )?(System|Godot|Zio|Paradise\.Export|Paradise\.Authoring|Paradise\.Assets\.(Project|Pipeline)|ParadiseGodot)([.;]|$)'
 violations=0
 
 while IFS= read -r file; do

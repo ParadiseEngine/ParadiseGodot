@@ -27,12 +27,10 @@ namespace ParadiseGodot
         // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNode nodes.
         private const string GameMetaKey = "paradise_game";
 
-        private const string ExportMenuItem = "Paradise/Export Active Scene";
         private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
         private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
         private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
         private const string ConvertDataGlbsMenuItem = "Paradise/Convert data GLBs → KTX2";
-        private const string ValidateMenuItem = "Paradise/Validate Export";
         private const string ProjectSetupMenuItem = "Paradise/Project Setup";
         private const string SettingsMenuItem = "Paradise/Settings…";
 
@@ -51,12 +49,10 @@ namespace ParadiseGodot
         /// </summary>
         private static readonly string[] ForwardedMethods =
         [
-            "OnExportActiveScene",
             "OnGenerateModelPrefabs",
             "OnGeneratePrimitives",
             "OnConvertModels",
             "OnConvertDataGlbs",
-            "OnValidateActiveScene",
             "OnProjectSetup",
             "OnOpenSettings",
             "OnPlayDotnet",
@@ -84,12 +80,10 @@ namespace ParadiseGodot
                 }
             }
 
-            _host.AddToolMenuItem(ExportMenuItem, new Callable(_host, "OnExportActiveScene"));
             _host.AddToolMenuItem(GeneratePrefabsMenuItem, new Callable(_host, "OnGenerateModelPrefabs"));
             _host.AddToolMenuItem(GeneratePrimitivesMenuItem, new Callable(_host, "OnGeneratePrimitives"));
             _host.AddToolMenuItem(ConvertModelsMenuItem, new Callable(_host, "OnConvertModels"));
             _host.AddToolMenuItem(ConvertDataGlbsMenuItem, new Callable(_host, "OnConvertDataGlbs"));
-            _host.AddToolMenuItem(ValidateMenuItem, new Callable(_host, "OnValidateActiveScene"));
             _host.AddToolMenuItem(ProjectSetupMenuItem, new Callable(_host, "OnProjectSetup"));
             _host.AddToolMenuItem(SettingsMenuItem, new Callable(_host, "OnOpenSettings"));
             // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
@@ -98,13 +92,11 @@ namespace ParadiseGodot
             _playDotnetButton = new Button
             {
                 Text = "Play .NET",
-                TooltipText = "Launch the active scene's exported data in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
+                TooltipText = "Launch the active scene in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Needs a scene the runtime can load: mark the root with 'paradise_game' metadata for a runtime sample, or build the asset project with `paradise assets build`. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
                 Flat = true,
             };
             _playDotnetButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnPlayDotnet"));
             _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
-            // Automation: re-export scene data whenever the edited scene is saved.
-            _host.SceneSaved += OnSceneSaved;
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
             ProjectSetup.CheckExportVersion();
 
@@ -112,12 +104,10 @@ namespace ParadiseGodot
             //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
             //   PARADISE_GENERATE_MODEL_PREFABS=1 generate a prefab per model under data/
             //   PARADISE_CONVERT_DATA_GLBS=1     transcode data/ GLB textures → KTX2 in place
-            //   PARADISE_EXPORT_SCENE=res://...   export that scene's data/ contract
             // e.g. godot --headless --editor --path . — tasks run in the above order, then quit.
             if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1" ||
                 OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1" ||
-                OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1" ||
-                !string.IsNullOrEmpty(OS.GetEnvironment("PARADISE_EXPORT_SCENE")))
+                OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")
             {
                 Callable.From(RunHeadlessTasks).CallDeferred();
             }
@@ -133,15 +123,12 @@ namespace ParadiseGodot
                 _playDotnetButton.QueueFree();
                 _playDotnetButton = null;
             }
-            _host.RemoveToolMenuItem(ExportMenuItem);
             _host.RemoveToolMenuItem(GeneratePrefabsMenuItem);
             _host.RemoveToolMenuItem(GeneratePrimitivesMenuItem);
             _host.RemoveToolMenuItem(ConvertModelsMenuItem);
             _host.RemoveToolMenuItem(ConvertDataGlbsMenuItem);
-            _host.RemoveToolMenuItem(ValidateMenuItem);
             _host.RemoveToolMenuItem(ProjectSetupMenuItem);
             _host.RemoveToolMenuItem(SettingsMenuItem);
-            _host.SceneSaved -= OnSceneSaved;
             EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported -= _dataGlbHook.OnResourcesReimported;
             if (_settingsDialog is not null)
             {
@@ -195,17 +182,17 @@ namespace ParadiseGodot
                 }
                 else
                 {
-                    string sceneName = Export.SceneDataExporter.ResolveSceneName(root);
-                    string sceneJson = ParadisePaths.ExportPaths().GetLevelDataOutputPath(sceneName);
-                    if (!System.IO.File.Exists(sceneJson))
-                    {
-                        GD.PushError(
-                            $"[Paradise.Export] '{sceneJson}' does not exist — save the scene (auto-export) " +
-                            "or run Project > Tools > Paradise/Export Active Scene first.");
-                        return;
-                    }
-                    argv = [.. host[1..], "--scene", sceneJson, .. extraArgs];
-                    launchLabel = sceneJson;
+                    // Scene export left this addon with contract v6: assets/ is the source of
+                    // truth and `paradise assets build` writes the tree a runtime plays, so there
+                    // is no longer a data/ document for this scene to point at. Pointing Play at
+                    // the project's .editor/play/ tree is the step that restores this; until then
+                    // a scene without paradise_game metadata has nothing to launch, and saying so
+                    // beats launching the runtime against a stale document from the old exporter.
+                    GD.PushError(
+                        "[Paradise] Play needs a built scene, and this addon no longer exports one. " +
+                        "Run `paradise assets build` for this project, or mark the scene root with " +
+                        $"the '{GameMetaKey}' metadata to launch a runtime sample instead.");
+                    return;
                 }
 
                 long pid;
@@ -315,21 +302,6 @@ namespace ParadiseGodot
             return "dotnet";
         }
 
-        private void OnSceneSaved(string filePath)
-        {
-            // In Godot 4, _host.SceneSaved fires for the current root scene, so re-exporting the active
-            // edited scene targets the just-saved scene. filePath is unused today (kept in the
-            // signature for future resilience if sub-scene saves ever emit independently).
-            try
-            {
-                Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
-            }
-            catch (System.Exception ex)
-            {
-                GD.PushError($"[Paradise.Export] Auto re-export on save failed: {ex.Message}");
-            }
-        }
-
         public void OnGenerateModelPrefabs()
         {
             Pipeline.ModelPrefabGenerator.GenerateAll();
@@ -356,7 +328,7 @@ namespace ParadiseGodot
         // a single up-front warning with the fix beats a wall of failures.
         private static void WarnIfKtxMissing(string operation)
         {
-            if (Paradise.Export.Pipeline.KtxCreate.FindKtx() is null)
+            if (Paradise.Assets.Pipeline.KtxTool.Find() is null)
             {
                 GD.PushWarning(
                     $"[Paradise.Export] ktx CLI not found — {operation} will skip KTX2 encoding. " +
@@ -387,12 +359,6 @@ namespace ParadiseGodot
                 {
                     Pipeline.DataGlbConverter.ConvertAll();
                 }
-
-                string scenePath = OS.GetEnvironment("PARADISE_EXPORT_SCENE");
-                if (!string.IsNullOrEmpty(scenePath) && !RunHeadlessExport(scenePath))
-                {
-                    exitCode = 1;
-                }
             }
             catch (System.Exception ex)
             {
@@ -401,31 +367,6 @@ namespace ParadiseGodot
             }
 
             _host.GetTree().Quit(exitCode);
-        }
-
-        private bool RunHeadlessExport(string scenePath)
-        {
-            var packed = GD.Load<PackedScene>(scenePath);
-            Node root = packed.Instantiate();
-            // Exporters read GlobalTransform, which requires tree membership — parent the
-            // instance under the plugin for the duration of the export.
-            _host.AddChild(root);
-            try
-            {
-                string? output = Export.SceneDataExporter.ExportRoot(root);
-                GD.Print($"[Paradise.Export] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
-                return output is not null;
-            }
-            finally
-            {
-                _host.RemoveChild(root);
-                root.QueueFree();
-            }
-        }
-
-        public void OnExportActiveScene()
-        {
-            Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
         }
 
         public void OnOpenSettings()

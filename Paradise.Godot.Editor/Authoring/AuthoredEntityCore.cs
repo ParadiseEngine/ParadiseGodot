@@ -288,16 +288,13 @@ namespace ParadiseGodot.Authoring
             _components.Clear();
             _byId.Clear();
 
+            // The GAME's schema is the only one. Contract v6 removed the engine tier entirely —
+            // Paradise.Export publishes no AuthoringSchema.Json any more, because the engine
+            // declares no authored components to describe. A game that builds with
+            // ParadiseAuthoringScanReferences already merges every assembly it references into its
+            // own dump, so nothing is lost: what used to arrive as a second document arrives inside
+            // the first one.
             var documents = new List<AuthoringSchemaDocument>();
-            try
-            {
-                documents.Add(AuthoringSchemaReader.Read(Paradise.Export.AuthoringSchema.Json));
-            }
-            catch (Exception e)
-            {
-                GD.PushError($"[Paradise.Export] The engine's built-in authoring schema is unreadable: {e.Message}");
-            }
-
             string gamePath = ParadisePaths.DataDirPrefix + SchemaFileName;
             string text = global::Godot.FileAccess.GetFileAsString(gamePath);
             if (!string.IsNullOrEmpty(text))
@@ -777,19 +774,60 @@ namespace ParadiseGodot.Authoring
         // ---------------------------------------------------------------------------------
 
         /// <summary>
-        /// The source GLB this entity renders, as authored on <see cref="RenderableComponentData"/>.
+        /// The source GLB this entity renders.
         ///
         /// A convenience over the authored value, for code that has no inspector to go through:
         /// the model-prefab generator places entities programmatically. Setting it enables the
-        /// Renderable component exactly as ticking the box would, and the host bakes the res://
-        /// path to its data/-relative contract field at export. (v5 removed the separate identity
-        /// component — provenance was a field nothing read.)
+        /// owning component exactly as ticking the box would, and the host bakes the res:// path to
+        /// its data/-relative field at export.
         /// </summary>
+        /// <remarks>
+        /// Found through the SCHEMA rather than named on an engine record. Contract v6 deleted
+        /// <c>RenderableComponentData</c> along with every other engine-declared component, so
+        /// "the field that holds a model" is now whatever the GAME declared: an asset reference
+        /// that accepts a GLB. The first one wins, and a game with two of them has not said which
+        /// of them is the model.
+        /// </remarks>
         public string ModelPath
         {
-            get => AuthoredValue(typeof(RenderableComponentData).GUID, "Mesh").AsString();
-            set => SetAuthored(typeof(RenderableComponentData).GUID, "Mesh", value);
+            get => ModelField() is { } slot ? AuthoredValue(slot.Component, slot.Path).AsString() : "";
+            set
+            {
+                if (ModelField() is not { } slot)
+                {
+                    GD.PushWarning(
+                        $"[Paradise] '{_host.Name}': no authored component declares an asset field "
+                        + "accepting .glb, so there is nowhere to put a model path. Declare one with "
+                        + "[AuthoredByHost<HostAsset>] and [AuthorAssetKinds(\".glb\")].");
+                    return;
+                }
+                SetAuthored(slot.Component, slot.Path, value);
+            }
         }
+
+        /// <summary>The first schema field a model reference belongs in, or null.</summary>
+        private (string Component, string Path)? ModelField()
+        {
+            EnsureSchema();
+            foreach (ComponentSchema component in _components)
+            {
+                foreach (HostRef host in component.Hosts)
+                {
+                    if (host.Kind == AuthoredBySources.Asset && AcceptsModel(host.AssetKinds))
+                    {
+                        return (component.Id, host.Path);
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        private static bool AcceptsModel(IReadOnlyList<string>? assetKinds) =>
+            assetKinds is not null &&
+            assetKinds.Any(kind =>
+                kind.Equals(".glb", StringComparison.OrdinalIgnoreCase) ||
+                kind.Equals(".gltf", StringComparison.OrdinalIgnoreCase));
 
         private Variant AuthoredValue(Guid componentId, string field) =>
             AuthoredValue(componentId.ToString(), field);
@@ -1181,9 +1219,9 @@ namespace ParadiseGodot.Authoring
                     {
                         return null;
                     }
-                    // Baked through the same reader the scene-level walk uses, so a light cannot
-                    // describe itself one way when it is owned and another when it is not.
-                    return Serialize(HostObjectBaker.BakeLight(lightNode));
+                    // One reader for a light however it was found, so a light cannot describe
+                    // itself one way when it is owned and another when it is not.
+                    return HostObjectBaker.BakeLight(lightNode);
                 }
 
                 case AuthoredBySources.Sprite:
@@ -1192,17 +1230,8 @@ namespace ParadiseGodot.Authoring
                     {
                         return null;
                     }
-                    var data = new SpriteAnimationComponentData();
-                    HostObjectBaker.BakeSprite(_host, sprite, paths, data);
                     // Only the fields the sprite OWNS; the rest of the component stays authored.
-                    return new JsonObject
-                    {
-                        ["Sheet"] = data.Sheet is null ? null : JsonValue.Create(data.Sheet),
-                        ["Columns"] = JsonValue.Create(data.Columns),
-                        ["Rows"] = JsonValue.Create(data.Rows),
-                        ["QuadSize"] = Floats(data.QuadSize.X, data.QuadSize.Y),
-                        ["Billboard"] = JsonValue.Create(data.Billboard),
-                    };
+                    return HostObjectBaker.BakeSprite(_host, sprite, paths);
                 }
 
                 default:
