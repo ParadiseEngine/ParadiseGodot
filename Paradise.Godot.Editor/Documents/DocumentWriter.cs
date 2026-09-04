@@ -1,6 +1,7 @@
 #if TOOLS
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Paradise.Assets.Documents;
 using ParadiseGodot.Authoring;
@@ -122,13 +123,18 @@ namespace ParadiseGodot.Documents
                 if (node.HasMeta(DocumentLoader.DerivedMetaKey)) return;
 
                 var guid = entity.EnsureEntityGuid();
+                var values = new Dictionary<string, AuthoredValue>(entity.AuthoredValues(), StringComparer.Ordinal);
+                var baked = entity.BakedHostValues();
+                foreach (var (key, value) in baked) values[key] = value;
+
                 states.Add(new DocumentMerge.ObjectState(
                     guid,
                     node.Name.ToString(),
                     parent,
                     Local(placed),
                     entity.Edits,
-                    entity.AuthoredValues()));
+                    values,
+                    baked.Keys.ToList()));
                 childParent = guid;
             }
 
