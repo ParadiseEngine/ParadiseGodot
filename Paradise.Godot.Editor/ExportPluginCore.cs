@@ -194,18 +194,13 @@ namespace ParadiseGodot
                     argv = [.. host[1..], "--game", game, .. extraArgs];
                     launchLabel = $"--game {game}";
                 }
+                else if (BuiltScenePath(root) is { } built)
+                {
+                    argv = [.. host[1..], "--scene", built, .. extraArgs];
+                    launchLabel = built;
+                }
                 else
                 {
-                    // Scene export left this addon with contract v6: assets/ is the source of
-                    // truth and `paradise assets build` writes the tree a runtime plays, so there
-                    // is no longer a data/ document for this scene to point at. Pointing Play at
-                    // the project's .editor/play/ tree is the step that restores this; until then
-                    // a scene without paradise_game metadata has nothing to launch, and saying so
-                    // beats launching the runtime against a stale document from the old exporter.
-                    GD.PushError(
-                        "[Paradise] Play needs a built scene, and this addon no longer exports one. " +
-                        "Run `paradise assets build` for this project, or mark the scene root with " +
-                        $"the '{GameMetaKey}' metadata to launch a runtime sample instead.");
                     return;
                 }
 
@@ -368,6 +363,58 @@ namespace ParadiseGodot
             using (project)
             {
                 DocumentWorkfile.Open(project, project.Files.ConvertPathFromInternal(hostPath));
+            }
+        }
+
+        /// <summary>
+        /// The BUILT form of the open document, in the editor's own play tree, or null with the
+        /// reason already reported.
+        /// </summary>
+        /// <remarks>
+        /// <c>.editor/play/</c> rather than <c>build/</c>: the editor plays its own output, and a
+        /// shipping build belongs to the CLI. They are layout-identical, so playing what the editor
+        /// built is still a test of what the build produces.
+        ///
+        /// The addon does not run the build itself. A build reaches for external tools and can take
+        /// a while, and a Play button that silently rebuilds is a Play button that sometimes hangs;
+        /// pointing at what is there and naming the command that makes it is the honest version.
+        /// </remarks>
+        private static string? BuiltScenePath(Node root)
+        {
+            if (DocumentSession.DocumentOf(root) is not { } authoringPath)
+            {
+                GD.PushError(
+                    "[Paradise] This scene is not an open Paradise document, so there is nothing " +
+                    $"built to play. Open one with '{OpenDocumentMenuItem}', or mark the scene root " +
+                    $"with the '{GameMetaKey}' metadata to launch a runtime sample instead.");
+                return null;
+            }
+
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return null;
+            }
+
+            using (project)
+            {
+                var document = project.Paths.FromAssetReferencePath(authoringPath);
+                if (project.Paths.PlayPathFor(document) is not { } built)
+                {
+                    GD.PushError($"[Paradise] '{authoringPath}' is not under this project's assets/.");
+                    return null;
+                }
+
+                if (!project.Files.FileExists(built))
+                {
+                    GD.PushError(
+                        $"[Paradise] '{authoringPath}' has not been built yet, so there is nothing to " +
+                        "play. Run `paradise assets build --editor` in the project root, then press " +
+                        "Play again.");
+                    return null;
+                }
+
+                return project.Files.ConvertPathToInternal(built);
             }
         }
 

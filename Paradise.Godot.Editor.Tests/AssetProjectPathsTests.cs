@@ -151,6 +151,21 @@ public class AssetProjectPathsTests
         await Assert.That(Coincident().WorkfileFor("/repo/Elsewhere/pool.prefab")).IsNull();
     }
 
+    /// <summary>The play tree mirrors assets/, and a document keeps its .prefab name there — the
+    /// runtime dispatches on extension, so a Play button still names a file that exists.</summary>
+    [Test]
+    public async Task a_document_maps_to_its_built_form_in_the_play_tree()
+    {
+        await Assert.That(Coincident().PlayPathFor("/repo/Pingu/assets/scenes/pool.prefab"))
+            .IsEqualTo((UPath)"/repo/Pingu/.editor/play/scenes/pool.prefab");
+    }
+
+    [Test]
+    public async Task a_file_outside_assets_has_no_built_form()
+    {
+        await Assert.That(Coincident().PlayPathFor("/repo/Pingu/scenes/pool.prefab")).IsNull();
+    }
+
     [Test]
     public async Task the_scheme_is_recognised_by_spelling_alone()
     {
