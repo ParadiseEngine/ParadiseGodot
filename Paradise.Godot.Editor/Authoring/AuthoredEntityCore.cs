@@ -565,6 +565,11 @@ namespace ParadiseGodot.Authoring
 
                 foreach (HostRef host in component.Hosts)
                 {
+                    // A self-supplied kind has NOTHING to point at: its value is the entity's own
+                    // identity, name or placement, read off the node at save. Drawing a picker for
+                    // one would offer an author a choice that changes nothing.
+                    if (IsSelfSupplied(host.Kind)) continue;
+
                     list.Add(HostPicker(
                         component.Id + "/" + host.Path, host.Kind, host.IsList, host.AssetKinds));
                 }
@@ -635,6 +640,11 @@ namespace ParadiseGodot.Authoring
                 AuthoredBySources.Shape => "CollisionShape3D",
                 AuthoredBySources.Sprite => "Sprite3D",
                 AuthoredBySources.Light => "Light3D",
+                AuthoredBySources.Camera => "Camera3D",
+                // An entity reference points at another AuthoredEntityNode, but that type lives in
+                // the CONSUMING assembly and Godot filters by class NAME — so the filter is the
+                // shim's registered global class, not a type this assembly can name.
+                AuthoredBySources.Entity => ShimGlobalClassName,
                 _ => "Node3D",
             };
 
@@ -1090,20 +1100,32 @@ namespace ParadiseGodot.Authoring
         }
 
         // ---------------------------------------------------------------------------------
-        // Export
+        // Host references
         // ---------------------------------------------------------------------------------
 
         /// <summary>
-        /// Every enabled component, as the payloads the scene export carries. Field names come from
-        /// the schema, which took them from the record, so they match what the runtime deserializes
-        /// by construction — and each value is written AT ITS SCHEMA TYPE. Serializing everything as
-        /// a number is the obvious shortcut and a silent break: a bool arriving as <c>0</c> makes
-        /// the whole component unreadable, since STJ will not widen it back.
+        /// Every leaf a host reference contributes to this entity, keyed
+        /// <c>&lt;componentId&gt;/&lt;path&gt;</c>.
         /// </summary>
-        public IEnumerable<AuthoredComponentData> ExportAuthoredComponents()
+        /// <remarks>
+        /// <para>
+        /// The other half of <c>authoredBy</c>: an author points at a CollisionShape3D, a light, a
+        /// camera or another entity and edits it with Godot's own tools, and this reads the result
+        /// out. A node path means nothing to a runtime, so nothing but VALUES ever reaches the
+        /// document — which is the same asymmetry the schema states, authored as a reference and
+        /// stored as a value.
+        /// </para>
+        /// <para>
+        /// Recomputed on every save rather than tracked as an edit, because the value can change
+        /// without the author touching this entity at all: moving the shape a collider points at is
+        /// an edit to the collider, and nothing in the inspector would have noticed.
+        /// </para>
+        /// </remarks>
+        public IReadOnlyDictionary<string, AuthoredValue> BakedHostValues()
         {
             EnsureSchema();
             ExportPaths paths = ParadisePaths.ExportPaths();
+            var baked = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal);
 
             foreach (ComponentSchema component in _components)
             {
@@ -1112,286 +1134,205 @@ namespace ParadiseGodot.Authoring
                     continue;
                 }
 
-                var payload = new JsonObject();
-                foreach (SchemaField field in component.Fields)
+                if (component.AuthoredBy is { } wholeKind)
                 {
-                    Write(payload, field.Path, ValueOf(component, field));
+                    // A component-level reference contributes its leaves ALONGSIDE the authored
+                    // ones rather than replacing them: a sprite animation reads its sheet and quad
+                    // off the sprite while fps and loop stay typed in.
+                    BakeRef(
+                        new HostRef("", wholeKind, IsList: false, null, Array.Empty<string>()),
+                        component, paths, baked);
                 }
 
-                BakeHosts(component, payload, paths);
-
-                yield return new AuthoredComponentData
+                foreach (HostRef host in component.Hosts)
                 {
-                    Id = Guid.Parse(component.Id),
-                    Type = component.Type,
-                    // Round-tripped through a document so the payload is a detached JsonElement:
-                    // reading one after its owning JsonDocument is disposed throws.
-                    Data = JsonDocument.Parse(payload.ToJsonString()).RootElement.Clone(),
-                };
-            }
-        }
-
-        /// <summary>One authored value as JSON, at its schema type.</summary>
-        private JsonNode? ValueOf(ComponentSchema component, SchemaField field)
-        {
-            Variant value = _values.TryGetValue(component.Id + "/" + field.Path, out Variant stored)
-                ? stored
-                : field.Default;
-
-            return field.Type switch
-            {
-                Variant.Type.Bool => JsonValue.Create(value.AsBool()),
-                Variant.Type.Int => JsonValue.Create(value.AsInt64()),
-                // An empty string with no declared default is ABSENT, not empty: the record that
-                // produced this field had no initializer, so its own default is null and the
-                // contract writes null. A field that declared "" keeps writing "".
-                Variant.Type.String => value.AsString() is { Length: 0 } && !field.HasDefault
-                    ? null
-                    : JsonValue.Create(value.AsString()),
-                Variant.Type.Vector2 => Floats(value.AsVector2().X, value.AsVector2().Y),
-                Variant.Type.Vector3 => Floats(value.AsVector3().X, value.AsVector3().Y, value.AsVector3().Z),
-                Variant.Type.Quaternion => Floats(
-                    value.AsQuaternion().X, value.AsQuaternion().Y,
-                    value.AsQuaternion().Z, value.AsQuaternion().W),
-                Variant.Type.Color => Rgba(value.AsColor()),
-                _ => JsonValue.Create(value.AsDouble()),
-            };
-        }
-
-        private static JsonArray Floats(params float[] values) =>
-            new(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
-
-        // The contract writes Color32 as { r, g, b, a } floats — see Color32Converter.
-        private static JsonObject Rgba(Color c) => new()
-        {
-            ["r"] = JsonValue.Create(c.R),
-            ["g"] = JsonValue.Create(c.G),
-            ["b"] = JsonValue.Create(c.B),
-            ["a"] = JsonValue.Create(c.A),
-        };
-
-        /// <summary>Write a slash-separated path into a nested object, creating groups as needed —
-        /// the inverse of the flattening that produced the path.</summary>
-        private static void Write(JsonObject root, string path, JsonNode? value)
-        {
-            JsonObject target = root;
-            string[] parts = path.Split('/');
-            for (int i = 0; i < parts.Length - 1; i++)
-            {
-                if (target[parts[i]] is not JsonObject next)
-                {
-                    next = new JsonObject();
-                    target[parts[i]] = next;
+                    BakeRef(host, component, paths, baked);
                 }
-                target = next;
             }
-            target[parts[^1]] = value;
+
+            return baked;
         }
 
-        /// <summary>
-        /// Resolve every reference this component was authored with and bake it into values.
-        ///
-        /// The asymmetry the whole approach rests on: authored as a REFERENCE, exported as a VALUE.
-        /// </summary>
-        private void BakeHosts(ComponentSchema component, JsonObject payload, ExportPaths paths)
+        private void BakeRef(
+            HostRef host,
+            ComponentSchema component,
+            ExportPaths paths,
+            Dictionary<string, AuthoredValue> into)
         {
-            if (component.AuthoredBy is { } componentKind)
+            string prefix = component.Id + "/";
+            string at = host.Path.Length == 0 ? string.Empty : host.Path;
+
+            // Self-supplied kinds read the NODE, not a picker: there is nothing for an author to
+            // point at when the value is the object's own identity, name or placement.
+            if (SelfSupplied(host.Kind) is { } own)
             {
-                var whole = new HostRef("", componentKind, false, null, Array.Empty<string>());
-                BakeInto(payload, whole, component.Id + SourceSuffix, paths);
+                into[prefix + at] = own;
+                return;
             }
 
-            foreach (HostRef host in component.Hosts)
+            if (!_values.TryGetValue(prefix + (at.Length == 0 ? SourceSuffix.TrimStart('/') : at), out Variant stored) &&
+                !_values.TryGetValue(component.Id + (at.Length == 0 ? SourceSuffix : "/" + at), out stored))
             {
-                BakeInto(payload, host, component.Id + "/" + host.Path, paths);
+                return;
             }
-        }
 
-        private void BakeInto(JsonObject payload, HostRef host, string valueKey, ExportPaths paths)
-        {
-            string path = host.Path;
-            string kind = host.Kind;
-            if (!_values.TryGetValue(valueKey, out Variant stored))
+            if (host.Kind == AuthoredBySources.Asset)
             {
+                string file = stored.AsString();
+                if (string.IsNullOrEmpty(file)) return;
+
+                // Which resolver applies is decided by what the field says it ACCEPTS: a model goes
+                // through the mesh resolver, an image through the spritesheet one.
+                string? resolved = HostObjectBaker.IsGlbPath(file)
+                    ? HostObjectBaker.MeshField(_host, file, paths)
+                    : HostObjectBaker.SheetField(_host, file, paths);
+                if (resolved is not null) into[prefix + at] = HostObjectBaker.Text(resolved);
                 return;
             }
 
             if (host.IsList)
             {
-                var array = new JsonArray();
-                foreach (Variant element in stored.AsGodotArray())
-                {
-                    if (BakeOne(kind, element.AsNodePath(), paths) is { } baked)
-                    {
-                        array.Add(Select(baked, host.Fields));
-                    }
-                }
-                Write(payload, path, array);
+                // A list of references has no leaf-per-element spelling in a canonical document yet.
+                // Saying so beats writing something the reader cannot take.
+                GD.PushWarning(
+                    $"[Paradise] '{_host.Name}': '{host.Path}' is a LIST of {host.Kind} references, " +
+                    "which this addon cannot write to a document yet. It is not saved.");
                 return;
             }
 
-            if (kind == AuthoredBySources.Asset)
+            if (BakeOne(host.Kind, stored.AsNodePath(), paths) is not { } leaves) return;
+
+            if (leaves.Count == 1 && leaves.TryGetValue(string.Empty, out AuthoredValue single))
             {
-                string file = stored.AsString();
-                if (string.IsNullOrEmpty(file))
-                {
-                    return;
-                }
-                // Which resolver applies is decided by what the field says it ACCEPTS: a model goes
-                // through the mesh resolver, an image through the spritesheet one (which also
-                // rewrites the extension to the runtime's .ktx2 sidecar).
-                string? baked = HostObjectBaker.IsGlbPath(file)
-                    ? HostObjectBaker.MeshField(_host, file, paths)
-                    : HostObjectBaker.SheetField(_host, file, paths);
-                Write(payload, path, baked is null ? null : JsonValue.Create(baked));
+                into[prefix + at] = single;
                 return;
             }
 
-            if (BakeOne(kind, stored.AsNodePath(), paths) is not { } value)
+            WarnOnShapeMismatch(host, leaves);
+            foreach (string wanted in host.Fields.Count > 0 ? host.Fields : leaves.Keys.ToList())
             {
-                return;
+                if (leaves.TryGetValue(wanted, out AuthoredValue value))
+                {
+                    into[prefix + (at.Length == 0 ? wanted : at + "/" + wanted)] = value;
+                }
             }
-            if (value is JsonObject candidates && host.Fields.Count > 0)
+        }
+
+        /// <summary>Whether a kind's value comes from the entity itself rather than from something
+        /// an author points at.</summary>
+        private static bool IsSelfSupplied(string kind) =>
+            kind is AuthoredBySources.Id or AuthoredBySources.Name or AuthoredBySources.Parent
+                or AuthoredBySources.LocalPosition or AuthoredBySources.LocalRotation
+                or AuthoredBySources.LocalScale;
+
+        /// <summary>The kinds whose value is the entity's OWN — read off the node, never picked.</summary>
+        private AuthoredValue? SelfSupplied(string kind) => kind switch
+        {
+            AuthoredBySources.Id => HostObjectBaker.Text(DocumentGuid.Format(EnsureEntityGuid())),
+            AuthoredBySources.Name => HostObjectBaker.Text(_host.Name.ToString()),
+            AuthoredBySources.Parent => HostObjectBaker.Text(ParentEntityGuid()),
+            AuthoredBySources.LocalPosition =>
+                HostObjectBaker.Numbers(_host.Position.X, _host.Position.Y, _host.Position.Z),
+            AuthoredBySources.LocalRotation => HostObjectBaker.Numbers(
+                _host.Quaternion.X, _host.Quaternion.Y, _host.Quaternion.Z, _host.Quaternion.W),
+            AuthoredBySources.LocalScale =>
+                HostObjectBaker.Numbers(_host.Scale.X, _host.Scale.Y, _host.Scale.Z),
+            _ => null,
+        };
+
+        /// <summary>The nearest ancestor entity's identity, or empty at the root — which is how the
+        /// kind spells "no parent".</summary>
+        private string ParentEntityGuid()
+        {
+            for (Node? node = _host.GetParent(); node is not null; node = node.GetParent())
             {
-                WarnOnShapeMismatch(host, candidates);
-                value = Select(candidates, host.Fields);
+                if (node is IAuthoredEntity entity) return DocumentGuid.Format(entity.EnsureEntityGuid());
             }
 
-            if (path.Length == 0 && value is JsonObject fields)
-            {
-                // A component-level reference contributes its baked fields ALONGSIDE the authored
-                // ones, rather than replacing the payload: sprite animation reads its sheet and
-                // quad off the sprite while fps and loop stay typed in.
-                foreach (var pair in fields.ToList())
-                {
-                    payload[pair.Key] = pair.Value?.DeepClone();
-                }
-                return;
-            }
-            Write(payload, path, value);
+            return string.Empty;
         }
 
         /// <summary>
         /// A record asking for box EXTENTS, pointed at something that is not a box.
         ///
-        /// The engine's collider is unaffected — it takes Size and LocalCenter, which every shape
-        /// fills — but a game part that declared SizeX/SizeY/SizeZ gets zeroes from a sphere or
-        /// capsule, since only a box sets Size. The old bake rejected non-box shapes outright with
-        /// a warning; keeping the warning is what stops an authoring mistake becoming a
+        /// A game part that declared SizeX/SizeY/SizeZ gets zeroes from a sphere or capsule, since
+        /// only a box sets Size. The warning is what stops an authoring mistake becoming a
         /// zero-sized collider nobody notices.
         /// </summary>
-        private void WarnOnShapeMismatch(HostRef host, JsonObject candidates)
+        private void WarnOnShapeMismatch(HostRef host, Dictionary<string, AuthoredValue> leaves)
         {
             if (host.Kind != AuthoredBySources.Shape ||
                 !host.Fields.Contains("SizeX") ||
-                candidates["ShapeType"]?.GetValue<string>() is not { } shape ||
-                shape == "Box")
+                !leaves.TryGetValue("ShapeType", out AuthoredValue shape) ||
+                shape.Text is not { } name ||
+                name == "Box")
             {
                 return;
             }
 
             GD.PushWarning(
-                $"[Paradise.Export] '{_host.Name}': '{host.Path}' asks for box extents but points at a "
-                + $"{shape} shape, which leaves them zero. Point it at a BoxShape3D, or give the "
+                $"[Paradise] '{_host.Name}': '{host.Path}' asks for box extents but points at a "
+                + $"{name} shape, which leaves them zero. Point it at a BoxShape3D, or give the "
                 + "record the fields that shape fills (Size, Radius, Height).");
         }
 
-        /// <summary>
-        /// Keep only the fields the referencing record actually declares.
-        ///
-        /// A bake offers every name it knows how to produce; the record decides which it wants. The
-        /// engine's collider takes Size and LocalCenter, a game's box part takes SizeX/SizeY/SizeZ,
-        /// and both are baked from the same CollisionShape3D. Writing the full set instead would
-        /// put keys into the payload that the record has no property for.
-        /// </summary>
-        private static JsonObject Select(JsonNode baked, IReadOnlyList<string> wanted)
+        /// <summary>Bake one referenced object into its leaves. A scalar kind returns one entry
+        /// under the empty key, which the caller writes at the reference's own path.</summary>
+        private Dictionary<string, AuthoredValue>? BakeOne(string kind, NodePath path, ExportPaths paths)
         {
-            var result = new JsonObject();
-            if (baked is not JsonObject source)
-            {
-                return result;
-            }
-            foreach (string name in wanted)
-            {
-                if (source[name] is { } value)
-                {
-                    result[name] = value.DeepClone();
-                }
-            }
-            return result;
-        }
-
-        /// <summary>Bake one referenced object into the JSON its field expects.</summary>
-        private JsonNode? BakeOne(string kind, NodePath path, ExportPaths paths)
-        {
-            if (path.IsEmpty)
-            {
-                return null;
-            }
+            if (path.IsEmpty) return null;
 
             switch (kind)
             {
                 case AuthoredBySources.Shape:
-                {
-                    if (_host.GetNodeOrNull<CollisionShape3D>(path) is not { Shape: not null } shape)
-                    {
-                        return null;
-                    }
-                    var data = new ColliderShapeData();
-                    if (!HostObjectBaker.TryBakeShape(_host, shape, data))
-                    {
-                        return null;
-                    }
+                    return _host.GetNodeOrNull<CollisionShape3D>(path) is { Shape: not null } shape
+                        ? HostObjectBaker.BakeShape(_host, shape)
+                        : null;
 
-                    // Everything a shape can offer, in BOTH vocabularies the contract and games
-                    // use. Select() then keeps whichever the referencing record declared.
-                    JsonNode? full = Serialize(data);
-                    if (full is not JsonObject candidates)
-                    {
-                        return null;
-                    }
-                    candidates["SizeX"] = JsonValue.Create(data.Size.X);
-                    candidates["SizeY"] = JsonValue.Create(data.Size.Y);
-                    candidates["SizeZ"] = JsonValue.Create(data.Size.Z);
-                    candidates["CenterX"] = JsonValue.Create(data.LocalCenter.X);
-                    candidates["CenterY"] = JsonValue.Create(data.LocalCenter.Y);
-                    candidates["CenterZ"] = JsonValue.Create(data.LocalCenter.Z);
-                    return candidates;
-                }
+                case AuthoredBySources.Light:
+                    // One reader for a light however it was found, so a light cannot describe
+                    // itself one way when it is owned and another when it is not.
+                    return _host.GetNodeOrNull<Light3D>(path) is { } light
+                        ? HostObjectBaker.BakeLight(light)
+                        : null;
+
+                case AuthoredBySources.Camera:
+                    return _host.GetNodeOrNull<Camera3D>(path) is { } camera
+                        ? HostObjectBaker.BakeCamera(camera)
+                        : null;
+
+                case AuthoredBySources.Sprite:
+                    return _host.GetNodeOrNull<Sprite3D>(path) is { } sprite
+                        ? HostObjectBaker.BakeSprite(_host, sprite, paths)
+                        : null;
 
                 case AuthoredBySources.Mesh:
                 {
-                    if (_host.GetNodeOrNull<Node>(path) is not { } node)
-                    {
-                        return null;
-                    }
+                    if (_host.GetNodeOrNull<Node>(path) is not { } node) return null;
+
                     string? source = HostObjectBaker.SourceGlbOf(node)
                         ?? HostObjectBaker.ModelDescendants(node)
                             .Select(HostObjectBaker.SourceGlbOf)
                             .FirstOrDefault(p => p is not null);
-                    string? field = HostObjectBaker.MeshField(_host, source, paths);
-                    return field is null ? null : JsonValue.Create(field);
+                    return HostObjectBaker.MeshField(_host, source, paths) is { } field
+                        ? new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+                        {
+                            [string.Empty] = HostObjectBaker.Text(field),
+                        }
+                        : null;
                 }
 
-                case AuthoredBySources.Light:
+                case AuthoredBySources.Entity:
                 {
-                    if (_host.GetNodeOrNull<Light3D>(path) is not { } lightNode)
-                    {
-                        return null;
-                    }
-                    // One reader for a light however it was found, so a light cannot describe
-                    // itself one way when it is owned and another when it is not.
-                    return HostObjectBaker.BakeLight(lightNode);
-                }
+                    // A GUID, not a name: names are not unique, and the identity is the one the
+                    // referenced object's own meta carries.
+                    if (_host.GetNodeOrNull<Node>(path) is not IAuthoredEntity target) return null;
 
-                case AuthoredBySources.Sprite:
-                {
-                    if (_host.GetNodeOrNull<Sprite3D>(path) is not { } sprite)
+                    return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
                     {
-                        return null;
-                    }
-                    // Only the fields the sprite OWNS; the rest of the component stays authored.
-                    return HostObjectBaker.BakeSprite(_host, sprite, paths);
+                        [string.Empty] = HostObjectBaker.Text(
+                            DocumentGuid.Format(target.EnsureEntityGuid())),
+                    };
                 }
 
                 default:
@@ -1399,10 +1340,7 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        /// <summary>Serialize a contract record through the contract's own writer, so converters
-        /// (enums by name, vectors as float arrays) apply exactly as they do on the way out.</summary>
-        private static JsonNode? Serialize<T>(T value) =>
-            JsonNode.Parse(Paradise.Export.Serialization.ExportJsonWriter.SerializeToString(value!));
+
 
         // ---------------------------------------------------------------------------------
         // Gizmo

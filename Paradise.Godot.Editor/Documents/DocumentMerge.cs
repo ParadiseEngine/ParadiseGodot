@@ -48,15 +48,21 @@ namespace ParadiseGodot.Documents
         /// <param name="Transform">Its local TRS.</param>
         /// <param name="Edits">What the author changed.</param>
         /// <param name="Values">Every authored value, keyed <c>&lt;componentId&gt;/&lt;path&gt;</c>.
-        /// Read only for components the author ADDED, which have nothing in the document to
-        /// override.</param>
+        /// Read for components the author ADDED, which have nothing in the document to override, and
+        /// for the fields named in <paramref name="HostBaked"/>.</param>
+        /// <param name="HostBaked">Keys whose value is read off a host object rather than typed, and
+        /// which are therefore written on EVERY save. An author who moves the shape a collider
+        /// points at has changed that collider, and no edit was recorded against this entity to say
+        /// so. Writing them costs nothing when they have not moved: the same value produces the same
+        /// bytes.</param>
         public readonly record struct ObjectState(
             Guid Guid,
             string? Name,
             Guid? Parent,
             LocalTransform Transform,
             AuthoredEdits Edits,
-            IReadOnlyDictionary<string, AuthoredValue> Values);
+            IReadOnlyDictionary<string, AuthoredValue> Values,
+            IReadOnlyCollection<string>? HostBaked = null);
 
         /// <summary>The merged document, and what could not be honoured.</summary>
         public readonly record struct Result(PrefabDocument Document, IReadOnlyList<string> Problems);
@@ -222,10 +228,16 @@ namespace ParadiseGodot.Documents
             return Unchanged(authored, now) ? component : LocalTransformCodec.Write(now);
         }
 
-        /// <summary>One component with the author's edited fields over it.</summary>
+        /// <summary>One component with the author's edited fields, and its host-baked ones, over it.</summary>
         private static PrefabComponent Edited(PrefabComponent component, string id, ObjectState state)
         {
-            var edited = state.Edits.FieldsOf(id).ToList();
+            var prefix = id + "/";
+            var edited = state.Edits.FieldsOf(id)
+                .Concat((state.HostBaked ?? [])
+                    .Where(key => key.StartsWith(prefix, StringComparison.Ordinal))
+                    .Select(key => key[prefix.Length..]))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
             if (edited.Count == 0) return component;
 
             var data = component.Data;

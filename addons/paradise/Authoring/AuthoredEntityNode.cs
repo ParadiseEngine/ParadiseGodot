@@ -13,9 +13,7 @@
 // never looks at it, and all the behaviour still lives in the package.
 #if TOOLS
 using System;
-using System.Collections.Generic;
 using Godot;
-using Paradise.Export.Data;
 using ParadiseGodot.Authoring;
 
 namespace ParadiseGodot.Authoring
@@ -53,9 +51,12 @@ namespace ParadiseGodot.Authoring
 
         public Guid EnsureEntityGuid() => Core.EnsureEntityGuid();
 
-        public IEnumerable<AuthoredComponentData> ExportAuthoredComponents() =>
-            Core.ExportAuthoredComponents();
+        public System.Collections.Generic.IReadOnlyDictionary<string, ParadiseGodot.Documents.AuthoredValue>
+            BakedHostValues() => Core.BakedHostValues();
 
+        // The four overrides that make the inspector exist. Without them the node draws nothing,
+        // stores nothing and saves nothing — and no unit test can see it, because a shim is only
+        // ever exercised by a running Godot.
         public override Godot.Collections.Array<Godot.Collections.Dictionary> _GetPropertyList() =>
             Core.BuildPropertyList();
 
