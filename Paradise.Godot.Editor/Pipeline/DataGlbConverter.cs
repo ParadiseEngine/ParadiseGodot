@@ -2,17 +2,17 @@
 using System.Collections.Generic;
 using System.IO;
 using Godot;
-using Paradise.Export.Pipeline;
+using Paradise.Assets.Pipeline;
 
 namespace ParadiseGodot.Pipeline
 {
     /// <summary>
     /// Converts the embedded textures of GLBs living under <c>res://data/</c> to KTX2 (Basis
-    /// Universal) IN PLACE via <see cref="KtxCreate"/>. This is the ingest step of the
+    /// Universal) IN PLACE via <see cref="KtxTool"/>. This is the ingest step of the
     /// source-GLB pipeline: the .NET runtime's GLB reader is KTX2-only, so any GLB it will load
     /// must have its PNG/JPEG textures transcoded once at import time (not baked per scene export).
     ///
-    /// Idempotent: an already-KTX2 GLB yields <see cref="KtxCreate.ConversionResult.NoConvertibleTextures"/>
+    /// Idempotent: an already-KTX2 GLB yields <see cref="ConversionResult.NoConvertibleTextures"/>
     /// and is left untouched, so re-running (and the import hook's reimport) never loops.
     /// A missing <c>ktx</c> CLI is a WARNING here (not fatal): the GLB stays PNG and still renders
     /// in the Godot editor; only the .NET runtime needs the KTX2 form.
@@ -53,25 +53,25 @@ namespace ParadiseGodot.Pipeline
         /// <c>res://data/sprites/</c> (the sheet convention the SpriteAnimation/ParticleEmitter
         /// contract components reference with a <c>.ktx2</c> extension). The Godot host keeps
         /// rendering the source image; only the .NET runtime reads the sidecar. Idempotent by
-        /// timestamp (see <see cref="KtxCreate.ConvertImageFile"/>).</summary>
+        /// timestamp (see <see cref="GlbTextureWorkflows.ConvertImageFile"/>).</summary>
         public static int ConvertSpriteSheets()
         {
             int converted = 0;
             foreach (string resPath in FindDataImages(SpritesDir))
             {
                 string full = ProjectSettings.GlobalizePath(resPath);
-                KtxCreate.ConversionResult result = KtxCreate.ConvertImageFile(
+                ConversionResult result = GlbTextureWorkflows.ConvertImageFile(
                     full,
                     Path.ChangeExtension(full, ".ktx2"),
                     repoRoot: ProjectSettings.GlobalizePath("res://"),
-                    log: msg => GD.Print($"[Paradise.Export] {msg}"),
-                    error: msg => GD.PushError($"[Paradise.Export] {msg}"));
+                    log: msg => GD.Print($"[Paradise.Assets] {msg}"),
+                    error: msg => GD.PushError($"[Paradise.Assets] {msg}"));
                 switch (result)
                 {
-                    case KtxCreate.ConversionResult.ConvertedAllTextures:
+                    case ConversionResult.ConvertedAllTextures:
                         converted++;
                         break;
-                    case KtxCreate.ConversionResult.ToolMissing:
+                    case ConversionResult.ToolMissing:
                         GD.PushWarning(
                             $"[Paradise.Export] ktx (KTX-Software v5) not found — '{resPath}' has no KTX2 sidecar. " +
                             "The Godot editor renders the source image, but the .NET runtime needs the sidecar; set " +
@@ -123,20 +123,20 @@ namespace ParadiseGodot.Pipeline
         {
             rewritten = false;
             string full = ProjectSettings.GlobalizePath(resPath);
-            KtxCreate.ConversionResult result = KtxCreate.ExternalizeTextures(
+            ConversionResult result = GlbTextureWorkflows.ExternalizeTextures(
                 full,
                 repoRoot: ProjectSettings.GlobalizePath("res://"),
-                log: msg => GD.Print($"[Paradise.Export] {msg}"),
-                error: msg => GD.PushError($"[Paradise.Export] {msg}"));
+                log: msg => GD.Print($"[Paradise.Assets] {msg}"),
+                error: msg => GD.PushError($"[Paradise.Assets] {msg}"));
 
             switch (result)
             {
-                case KtxCreate.ConversionResult.ConvertedAllTextures:
+                case ConversionResult.ConvertedAllTextures:
                     rewritten = true;
                     return true;
-                case KtxCreate.ConversionResult.NoConvertibleTextures:
+                case ConversionResult.NoConvertibleTextures:
                     return true; // already KTX2 / untextured — nothing to do (idempotent)
-                case KtxCreate.ConversionResult.ToolMissing:
+                case ConversionResult.ToolMissing:
                     GD.PushWarning(
                         $"[Paradise.Export] ktx (KTX-Software v5) not found — '{resPath}' keeps its PNG/JPEG " +
                         "textures. It renders in the editor, but the .NET runtime needs KTX2; set " +

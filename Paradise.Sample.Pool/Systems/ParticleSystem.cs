@@ -15,7 +15,7 @@ namespace Paradise.Sample.Pool;
 /// </summary>
 public ref partial struct ParticleSystem : IWorldSystem
 {
-    public ParticleEmittersSegments Emitters;
+    public ParticleEmitters.Segments Emitters;
 
     public void Execute()
     {

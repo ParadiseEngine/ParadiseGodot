@@ -19,7 +19,7 @@
 
   <ItemGroup>
     <!-- Published engine package; Paradise.ECS ships its source generator as an analyzer. -->
-    <PackageReference Include="Paradise.ECS" Version="0.25.0" />
+    <PackageReference Include="Paradise.ECS" Version="0.35.0" />
   </ItemGroup>
 
   <ItemGroup>

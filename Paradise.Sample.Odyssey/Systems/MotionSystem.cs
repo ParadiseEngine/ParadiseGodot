@@ -18,10 +18,10 @@ namespace Paradise.Sample.Odyssey;
 public ref partial struct MotionSystem : IWorldSystem
 {
     /// <summary>The piloted ship segment.</summary>
-    public ShipsSegments Ship;
+    public Ships.Segments Ship;
 
     /// <summary>The orbiting/spinning body segment (star, planets, asteroids, gate).</summary>
-    public BodiesSegments Body;
+    public Bodies.Segments Body;
 
     public void Execute()
     {

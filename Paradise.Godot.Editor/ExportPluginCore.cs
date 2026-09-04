@@ -1,6 +1,8 @@
 #if TOOLS
 using Godot;
 using Paradise.Export;
+using ParadiseGodot.Documents;
+using ParadiseGodot.Project;
 
 namespace ParadiseGodot
 {
@@ -27,12 +29,11 @@ namespace ParadiseGodot
         // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNode nodes.
         private const string GameMetaKey = "paradise_game";
 
-        private const string ExportMenuItem = "Paradise/Export Active Scene";
+        private const string OpenDocumentMenuItem = "Paradise/Open Document…";
         private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
         private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
         private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
         private const string ConvertDataGlbsMenuItem = "Paradise/Convert data GLBs → KTX2";
-        private const string ValidateMenuItem = "Paradise/Validate Export";
         private const string ProjectSetupMenuItem = "Paradise/Project Setup";
         private const string SettingsMenuItem = "Paradise/Settings…";
 
@@ -51,18 +52,20 @@ namespace ParadiseGodot
         /// </summary>
         private static readonly string[] ForwardedMethods =
         [
-            "OnExportActiveScene",
+            "OnOpenDocument",
+            "OnDocumentChosen",
+            "OnDocumentDialogClosed",
             "OnGenerateModelPrefabs",
             "OnGeneratePrimitives",
             "OnConvertModels",
             "OnConvertDataGlbs",
-            "OnValidateActiveScene",
             "OnProjectSetup",
             "OnOpenSettings",
             "OnPlayDotnet",
         ];
 
         private ParadiseSettingsDialog? _settingsDialog;
+        private FileDialog? _documentDialog;
         private readonly Pipeline.DataGlbImportHook _dataGlbHook = new();
 
         public void EnterTree()
@@ -84,12 +87,11 @@ namespace ParadiseGodot
                 }
             }
 
-            _host.AddToolMenuItem(ExportMenuItem, new Callable(_host, "OnExportActiveScene"));
+            _host.AddToolMenuItem(OpenDocumentMenuItem, new Callable(_host, "OnOpenDocument"));
             _host.AddToolMenuItem(GeneratePrefabsMenuItem, new Callable(_host, "OnGenerateModelPrefabs"));
             _host.AddToolMenuItem(GeneratePrimitivesMenuItem, new Callable(_host, "OnGeneratePrimitives"));
             _host.AddToolMenuItem(ConvertModelsMenuItem, new Callable(_host, "OnConvertModels"));
             _host.AddToolMenuItem(ConvertDataGlbsMenuItem, new Callable(_host, "OnConvertDataGlbs"));
-            _host.AddToolMenuItem(ValidateMenuItem, new Callable(_host, "OnValidateActiveScene"));
             _host.AddToolMenuItem(ProjectSetupMenuItem, new Callable(_host, "OnProjectSetup"));
             _host.AddToolMenuItem(SettingsMenuItem, new Callable(_host, "OnOpenSettings"));
             // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
@@ -98,12 +100,13 @@ namespace ParadiseGodot
             _playDotnetButton = new Button
             {
                 Text = "Play .NET",
-                TooltipText = "Launch the active scene's exported data in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Uses the existing data/ export — save the scene to refresh it. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
+                TooltipText = "Launch the active scene in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Needs a scene the runtime can load: mark the root with 'paradise_game' metadata for a runtime sample, or build the asset project with `paradise assets build`. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
                 Flat = true,
             };
             _playDotnetButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnPlayDotnet"));
             _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
-            // Automation: re-export scene data whenever the edited scene is saved.
+            // Ctrl+S has to reach the document, or the author's edits live only in a cache that the
+            // next open overwrites.
             _host.SceneSaved += OnSceneSaved;
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
             ProjectSetup.CheckExportVersion();
@@ -112,12 +115,10 @@ namespace ParadiseGodot
             //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
             //   PARADISE_GENERATE_MODEL_PREFABS=1 generate a prefab per model under data/
             //   PARADISE_CONVERT_DATA_GLBS=1     transcode data/ GLB textures → KTX2 in place
-            //   PARADISE_EXPORT_SCENE=res://...   export that scene's data/ contract
             // e.g. godot --headless --editor --path . — tasks run in the above order, then quit.
             if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1" ||
                 OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1" ||
-                OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1" ||
-                !string.IsNullOrEmpty(OS.GetEnvironment("PARADISE_EXPORT_SCENE")))
+                OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")
             {
                 Callable.From(RunHeadlessTasks).CallDeferred();
             }
@@ -133,12 +134,12 @@ namespace ParadiseGodot
                 _playDotnetButton.QueueFree();
                 _playDotnetButton = null;
             }
-            _host.RemoveToolMenuItem(ExportMenuItem);
+            OnDocumentDialogClosed();
+            _host.RemoveToolMenuItem(OpenDocumentMenuItem);
             _host.RemoveToolMenuItem(GeneratePrefabsMenuItem);
             _host.RemoveToolMenuItem(GeneratePrimitivesMenuItem);
             _host.RemoveToolMenuItem(ConvertModelsMenuItem);
             _host.RemoveToolMenuItem(ConvertDataGlbsMenuItem);
-            _host.RemoveToolMenuItem(ValidateMenuItem);
             _host.RemoveToolMenuItem(ProjectSetupMenuItem);
             _host.RemoveToolMenuItem(SettingsMenuItem);
             _host.SceneSaved -= OnSceneSaved;
@@ -193,19 +194,14 @@ namespace ParadiseGodot
                     argv = [.. host[1..], "--game", game, .. extraArgs];
                     launchLabel = $"--game {game}";
                 }
+                else if (BuiltScenePath(root) is { } built)
+                {
+                    argv = [.. host[1..], "--scene", built, .. extraArgs];
+                    launchLabel = built;
+                }
                 else
                 {
-                    string sceneName = Export.SceneDataExporter.ResolveSceneName(root);
-                    string sceneJson = ParadisePaths.ExportPaths().GetLevelDataOutputPath(sceneName);
-                    if (!System.IO.File.Exists(sceneJson))
-                    {
-                        GD.PushError(
-                            $"[Paradise.Export] '{sceneJson}' does not exist — save the scene (auto-export) " +
-                            "or run Project > Tools > Paradise/Export Active Scene first.");
-                        return;
-                    }
-                    argv = [.. host[1..], "--scene", sceneJson, .. extraArgs];
-                    launchLabel = sceneJson;
+                    return;
                 }
 
                 long pid;
@@ -315,19 +311,144 @@ namespace ParadiseGodot
             return "dotnet";
         }
 
+        /// <summary>Pick a <c>*.prefab</c> under assets/ and open it as a scene.</summary>
+        /// <remarks>A dialog rather than the FileSystem dock: documents live under
+        /// <c>assets/</c>, which a Godot project marks <c>.gdignore</c> precisely so Godot does not
+        /// try to import the source tree. The dock cannot show what it is told to ignore.</remarks>
+        public void OnOpenDocument()
+        {
+            if (!ParadiseProject.TryOpen(out var opened, out var problem) || opened is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return;
+            }
+
+            string assets;
+            using (opened)
+            {
+                assets = opened.Files.ConvertPathToInternal(opened.Layout.Assets);
+            }
+
+            _documentDialog?.QueueFree();
+            _documentDialog = new FileDialog
+            {
+                Title = "Open Paradise document",
+                FileMode = FileDialog.FileModeEnum.OpenFile,
+                Access = FileDialog.AccessEnum.Filesystem,
+                CurrentDir = assets,
+                Filters = [$"*{AssetProjectPaths.DocumentSuffix} ; Paradise documents"],
+            };
+            // Name-based, like every other callable here: a delegate-backed one holds a GC handle
+            // into the current assembly, and a rebuild between opening this dialog and choosing a
+            // file would leave the selection firing into nothing.
+            _documentDialog.Connect(
+                FileDialog.SignalName.FileSelected, new Callable(_host, "OnDocumentChosen"));
+            _documentDialog.Connect(
+                Window.SignalName.CloseRequested, new Callable(_host, "OnDocumentDialogClosed"));
+            EditorInterface.Singleton.GetBaseControl().AddChild(_documentDialog);
+            _documentDialog.PopupCentered(new Vector2I(900, 640));
+        }
+
+        /// <summary>The project is reopened here rather than captured: the dialog is modal to the
+        /// author, not to this method, and a disposed mount would be waiting on the other side.</summary>
+        public void OnDocumentChosen(string hostPath)
+        {
+            OnDocumentDialogClosed();
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return;
+            }
+
+            using (project)
+            {
+                DocumentWorkfile.Open(project, project.Files.ConvertPathFromInternal(hostPath));
+            }
+        }
+
+        /// <summary>
+        /// The BUILT form of the open document, in the editor's own play tree, or null with the
+        /// reason already reported.
+        /// </summary>
+        /// <remarks>
+        /// <c>.editor/play/</c> rather than <c>build/</c>: the editor plays its own output, and a
+        /// shipping build belongs to the CLI. They are layout-identical, so playing what the editor
+        /// built is still a test of what the build produces.
+        ///
+        /// The addon does not run the build itself. A build reaches for external tools and can take
+        /// a while, and a Play button that silently rebuilds is a Play button that sometimes hangs;
+        /// pointing at what is there and naming the command that makes it is the honest version.
+        /// </remarks>
+        private static string? BuiltScenePath(Node root)
+        {
+            if (DocumentSession.DocumentOf(root) is not { } authoringPath)
+            {
+                GD.PushError(
+                    "[Paradise] This scene is not an open Paradise document, so there is nothing " +
+                    $"built to play. Open one with '{OpenDocumentMenuItem}', or mark the scene root " +
+                    $"with the '{GameMetaKey}' metadata to launch a runtime sample instead.");
+                return null;
+            }
+
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return null;
+            }
+
+            using (project)
+            {
+                var document = project.Paths.FromAssetReferencePath(authoringPath);
+                if (project.Paths.PlayPathFor(document) is not { } built)
+                {
+                    GD.PushError($"[Paradise] '{authoringPath}' is not under this project's assets/.");
+                    return null;
+                }
+
+                if (!project.Files.FileExists(built))
+                {
+                    GD.PushError(
+                        $"[Paradise] '{authoringPath}' has not been built yet, so there is nothing to " +
+                        "play. Run `paradise assets build --editor` in the project root, then press " +
+                        "Play again.");
+                    return null;
+                }
+
+                return project.Files.ConvertPathToInternal(built);
+            }
+        }
+
+        /// <summary>
+        /// Godot has written the working scene; write the document it came from.
+        /// </summary>
+        /// <remarks>
+        /// After the <c>.tscn</c> rather than before it, which is the opposite of what the Blender
+        /// host does — and for the opposite reason. Blender saves pre-write so the fresh stamp lands
+        /// INSIDE the .blend it is about to write; Godot's stamp lives in this process, so there is
+        /// nothing to get into the file, and running after means a refusal never costs the author
+        /// their working scene.
+        /// </remarks>
         private void OnSceneSaved(string filePath)
         {
-            // In Godot 4, _host.SceneSaved fires for the current root scene, so re-exporting the active
-            // edited scene targets the just-saved scene. filePath is unused today (kept in the
-            // signature for future resilience if sub-scene saves ever emit independently).
-            try
+            var root = EditorInterface.Singleton.GetEditedSceneRoot();
+            if (DocumentSession.DocumentOf(root) is null) return;
+
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
             {
-                Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
+                GD.PushError($"[Paradise] The scene saved, but its document did not: {problem}");
+                return;
             }
-            catch (System.Exception ex)
+
+            using (project)
             {
-                GD.PushError($"[Paradise.Export] Auto re-export on save failed: {ex.Message}");
+                DocumentWriter.Save(project, root!);
             }
+        }
+
+        public void OnDocumentDialogClosed()
+        {
+            _documentDialog?.QueueFree();
+            _documentDialog = null;
         }
 
         public void OnGenerateModelPrefabs()
@@ -356,7 +477,7 @@ namespace ParadiseGodot
         // a single up-front warning with the fix beats a wall of failures.
         private static void WarnIfKtxMissing(string operation)
         {
-            if (Paradise.Export.Pipeline.KtxCreate.FindKtx() is null)
+            if (Paradise.Assets.Pipeline.KtxTool.Find() is null)
             {
                 GD.PushWarning(
                     $"[Paradise.Export] ktx CLI not found — {operation} will skip KTX2 encoding. " +
@@ -387,12 +508,6 @@ namespace ParadiseGodot
                 {
                     Pipeline.DataGlbConverter.ConvertAll();
                 }
-
-                string scenePath = OS.GetEnvironment("PARADISE_EXPORT_SCENE");
-                if (!string.IsNullOrEmpty(scenePath) && !RunHeadlessExport(scenePath))
-                {
-                    exitCode = 1;
-                }
             }
             catch (System.Exception ex)
             {
@@ -401,31 +516,6 @@ namespace ParadiseGodot
             }
 
             _host.GetTree().Quit(exitCode);
-        }
-
-        private bool RunHeadlessExport(string scenePath)
-        {
-            var packed = GD.Load<PackedScene>(scenePath);
-            Node root = packed.Instantiate();
-            // Exporters read GlobalTransform, which requires tree membership — parent the
-            // instance under the plugin for the duration of the export.
-            _host.AddChild(root);
-            try
-            {
-                string? output = Export.SceneDataExporter.ExportRoot(root);
-                GD.Print($"[Paradise.Export] Headless export {(output is null ? "produced no output" : $"wrote {output}")}.");
-                return output is not null;
-            }
-            finally
-            {
-                _host.RemoveChild(root);
-                root.QueueFree();
-            }
-        }
-
-        public void OnExportActiveScene()
-        {
-            Export.SceneDataExporter.ExportEditedScene(EditorInterface.Singleton);
         }
 
         public void OnOpenSettings()

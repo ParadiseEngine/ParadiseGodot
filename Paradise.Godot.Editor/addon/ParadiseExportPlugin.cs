@@ -28,7 +28,11 @@ namespace ParadiseGodot
 
         public override void _ExitTree() => Core.ExitTree();
 
-        public void OnExportActiveScene() => Core.OnExportActiveScene();
+        public void OnOpenDocument() => Core.OnOpenDocument();
+
+        public void OnDocumentChosen(string path) => Core.OnDocumentChosen(path);
+
+        public void OnDocumentDialogClosed() => Core.OnDocumentDialogClosed();
 
         public void OnGenerateModelPrefabs() => Core.OnGenerateModelPrefabs();
 
@@ -37,8 +41,6 @@ namespace ParadiseGodot
         public void OnConvertModels() => Core.OnConvertModels();
 
         public void OnConvertDataGlbs() => Core.OnConvertDataGlbs();
-
-        public void OnValidateActiveScene() => ExportValidator.ValidateActiveScene();
 
         public void OnProjectSetup() => ProjectSetup.Run();
 

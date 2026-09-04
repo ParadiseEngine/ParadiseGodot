@@ -1,9 +1,12 @@
 #if TOOLS
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using Paradise.Export.Data;
 using Paradise.Export.Geometry;
 using Paradise.Export.Paths;
+using ParadiseGodot.Documents;
 using SN = System.Numerics;
 
 namespace ParadiseGodot.Authoring
@@ -24,25 +27,6 @@ namespace ParadiseGodot.Authoring
     {
         // ---- meshes ---------------------------------------------------------------------
 
-        /// <summary>The data-relative GLB field for a mesh reference, or null (with a warning) when
-        /// it resolves outside the data directory and so could never load at runtime.</summary>
-        public static string? MeshField(Node3D entity, string? sourcePath, ExportPaths paths)
-        {
-            if (!IsGlbPath(sourcePath))
-            {
-                return null;
-            }
-
-            string? field = paths.DataRelativeMeshField(sourcePath!);
-            if (field is null)
-            {
-                GD.PushWarning(
-                    $"[Paradise.Export] Entity '{entity.Name}' references model '{sourcePath}' outside "
-                    + $"{ParadisePaths.DataDirPrefix} — the runtime resolves meshes under the data directory, "
-                    + "so it will not render. Move the asset there.");
-            }
-            return field;
-        }
 
         /// <summary>The GLB a node was instanced from, if any. Used to resolve a mesh reference that
         /// points at an instanced model rather than naming a file directly.</summary>
@@ -74,46 +58,15 @@ namespace ParadiseGodot.Authoring
 
         // ---- spritesheets ---------------------------------------------------------------
 
-        /// <summary>
-        /// A spritesheet contract field: the source image resolved under <c>data/sprites/</c>, stored
-        /// with the runtime (.ktx2) extension — the sidecar the data-ingest pass encodes next to the
-        /// source. Null (with a warning) when the image is a sub-resource or lives outside
-        /// <c>data/sprites/</c>: the resolver accepts EXACTLY the set the sidecar pass covers, so an
-        /// exported sheet field always has a generator.
-        /// </summary>
-        public static string? SheetField(Node3D entity, string? texturePath, ExportPaths paths)
-        {
-            if (string.IsNullOrWhiteSpace(texturePath))
-            {
-                return null;
-            }
-
-            if (texturePath!.Contains("::", System.StringComparison.Ordinal))
-            {
-                GD.PushWarning(
-                    $"[Paradise.Export] Entity '{entity.Name}' uses a sub-resource spritesheet ('{texturePath}') — "
-                    + $"the runtime needs a standalone image under {ParadisePaths.SpritesDir}/. The sheet is not exported.");
-                return null;
-            }
-
-            string? field = paths.DataRelativeMeshField(texturePath);
-            if (field is null || !field.StartsWith("sprites/", System.StringComparison.Ordinal))
-            {
-                GD.PushWarning(
-                    $"[Paradise.Export] Entity '{entity.Name}' references spritesheet '{texturePath}' outside "
-                    + $"{ParadisePaths.SpritesDir}/ — the KTX2 sidecar pass only covers that directory, so the .NET "
-                    + "runtime could never load it. Move the image under the sprites directory. The sheet is not exported.");
-                return null;
-            }
-
-            return System.IO.Path.ChangeExtension(field, ".ktx2");
-        }
 
         /// <summary>Read the geometry half of a sprite animation off the Sprite3D itself — the node
         /// Godot renders natively. Frame pixels × pixel_size is Godot's own world size for the quad.
-        /// The playback clock (fps, loop, frame count) stays authored.</summary>
-        public static void BakeSprite(
-            Node3D entity, Sprite3D sprite, ExportPaths paths, SpriteAnimationComponentData data)
+        /// The playback clock (fps, loop, frame count) stays authored, because no sprite object
+        /// holds a frame rate.</summary>
+        /// <param name="sheet">The sheet as a reference, or null when the sprite has no standalone
+        /// image. Absent rather than empty: a field left out keeps the record's own default, where
+        /// an empty reference would assert that the sprite points at nothing.</param>
+        public static Dictionary<string, AuthoredValue> BakeSprite(Sprite3D sprite, AuthoredValue? sheet)
         {
             float frameWidth = sprite.Texture is { } texture
                 ? texture.GetWidth() / (float)System.Math.Max(1, sprite.Hframes)
@@ -122,11 +75,39 @@ namespace ParadiseGodot.Authoring
                 ? tex2.GetHeight() / (float)System.Math.Max(1, sprite.Vframes)
                 : 0f;
 
-            data.Sheet = SheetField(entity, sprite.Texture?.ResourcePath, paths);
-            data.Columns = sprite.Hframes;
-            data.Rows = sprite.Vframes;
-            data.QuadSize = new SN.Vector2(frameWidth * sprite.PixelSize, frameHeight * sprite.PixelSize);
-            data.Billboard = sprite.Billboard != BaseMaterial3D.BillboardModeEnum.Disabled;
+            var leaves = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+            {
+                ["Columns"] = Integer(sprite.Hframes),
+                ["Rows"] = Integer(sprite.Vframes),
+                ["QuadSize"] = Numbers(frameWidth * sprite.PixelSize, frameHeight * sprite.PixelSize),
+                ["Billboard"] = Boolean(sprite.Billboard != BaseMaterial3D.BillboardModeEnum.Disabled),
+            };
+
+            if (sheet is { } reference) leaves["Sheet"] = reference;
+            return leaves;
+        }
+
+        /// <summary>Read a camera's lens and pose — what <c>HostCamera</c> describes.</summary>
+        /// <remarks>Godot cameras look down their local −Z, which is the contract's convention too,
+        /// so the world rotation is stored verbatim. <c>Fov</c> is Godot's <c>fov</c>: a VERTICAL
+        /// field of view in degrees, which is what the kind declares, so keep_aspect is not
+        /// consulted — a host that measured it horizontally would have to convert.</remarks>
+        public static Dictionary<string, AuthoredValue> BakeCamera(Camera3D camera)
+        {
+            Transform3D global = camera.GlobalTransform;
+            Quaternion rotation = global.Basis.GetRotationQuaternion();
+            return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+            {
+                ["Projection"] = Text(camera.Projection == Camera3D.ProjectionType.Orthogonal
+                    ? "Orthographic"
+                    : "Perspective"),
+                ["Fov"] = Number(camera.Fov),
+                ["OrthographicSize"] = Number(camera.Size),
+                ["Near"] = Number(camera.Near),
+                ["Far"] = Number(camera.Far),
+                ["Position"] = Numbers(global.Origin.X, global.Origin.Y, global.Origin.Z),
+                ["Rotation"] = Numbers(rotation.X, rotation.Y, rotation.Z, rotation.W),
+            };
         }
 
         // ---- collision shapes -----------------------------------------------------------
@@ -228,44 +209,92 @@ namespace ParadiseGodot.Authoring
 
         // ---- lights ---------------------------------------------------------------------
 
-        /// <summary>Read a light into the contract. Shared by the scene-level walk and by an entity
-        /// that AUTHORED the light by pointing at it, so one light cannot describe itself two
-        /// different ways depending on which path found it.</summary>
-        public static SceneLightData BakeLight(Light3D light)
+        /// <summary>Read a light into the leaves <c>HostLight</c> describes.</summary>
+        /// <remarks>The light's identity is NOT here. An object's identity travels in the format's
+        /// <c>meta</c>, and v6 deleted the record that used to carry a second one.</remarks>
+        public static Dictionary<string, AuthoredValue> BakeLight(Light3D light)
         {
             // Godot lights aim down their local -Z; the contract is right-handed, so this world-space
             // forward is stored verbatim.
-            SN.Vector3 forward = ToSN(-light.GlobalTransform.Basis.Z);
+            Vector3 forward = -light.GlobalTransform.Basis.Z;
+            Vector3 position = light.GlobalPosition;
             Color color = light.LightColor;
-            return new SceneLightData
+            return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
             {
-                Id = light.Name.ToString(),
-                Type = LightTypeName(light),
-                Position = ToSN(light.GlobalPosition),
-                Direction = forward,
-                Color = Color32.FromRgba(color.R, color.G, color.B, color.A),
-                Enabled = light.Visible,
-                Intensity = light.LightEnergy,
-                ShadowsEnabled = light.ShadowEnabled,
-                Specular = light.GetParam(Light3D.Param.Specular),
-                Size = light.GetParam(Light3D.Param.Size),
-                // Godot's shadow_opacity (1 = fully dark) maps to the contract's shadow strength.
-                ShadowStrength = light.ShadowOpacity,
-                // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis→edge); the
-                // contract/shader use the FULL cone angle, so double it.
-                Range = light switch
+                ["Type"] = Text(LightTypeName(light)),
+                ["Position"] = Numbers(position.X, position.Y, position.Z),
+                ["Direction"] = Numbers(forward.X, forward.Y, forward.Z),
+                ["Color"] = Rgba(color),
+                ["Enabled"] = Boolean(light.Visible),
+                ["Intensity"] = Number(light.LightEnergy),
+                ["ShadowsEnabled"] = Boolean(light.ShadowEnabled),
+                // Godot's shadow_opacity (1 = fully dark) maps to the kind's shadow strength.
+                ["ShadowStrength"] = Number(light.ShadowOpacity),
+                ["Specular"] = Number(light.GetParam(Light3D.Param.Specular)),
+                ["Size"] = Number(light.GetParam(Light3D.Param.Size)),
+                // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis to edge);
+                // the kind and the shader use the FULL cone angle, so double it.
+                ["Range"] = Number(light switch
                 {
                     OmniLight3D omni => omni.OmniRange,
                     SpotLight3D spot => spot.SpotRange,
                     _ => 0f,
-                },
-                SpotAngle = light is SpotLight3D s ? s.SpotAngle * 2f : 0f,
-                // Distance-falloff exponent (Godot's LIGHT_PARAM_ATTENUATION, i.e. omni_/spot_attenuation).
-                // Godot's default 1.0 is inverse-linear; the shader applies pow(distance, -exponent).
-                // Directionals have no range falloff, so the value is exported but unused for them.
-                AttenuationExponent = (float)light.GetParam(Light3D.Param.Attenuation),
+                }),
+                ["SpotAngle"] = Number(light is SpotLight3D s ? s.SpotAngle * 2f : 0f),
+                // Distance-falloff exponent (Godot's LIGHT_PARAM_ATTENUATION). Godot's default 1.0
+                // is inverse-linear; the shader applies pow(distance, -exponent). Directionals have
+                // no range falloff, so the value is written but unused for them.
+                ["AttenuationExponent"] = Number(light.GetParam(Light3D.Param.Attenuation)),
             };
         }
+
+        /// <summary>Read a collision shape into the leaves <c>HostShape</c> describes, plus the
+        /// per-axis spelling a game record may use instead.</summary>
+        /// <remarks>Both vocabularies are offered because a record decides which it wants: the
+        /// engine's collider took <c>Size</c> and <c>LocalCenter</c>, a game's box part takes
+        /// <c>SizeX</c>/<c>SizeY</c>/<c>SizeZ</c>, and both are baked from one CollisionShape3D.
+        /// The caller keeps whichever the record declared.</remarks>
+        public static Dictionary<string, AuthoredValue>? BakeShape(Node3D root, CollisionShape3D collider)
+        {
+            var data = new ColliderShapeData();
+            if (!TryBakeShape(root, collider, data)) return null;
+
+            return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+            {
+                ["ShapeType"] = Text(data.ShapeType.ToString()),
+                ["LocalCenter"] = Numbers(data.LocalCenter.X, data.LocalCenter.Y, data.LocalCenter.Z),
+                ["LocalRotation"] = Numbers(
+                    data.LocalRotation.X, data.LocalRotation.Y, data.LocalRotation.Z, data.LocalRotation.W),
+                ["Size"] = Numbers(data.Size.X, data.Size.Y, data.Size.Z),
+                ["Radius"] = Number(data.Radius),
+                ["Height"] = Number(data.Height),
+                ["IsTrigger"] = Boolean(data.IsTrigger),
+                ["Layer"] = Integer(data.Layer),
+                ["SizeX"] = Number(data.Size.X),
+                ["SizeY"] = Number(data.Size.Y),
+                ["SizeZ"] = Number(data.Size.Z),
+                ["CenterX"] = Number(data.LocalCenter.X),
+                ["CenterY"] = Number(data.LocalCenter.Y),
+                ["CenterZ"] = Number(data.LocalCenter.Z),
+            };
+        }
+
+        // ---- leaf constructors ----------------------------------------------------------
+
+        public static AuthoredValue Text(string value) => new(AuthoredValueKind.Text, Text: value);
+
+        public static AuthoredValue Number(double value) => new(AuthoredValueKind.Number, Number: value);
+
+        public static AuthoredValue Integer(long value) => new(AuthoredValueKind.Integer, Integer: value);
+
+        public static AuthoredValue Boolean(bool value) => new(AuthoredValueKind.Bool, Bool: value);
+
+        public static AuthoredValue Numbers(params float[] values) =>
+            new(AuthoredValueKind.Numbers, Numbers: values);
+
+        /// <summary>A colour as four channels in 0..1 — the shape the generated reader parses.</summary>
+        public static AuthoredValue Rgba(Color c) =>
+            new(AuthoredValueKind.Rgba, Numbers: [c.R, c.G, c.B, c.A]);
 
         private static string LightTypeName(Light3D light) => light switch
         {

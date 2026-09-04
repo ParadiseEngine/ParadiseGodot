@@ -9,6 +9,9 @@ using Godot;
 using Paradise.Authoring;
 using Paradise.Export.Data;
 using Paradise.Export.Paths;
+using Paradise.Assets.Documents;
+using ParadiseGodot.Documents;
+using ParadiseGodot.Project;
 
 namespace ParadiseGodot.Authoring
 {
@@ -60,6 +63,25 @@ namespace ParadiseGodot.Authoring
         private readonly Node3D _host;
 
         public AuthoredEntityCore(Node3D host) => _host = host;
+
+        /// <summary>What this entity's author has changed since it was materialized.</summary>
+        public AuthoredEdits Edits => _edits;
+
+        /// <summary>
+        /// Whether a write to this node is an AUTHOR's rather than Godot's.
+        /// </summary>
+        /// <remarks>
+        /// Authored values carry <c>PropertyUsageFlags.Default</c>, which includes STORAGE, so they
+        /// are written into the working <c>.tscn</c> and replayed through <c>_Set</c> when it is
+        /// loaded again. Without this every reopen looked like the author had retyped every field,
+        /// and the overlay a save applies would have rewritten payloads nobody touched — the exact
+        /// thing it exists to prevent.
+        ///
+        /// The discriminator is tree membership: Godot applies stored properties while
+        /// instantiating a PackedScene, BEFORE the node is added to a tree, and an author using the
+        /// inspector is by definition looking at a node that is in one.
+        /// </remarks>
+        private bool IsAuthorEdit => _host.IsInsideTree();
 
         private const string GuidMetaKey = "paradise_entity_guid";
         private const string SchemaFileName = "authoring-schema.json";
@@ -131,6 +153,11 @@ namespace ParadiseGodot.Authoring
         private readonly Dictionary<string, string> _byAddLabel = new(StringComparer.Ordinal);
         private readonly HashSet<string> _enabled = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Variant> _values = new(StringComparer.Ordinal);
+
+        /// <summary>What the AUTHOR changed, as opposed to what the document said. The writer
+        /// applies this over the file it re-reads; see <see cref="AuthoredEdits"/> for why the
+        /// values themselves are not what travels.</summary>
+        private readonly AuthoredEdits _edits = new();
         private bool _loaded;
 
         /// <summary>Modified time of the game's schema file when it was last read, so a re-dump is
@@ -288,16 +315,13 @@ namespace ParadiseGodot.Authoring
             _components.Clear();
             _byId.Clear();
 
+            // The GAME's schema is the only one. Contract v6 removed the engine tier entirely —
+            // Paradise.Export publishes no AuthoringSchema.Json any more, because the engine
+            // declares no authored components to describe. A game that builds with
+            // ParadiseAuthoringScanReferences already merges every assembly it references into its
+            // own dump, so nothing is lost: what used to arrive as a second document arrives inside
+            // the first one.
             var documents = new List<AuthoringSchemaDocument>();
-            try
-            {
-                documents.Add(AuthoringSchemaReader.Read(Paradise.Export.AuthoringSchema.Json));
-            }
-            catch (Exception e)
-            {
-                GD.PushError($"[Paradise.Export] The engine's built-in authoring schema is unreadable: {e.Message}");
-            }
-
             string gamePath = ParadisePaths.DataDirPrefix + SchemaFileName;
             string text = global::Godot.FileAccess.GetFileAsString(gamePath);
             if (!string.IsNullOrEmpty(text))
@@ -542,6 +566,11 @@ namespace ParadiseGodot.Authoring
 
                 foreach (HostRef host in component.Hosts)
                 {
+                    // A self-supplied kind has NOTHING to point at: its value is the entity's own
+                    // identity, name or placement, read off the node at save. Drawing a picker for
+                    // one would offer an author a choice that changes nothing.
+                    if (IsSelfSupplied(host.Kind)) continue;
+
                     list.Add(HostPicker(
                         component.Id + "/" + host.Path, host.Kind, host.IsList, host.AssetKinds));
                 }
@@ -602,7 +631,12 @@ namespace ParadiseGodot.Authoring
                     { "name", name },
                     { "type", (int)Variant.Type.String },
                     { "usage", (int)PropertyUsageFlags.Default },
-                    { "hint", (int)PropertyHint.File },
+                    // GLOBAL, not File. A File hint browses the EDITOR filesystem, which skips any
+                    // directory carrying a .gdignore — and a game's assets/ carries one precisely so
+                    // Godot does not try to import the source tree. The picker would show an author
+                    // an empty tree containing the one thing they came for. A global picker walks
+                    // the OS filesystem, and the bake refuses anything outside assets/ anyway.
+                    { "hint", (int)PropertyHint.GlobalFile },
                     { "hint_string", filter },
                 };
             }
@@ -612,6 +646,11 @@ namespace ParadiseGodot.Authoring
                 AuthoredBySources.Shape => "CollisionShape3D",
                 AuthoredBySources.Sprite => "Sprite3D",
                 AuthoredBySources.Light => "Light3D",
+                AuthoredBySources.Camera => "Camera3D",
+                // An entity reference points at another AuthoredEntityNode, but that type lives in
+                // the CONSUMING assembly and Godot filters by class NAME — so the filter is the
+                // shim's registered global class, not a type this assembly can name.
+                AuthoredBySources.Entity => ShimGlobalClassName,
                 _ => "Node3D",
             };
 
@@ -702,6 +741,7 @@ namespace ParadiseGodot.Authoring
                     _enabled.Add(id))
                 {
                     SeedDefaults(added);
+                    if (IsAuthorEdit) _edits.ComponentAdded(id);
                     OnAuthoredChanged();
                 }
                 // Always redraw: the picker has to fall back to its resting value and drop the id
@@ -722,10 +762,12 @@ namespace ParadiseGodot.Authoring
                     if (_enabled.Add(id))
                     {
                         SeedDefaults(component);
+                        if (IsAuthorEdit) _edits.ComponentAdded(id);
                     }
                 }
                 else if (_enabled.Remove(id))
                 {
+                    if (IsAuthorEdit) _edits.ComponentRemoved(id);
                     // Forget the component's values with it. Keeping them would resurrect numbers
                     // an author removed the moment the box was ticked again.
                     foreach (string key in _values.Keys
@@ -745,6 +787,10 @@ namespace ParadiseGodot.Authoring
                 return false;
             }
             _values[name] = value;
+            if (IsAuthorEdit)
+            {
+                _edits.FieldChanged(name[..name.IndexOf('/')], name[(name.IndexOf('/') + 1)..]);
+            }
             // A guard field changing reveals or hides its dependants.
             _host.NotifyPropertyListChanged();
             OnAuthoredChanged();
@@ -772,29 +818,195 @@ namespace ParadiseGodot.Authoring
             }
         }
 
+        /// <summary>
+        /// Show the components this entity carries in its DOCUMENT.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Seeding, not editing: nothing here touches <see cref="Edits"/>, so an entity opened and
+        /// closed without an author typing anything has no changes to write back. That is what
+        /// keeps a save from rewriting payloads nobody touched.
+        /// </para>
+        /// <para>
+        /// A component the schema does not describe is SKIPPED rather than dropped. It cannot be
+        /// drawn — there is nothing to draw it from — but the writer re-reads the document and only
+        /// applies the overlay, so an unknown payload is never in a position to be lost. A game
+        /// whose schema is simply out of date must not have its data quietly deleted by opening a
+        /// scene.
+        /// </para>
+        /// <para>
+        /// <c>meta</c> and <c>transform</c> are the format's own vocabulary and belong to the node
+        /// — identity is the node's metadata, placement is its channels — so they are not
+        /// components the inspector has any business showing.
+        /// </para>
+        /// </remarks>
+        public void AdoptDocumentComponents(IReadOnlyList<PrefabComponent> components)
+        {
+            ArgumentNullException.ThrowIfNull(components);
+            EnsureSchema();
+
+            foreach (PrefabComponent component in components)
+            {
+                if (component.Id == WellKnownComponents.MetaId ||
+                    component.Id == WellKnownComponents.TransformId)
+                {
+                    continue;
+                }
+
+                string id = component.Id.ToString();
+                if (!_byId.TryGetValue(id, out ComponentSchema? schema))
+                {
+                    continue;
+                }
+
+                _enabled.Add(id);
+                foreach (SchemaField field in schema.Fields)
+                {
+                    AuthoredValue read = AuthoredPayload.Read(component.Data, field.Path, field.Type);
+                    // Absent, or in a shape this field cannot take: the schema's own default, never
+                    // a zero. A payload from a newer build must not blank what an author set.
+                    _values[id + "/" + field.Path] = read.Kind == AuthoredValueKind.None
+                        ? field.Default
+                        : ToVariant(read, field.Type, field.Default);
+                }
+            }
+
+            _host.NotifyPropertyListChanged();
+        }
+
+        /// <summary>
+        /// Every authored value this entity holds, keyed <c>&lt;componentId&gt;/&lt;path&gt;</c>.
+        /// </summary>
+        /// <remarks>The other side of the edge: values leave as <see cref="AuthoredValue"/> so the
+        /// merge that writes them into a document can be tested, which a <c>Variant</c> would
+        /// prevent. Only ENABLED components are included — a component the entity does not carry
+        /// has no values to write.</remarks>
+        public IReadOnlyDictionary<string, AuthoredValue> AuthoredValues()
+        {
+            EnsureSchema();
+            var values = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal);
+            foreach (ComponentSchema component in _components)
+            {
+                if (!_enabled.Contains(component.Id)) continue;
+
+                foreach (SchemaField field in component.Fields)
+                {
+                    string key = component.Id + "/" + field.Path;
+                    Variant value = _values.TryGetValue(key, out Variant stored) ? stored : field.Default;
+                    values[key] = FromVariant(value, field.Type);
+                }
+            }
+
+            return values;
+        }
+
+        /// <summary>The one place a document value is read OUT of a <see cref="Variant"/>.</summary>
+        private static AuthoredValue FromVariant(Variant value, Variant.Type type) => type switch
+        {
+            Variant.Type.Bool => new AuthoredValue(AuthoredValueKind.Bool, Bool: value.AsBool()),
+            Variant.Type.Int => new AuthoredValue(AuthoredValueKind.Integer, Integer: value.AsInt64()),
+            Variant.Type.Float => new AuthoredValue(AuthoredValueKind.Number, Number: value.AsDouble()),
+            Variant.Type.String => new AuthoredValue(AuthoredValueKind.Text, Text: value.AsString()),
+            Variant.Type.Vector2 => Numbers(value.AsVector2().X, value.AsVector2().Y),
+            Variant.Type.Vector3 => Numbers(value.AsVector3().X, value.AsVector3().Y, value.AsVector3().Z),
+            Variant.Type.Quaternion => Numbers(
+                value.AsQuaternion().X, value.AsQuaternion().Y,
+                value.AsQuaternion().Z, value.AsQuaternion().W),
+            Variant.Type.Color => new AuthoredValue(
+                AuthoredValueKind.Rgba,
+                Numbers: [value.AsColor().R, value.AsColor().G, value.AsColor().B, value.AsColor().A]),
+            _ => AuthoredValue.None,
+        };
+
+        private static AuthoredValue Numbers(params float[] values) =>
+            new(AuthoredValueKind.Numbers, Numbers: values);
+
+        /// <summary>The one place a <see cref="Variant"/> is built from a document value. Kept to a
+        /// switch because a Variant cannot exist in a unit test — constructing one outside a running
+        /// Godot process segfaults the host — so everything decidable lives in
+        /// <see cref="AuthoredPayload"/> instead.</summary>
+        private static Variant ToVariant(AuthoredValue value, Variant.Type type, Variant fallback) =>
+            (type, value.Kind) switch
+            {
+                (Variant.Type.Bool, AuthoredValueKind.Bool) => value.Bool,
+                (Variant.Type.Int, AuthoredValueKind.Integer) => value.Integer,
+                (Variant.Type.Float, AuthoredValueKind.Number) => value.Number,
+                (Variant.Type.String, AuthoredValueKind.Text) => value.Text ?? "",
+                (Variant.Type.Vector2, AuthoredValueKind.Numbers) =>
+                    new Vector2(value.Numbers![0], value.Numbers[1]),
+                (Variant.Type.Vector3, AuthoredValueKind.Numbers) =>
+                    new Vector3(value.Numbers![0], value.Numbers[1], value.Numbers[2]),
+                (Variant.Type.Quaternion, AuthoredValueKind.Numbers) =>
+                    new Quaternion(value.Numbers![0], value.Numbers[1], value.Numbers[2], value.Numbers[3]),
+                (Variant.Type.Color, AuthoredValueKind.Rgba) =>
+                    new Color(value.Numbers![0], value.Numbers[1], value.Numbers[2], value.Numbers[3]),
+                _ => fallback,
+            };
+
         // ---------------------------------------------------------------------------------
         // Model path — the one thing a schema cannot carry
         // ---------------------------------------------------------------------------------
 
         /// <summary>
-        /// The source GLB this entity renders, as authored on <see cref="RenderableComponentData"/>.
+        /// The source GLB this entity renders.
         ///
         /// A convenience over the authored value, for code that has no inspector to go through:
         /// the model-prefab generator places entities programmatically. Setting it enables the
-        /// Renderable component exactly as ticking the box would, and the host bakes the res://
-        /// path to its data/-relative contract field at export. (v5 removed the separate identity
-        /// component — provenance was a field nothing read.)
+        /// owning component exactly as ticking the box would, and the host bakes the res:// path to
+        /// its data/-relative field at export.
         /// </summary>
+        /// <remarks>
+        /// Found through the SCHEMA rather than named on an engine record. Contract v6 deleted
+        /// <c>RenderableComponentData</c> along with every other engine-declared component, so
+        /// "the field that holds a model" is now whatever the GAME declared: an asset reference
+        /// that accepts a GLB. The first one wins, and a game with two of them has not said which
+        /// of them is the model.
+        /// </remarks>
         public string ModelPath
         {
-            get => AuthoredValue(typeof(RenderableComponentData).GUID, "Mesh").AsString();
-            set => SetAuthored(typeof(RenderableComponentData).GUID, "Mesh", value);
+            get => ModelField() is { } slot ? StoredValue(slot.Component, slot.Path).AsString() : "";
+            set
+            {
+                if (ModelField() is not { } slot)
+                {
+                    GD.PushWarning(
+                        $"[Paradise] '{_host.Name}': no authored component declares an asset field "
+                        + "accepting .glb, so there is nowhere to put a model path. Declare one with "
+                        + "[AuthoredByHost<HostAsset>] and [AuthorAssetKinds(\".glb\")].");
+                    return;
+                }
+                SetAuthored(slot.Component, slot.Path, value);
+            }
         }
 
-        private Variant AuthoredValue(Guid componentId, string field) =>
-            AuthoredValue(componentId.ToString(), field);
+        /// <summary>The first schema field a model reference belongs in, or null.</summary>
+        private (string Component, string Path)? ModelField()
+        {
+            EnsureSchema();
+            foreach (ComponentSchema component in _components)
+            {
+                foreach (HostRef host in component.Hosts)
+                {
+                    if (host.Kind == AuthoredBySources.Asset && AcceptsModel(host.AssetKinds))
+                    {
+                        return (component.Id, host.Path);
+                    }
+                }
+            }
 
-        private Variant AuthoredValue(string componentId, string field)
+            return null;
+        }
+
+        private static bool AcceptsModel(IReadOnlyList<string>? assetKinds) =>
+            assetKinds is not null &&
+            assetKinds.Any(kind =>
+                kind.Equals(".glb", StringComparison.OrdinalIgnoreCase) ||
+                kind.Equals(".gltf", StringComparison.OrdinalIgnoreCase));
+
+        private Variant StoredValue(Guid componentId, string field) =>
+            StoredValue(componentId.ToString(), field);
+
+        private Variant StoredValue(string componentId, string field)
         {
             EnsureSchema();
             return _values.TryGetValue(componentId + "/" + field, out Variant value) ? value : default;
@@ -813,8 +1025,10 @@ namespace ParadiseGodot.Authoring
             if (_enabled.Add(componentId))
             {
                 SeedDefaults(component);
+                if (IsAuthorEdit) _edits.ComponentAdded(componentId);
             }
             _values[componentId + "/" + field] = value;
+            if (IsAuthorEdit) _edits.FieldChanged(componentId, field);
         }
 
         /// <summary>Stable per-placement identity; <see cref="Guid.Empty"/> until minted.</summary>
@@ -892,20 +1106,35 @@ namespace ParadiseGodot.Authoring
         }
 
         // ---------------------------------------------------------------------------------
-        // Export
+        // Host references
         // ---------------------------------------------------------------------------------
 
         /// <summary>
-        /// Every enabled component, as the payloads the scene export carries. Field names come from
-        /// the schema, which took them from the record, so they match what the runtime deserializes
-        /// by construction — and each value is written AT ITS SCHEMA TYPE. Serializing everything as
-        /// a number is the obvious shortcut and a silent break: a bool arriving as <c>0</c> makes
-        /// the whole component unreadable, since STJ will not widen it back.
+        /// Every leaf a host reference contributes to this entity, keyed
+        /// <c>&lt;componentId&gt;/&lt;path&gt;</c>.
         /// </summary>
-        public IEnumerable<AuthoredComponentData> ExportAuthoredComponents()
+        /// <remarks>
+        /// <para>
+        /// The other half of <c>authoredBy</c>: an author points at a CollisionShape3D, a light, a
+        /// camera or another entity and edits it with Godot's own tools, and this reads the result
+        /// out. A node path means nothing to a runtime, so nothing but VALUES ever reaches the
+        /// document — which is the same asymmetry the schema states, authored as a reference and
+        /// stored as a value.
+        /// </para>
+        /// <para>
+        /// Recomputed on every save rather than tracked as an edit, because the value can change
+        /// without the author touching this entity at all: moving the shape a collider points at is
+        /// an edit to the collider, and nothing in the inspector would have noticed.
+        /// </para>
+        /// </remarks>
+        /// <param name="assets">Resolves and mints asset identities. Null while no project is
+        /// open, in which case an asset reference cannot be turned into one and is skipped rather
+        /// than written as a bare path — half a reference is worse than none.</param>
+        public IReadOnlyDictionary<string, AuthoredValue> BakedHostValues(AssetReferenceResolver? assets = null)
         {
             EnsureSchema();
             ExportPaths paths = ParadisePaths.ExportPaths();
+            var baked = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal);
 
             foreach (ComponentSchema component in _components)
             {
@@ -914,294 +1143,240 @@ namespace ParadiseGodot.Authoring
                     continue;
                 }
 
-                var payload = new JsonObject();
-                foreach (SchemaField field in component.Fields)
+                if (component.AuthoredBy is { } wholeKind)
                 {
-                    Write(payload, field.Path, ValueOf(component, field));
+                    // A component-level reference contributes its leaves ALONGSIDE the authored
+                    // ones rather than replacing them: a sprite animation reads its sheet and quad
+                    // off the sprite while fps and loop stay typed in.
+                    BakeRef(
+                        new HostRef("", wholeKind, IsList: false, null, Array.Empty<string>()),
+                        component, paths, assets, baked);
                 }
 
-                BakeHosts(component, payload, paths);
-
-                yield return new AuthoredComponentData
+                foreach (HostRef host in component.Hosts)
                 {
-                    Id = Guid.Parse(component.Id),
-                    Type = component.Type,
-                    // Round-tripped through a document so the payload is a detached JsonElement:
-                    // reading one after its owning JsonDocument is disposed throws.
-                    Data = JsonDocument.Parse(payload.ToJsonString()).RootElement.Clone(),
-                };
-            }
-        }
-
-        /// <summary>One authored value as JSON, at its schema type.</summary>
-        private JsonNode? ValueOf(ComponentSchema component, SchemaField field)
-        {
-            Variant value = _values.TryGetValue(component.Id + "/" + field.Path, out Variant stored)
-                ? stored
-                : field.Default;
-
-            return field.Type switch
-            {
-                Variant.Type.Bool => JsonValue.Create(value.AsBool()),
-                Variant.Type.Int => JsonValue.Create(value.AsInt64()),
-                // An empty string with no declared default is ABSENT, not empty: the record that
-                // produced this field had no initializer, so its own default is null and the
-                // contract writes null. A field that declared "" keeps writing "".
-                Variant.Type.String => value.AsString() is { Length: 0 } && !field.HasDefault
-                    ? null
-                    : JsonValue.Create(value.AsString()),
-                Variant.Type.Vector2 => Floats(value.AsVector2().X, value.AsVector2().Y),
-                Variant.Type.Vector3 => Floats(value.AsVector3().X, value.AsVector3().Y, value.AsVector3().Z),
-                Variant.Type.Quaternion => Floats(
-                    value.AsQuaternion().X, value.AsQuaternion().Y,
-                    value.AsQuaternion().Z, value.AsQuaternion().W),
-                Variant.Type.Color => Rgba(value.AsColor()),
-                _ => JsonValue.Create(value.AsDouble()),
-            };
-        }
-
-        private static JsonArray Floats(params float[] values) =>
-            new(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray());
-
-        // The contract writes Color32 as { r, g, b, a } floats — see Color32Converter.
-        private static JsonObject Rgba(Color c) => new()
-        {
-            ["r"] = JsonValue.Create(c.R),
-            ["g"] = JsonValue.Create(c.G),
-            ["b"] = JsonValue.Create(c.B),
-            ["a"] = JsonValue.Create(c.A),
-        };
-
-        /// <summary>Write a slash-separated path into a nested object, creating groups as needed —
-        /// the inverse of the flattening that produced the path.</summary>
-        private static void Write(JsonObject root, string path, JsonNode? value)
-        {
-            JsonObject target = root;
-            string[] parts = path.Split('/');
-            for (int i = 0; i < parts.Length - 1; i++)
-            {
-                if (target[parts[i]] is not JsonObject next)
-                {
-                    next = new JsonObject();
-                    target[parts[i]] = next;
+                    BakeRef(host, component, paths, assets, baked);
                 }
-                target = next;
             }
-            target[parts[^1]] = value;
+
+            return baked;
         }
 
-        /// <summary>
-        /// Resolve every reference this component was authored with and bake it into values.
-        ///
-        /// The asymmetry the whole approach rests on: authored as a REFERENCE, exported as a VALUE.
-        /// </summary>
-        private void BakeHosts(ComponentSchema component, JsonObject payload, ExportPaths paths)
+        private void BakeRef(
+            HostRef host,
+            ComponentSchema component,
+            ExportPaths paths,
+            AssetReferenceResolver? assets,
+            Dictionary<string, AuthoredValue> into)
         {
-            if (component.AuthoredBy is { } componentKind)
+            string prefix = component.Id + "/";
+            string at = host.Path.Length == 0 ? string.Empty : host.Path;
+
+            // Self-supplied kinds read the NODE, not a picker: there is nothing for an author to
+            // point at when the value is the object's own identity, name or placement.
+            if (SelfSupplied(host.Kind) is { } own)
             {
-                var whole = new HostRef("", componentKind, false, null, Array.Empty<string>());
-                BakeInto(payload, whole, component.Id + SourceSuffix, paths);
+                into[prefix + at] = own;
+                return;
             }
 
-            foreach (HostRef host in component.Hosts)
+            if (!_values.TryGetValue(prefix + (at.Length == 0 ? SourceSuffix.TrimStart('/') : at), out Variant stored) &&
+                !_values.TryGetValue(component.Id + (at.Length == 0 ? SourceSuffix : "/" + at), out stored))
             {
-                BakeInto(payload, host, component.Id + "/" + host.Path, paths);
+                return;
             }
-        }
 
-        private void BakeInto(JsonObject payload, HostRef host, string valueKey, ExportPaths paths)
-        {
-            string path = host.Path;
-            string kind = host.Kind;
-            if (!_values.TryGetValue(valueKey, out Variant stored))
+            if (host.Kind == AuthoredBySources.Asset)
             {
+                string file = stored.AsString();
+                if (string.IsNullOrEmpty(file)) return;
+
+                if (assets is null)
+                {
+                    GD.PushWarning(
+                        $"[Paradise] '{_host.Name}': '{host.Path}' references '{file}', but no asset " +
+                        "project is open to give it an identity, so it is not saved.");
+                    return;
+                }
+
+                if (assets.Reference(file) is { } reference) into[prefix + at] = reference;
                 return;
             }
 
             if (host.IsList)
             {
-                var array = new JsonArray();
-                foreach (Variant element in stored.AsGodotArray())
-                {
-                    if (BakeOne(kind, element.AsNodePath(), paths) is { } baked)
-                    {
-                        array.Add(Select(baked, host.Fields));
-                    }
-                }
-                Write(payload, path, array);
+                // A list of references has no leaf-per-element spelling in a canonical document yet.
+                // Saying so beats writing something the reader cannot take.
+                GD.PushWarning(
+                    $"[Paradise] '{_host.Name}': '{host.Path}' is a LIST of {host.Kind} references, " +
+                    "which this addon cannot write to a document yet. It is not saved.");
                 return;
             }
 
-            if (kind == AuthoredBySources.Asset)
+            if (BakeOne(host.Kind, stored.AsNodePath(), paths, assets) is not { } leaves) return;
+
+            if (leaves.Count == 1 && leaves.TryGetValue(string.Empty, out AuthoredValue single))
             {
-                string file = stored.AsString();
-                if (string.IsNullOrEmpty(file))
-                {
-                    return;
-                }
-                // Which resolver applies is decided by what the field says it ACCEPTS: a model goes
-                // through the mesh resolver, an image through the spritesheet one (which also
-                // rewrites the extension to the runtime's .ktx2 sidecar).
-                string? baked = HostObjectBaker.IsGlbPath(file)
-                    ? HostObjectBaker.MeshField(_host, file, paths)
-                    : HostObjectBaker.SheetField(_host, file, paths);
-                Write(payload, path, baked is null ? null : JsonValue.Create(baked));
+                into[prefix + at] = single;
                 return;
             }
 
-            if (BakeOne(kind, stored.AsNodePath(), paths) is not { } value)
+            WarnOnShapeMismatch(host, leaves);
+            foreach (string wanted in host.Fields.Count > 0 ? host.Fields : leaves.Keys.ToList())
             {
-                return;
+                if (leaves.TryGetValue(wanted, out AuthoredValue value))
+                {
+                    into[prefix + (at.Length == 0 ? wanted : at + "/" + wanted)] = value;
+                }
             }
-            if (value is JsonObject candidates && host.Fields.Count > 0)
+        }
+
+        /// <summary>Whether a kind's value comes from the entity itself rather than from something
+        /// an author points at.</summary>
+        private static bool IsSelfSupplied(string kind) =>
+            kind is AuthoredBySources.Id or AuthoredBySources.Name or AuthoredBySources.Parent
+                or AuthoredBySources.LocalPosition or AuthoredBySources.LocalRotation
+                or AuthoredBySources.LocalScale;
+
+        /// <summary>The sheet a Sprite3D draws, as a reference — or null when it has no standalone
+        /// image to point at.</summary>
+        private AuthoredValue? SheetReference(Sprite3D sprite, AssetReferenceResolver? assets)
+        {
+            if (sprite.Texture?.ResourcePath is not { Length: > 0 } texture) return null;
+
+            // A sub-resource has no file of its own, so there is nothing to give an identity to.
+            if (texture.Contains("::", StringComparison.Ordinal))
             {
-                WarnOnShapeMismatch(host, candidates);
-                value = Select(candidates, host.Fields);
+                GD.PushWarning(
+                    $"[Paradise] '{_host.Name}': the sprite's sheet is a sub-resource ('{texture}'), " +
+                    "which has no file to reference. Save the image as its own file under assets/.");
+                return null;
             }
 
-            if (path.Length == 0 && value is JsonObject fields)
+            return Reference(texture, assets);
+        }
+
+        /// <summary>One picked or referenced file as the reference a document stores.</summary>
+        private AuthoredValue? Reference(string file, AssetReferenceResolver? assets)
+        {
+            if (assets is not null) return assets.Reference(file);
+
+            GD.PushWarning(
+                $"[Paradise] '{_host.Name}': '{file}' cannot be given an identity with no asset " +
+                "project open, so the reference is not saved.");
+            return null;
+        }
+
+        /// <summary>The kinds whose value is the entity's OWN — read off the node, never picked.</summary>
+        private AuthoredValue? SelfSupplied(string kind) => kind switch
+        {
+            AuthoredBySources.Id => HostObjectBaker.Text(DocumentGuid.Format(EnsureEntityGuid())),
+            AuthoredBySources.Name => HostObjectBaker.Text(_host.Name.ToString()),
+            AuthoredBySources.Parent => HostObjectBaker.Text(ParentEntityGuid()),
+            AuthoredBySources.LocalPosition =>
+                HostObjectBaker.Numbers(_host.Position.X, _host.Position.Y, _host.Position.Z),
+            AuthoredBySources.LocalRotation => HostObjectBaker.Numbers(
+                _host.Quaternion.X, _host.Quaternion.Y, _host.Quaternion.Z, _host.Quaternion.W),
+            AuthoredBySources.LocalScale =>
+                HostObjectBaker.Numbers(_host.Scale.X, _host.Scale.Y, _host.Scale.Z),
+            _ => null,
+        };
+
+        /// <summary>The nearest ancestor entity's identity, or empty at the root — which is how the
+        /// kind spells "no parent".</summary>
+        private string ParentEntityGuid()
+        {
+            for (Node? node = _host.GetParent(); node is not null; node = node.GetParent())
             {
-                // A component-level reference contributes its baked fields ALONGSIDE the authored
-                // ones, rather than replacing the payload: sprite animation reads its sheet and
-                // quad off the sprite while fps and loop stay typed in.
-                foreach (var pair in fields.ToList())
-                {
-                    payload[pair.Key] = pair.Value?.DeepClone();
-                }
-                return;
+                if (node is IAuthoredEntity entity) return DocumentGuid.Format(entity.EnsureEntityGuid());
             }
-            Write(payload, path, value);
+
+            return string.Empty;
         }
 
         /// <summary>
         /// A record asking for box EXTENTS, pointed at something that is not a box.
         ///
-        /// The engine's collider is unaffected — it takes Size and LocalCenter, which every shape
-        /// fills — but a game part that declared SizeX/SizeY/SizeZ gets zeroes from a sphere or
-        /// capsule, since only a box sets Size. The old bake rejected non-box shapes outright with
-        /// a warning; keeping the warning is what stops an authoring mistake becoming a
+        /// A game part that declared SizeX/SizeY/SizeZ gets zeroes from a sphere or capsule, since
+        /// only a box sets Size. The warning is what stops an authoring mistake becoming a
         /// zero-sized collider nobody notices.
         /// </summary>
-        private void WarnOnShapeMismatch(HostRef host, JsonObject candidates)
+        private void WarnOnShapeMismatch(HostRef host, Dictionary<string, AuthoredValue> leaves)
         {
             if (host.Kind != AuthoredBySources.Shape ||
                 !host.Fields.Contains("SizeX") ||
-                candidates["ShapeType"]?.GetValue<string>() is not { } shape ||
-                shape == "Box")
+                !leaves.TryGetValue("ShapeType", out AuthoredValue shape) ||
+                shape.Text is not { } name ||
+                name == "Box")
             {
                 return;
             }
 
             GD.PushWarning(
-                $"[Paradise.Export] '{_host.Name}': '{host.Path}' asks for box extents but points at a "
-                + $"{shape} shape, which leaves them zero. Point it at a BoxShape3D, or give the "
+                $"[Paradise] '{_host.Name}': '{host.Path}' asks for box extents but points at a "
+                + $"{name} shape, which leaves them zero. Point it at a BoxShape3D, or give the "
                 + "record the fields that shape fills (Size, Radius, Height).");
         }
 
-        /// <summary>
-        /// Keep only the fields the referencing record actually declares.
-        ///
-        /// A bake offers every name it knows how to produce; the record decides which it wants. The
-        /// engine's collider takes Size and LocalCenter, a game's box part takes SizeX/SizeY/SizeZ,
-        /// and both are baked from the same CollisionShape3D. Writing the full set instead would
-        /// put keys into the payload that the record has no property for.
-        /// </summary>
-        private static JsonObject Select(JsonNode baked, IReadOnlyList<string> wanted)
+        /// <summary>Bake one referenced object into its leaves. A scalar kind returns one entry
+        /// under the empty key, which the caller writes at the reference's own path.</summary>
+        private Dictionary<string, AuthoredValue>? BakeOne(
+            string kind, NodePath path, ExportPaths paths, AssetReferenceResolver? assets)
         {
-            var result = new JsonObject();
-            if (baked is not JsonObject source)
-            {
-                return result;
-            }
-            foreach (string name in wanted)
-            {
-                if (source[name] is { } value)
-                {
-                    result[name] = value.DeepClone();
-                }
-            }
-            return result;
-        }
-
-        /// <summary>Bake one referenced object into the JSON its field expects.</summary>
-        private JsonNode? BakeOne(string kind, NodePath path, ExportPaths paths)
-        {
-            if (path.IsEmpty)
-            {
-                return null;
-            }
+            if (path.IsEmpty) return null;
 
             switch (kind)
             {
                 case AuthoredBySources.Shape:
-                {
-                    if (_host.GetNodeOrNull<CollisionShape3D>(path) is not { Shape: not null } shape)
-                    {
-                        return null;
-                    }
-                    var data = new ColliderShapeData();
-                    if (!HostObjectBaker.TryBakeShape(_host, shape, data))
-                    {
-                        return null;
-                    }
+                    return _host.GetNodeOrNull<CollisionShape3D>(path) is { Shape: not null } shape
+                        ? HostObjectBaker.BakeShape(_host, shape)
+                        : null;
 
-                    // Everything a shape can offer, in BOTH vocabularies the contract and games
-                    // use. Select() then keeps whichever the referencing record declared.
-                    JsonNode? full = Serialize(data);
-                    if (full is not JsonObject candidates)
-                    {
-                        return null;
-                    }
-                    candidates["SizeX"] = JsonValue.Create(data.Size.X);
-                    candidates["SizeY"] = JsonValue.Create(data.Size.Y);
-                    candidates["SizeZ"] = JsonValue.Create(data.Size.Z);
-                    candidates["CenterX"] = JsonValue.Create(data.LocalCenter.X);
-                    candidates["CenterY"] = JsonValue.Create(data.LocalCenter.Y);
-                    candidates["CenterZ"] = JsonValue.Create(data.LocalCenter.Z);
-                    return candidates;
-                }
+                case AuthoredBySources.Light:
+                    // One reader for a light however it was found, so a light cannot describe
+                    // itself one way when it is owned and another when it is not.
+                    return _host.GetNodeOrNull<Light3D>(path) is { } light
+                        ? HostObjectBaker.BakeLight(light)
+                        : null;
+
+                case AuthoredBySources.Camera:
+                    return _host.GetNodeOrNull<Camera3D>(path) is { } camera
+                        ? HostObjectBaker.BakeCamera(camera)
+                        : null;
+
+                case AuthoredBySources.Sprite:
+                    return _host.GetNodeOrNull<Sprite3D>(path) is { } sprite
+                        ? HostObjectBaker.BakeSprite(sprite, SheetReference(sprite, assets))
+                        : null;
 
                 case AuthoredBySources.Mesh:
                 {
-                    if (_host.GetNodeOrNull<Node>(path) is not { } node)
-                    {
-                        return null;
-                    }
+                    if (_host.GetNodeOrNull<Node>(path) is not { } node) return null;
+
+                    // The GLB the node was instanced from — a mesh reference points at a model in
+                    // the scene, and what the document stores is the SOURCE that model came from.
                     string? source = HostObjectBaker.SourceGlbOf(node)
                         ?? HostObjectBaker.ModelDescendants(node)
                             .Select(HostObjectBaker.SourceGlbOf)
                             .FirstOrDefault(p => p is not null);
-                    string? field = HostObjectBaker.MeshField(_host, source, paths);
-                    return field is null ? null : JsonValue.Create(field);
+                    if (source is null || Reference(source, assets) is not { } mesh) return null;
+
+                    return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+                    {
+                        [string.Empty] = mesh,
+                    };
                 }
 
-                case AuthoredBySources.Light:
+                case AuthoredBySources.Entity:
                 {
-                    if (_host.GetNodeOrNull<Light3D>(path) is not { } lightNode)
-                    {
-                        return null;
-                    }
-                    // Baked through the same reader the scene-level walk uses, so a light cannot
-                    // describe itself one way when it is owned and another when it is not.
-                    return Serialize(HostObjectBaker.BakeLight(lightNode));
-                }
+                    // A GUID, not a name: names are not unique, and the identity is the one the
+                    // referenced object's own meta carries.
+                    if (_host.GetNodeOrNull<Node>(path) is not IAuthoredEntity target) return null;
 
-                case AuthoredBySources.Sprite:
-                {
-                    if (_host.GetNodeOrNull<Sprite3D>(path) is not { } sprite)
+                    return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
                     {
-                        return null;
-                    }
-                    var data = new SpriteAnimationComponentData();
-                    HostObjectBaker.BakeSprite(_host, sprite, paths, data);
-                    // Only the fields the sprite OWNS; the rest of the component stays authored.
-                    return new JsonObject
-                    {
-                        ["Sheet"] = data.Sheet is null ? null : JsonValue.Create(data.Sheet),
-                        ["Columns"] = JsonValue.Create(data.Columns),
-                        ["Rows"] = JsonValue.Create(data.Rows),
-                        ["QuadSize"] = Floats(data.QuadSize.X, data.QuadSize.Y),
-                        ["Billboard"] = JsonValue.Create(data.Billboard),
+                        [string.Empty] = HostObjectBaker.Text(
+                            DocumentGuid.Format(target.EnsureEntityGuid())),
                     };
                 }
 
@@ -1210,10 +1385,7 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        /// <summary>Serialize a contract record through the contract's own writer, so converters
-        /// (enums by name, vectors as float arrays) apply exactly as they do on the way out.</summary>
-        private static JsonNode? Serialize<T>(T value) =>
-            JsonNode.Parse(Paradise.Export.Serialization.ExportJsonWriter.SerializeToString(value!));
+
 
         // ---------------------------------------------------------------------------------
         // Gizmo

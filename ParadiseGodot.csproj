@@ -34,6 +34,7 @@
          the addon is addons/paradise/*.cs - the two res:// shims, which have to live in the
          Godot project because scenes bind scripts by path. -->
     <Compile Remove="Paradise.Godot.Editor/**/*.cs" />
+    <Compile Remove="Paradise.Godot.Editor.Tests/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -51,12 +52,12 @@
     <!-- The "Space Odyssey" sim core (OdysseyBridge drives its 3D render + threaded snapshot runner). -->
     <ProjectReference Include="Paradise.Sample.Odyssey/Paradise.Sample.Odyssey.csproj" />
     <!-- The engine-neutral UI input contract the bridges enqueue events into. -->
-    <PackageReference Include="Paradise.Ui" Version="0.25.0" />
+    <PackageReference Include="Paradise.Ui" Version="0.35.0" />
     <!-- The shared sim-thread NoesisViewCore. This host does NOT use the package's
          NoesisOverlayRenderer: NoesisTextureOverlay drives the render device itself, on its
          own headless Dawn device with a CPU readback into a Godot ImageTexture. -->
     <!-- The managed Noesis WebGPU render device NoesisTextureOverlay owns directly. -->
-    <PackageReference Include="Paradise.Ui.Noesis" Version="0.25.0" />
+    <PackageReference Include="Paradise.Ui.Noesis" Version="0.35.0" />
   </ItemGroup>
 
   <!--

@@ -32,7 +32,7 @@ public ref partial struct MovementSystem : IWorldSystem
         StaticFilter = PhysicsLayers.BallContact,
     };
 
-    public BallsSegments Balls;
+    public Balls.Segments Balls;
 
     /// <summary>Deferred <c>SystemEvents</c> writer (engine 0.5.2): a <see cref="BallPocketed"/> is
     /// appended the tick a ball drops (scratch OR sink) for next-frame fan-out. The owner-reactor
