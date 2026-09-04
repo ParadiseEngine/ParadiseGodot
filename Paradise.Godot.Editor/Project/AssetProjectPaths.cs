@@ -142,6 +142,31 @@ namespace ParadiseGodot.Project
             return Layout.Editor / WorkfileDirectoryName / (withoutSuffix + WorkfileSuffix);
         }
 
+        /// <summary>
+        /// Where the BUILT form of a document sits in the editor's play tree, mirroring its place
+        /// under <c>assets/</c>. Null when the document is not this project's.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A document keeps its <c>.prefab</c> name in the play tree, unlike a release build where
+        /// the profile decides the format — the runtime dispatches on extension, and keeping the
+        /// name means a spawner or a Play button still points at a file that exists.
+        /// </para>
+        /// <para>
+        /// <c>.editor/play/</c> rather than <c>build/</c>: the editor plays its OWN output, and a
+        /// shipping build is the CLI's to write. They are layout-identical on purpose, so a bug in
+        /// one is a bug in the other.
+        /// </para>
+        /// </remarks>
+        /// <remarks>Two statements, for the reason <see cref="ToAssetMountPath"/> gives: a
+        /// conditional with a bare <c>null</c> arm types as <see cref="UPath"/> and returns a path
+        /// spelled "" where it promised nothing.</remarks>
+        public UPath? PlayPathFor(UPath documentPath)
+        {
+            if (ToAssetReferencePath(documentPath) is not { } relative) return null;
+            return Layout.EditorPlay / relative;
+        }
+
         /// <summary>The authoring document suffix — <c>AssetClassifier.PrefabSuffix</c>'s spelling,
         /// restated because taking Paradise.Assets.Pipeline for one constant would put the whole
         /// build pipeline in the addon's closure for nothing.</summary>

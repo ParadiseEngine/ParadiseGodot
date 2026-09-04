@@ -57,7 +57,11 @@ namespace ParadiseGodot.Documents
                 return false;
             }
 
-            var resolved = PrefabResolver.Resolve(document, reference => LoadPrefab(project, reference));
+            var sidecars = AssetSidecars.Index(project.Files, project.Layout);
+            foreach (var problem in sidecars.Problems) GD.PushWarning($"[Paradise] {problem}");
+
+            var resolved = PrefabResolver.Resolve(
+                document, reference => LoadPrefab(project, sidecars, reference));
             foreach (var error in resolved.Errors) GD.PushWarning($"[Paradise] {error.Message}");
 
             var name = documentPath.GetNameWithoutExtension() ?? "Document";
@@ -129,13 +133,14 @@ namespace ParadiseGodot.Documents
         /// <summary>
         /// Resolve a prefab reference to its document.
         /// </summary>
-        /// <remarks>By PATH. A reference carries a GUID as well, and the GUID is authoritative —
-        /// but following it needs an index of every sidecar under <c>assets/</c>, which arrives
-        /// with the asset pickers that mint them. Until then the path is the whole answer, which is
-        /// exactly the recovery route the reference carries a path FOR.</remarks>
-        private static PrefabDocument? LoadPrefab(ParadiseProject project, AssetReference reference)
+        /// <remarks>By GUID first, then by path. The order is the contract: a rename moves the path
+        /// and keeps the identity, so trusting the path first would open whatever now sits at the
+        /// old name. The path is the recovery route for an identity nothing carries.</remarks>
+        private static PrefabDocument? LoadPrefab(
+            ParadiseProject project, AssetSidecars sidecars, AssetReference reference)
         {
-            if (reference?.Path is not { Length: > 0 } path) return null;
+            if (reference is null) return null;
+            if (sidecars.Resolve(reference.Guid, reference.Path) is not { Length: > 0 } path) return null;
 
             var full = project.Paths.FromAssetReferencePath(path);
             try
