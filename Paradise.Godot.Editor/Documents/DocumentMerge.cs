@@ -300,6 +300,13 @@ namespace ParadiseGodot.Documents
             AuthoredValueKind.Text => value.Text,
             AuthoredValueKind.Numbers => value.Numbers!.Select(number => (object)(double)number).ToList(),
             AuthoredValueKind.Rgba => Rgba(value.Numbers!),
+            // Through the codec rather than by hand: it is what decides an AssetReference is written
+            // INLINE, and the reader recognises one by exactly that shape. A table built here would
+            // come back out as a [header] and stop being a reference.
+            AuthoredValueKind.Reference => AssetReferenceCodec.Write(
+                value.Identity == Guid.Empty && string.IsNullOrEmpty(value.Text)
+                    ? null
+                    : new Paradise.Authoring.AssetReference(value.Identity, value.Text ?? "")),
             _ => null,
         };
 

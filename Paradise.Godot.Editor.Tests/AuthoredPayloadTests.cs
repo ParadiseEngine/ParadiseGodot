@@ -132,6 +132,65 @@ public class AuthoredPayloadTests
             .IsEqualTo(AuthoredValueKind.None);
     }
 
+    private static CanonicalInlineTable Inline(params (string Key, object Value)[] pairs)
+    {
+        var table = new CanonicalInlineTable();
+        foreach (var (key, value) in pairs) table.Add(key, value);
+        return table;
+    }
+
+    /// <summary>A reference and a name share the schema type <c>string</c>, because a GUID travels
+    /// as one. Shape is what tells them apart.</summary>
+    [Test]
+    public async Task an_inline_guid_and_path_table_reads_as_a_reference()
+    {
+        var data = Table(("Mesh", Inline(
+            ("guid", "aaaaaaaa-1111-4111-8111-111111111111"),
+            ("path", "penguins/adelie.glb"))));
+
+        var value = AuthoredPayload.Read(data, "Mesh", VariantType.String);
+
+        await Assert.That(value.Kind).IsEqualTo(AuthoredValueKind.Reference);
+        await Assert.That(value.Identity).IsEqualTo(new Guid("aaaaaaaa-1111-4111-8111-111111111111"));
+        await Assert.That(value.Text).IsEqualTo("penguins/adelie.glb");
+    }
+
+    /// <summary>An empty slot is a real value — "no material here, keep the GLB's own" — and is not
+    /// the same as a field nobody wrote. Dropping it would shift every material after it onto the
+    /// wrong primitive.</summary>
+    [Test]
+    public async Task an_empty_inline_table_is_a_reference_to_nothing_rather_than_absent()
+    {
+        var value = AuthoredPayload.Read(Table(("Mesh", Inline())), "Mesh", VariantType.String);
+
+        await Assert.That(value.Kind).IsEqualTo(AuthoredValueKind.Reference);
+        await Assert.That(value.Identity).IsEqualTo(Guid.Empty);
+        await Assert.That(value.Text).IsEqualTo("");
+    }
+
+    /// <summary>A path with no identity is what a hand-written document carries, and it still has to
+    /// resolve — the GUID is authoritative, not mandatory.</summary>
+    [Test]
+    public async Task a_reference_with_only_a_path_still_reads()
+    {
+        var value = AuthoredPayload.Read(
+            Table(("Mesh", Inline(("path", "penguins/adelie.glb")))), "Mesh", VariantType.String);
+
+        await Assert.That(value.Kind).IsEqualTo(AuthoredValueKind.Reference);
+        await Assert.That(value.Text).IsEqualTo("penguins/adelie.glb");
+    }
+
+    /// <summary>A plain string in a reference-shaped field is still a string: the schema cannot tell
+    /// them apart, so the document has to.</summary>
+    [Test]
+    public async Task a_bare_string_in_the_same_field_is_still_a_name()
+    {
+        var value = AuthoredPayload.Read(Table(("Mesh", "just a name")), "Mesh", VariantType.String);
+
+        await Assert.That(value.Kind).IsEqualTo(AuthoredValueKind.Text);
+        await Assert.That(value.Text).IsEqualTo("just a name");
+    }
+
     /// <summary>The distinction the caller depends on: absent means "use the schema default", and a
     /// zero would overwrite what an author set with something they never typed.</summary>
     [Test]

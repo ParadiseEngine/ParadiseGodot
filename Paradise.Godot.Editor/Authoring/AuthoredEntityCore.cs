@@ -11,6 +11,7 @@ using Paradise.Export.Data;
 using Paradise.Export.Paths;
 using Paradise.Assets.Documents;
 using ParadiseGodot.Documents;
+using ParadiseGodot.Project;
 
 namespace ParadiseGodot.Authoring
 {
@@ -630,7 +631,12 @@ namespace ParadiseGodot.Authoring
                     { "name", name },
                     { "type", (int)Variant.Type.String },
                     { "usage", (int)PropertyUsageFlags.Default },
-                    { "hint", (int)PropertyHint.File },
+                    // GLOBAL, not File. A File hint browses the EDITOR filesystem, which skips any
+                    // directory carrying a .gdignore — and a game's assets/ carries one precisely so
+                    // Godot does not try to import the source tree. The picker would show an author
+                    // an empty tree containing the one thing they came for. A global picker walks
+                    // the OS filesystem, and the bake refuses anything outside assets/ anyway.
+                    { "hint", (int)PropertyHint.GlobalFile },
                     { "hint_string", filter },
                 };
             }
@@ -1121,7 +1127,10 @@ namespace ParadiseGodot.Authoring
         /// an edit to the collider, and nothing in the inspector would have noticed.
         /// </para>
         /// </remarks>
-        public IReadOnlyDictionary<string, AuthoredValue> BakedHostValues()
+        /// <param name="assets">Resolves and mints asset identities. Null while no project is
+        /// open, in which case an asset reference cannot be turned into one and is skipped rather
+        /// than written as a bare path — half a reference is worse than none.</param>
+        public IReadOnlyDictionary<string, AuthoredValue> BakedHostValues(AssetReferenceResolver? assets = null)
         {
             EnsureSchema();
             ExportPaths paths = ParadisePaths.ExportPaths();
@@ -1141,12 +1150,12 @@ namespace ParadiseGodot.Authoring
                     // off the sprite while fps and loop stay typed in.
                     BakeRef(
                         new HostRef("", wholeKind, IsList: false, null, Array.Empty<string>()),
-                        component, paths, baked);
+                        component, paths, assets, baked);
                 }
 
                 foreach (HostRef host in component.Hosts)
                 {
-                    BakeRef(host, component, paths, baked);
+                    BakeRef(host, component, paths, assets, baked);
                 }
             }
 
@@ -1157,6 +1166,7 @@ namespace ParadiseGodot.Authoring
             HostRef host,
             ComponentSchema component,
             ExportPaths paths,
+            AssetReferenceResolver? assets,
             Dictionary<string, AuthoredValue> into)
         {
             string prefix = component.Id + "/";
@@ -1181,12 +1191,15 @@ namespace ParadiseGodot.Authoring
                 string file = stored.AsString();
                 if (string.IsNullOrEmpty(file)) return;
 
-                // Which resolver applies is decided by what the field says it ACCEPTS: a model goes
-                // through the mesh resolver, an image through the spritesheet one.
-                string? resolved = HostObjectBaker.IsGlbPath(file)
-                    ? HostObjectBaker.MeshField(_host, file, paths)
-                    : HostObjectBaker.SheetField(_host, file, paths);
-                if (resolved is not null) into[prefix + at] = HostObjectBaker.Text(resolved);
+                if (assets is null)
+                {
+                    GD.PushWarning(
+                        $"[Paradise] '{_host.Name}': '{host.Path}' references '{file}', but no asset " +
+                        "project is open to give it an identity, so it is not saved.");
+                    return;
+                }
+
+                if (assets.Reference(file) is { } reference) into[prefix + at] = reference;
                 return;
             }
 
@@ -1200,7 +1213,7 @@ namespace ParadiseGodot.Authoring
                 return;
             }
 
-            if (BakeOne(host.Kind, stored.AsNodePath(), paths) is not { } leaves) return;
+            if (BakeOne(host.Kind, stored.AsNodePath(), paths, assets) is not { } leaves) return;
 
             if (leaves.Count == 1 && leaves.TryGetValue(string.Empty, out AuthoredValue single))
             {
@@ -1224,6 +1237,35 @@ namespace ParadiseGodot.Authoring
             kind is AuthoredBySources.Id or AuthoredBySources.Name or AuthoredBySources.Parent
                 or AuthoredBySources.LocalPosition or AuthoredBySources.LocalRotation
                 or AuthoredBySources.LocalScale;
+
+        /// <summary>The sheet a Sprite3D draws, as a reference — or null when it has no standalone
+        /// image to point at.</summary>
+        private AuthoredValue? SheetReference(Sprite3D sprite, AssetReferenceResolver? assets)
+        {
+            if (sprite.Texture?.ResourcePath is not { Length: > 0 } texture) return null;
+
+            // A sub-resource has no file of its own, so there is nothing to give an identity to.
+            if (texture.Contains("::", StringComparison.Ordinal))
+            {
+                GD.PushWarning(
+                    $"[Paradise] '{_host.Name}': the sprite's sheet is a sub-resource ('{texture}'), " +
+                    "which has no file to reference. Save the image as its own file under assets/.");
+                return null;
+            }
+
+            return Reference(texture, assets);
+        }
+
+        /// <summary>One picked or referenced file as the reference a document stores.</summary>
+        private AuthoredValue? Reference(string file, AssetReferenceResolver? assets)
+        {
+            if (assets is not null) return assets.Reference(file);
+
+            GD.PushWarning(
+                $"[Paradise] '{_host.Name}': '{file}' cannot be given an identity with no asset " +
+                "project open, so the reference is not saved.");
+            return null;
+        }
 
         /// <summary>The kinds whose value is the entity's OWN — read off the node, never picked.</summary>
         private AuthoredValue? SelfSupplied(string kind) => kind switch
@@ -1278,7 +1320,8 @@ namespace ParadiseGodot.Authoring
 
         /// <summary>Bake one referenced object into its leaves. A scalar kind returns one entry
         /// under the empty key, which the caller writes at the reference's own path.</summary>
-        private Dictionary<string, AuthoredValue>? BakeOne(string kind, NodePath path, ExportPaths paths)
+        private Dictionary<string, AuthoredValue>? BakeOne(
+            string kind, NodePath path, ExportPaths paths, AssetReferenceResolver? assets)
         {
             if (path.IsEmpty) return null;
 
@@ -1303,23 +1346,25 @@ namespace ParadiseGodot.Authoring
 
                 case AuthoredBySources.Sprite:
                     return _host.GetNodeOrNull<Sprite3D>(path) is { } sprite
-                        ? HostObjectBaker.BakeSprite(_host, sprite, paths)
+                        ? HostObjectBaker.BakeSprite(sprite, SheetReference(sprite, assets))
                         : null;
 
                 case AuthoredBySources.Mesh:
                 {
                     if (_host.GetNodeOrNull<Node>(path) is not { } node) return null;
 
+                    // The GLB the node was instanced from — a mesh reference points at a model in
+                    // the scene, and what the document stores is the SOURCE that model came from.
                     string? source = HostObjectBaker.SourceGlbOf(node)
                         ?? HostObjectBaker.ModelDescendants(node)
                             .Select(HostObjectBaker.SourceGlbOf)
                             .FirstOrDefault(p => p is not null);
-                    return HostObjectBaker.MeshField(_host, source, paths) is { } field
-                        ? new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
-                        {
-                            [string.Empty] = HostObjectBaker.Text(field),
-                        }
-                        : null;
+                    if (source is null || Reference(source, assets) is not { } mesh) return null;
+
+                    return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+                    {
+                        [string.Empty] = mesh,
+                    };
                 }
 
                 case AuthoredBySources.Entity:

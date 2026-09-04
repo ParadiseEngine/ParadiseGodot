@@ -67,7 +67,8 @@ namespace ParadiseGodot.Authoring
         /// <c>&lt;componentId&gt;/&lt;path&gt;</c>. Recomputed at save rather than tracked as an
         /// edit: moving the shape a collider points at changes the value, and nothing in the
         /// inspector would have noticed.</summary>
-        IReadOnlyDictionary<string, AuthoredValue> BakedHostValues();
+        IReadOnlyDictionary<string, AuthoredValue> BakedHostValues(
+            ParadiseGodot.Project.AssetReferenceResolver? assets = null);
 
     }
 }

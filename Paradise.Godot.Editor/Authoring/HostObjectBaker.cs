@@ -27,25 +27,6 @@ namespace ParadiseGodot.Authoring
     {
         // ---- meshes ---------------------------------------------------------------------
 
-        /// <summary>The data-relative GLB field for a mesh reference, or null (with a warning) when
-        /// it resolves outside the data directory and so could never load at runtime.</summary>
-        public static string? MeshField(Node3D entity, string? sourcePath, ExportPaths paths)
-        {
-            if (!IsGlbPath(sourcePath))
-            {
-                return null;
-            }
-
-            string? field = paths.DataRelativeMeshField(sourcePath!);
-            if (field is null)
-            {
-                GD.PushWarning(
-                    $"[Paradise.Export] Entity '{entity.Name}' references model '{sourcePath}' outside "
-                    + $"{ParadisePaths.DataDirPrefix} — the runtime resolves meshes under the data directory, "
-                    + "so it will not render. Move the asset there.");
-            }
-            return field;
-        }
 
         /// <summary>The GLB a node was instanced from, if any. Used to resolve a mesh reference that
         /// points at an instanced model rather than naming a file directly.</summary>
@@ -77,47 +58,15 @@ namespace ParadiseGodot.Authoring
 
         // ---- spritesheets ---------------------------------------------------------------
 
-        /// <summary>
-        /// A spritesheet contract field: the source image resolved under <c>data/sprites/</c>, stored
-        /// with the runtime (.ktx2) extension — the sidecar the data-ingest pass encodes next to the
-        /// source. Null (with a warning) when the image is a sub-resource or lives outside
-        /// <c>data/sprites/</c>: the resolver accepts EXACTLY the set the sidecar pass covers, so an
-        /// exported sheet field always has a generator.
-        /// </summary>
-        public static string? SheetField(Node3D entity, string? texturePath, ExportPaths paths)
-        {
-            if (string.IsNullOrWhiteSpace(texturePath))
-            {
-                return null;
-            }
-
-            if (texturePath!.Contains("::", System.StringComparison.Ordinal))
-            {
-                GD.PushWarning(
-                    $"[Paradise.Export] Entity '{entity.Name}' uses a sub-resource spritesheet ('{texturePath}') — "
-                    + $"the runtime needs a standalone image under {ParadisePaths.SpritesDir}/. The sheet is not exported.");
-                return null;
-            }
-
-            string? field = paths.DataRelativeMeshField(texturePath);
-            if (field is null || !field.StartsWith("sprites/", System.StringComparison.Ordinal))
-            {
-                GD.PushWarning(
-                    $"[Paradise.Export] Entity '{entity.Name}' references spritesheet '{texturePath}' outside "
-                    + $"{ParadisePaths.SpritesDir}/ — the KTX2 sidecar pass only covers that directory, so the .NET "
-                    + "runtime could never load it. Move the image under the sprites directory. The sheet is not exported.");
-                return null;
-            }
-
-            return System.IO.Path.ChangeExtension(field, ".ktx2");
-        }
 
         /// <summary>Read the geometry half of a sprite animation off the Sprite3D itself — the node
         /// Godot renders natively. Frame pixels × pixel_size is Godot's own world size for the quad.
         /// The playback clock (fps, loop, frame count) stays authored, because no sprite object
         /// holds a frame rate.</summary>
-        public static Dictionary<string, AuthoredValue> BakeSprite(
-            Node3D entity, Sprite3D sprite, ExportPaths paths)
+        /// <param name="sheet">The sheet as a reference, or null when the sprite has no standalone
+        /// image. Absent rather than empty: a field left out keeps the record's own default, where
+        /// an empty reference would assert that the sprite points at nothing.</param>
+        public static Dictionary<string, AuthoredValue> BakeSprite(Sprite3D sprite, AuthoredValue? sheet)
         {
             float frameWidth = sprite.Texture is { } texture
                 ? texture.GetWidth() / (float)System.Math.Max(1, sprite.Hframes)
@@ -134,13 +83,7 @@ namespace ParadiseGodot.Authoring
                 ["Billboard"] = Boolean(sprite.Billboard != BaseMaterial3D.BillboardModeEnum.Disabled),
             };
 
-            // Absent rather than empty when the sheet cannot be resolved: a field left out keeps the
-            // record's own default, where an empty string would assert that the sheet IS "".
-            if (SheetField(entity, sprite.Texture?.ResourcePath, paths) is { } sheet)
-            {
-                leaves["Sheet"] = Text(sheet);
-            }
-
+            if (sheet is { } reference) leaves["Sheet"] = reference;
             return leaves;
         }
 

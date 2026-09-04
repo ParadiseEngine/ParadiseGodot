@@ -19,6 +19,9 @@ namespace ParadiseGodot.Documents
         Numbers,
         /// <summary>Four channels in 0..1, from <c>{ r, g, b, a }</c> or a four-float array.</summary>
         Rgba,
+        /// <summary>An asset reference: <c>{ guid, path }</c>. Both, because the GUID is what
+        /// survives a rename and the path is what a human can fix when it does not.</summary>
+        Reference,
     }
 
     /// <summary>
@@ -36,9 +39,15 @@ namespace ParadiseGodot.Documents
         long Integer = 0,
         double Number = 0,
         string? Text = null,
-        float[]? Numbers = null)
+        float[]? Numbers = null,
+        Guid Identity = default)
     {
         public static AuthoredValue None { get; } = new(AuthoredValueKind.None);
+
+        /// <summary>An asset reference. <paramref name="path"/> is the AUTHORING path — the file
+        /// under <c>assets/</c>, never the built one.</summary>
+        public static AuthoredValue Reference(Guid guid, string path) =>
+            new(AuthoredValueKind.Reference, Text: path, Identity: guid);
     }
 
     /// <summary>
@@ -104,9 +113,15 @@ namespace ParadiseGodot.Documents
                 ? new AuthoredValue(AuthoredValueKind.Number, Number: number)
                 : AuthoredValue.None,
 
-            Variant.Type.String => value is string text
-                ? new AuthoredValue(AuthoredValueKind.Text, Text: text)
-                : AuthoredValue.None,
+            // A reference and a plain string share a schema type, because a GUID travels as a
+            // string. They are told apart by SHAPE, which is what the document actually carries: an
+            // inline { guid, path } table is a reference and anything else is a name.
+            Variant.Type.String => value switch
+            {
+                string text => new AuthoredValue(AuthoredValueKind.Text, Text: text),
+                CanonicalInlineTable inline => Reference(inline),
+                _ => AuthoredValue.None,
+            },
 
             Variant.Type.Vector2 => Run(value, 2),
             Variant.Type.Vector3 => Run(value, 3),
@@ -154,6 +169,33 @@ namespace ParadiseGodot.Documents
             var run = Run(value, 4);
             return run.Kind == AuthoredValueKind.Numbers
                 ? run with { Kind = AuthoredValueKind.Rgba }
+                : AuthoredValue.None;
+        }
+
+        /// <summary>An inline <c>{ guid, path }</c> table. A malformed one reads as ABSENT rather
+        /// than as an empty reference: the field keeps whatever the record declares instead of
+        /// asserting that it points at nothing.</summary>
+        private static AuthoredValue Reference(CanonicalInlineTable inline)
+        {
+            Guid guid = default;
+            string path = "";
+            foreach (var (key, value) in inline)
+            {
+                switch (key)
+                {
+                    case "guid" when value is string text && Guid.TryParse(text, out var parsed):
+                        guid = parsed;
+                        break;
+                    case "path" when value is string text:
+                        path = text;
+                        break;
+                }
+            }
+
+            // An empty slot — {} — is a real value: "no material here, keep the GLB's own". It is
+            // NOT the same as a field nobody wrote.
+            return inline.Count == 0 || guid != default || path.Length > 0
+                ? AuthoredValue.Reference(guid, path)
                 : AuthoredValue.None;
         }
 

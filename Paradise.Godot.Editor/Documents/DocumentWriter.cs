@@ -70,7 +70,7 @@ namespace ParadiseGodot.Documents
             }
 
             var states = new List<DocumentMerge.ObjectState>();
-            Harvest(root, parent: null, states);
+            Harvest(root, parent: null, AssetReferenceResolver.For(project), states);
             var merged = DocumentMerge.Apply(current, states);
             foreach (var problem in merged.Problems) GD.PushWarning($"[Paradise] {problem}");
 
@@ -115,7 +115,8 @@ namespace ParadiseGodot.Documents
         /// not to this document, and writing it back would flatten the instance. Its own children
         /// are skipped with it, because a child of something that is not here has nowhere to
         /// hang.</remarks>
-        private static void Harvest(Node node, Guid? parent, List<DocumentMerge.ObjectState> states)
+        private static void Harvest(
+            Node node, Guid? parent, AssetReferenceResolver assets, List<DocumentMerge.ObjectState> states)
         {
             var childParent = parent;
             if (node is IAuthoredEntity entity && node is Node3D placed)
@@ -124,7 +125,7 @@ namespace ParadiseGodot.Documents
 
                 var guid = entity.EnsureEntityGuid();
                 var values = new Dictionary<string, AuthoredValue>(entity.AuthoredValues(), StringComparer.Ordinal);
-                var baked = entity.BakedHostValues();
+                var baked = entity.BakedHostValues(assets);
                 foreach (var (key, value) in baked) values[key] = value;
 
                 states.Add(new DocumentMerge.ObjectState(
@@ -138,7 +139,7 @@ namespace ParadiseGodot.Documents
                 childParent = guid;
             }
 
-            foreach (var child in node.GetChildren()) Harvest(child, childParent, states);
+            foreach (var child in node.GetChildren()) Harvest(child, childParent, assets, states);
         }
 
         /// <summary>Read the three channels, never the matrix — the same reason the loader assigns
