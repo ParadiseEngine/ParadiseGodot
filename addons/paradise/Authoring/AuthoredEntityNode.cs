@@ -52,7 +52,8 @@ namespace ParadiseGodot.Authoring
         public Guid EnsureEntityGuid() => Core.EnsureEntityGuid();
 
         public System.Collections.Generic.IReadOnlyDictionary<string, ParadiseGodot.Documents.AuthoredValue>
-            BakedHostValues() => Core.BakedHostValues();
+            BakedHostValues(ParadiseGodot.Project.AssetReferenceResolver? assets = null) =>
+            Core.BakedHostValues(assets);
 
         // The four overrides that make the inspector exist. Without them the node draws nothing,
         // stores nothing and saves nothing — and no unit test can see it, because a shim is only

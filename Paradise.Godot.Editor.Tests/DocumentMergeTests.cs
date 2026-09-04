@@ -290,6 +290,41 @@ public class DocumentMergeTests
             written.Objects[2].Component(WellKnownComponents.TransformId)!.Data).Position.X).IsEqualTo(4f);
     }
 
+    /// <summary>A reference is written INLINE, which is the shape the reader recognises one by —
+    /// a header table would come back out as an ordinary nested table and stop being a
+    /// reference.</summary>
+    [Test]
+    public async Task a_reference_round_trips_as_an_inline_table()
+    {
+        var document = Canonical();
+        var edits = new AuthoredEdits();
+        edits.FieldChanged(BuoyancyId, "Label");
+        var guid = new Guid("aaaaaaaa-1111-4111-8111-111111111111");
+
+        var merged = DocumentMerge.Apply(document,
+        [
+            Untouched()[0],
+            State(ChildGuid, "Child", RootGuid,
+                new LocalTransform(Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f)),
+                edits,
+                new Dictionary<string, AuthoredValue>
+                {
+                    [BuoyancyId + "/Label"] = AuthoredValue.Reference(guid, "penguins/adelie.glb"),
+                }),
+        ]);
+
+        var written = PrefabDocumentSerializer.Write(merged.Document);
+        await Assert.That(written).Contains("Label = { guid = ");
+
+        var read = AuthoredPayload.Read(
+            Reread(merged.Document).Objects[1].Component(Buoyancy)!.Data,
+            "Label",
+            global::Godot.Variant.Type.String);
+        await Assert.That(read.Kind).IsEqualTo(AuthoredValueKind.Reference);
+        await Assert.That(read.Identity).IsEqualTo(guid);
+        await Assert.That(read.Text).IsEqualTo("penguins/adelie.glb");
+    }
+
     /// <summary>An override carrier addresses a prefab child rather than being one, so it never had
     /// a node and must not be read as deleted.</summary>
     [Test]
