@@ -63,9 +63,12 @@ namespace ParadiseGodot.Authoring
         /// git while nothing has actually changed.</summary>
         Guid EnsureEntityGuid();
 
-        /// <summary>The components this node authors, ready to become the entity's entry in
-        /// <see cref="LevelData.Entities"/>. An empty sequence exports nothing.</summary>
-        IEnumerable<AuthoredComponentData> ExportAuthoredComponents();
+        /// <summary>Every leaf this entity's host REFERENCES contribute, keyed
+        /// <c>&lt;componentId&gt;/&lt;path&gt;</c>. Recomputed at save rather than tracked as an
+        /// edit: moving the shape a collider points at changes the value, and nothing in the
+        /// inspector would have noticed.</summary>
+        IReadOnlyDictionary<string, AuthoredValue> BakedHostValues();
+
     }
 }
 #endif
