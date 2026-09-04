@@ -46,29 +46,34 @@ namespace ParadiseGodot.Export
             var paths = ParadisePaths.ExportPaths();
             var document = new LevelData();
             var materials = new MaterialExporter();
-            var prefabs = new PrefabExporter(materials, paths);
             paths.EnsureOutputDirectory();
-            var environmentExported = false; // only the first WorldEnvironment in the tree is used
+            bool environmentExported = false; // only the first WorldEnvironment in the tree is used
             foreach (Node node in Descendants(root))
             {
                 switch (node)
                 {
-                    case Camera3D camera when document.Camera is null:
-                        document.Camera = ExportCamera(camera);
-                        break;
                     case WorldEnvironment { Environment: { } env } when !environmentExported:
-                        ExportEnvironment(env, EnsureLightingState(document).Environment, FindSun(root));
+                    {
+                        // v5: the environment is an authored component on its own entity, not a
+                        // document block. The runtime finds it the way it finds anything else.
+                        var environment = new EnvironmentData();
+                        ExportEnvironment(env, environment, FindSun(root));
+                        document.Entities.Add(
+                        [
+                            AuthoredComponentList.Entry(environment),
+                        ]);
                         environmentExported = true;
                         break;
+                    }
                     // A light BENEATH an entity belongs to that entity, which exports it as its
                     // own component; listing it here too would describe one light twice and light
-                    // the scene twice over. No scene authored before this had a light under an
-                    // entity, so nothing existing changes.
+                    // the scene twice over. A top-level light IS its own object in v5: it gets its
+                    // own entity carrying Name/Transform/Light, the same as any placed thing.
                     case Light3D light when !OwnedByEntity(light):
-                        EnsureLightingState(document).Lights.Add(HostObjectBaker.BakeLight(light));
+                        document.Entities.Add(ExportLight(light));
                         break;
                     case IAuthoredEntity entity:
-                        document.Entities.Add(ExportEntity(entity, materials, prefabs, paths));
+                        document.Entities.Add(ExportEntity(entity, materials));
                         break;
                 }
             }
@@ -76,23 +81,32 @@ namespace ParadiseGodot.Export
             ProjectSettingsExporter.Export(paths);
             UiAssetExporter.Export(paths);
             materials.WriteExportedMaterials(paths);
-            ExportNavMesh(root, sceneName, paths, document);
+            ExportNavMesh(root, sceneName, paths);
             string outputPath = paths.GetLevelDataOutputPath(sceneName);
             Writer.Write(outputPath, document);
             GD.Print($"[Paradise.Export] Exported scene data: {outputPath}");
             return outputPath;
         }
 
-        private static CameraData ExportCamera(Camera3D camera) => new()
+        /// <summary>A top-level light becomes its own entity: a name, a world placement, and the
+        /// baked <see cref="SceneLightData"/>. v5 removed the scene-level light list, so there is
+        /// no longer a second place a light could be described from.</summary>
+        private static List<AuthoredComponentData> ExportLight(Light3D light)
         {
-            Position = ToSN(camera.GlobalPosition),
-            Rotation = ToSN(camera.GlobalRotationDegrees),
-            // Camera3D.Size is the orthographic half-height (matches Unity's orthographicSize);
-            // perspective-camera FOV is out of Phase 1 scope.
-            OrthographicSize = camera.Size,
-            // Godot has no per-camera background colour (clear colour comes from the environment);
-            // the exact source is resolved with lighting/environment fidelity in a later phase.
-        };
+            Transform3D global = light.GlobalTransform;
+            return
+            [
+                AuthoredComponentList.Entry(new NameComponentData { Value = light.Name.ToString() }),
+                AuthoredComponentList.Entry(new TransformComponentData
+                {
+                    World = ContractMatrix.Trs(
+                        ToSN(global.Origin),
+                        ToSN(global.Basis.GetRotationQuaternion()),
+                        SN.Vector3.One),
+                }),
+                AuthoredComponentList.Entry(HostObjectBaker.BakeLight(light)),
+            ];
+        }
 
         // Export the Godot Environment. For now only tone mapping is carried across (the runtime
         // renderer applies the matching operator before the sRGB encode); ambient/sky/fog fidelity
@@ -343,17 +357,6 @@ namespace ParadiseGodot.Export
             return color;
         }
 
-        private static LightingStateData EnsureLightingState(LevelData document)
-        {
-            document.Lighting ??= new LightingData { ActiveState = "Default" };
-            if (document.Lighting.States.Count == 0)
-            {
-                document.Lighting.States.Add(new LightingStateData { Name = "Default" });
-            }
-
-            return document.Lighting.States[0];
-        }
-
         // Internal: the plugin's Play .NET button derives the exported JSON path from the same
         // name rule without re-exporting.
         internal static string ResolveSceneName(Node root)
@@ -364,10 +367,11 @@ namespace ParadiseGodot.Export
                 : Path.GetFileNameWithoutExtension(scenePath);
         }
 
-        // Bake the scene's static-collider navmesh and write it as the runtime's DotRecast binary,
-        // recording the filename on the document. Failures (no walkable geometry, bake error) leave
-        // NavMeshFile null rather than aborting the scene export.
-        private static void ExportNavMesh(Node root, string sceneName, ExportPaths paths, LevelData document)
+        // Bake the scene's static-collider navmesh and write it as the runtime's DotRecast binary.
+        // v5 carries no navmesh field on the document; the runtime resolves the binary by the
+        // scene-name convention. Failures (no walkable geometry, bake error) skip the binary
+        // rather than aborting the scene export.
+        private static void ExportNavMesh(Node root, string sceneName, ExportPaths paths)
         {
             try
             {
@@ -379,7 +383,6 @@ namespace ParadiseGodot.Export
                 string navMeshPath = paths.GetNavMeshOutputPath(sceneName);
                 NavMeshBinaryWriter.Write(navMeshPath, vertices, triangles,
                     message => GD.PushWarning($"[Paradise.Export] {message}"));
-                document.NavMeshFile = paths.GetNavMeshFileField(sceneName);
                 GD.Print($"[Paradise.Export] Exported navmesh: {navMeshPath}");
             }
             catch (System.Exception ex)
@@ -388,75 +391,61 @@ namespace ParadiseGodot.Export
             }
         }
 
-        private static LevelEntityData ExportEntity(
-            IAuthoredEntity entity, MaterialExporter materials, PrefabExporter prefabs, ExportPaths paths)
+        // One entity as its v5 shape: a list of authored components. The host contributes the
+        // name and world placement (the two facts every object has), then the components the
+        // author enabled ride along verbatim, then host-derived material slots. There is no
+        // entity record any more — identity, kind, prefab provenance and parent links are all
+        // gone from the contract.
+        private static List<AuthoredComponentData> ExportEntity(
+            IAuthoredEntity entity, MaterialExporter materials)
         {
-            SN.Vector3 localPos = ToSN(entity.Node.Position);
-            SN.Quaternion localRot = ToSN(entity.Node.Quaternion);
-            SN.Vector3 localScale = ToSN(entity.Node.Scale);
-
             Transform3D global = entity.Node.GlobalTransform;
             SN.Vector3 worldPos = ToSN(global.Origin);
             SN.Quaternion worldRot = ToSN(global.Basis.GetRotationQuaternion());
             SN.Vector3 worldScale = ToSN(global.Basis.Scale);
 
-            PrefabExporter.Identity prefab = prefabs.ResolveAndExport(entity);
             string name = entity.Node.Name.ToString();
 
-            // Only what a HOST knows: identity, placement, provenance. Everything an entity HAS is
-            // authored, and arrives below through the router — material slots included, as of
-            // contract v4: they belong to the Renderable, which is authored, so they can only be
-            // written once the router has put it on the entity.
-            var data = new LevelEntityData
+            // Mint+persist a GUID if the node has never been saved. v5 carries no id field on the
+            // entity, but the meta still stabilises authored identity across re-exports and keeps
+            // duplicate-node detection working at authoring time.
+            entity.EnsureEntityGuid();
+
+            var components = new List<AuthoredComponentData>
             {
-                Id = name,
-                // Mint+persist a GUID if the node has never been saved, so we never export the
-                // all-zero GUID (which would collide across entities at runtime).
-                EntityGuid = entity.EnsureEntityGuid(),
-                StableId = name,
-                SpawnPhase = "LevelStart",
-                PrefabAssetPath = prefab.PrefabAssetPath,
-                PrefabGuid = prefab.PrefabGuid,
-                PrefabAssetType = prefab.PrefabAssetType,
-                NearestInstanceRoot = prefab.NearestInstanceRoot,
-                Parent = ResolveParent(entity),
-                LocalPosition = localPos,
-                LocalRotation = localRot,
-                LocalScale = localScale,
-                LocalMatrix = ContractMatrix.Trs(localPos, localRot, localScale),
-                WorldMatrix = ContractMatrix.Trs(worldPos, worldRot, worldScale),
+                AuthoredComponentList.Entry(new NameComponentData { Value = name }),
+                AuthoredComponentList.Entry(new TransformComponentData
+                {
+                    World = ContractMatrix.Trs(worldPos, worldRot, worldScale),
+                }),
             };
 
-            // Authored components decide the rest — Kind, IsActive, and the component list itself.
-            // Identity is the only one the router still redirects (onto the entity's own fields);
-            // everything else lands in the list exactly as it was authored.
-            IReadOnlyList<AuthoredComponentData> dropped =
-                AuthoredComponentRouter.ApplyAll(data, entity.ExportAuthoredComponents());
-            foreach (AuthoredComponentData component in dropped)
+            foreach (AuthoredComponentData component in entity.ExportAuthoredComponents())
             {
-                // Only a payload with NEITHER an id nor a type name reaches here — there is
-                // nothing left to identify it by, so it says so with the entity's name instead.
-                GD.PushError(
-                    $"[Paradise.Export] Entity '{name}' authored a component with no id and no "
-                    + "type name; it is missing from the export.");
+                if (component.Id == Guid.Empty && string.IsNullOrEmpty(component.Type))
+                {
+                    // Only a payload with NEITHER an id nor a type name reaches here — there is
+                    // nothing left to identify it by, so it says so with the entity's name instead.
+                    GD.PushError(
+                        $"[Paradise.Export] Entity '{name}' authored a component with no id and no "
+                        + "type name; it is missing from the export.");
+                    continue;
+                }
+                components.Add(component);
             }
 
-            // The material slots, LAST — they are host-derived (read off the MeshInstance3D's
-            // surfaces) but they live on an AUTHORED component, so there is nothing to write them
-            // onto until ApplyAll above has put the Renderable on the entity. An entity that
-            // authors no Renderable has no slots to record: they index that component's GLB
-            // primitives, and without it they would name nothing.
-            //
-            // Get/Set rather than editing the payload: Set replaces the entry in place, keeping
-            // the component order the author's own, and re-serializes through the same writer the
-            // rest of the document uses.
-            if (data.Get<RenderableComponentData>() is { } renderable)
+            // Material slots are host-derived (read off the MeshInstance3D's surfaces). v5 moved
+            // them off the Renderable onto their own MaterialsComponentData; they index that
+            // component's GLB primitives, so an entity that authors no Renderable has no slots.
+            if (components.Has<RenderableComponentData>())
             {
-                renderable.Materials = materials.ExportMaterialSlots(entity.Node);
-                data.Set(renderable);
+                components.Set(new MaterialsComponentData
+                {
+                    Slots = materials.ExportMaterialSlots(entity.Node),
+                });
             }
 
-            return data;
+            return components;
         }
 
         /// <summary>Whether a node sits under an entity, which then owns it.</summary>
@@ -471,26 +460,6 @@ namespace ParadiseGodot.Export
             }
             return false;
         }
-
-        private static EntityParentData? ResolveParent(IAuthoredEntity entity)
-        {
-            for (Node? parent = entity.Node.GetParent(); parent is not null; parent = parent.GetParent())
-            {
-                if (parent is IAuthoredEntity ancestor)
-                {
-                    return new EntityParentData { Id = ancestor.Node.Name.ToString() };
-                }
-            }
-
-            return null;
-        }
-
-        // Resolve the entity's SOURCE mesh GLB to a data/-relative contract field. Prefers the
-        // authored ModelPath; otherwise the nearest instanced model child (a node whose
-        // SceneFilePath is a .glb/.gltf under data/). A .tscn/.scn ModelPath is a prefab hint, not
-        // a mesh, so it is ignored here (the caller keeps the ModelPath-hint Renderable branch).
-        // Returns null when no GLB is found or it resolves OUTSIDE data/ (unreachable at runtime).
-        private static string? NullIfEmpty(string value) => string.IsNullOrEmpty(value) ? null : value;
 
         private static IEnumerable<Node> Descendants(Node node)
         {

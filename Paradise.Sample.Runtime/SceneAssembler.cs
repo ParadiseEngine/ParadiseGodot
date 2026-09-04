@@ -42,7 +42,7 @@ public static class SceneAssembler
             // Only truly static bodies join the static world — kinematic agents and dynamic
             // balls are simulated, exactly like the Godot bridge's navigation_source harvest.
             if (entity.Get<RigidbodyComponentData>()?.BodyType != PhysicsBodyType.Static) continue;
-            var model = ToModelMatrix(entity.WorldMatrix);
+            var model = ToModelMatrix(entity.Get<TransformComponentData>()?.World);
             foreach (var shape in entity.Get<ColliderComponentData>()?.Colliders ?? [])
             {
                 // Triggers are sensors (pool-pocket capture regions), never solid geometry —
@@ -125,7 +125,7 @@ public static class SceneAssembler
         foreach (var entity in level.Entities)
         {
             if (entity.Get<RigidbodyComponentData>()?.BodyType != PhysicsBodyType.Static) continue;
-            var model = ToModelMatrix(entity.WorldMatrix);
+            var model = ToModelMatrix(entity.Get<TransformComponentData>()?.World);
             var ownerScale = OwnerScale(model);
             foreach (var shape in entity.Get<ColliderComponentData>()?.Colliders ?? [])
             {
@@ -193,25 +193,16 @@ public static class SceneAssembler
 
         foreach (var entity in level.Level.Entities)
         {
-            var model = ToModelMatrix(entity.WorldMatrix);
+            var model = ToModelMatrix(entity.Get<TransformComponentData>()?.World);
             PbrInstance? render = null;
             SkinnedMeshState? skinned = null;
             if (entity.Get<RenderableComponentData>() is { Mesh: { } meshField } renderable)
             {
                 var asset = level.MeshAssets[meshField];
-                // Entities that author InitialAnimation get PRIVATE dynamic buffers for their
-                // skinned primitives and a per-frame CPU-skinning state; everything else shares
-                // the static per-asset uploads. A missing clip name falls back to static.
-                if (entity.InitialAnimation is { Length: > 0 } clipName && asset.Skins.Length > 0)
-                {
-                    (var mesh, skinned) = geometry.InstantiateSkinnedMesh(asset, renderable.Materials, level, clipName);
-                    render = new PbrInstance { Mesh = mesh, Model = model };
-                }
-                else
-                {
-                    var mesh = geometry.InstantiateMesh(asset, renderable.Materials, level);
-                    render = new PbrInstance { Mesh = mesh, Model = model };
-                }
+                // v5 dropped the entity-level InitialAnimation field; meshes instantiate as
+                // static (skinned playback has no authored clip to start from).
+                var mesh = geometry.InstantiateMesh(asset, entity.Get<MaterialsComponentData>()?.Slots ?? [], level);
+                render = new PbrInstance { Mesh = mesh, Model = model };
             }
 
             Entity? simEntity = null;
@@ -226,8 +217,9 @@ public static class SceneAssembler
                 // Godot scales collision shapes by node scale; the contract stores the UNSCALED
                 // shape radius, so apply the entity's (uniform) scale here or a 0.7-scaled ball
                 // simulates 43% too fat and racks placed at visual spacing explode apart.
-                var radius = (sphere?.Radius ?? 0.5f) * entity.LocalScale.X;
-                var isCue = string.Equals(entity.StableId, "CueBall", StringComparison.OrdinalIgnoreCase);
+                var ownerScale = OwnerScale(model);
+                var radius = (sphere?.Radius ?? 0.5f) * ownerScale.X;
+                var isCue = string.Equals(entity.Get<NameComponentData>()?.Value, "CueBall", StringComparison.OrdinalIgnoreCase);
                 var ball = runner.SpawnBall(position, rotation, radius,
                     Math.Max(0.01f, rigidbody.Mass),
                     rigidbody.LinearDamping,
@@ -249,7 +241,7 @@ public static class SceneAssembler
 
             if (render is not null)
             {
-                instances.Add(new RuntimeInstance(simEntity, render, skinned, entity.LocalScale.X));
+                instances.Add(new RuntimeInstance(simEntity, render, skinned, OwnerScale(model).X));
             }
 
             // Sprite animations and particle emitters spawn their own sim entities (independent
@@ -304,10 +296,20 @@ public static class SceneAssembler
 
     public static void PopulateLighting(RuntimeLevel level, PbrScene scene)
     {
-        var state = level.Level.Lighting?.ResolveActiveState();
-        if (state is null) return;
+        // v5: the lighting document block is gone. The environment is an authored
+        // EnvironmentData on its own entity, and every light is a SceneLightData component
+        // on the entity that IS it — gather them from the entity component lists.
+        EnvironmentData? environment = null;
+        var lights = new List<SceneLightData>();
+        foreach (var entity in level.Level.Entities)
+        {
+            if (entity.Get<EnvironmentData>() is { } env) environment = env;
+            if (entity.Get<SceneLightData>() is { } light) lights.Add(light);
+        }
+        if (environment is null && lights.Count == 0) return;
 
-        var environment = state.Environment;
+        if (environment is not null)
+        {
         scene.Ambient = new PbrAmbient
         {
             Sky = ToVector3(environment.AmbientColor),
@@ -340,7 +342,7 @@ public static class SceneAssembler
         // light, so disabling the light removes the sun from the sky exactly like hiding it does
         // in Godot. The sky wants the LINEAR colour × energy (contract light colours are
         // sRGB-encoded, matching Godot's light_color; Godot linearizes for the sky uniforms).
-        var sun = state.Lights.FirstOrDefault(l => l.Enabled && l.Type == "Directional");
+        var sun = lights.FirstOrDefault(l => l.Enabled && l.Type == "Directional");
         if (sun is not null)
         {
             scene.SkySunEnabled = true;
@@ -375,8 +377,9 @@ public static class SceneAssembler
             Threshold = environment.GlowThreshold,
             Intensity = environment.GlowIntensity,
         };
+        }
 
-        foreach (var light in state.Lights)
+        foreach (var light in lights)
         {
             if (!light.Enabled) continue;
             scene.Lights.Add(new PbrLight

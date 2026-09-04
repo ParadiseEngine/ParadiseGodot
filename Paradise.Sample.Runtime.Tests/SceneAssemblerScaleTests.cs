@@ -13,17 +13,12 @@ public class SceneAssemblerScaleTests
 {
     private static readonly CollisionFilter HitAnything = new() { BelongsTo = ~0u, CollidesWith = ~0u };
 
-    private static LevelEntityData StaticEntity(string id, Matrix4x4 worldMatrix, ColliderShapeData shape) => new()
+    private static List<AuthoredComponentData> StaticEntity(string id, Matrix4x4 worldMatrix, ColliderShapeData shape) => new()
     {
-        Id = id,
-        WorldMatrix = worldMatrix,
-        Components =
-        {
-            LevelEntityExtensions.Entry(
-                new RigidbodyComponentData { BodyType = PhysicsBodyType.Static }),
-            LevelEntityExtensions.Entry(
-                new ColliderComponentData { Colliders = { shape } }),
-        },
+        AuthoredComponentList.Entry(new NameComponentData { Value = id }),
+        AuthoredComponentList.Entry(new TransformComponentData { World = worldMatrix }),
+        AuthoredComponentList.Entry(new RigidbodyComponentData { BodyType = PhysicsBodyType.Static }),
+        AuthoredComponentList.Entry(new ColliderComponentData { Colliders = { shape } }),
     };
 
     private static bool CastDown(CollisionWorld world, float x, float z, out RaycastHit hit)

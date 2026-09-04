@@ -38,8 +38,6 @@ namespace ParadiseGodot.Authoring
             set => Core.ModelPath = value;
         }
 
-        public string ResolvedKind => Core.ResolvedKind;
-
         public Guid EntityGuid => Core.EntityGuid;
 
         public Guid EnsureEntityGuid() => Core.EnsureEntityGuid();

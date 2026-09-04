@@ -25,8 +25,8 @@ public class FancyMaterialTests
 
     private static LevelMaterialData BallMaterial(RuntimeLevel level, string stableId)
     {
-        var entity = level.Level.Entities.First(e => e.StableId == stableId);
-        return level.Materials[entity.Get<RenderableComponentData>()!.Materials[0]!];
+        var entity = level.Level.Entities.First(e => e.Get<NameComponentData>()?.Value == stableId);
+        return level.Materials[entity.Get<MaterialsComponentData>()!.Slots[0]!];
     }
 
     [Test]
@@ -35,7 +35,7 @@ public class FancyMaterialTests
         // The shared sphere_ball.glb material is genuinely textured (the gradient), sourced via
         // sample.json's Ball2 (which keeps the textured slot override).
         var sample = LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
-        var ball2 = sample.Level.Entities.First(e => e.Id == "Ball2");
+        var ball2 = sample.Level.Entities.First(e => e.Get<NameComponentData>()?.Value == "Ball2");
         GltfAsset asset = sample.MeshAssets[ball2.Get<RenderableComponentData>()!.Mesh!];
         var texturedGlb = asset.Materials[0];
         await Assert.That(SceneAssembler.HasAnyTexture(in texturedGlb)).IsTrue();

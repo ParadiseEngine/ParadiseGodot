@@ -25,12 +25,11 @@ namespace ParadiseGodot.Authoring
         /// here, because the interface cannot itself derive from <see cref="Node3D"/>.</summary>
         Node3D Node { get; }
 
-        /// <summary>The source asset, as <c>paradise.identity</c> authors it. Setting it enables
-        /// the identity component, exactly as ticking the box would.</summary>
+        /// <summary>The source GLB this entity renders, as authored on
+        /// <see cref="RenderableComponentData"/>'s asset-bound <c>Mesh</c> field. Setting it
+        /// enables the Renderable component exactly as ticking the box would, and the host bakes
+        /// the res:// path to its data/-relative contract field at export.</summary>
         string ModelPath { get; set; }
-
-        /// <summary>What this entity is, as the exporter should record it.</summary>
-        string ResolvedKind { get; }
 
         /// <summary>This entity's GUID as it stands, or <see cref="Guid.Empty"/> if it has none.
         /// Reading never mints one - the uniqueness scan compares every sibling through this, and
@@ -42,8 +41,8 @@ namespace ParadiseGodot.Authoring
         /// git while nothing has actually changed.</summary>
         Guid EnsureEntityGuid();
 
-        /// <summary>The components this node authors, ready for
-        /// <see cref="LevelEntityData.Components"/>. An empty sequence exports nothing.</summary>
+        /// <summary>The components this node authors, ready to become the entity's entry in
+        /// <see cref="LevelData.Entities"/>. An empty sequence exports nothing.</summary>
         IEnumerable<AuthoredComponentData> ExportAuthoredComponents();
     }
 }

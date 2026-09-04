@@ -82,7 +82,7 @@ namespace ParadiseGodot
             }
 
             var checkedMeshes = new HashSet<string>(StringComparer.Ordinal);
-            foreach (LevelEntityData entity in level.Entities)
+            foreach (IReadOnlyList<AuthoredComponentData> entity in level.Entities)
             {
                 string? mesh = entity.Get<RenderableComponentData>()?.Mesh;
                 if (string.IsNullOrEmpty(mesh) || !checkedMeshes.Add(mesh))
@@ -91,21 +91,21 @@ namespace ParadiseGodot
                 }
 
                 string meshPath = paths.GetMeshOutputPath(mesh);
+                string label = entity.Get<NameComponentData>()?.Value ?? "(unnamed)";
                 if (!File.Exists(meshPath))
                 {
-                    errors.Add($"Entity '{entity.DisplayName ?? entity.Id}' references missing mesh '{mesh}' (expected at {meshPath}).");
+                    errors.Add($"Entity '{label}' references missing mesh '{mesh}' (expected at {meshPath}).");
                     continue;
                 }
                 ValidateGlbImageSidecars(meshPath, mesh, errors);
             }
 
             string navmeshPath = paths.GetNavMeshOutputPath(sceneName);
-            if (!string.IsNullOrEmpty(level.NavMeshFile) && !File.Exists(navmeshPath))
-            {
-                errors.Add($"Scene references navmesh '{level.NavMeshFile}' but '{navmeshPath}' does not exist.");
-            }
-            else if (File.Exists(navmeshPath) && File.Exists(scenePath) &&
-                     File.GetLastWriteTimeUtc(navmeshPath) < File.GetLastWriteTimeUtc(scenePath))
+            // v5 carries no navmesh field: the binary is resolved by scene-name convention. It is
+            // optional (a scene with no walkable geometry bakes none), so a missing file is not an
+            // error; a stale one is a warning.
+            if (File.Exists(navmeshPath) && File.Exists(scenePath) &&
+                File.GetLastWriteTimeUtc(navmeshPath) < File.GetLastWriteTimeUtc(scenePath))
             {
                 warnings.Add("Navmesh .bin is older than the scene — paths may follow stale geometry. Re-save to re-bake.");
             }

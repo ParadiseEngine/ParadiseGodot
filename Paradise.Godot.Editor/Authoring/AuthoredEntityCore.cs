@@ -773,42 +773,22 @@ namespace ParadiseGodot.Authoring
         }
 
         // ---------------------------------------------------------------------------------
-        // Identity — the one thing a schema cannot carry
+        // Model path — the one thing a schema cannot carry
         // ---------------------------------------------------------------------------------
 
         /// <summary>
-        /// The source asset, as <c>paradise.identity</c> authors it.
+        /// The source GLB this entity renders, as authored on <see cref="RenderableComponentData"/>.
         ///
         /// A convenience over the authored value, for code that has no inspector to go through:
-        /// the model-prefab generator places entities programmatically, and the prefab exporter
-        /// reads provenance while building a template. Setting it enables the identity component,
-        /// exactly as ticking the box would.
+        /// the model-prefab generator places entities programmatically. Setting it enables the
+        /// Renderable component exactly as ticking the box would, and the host bakes the res://
+        /// path to its data/-relative contract field at export. (v5 removed the separate identity
+        /// component — provenance was a field nothing read.)
         /// </summary>
         public string ModelPath
         {
-            get => AuthoredValue(typeof(IdentityComponentData).GUID, "Prefab").AsString();
-
-            // Sets BOTH halves, because a model is two authored facts and code that has only a
-            // path cannot be expected to know that. paradise.identity/Prefab is provenance — which
-            // asset this entity came from — and paradise.renderable/Mesh is what draws. Setting
-            // only the first produced a prefab that renders in the Godot editor, where the child
-            // GLB is native, and is INVISIBLE at runtime, which no export diff catches.
-            set
-            {
-                SetAuthored(typeof(IdentityComponentData).GUID, "Prefab", value);
-                SetAuthored(typeof(RenderableComponentData).GUID, "Mesh", value);
-            }
-        }
-
-        /// <summary>The authored kind, falling back to "Prop" — the contract treats it as a label
-        /// and an unlabelled entity is a prop.</summary>
-        public string ResolvedKind
-        {
-            get
-            {
-                string kind = AuthoredValue(typeof(IdentityComponentData).GUID, "Kind").AsString();
-                return string.IsNullOrWhiteSpace(kind) ? "Prop" : kind;
-            }
+            get => AuthoredValue(typeof(RenderableComponentData).GUID, "Mesh").AsString();
+            set => SetAuthored(typeof(RenderableComponentData).GUID, "Mesh", value);
         }
 
         private Variant AuthoredValue(Guid componentId, string field) =>

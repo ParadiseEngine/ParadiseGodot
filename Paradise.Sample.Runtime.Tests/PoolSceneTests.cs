@@ -28,12 +28,12 @@ public class PoolSceneTests
     public async Task loader_reads_the_committed_pool_scene()
     {
         var level = LoadPool();
-        await Assert.That(level.Level.Entities.Count).IsEqualTo(45);
+        await Assert.That(level.Level.Entities.Count).IsEqualTo(48);
         foreach (var entity in level.Level.Entities)
         {
             // level.Materials is the runtime's loaded-document dictionary; the slots are the
             // entity's overrides, which live on its Renderable as of contract v4.
-            foreach (var slot in entity.Get<RenderableComponentData>()?.Materials ?? [])
+            foreach (var slot in entity.Get<MaterialsComponentData>()?.Slots ?? [])
             {
                 if (slot is not null) await Assert.That(level.Materials.ContainsKey(slot)).IsTrue();
             }
@@ -121,10 +121,10 @@ public class PoolSceneTests
     public async Task authored_physics_material_params_survive_the_export_round_trip()
     {
         var level = LoadPool();
-        LevelEntityData? cue = null;
+        List<AuthoredComponentData>? cue = null;
         foreach (var entity in level.Level.Entities)
         {
-            if (entity.StableId == "CueBall") cue = entity;
+            if (entity.Get<NameComponentData>()?.Value == "CueBall") cue = entity;
         }
         await Assert.That(cue).IsNotNull();
         var rigidbody = cue!.Get<RigidbodyComponentData>()!;
