@@ -648,8 +648,12 @@ namespace ParadiseGodot.Authoring
             {
                 AuthoredBySources.Shape => "CollisionShape3D",
                 AuthoredBySources.Sprite => "Sprite3D",
+                // A sprite sheet's geometry is read off the same node as a sprite reference: the
+                // kind divides the sheet where the value kind only names it.
+                AuthoredBySources.SpriteSheet => "Sprite3D",
                 AuthoredBySources.Light => "Light3D",
                 AuthoredBySources.Camera => "Camera3D",
+                AuthoredBySources.Environment => "WorldEnvironment",
                 // An entity reference points at another AuthoredEntityNode, but that type lives in
                 // the CONSUMING assembly and Godot filters by class NAME — so the filter is the
                 // shim's registered global class, not a type this assembly can name.
@@ -1367,8 +1371,16 @@ namespace ParadiseGodot.Authoring
                         : null;
 
                 case AuthoredBySources.Sprite:
+                case AuthoredBySources.SpriteSheet:
+                    // One reader for both: the value kind keeps the Sheet leaf and the composed
+                    // kind keeps all five, and BakeRef hands each record the leaves it declared.
                     return _host.GetNodeOrNull<Sprite3D>(path) is { } sprite
                         ? HostObjectBaker.BakeSprite(sprite, SheetReference(sprite, assets))
+                        : null;
+
+                case AuthoredBySources.Environment:
+                    return _host.GetNodeOrNull<WorldEnvironment>(path) is { Environment: { } environment }
+                        ? HostObjectBaker.BakeEnvironment(environment)
                         : null;
 
                 case AuthoredBySources.Mesh:
