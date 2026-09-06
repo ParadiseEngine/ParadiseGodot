@@ -43,15 +43,21 @@ Run **Project > Tools > Paradise/Project Setup**. It is idempotent and:
 - persists the default settings (`paradise/export/data_dir = res://data`),
 - warns if your csproj still pins `Paradise.Export` by hand (remove it — see above).
 
-## 4. Install the preview runtime
+## 4. Install the engine CLI
 
 ```bash
-dotnet tool install --global Paradise.Sample.Runtime
+dotnet tool install --global Paradise.Cli
 ```
 
-This provides `paradise-runtime`, which the **Play .NET** toolbar button auto-detects
-(`~/.dotnet/tools`). Alternatively point Paradise/Settings… > "runtime host" at your own host
-executable or `.csproj`.
+This provides `paradise`, which the **Play** toolbar button and **Paradise/Extract Models** run
+(found on PATH or in `~/.dotnet/tools`; Paradise/Settings… > "paradise CLI" overrides). Name
+your game's launcher in `assets/project.toml`:
+
+```toml
+[host]
+project = "MyGame.Launcher/MyGame.Launcher.csproj"
+scene = "scenes/main.prefab"
+```
 
 ## 5. Author and run an entity
 
@@ -62,9 +68,8 @@ executable or `.csproj`.
    or leave it to the primitive pipeline.
 3. **Save the scene.** The contract is exported automatically:
    `data/scenes/<SceneName>.json` (+ materials, navmesh when present).
-4. Press **Play .NET** in the toolbar — the exported scene opens in an SDL window with the
-   engine PBR renderer and the sample simulation (WASD + click-to-path when a player/agent
-   and navmesh exist).
+4. Press **Play** in the toolbar — `paradise host play` builds the assets into `.editor/play/`,
+   brings the launcher up to date and runs it on the open document. **Stop** ends it.
 
 ## 6. Optional tooling
 

@@ -25,11 +25,12 @@ namespace ParadiseGodot
 
         public ExportPluginCore(EditorPlugin host) => _host = host;
 
-        // Scene-root metadata naming a code-driven runtime sample (`--game <name>`) for the "Play .NET"
+        // Scene-root metadata naming a code-driven runtime sample (`--game <name>`) for the "Play"
         // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNode nodes.
         private const string GameMetaKey = "paradise_game";
 
         private const string OpenDocumentMenuItem = "Paradise/Open Document…";
+        private const string ExtractModelsMenuItem = "Paradise/Extract Models";
         private const string ProjectSetupMenuItem = "Paradise/Project Setup";
         private const string SettingsMenuItem = "Paradise/Settings…";
 
@@ -54,10 +55,14 @@ namespace ParadiseGodot
             "OnProjectSetup",
             "OnOpenSettings",
             "OnPlayDotnet",
+            "OnStopDotnet",
+            "OnExtractModels",
         ];
 
         private ParadiseSettingsDialog? _settingsDialog;
         private FileDialog? _documentDialog;
+        private Button? _stopButton;
+        private readonly Play.ParadiseCli _cli = new();
 
         public void EnterTree()
         {
@@ -76,16 +81,25 @@ namespace ParadiseGodot
             }
 
             _host.AddToolMenuItem(OpenDocumentMenuItem, new Callable(_host, "OnOpenDocument"));
+            _host.AddToolMenuItem(ExtractModelsMenuItem, new Callable(_host, "OnExtractModels"));
             _host.AddToolMenuItem(ProjectSetupMenuItem, new Callable(_host, "OnProjectSetup"));
             _host.AddToolMenuItem(SettingsMenuItem, new Callable(_host, "OnOpenSettings"));
             _playDotnetButton = new Button
             {
-                Text = "Play .NET",
-                TooltipText = "Launch the active scene in the standalone .NET runtime host (SDL window, engine PBR renderer, real simulation). Needs a scene the runtime can load: mark the root with 'paradise_game' metadata for a runtime sample, or build the asset project with `paradise assets build`. Host resolution: Settings… > runtime host, else this project's Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool.",
+                Text = "Play",
+                TooltipText = "Run the open document's game through `paradise host play`: builds the assets into .editor/play/, brings the launcher named by [host] in assets/project.toml up to date, and runs it. A scene root carrying the paradise_game metadata launches that code-driven sample instead.",
                 Flat = true,
             };
             _playDotnetButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnPlayDotnet"));
             _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
+            _stopButton = new Button
+            {
+                Text = "Stop",
+                TooltipText = "Stop the game Play started.",
+                Flat = true,
+            };
+            _stopButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnStopDotnet"));
+            _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _stopButton);
             // Ctrl+S has to reach the document, or the author's edits live only in a cache that the
             // next open overwrites.
             _host.SceneSaved += OnSceneSaved;
@@ -104,8 +118,15 @@ namespace ParadiseGodot
                 _playDotnetButton.QueueFree();
                 _playDotnetButton = null;
             }
+            if (_stopButton is not null)
+            {
+                _host.RemoveControlFromContainer(EditorPlugin.CustomControlContainer.Toolbar, _stopButton);
+                _stopButton.QueueFree();
+                _stopButton = null;
+            }
             OnDocumentDialogClosed();
             _host.RemoveToolMenuItem(OpenDocumentMenuItem);
+            _host.RemoveToolMenuItem(ExtractModelsMenuItem);
             _host.RemoveToolMenuItem(ProjectSetupMenuItem);
             _host.RemoveToolMenuItem(SettingsMenuItem);
             _host.SceneSaved -= OnSceneSaved;
@@ -116,11 +137,17 @@ namespace ParadiseGodot
             }
         }
 
-        /// <summary>Toolbar "Play .NET": launch the ALREADY-exported scene data detached in the
-        /// standalone runtime via `dotnet run` (builds on demand — the first launch after a code
-        /// change takes a few seconds before the window appears). Deliberately does NOT export:
-        /// data/ is authoring output, kept fresh by the save hook / Paradise menu — launching is
-        /// a pure consumer of it.</summary>
+        /// <summary>
+        /// Toolbar "Play": hand the edited document to <c>paradise host play</c>, which builds the
+        /// assets into <c>.editor/play/</c>, brings the launcher up to date and runs it.
+        /// </summary>
+        /// <remarks>
+        /// The addon builds nothing itself; what to run and where it is built are the CLI's to
+        /// know. One exception stays: a scene root carrying the <c>paradise_game</c> metadata names
+        /// a CODE-DRIVEN sample (Odyssey, the pool demo) that has no document, and this repo's own
+        /// runtime project runs it directly — the dev-workbench case, until the repo is an asset
+        /// project with a <c>[host]</c> of its own.
+        /// </remarks>
         public void OnPlayDotnet()
         {
             try
@@ -128,152 +155,100 @@ namespace ParadiseGodot
                 Node? root = EditorInterface.Singleton.GetEditedSceneRoot();
                 if (root is null)
                 {
-                    GD.PushWarning("[Paradise.Export] No edited scene to play.");
+                    GD.PushWarning("[Paradise] No edited scene to play.");
                     return;
                 }
 
-                string[]? host = ResolveRuntimeHostCommand();
-                if (host is null)
-                {
-                    GD.PushError(
-                        "[Paradise.Export] No runtime host found. Set one in Paradise/Settings… " +
-                        "(a paradise-runtime executable or a host .csproj), or install the tool: " +
-                        "`dotnet tool install --global paradise-runtime`.");
-                    return;
-                }
-
-                string logPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "paradise_play_dotnet.log");
-                // User-configured runtime arguments (Paradise/Settings…, default --imgui).
                 string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
-
-                // A scene root may declare a code-driven runtime SAMPLE via the `paradise_game` metadata
-                // (e.g. Odyssey): those have no AuthoredEntityNodeBase nodes, so a --scene launch would render an
-                // empty world. The SAME button reads the metadata and launches the runtime's built-in
-                // sample (`--game <name>`); every other scene falls through to the data-export path — one
-                // launch flow, the scene's own metadata picks the mode (mirrors `paradise_entity_guid`).
-                string[] argv;
-                string launchLabel;
                 string game = root.HasMeta(GameMetaKey) ? root.GetMeta(GameMetaKey).AsString() : "";
                 if (!string.IsNullOrEmpty(game))
                 {
-                    argv = [.. host[1..], "--game", game, .. extraArgs];
-                    launchLabel = $"--game {game}";
-                }
-                else if (BuiltScenePath(root) is { } built)
-                {
-                    argv = [.. host[1..], "--scene", built, .. extraArgs];
-                    launchLabel = built;
-                }
-                else
-                {
+                    PlaySample(game, extraArgs);
                     return;
                 }
 
-                long pid;
-                if (System.OperatingSystem.IsWindows())
+                if (DocumentHostPath(root, out string? projectRoot) is not { } document) return;
+                if (!_cli.Play(projectRoot!, document, extraArgs, out string? problem))
                 {
-                    pid = OS.CreateProcess(host[0], argv);
-                }
-                else
-                {
-                    // Shell wrapper for two GUI-launch realities: OS.CreateProcess drops the
-                    // child's output (build errors would vanish — log them to a file instead),
-                    // and the editor's PATH lacks the dotnet directory, which build targets
-                    // invoking `dotnet` (child processes) need.
-                    string dotnetDir = System.IO.Path.GetDirectoryName(ResolveDotnetPath()) ?? "/usr/local/share/dotnet";
-                    string args = string.Concat(System.Linq.Enumerable.Select(argv, a => $" {ShellQuote(a)}"));
-                    string command =
-                        $"export PATH=\"{dotnetDir}:$PATH\"; " +
-                        $"exec {ShellQuote(host[0])}{args} > \"{logPath}\" 2>&1";
-                    pid = OS.CreateProcess("/bin/sh", ["-c", command]);
-                }
-
-                if (pid <= 0)
-                {
-                    GD.PushError($"[Paradise.Export] Failed to launch '{host[0]}' — is the .NET SDK installed?");
+                    GD.PushError($"[Paradise] {problem}");
                     return;
                 }
 
-                GD.Print($"[Paradise.Export] Launched .NET runtime (pid {pid}): {launchLabel} — output: {logPath}");
+                GD.Print($"[Paradise] Playing '{document}' through `paradise host play` — output: {Play.ParadiseCli.LogPath}");
             }
             catch (System.Exception ex)
             {
-                GD.PushError($"[Paradise.Export] Play .NET failed: {ex.Message}");
+                GD.PushError($"[Paradise] Play failed: {ex.Message}");
             }
         }
 
-        // POSIX single-quote wrapping: every token becomes one word verbatim, whatever it
-        // contains ('...' with embedded quotes spliced as '\'' ).
-        private static string ShellQuote(string value) => $"'{value.Replace("'", "'\\''")}'";
-
-        /// <summary>Resolve the runtime host as an argv prefix (element 0 = executable). Order:
-        /// the Paradise/Settings… "runtime host" path (a .csproj means `dotnet run --project`;
-        /// machine-level EditorSettings override first, then the committed project setting),
-        /// then this project's own Paradise.Sample.Runtime (the dev-workbench case), then the
-        /// globally installed `paradise-runtime` dotnet tool. Null when nothing is found.</summary>
-        internal static string[]? ResolveRuntimeHostCommand()
+        /// <summary>Toolbar "Stop": end the game Play started, and the CLI with it.</summary>
+        public void OnStopDotnet()
         {
-            string configured = ResolveHostPath(ParadiseSettingsDialog.RuntimeHostPath());
-            if (configured.Length > 0)
+            if (!_cli.IsPlaying)
             {
-                return configured.EndsWith(".csproj", System.StringComparison.OrdinalIgnoreCase)
-                    ? [ResolveDotnetPath(), "run", "--project", configured, "--"]
-                    : [configured];
+                GD.Print("[Paradise] Nothing is playing.");
+                return;
             }
 
-            string sampleProject = System.IO.Path.Combine(
-                ProjectSettings.GlobalizePath("res://"), "Paradise.Sample.Runtime", "Paradise.Sample.Runtime.csproj");
-            if (System.IO.File.Exists(sampleProject))
-            {
-                return [ResolveDotnetPath(), "run", "--project", sampleProject, "--"];
-            }
-
-            string toolName = System.OperatingSystem.IsWindows() ? "paradise-runtime.exe" : "paradise-runtime";
-            string toolPath = System.IO.Path.Combine(
-                System.Environment.GetFolderPath(System.Environment.SpecialFolder.UserProfile),
-                ".dotnet", "tools", toolName);
-            return System.IO.File.Exists(toolPath) ? [toolPath] : null;
+            _cli.Stop();
+            GD.Print("[Paradise] Stopped.");
         }
 
-        /// <summary>Normalize a configured host path to an absolute one. `res://` and plain
-        /// relative paths resolve against the project root — the committed project setting must
-        /// stay device-portable, and the launched process's CWD is not guaranteed to be the
-        /// project directory. Empty stays empty.</summary>
-        internal static string ResolveHostPath(string configured)
+        /// <summary>
+        /// "Paradise/Extract Models": <c>paradise assets extract --all</c> — every GLB under
+        /// <c>assets/</c> gets its mesh, skeleton, clip and material documents, and a starter prefab
+        /// where nothing places it yet. Runs to completion; the output lands in the editor log.
+        /// </summary>
+        public void OnExtractModels()
         {
-            if (configured.Length == 0)
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
             {
-                return configured;
+                GD.PushError($"[Paradise] {problem}");
+                return;
             }
-            if (configured.StartsWith("res://", System.StringComparison.Ordinal))
+
+            string root;
+            using (project)
             {
-                return ProjectSettings.GlobalizePath(configured);
+                root = project.Files.ConvertPathToInternal(project.Layout.Root);
             }
-            return System.IO.Path.IsPathRooted(configured)
-                ? configured
-                : System.IO.Path.GetFullPath(System.IO.Path.Combine(ProjectSettings.GlobalizePath("res://"), configured));
+
+            int code = Play.ParadiseCli.Run(["assets", "extract", "--all", "--project", root], root, out string output, out string? failure);
+            if (failure is not null)
+            {
+                GD.PushError($"[Paradise] {failure}");
+                return;
+            }
+
+            foreach (string line in output.Split('\n', System.StringSplitOptions.RemoveEmptyEntries))
+            {
+                GD.Print($"[paradise] {line}");
+            }
+            if (code != 0) GD.PushError($"[Paradise] `paradise assets extract --all` exited {code}.");
         }
 
-        private static string ResolveDotnetPath()
+        /// <summary>The code-driven sample flow: this repo's own runtime project, run directly.</summary>
+        private void PlaySample(string game, string[] extraArgs)
         {
-            // A GUI-launched editor doesn't inherit the shell PATH (notably on macOS), so probe
-            // the standard SDK locations before falling back to PATH resolution.
-            foreach (string candidate in new[]
+            string repo = ProjectSettings.GlobalizePath("res://");
+            string sampleProject = System.IO.Path.Combine(repo, "Paradise.Sample.Runtime", "Paradise.Sample.Runtime.csproj");
+            if (!System.IO.File.Exists(sampleProject))
             {
-                "/usr/local/share/dotnet/dotnet", // macOS official installer
-                "/usr/local/bin/dotnet",
-                "/opt/homebrew/bin/dotnet",
-                "/usr/bin/dotnet",                // Linux distro packages
-                "/usr/share/dotnet/dotnet",
-            })
-            {
-                if (System.IO.File.Exists(candidate))
-                {
-                    return candidate;
-                }
+                GD.PushError(
+                    $"[Paradise] The scene names the code-driven sample '{game}', which only this " +
+                    "addon's own repo can run (Paradise.Sample.Runtime is not here).");
+                return;
             }
 
-            return "dotnet";
+            string[] argv = ["run", "--project", sampleProject, "--", "--game", game, .. extraArgs];
+            if (!_cli.Launch(Play.ParadiseCli.FindDotnet(), argv, repo, out string? problem))
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return;
+            }
+
+            GD.Print($"[Paradise] Playing sample '{game}' — output: {Play.ParadiseCli.LogPath}");
         }
 
         /// <summary>Pick a <c>*.prefab</c> under assets/ and open it as a scene.</summary>
@@ -331,21 +306,12 @@ namespace ParadiseGodot
             }
         }
 
-        /// <summary>
-        /// The BUILT form of the open document, in the editor's own play tree, or null with the
-        /// reason already reported.
-        /// </summary>
-        /// <remarks>
-        /// <c>.editor/play/</c> rather than <c>build/</c>: the editor plays its own output, and a
-        /// shipping build belongs to the CLI. They are layout-identical, so playing what the editor
-        /// built is still a test of what the build produces.
-        ///
-        /// The addon does not run the build itself. A build reaches for external tools and can take
-        /// a while, and a Play button that silently rebuilds is a Play button that sometimes hangs;
-        /// pointing at what is there and naming the command that makes it is the honest version.
-        /// </remarks>
-        private static string? BuiltScenePath(Node root)
+        /// <summary>The edited document as a host path, and the asset project's root — what
+        /// <c>paradise host play --project … --scene …</c> takes. The CLI resolves the built twin
+        /// and builds it, so nothing here looks at <c>.editor/play/</c>.</summary>
+        private static string? DocumentHostPath(Node root, out string? projectRoot)
         {
+            projectRoot = null;
             if (DocumentSession.DocumentOf(root) is not { } authoringPath)
             {
                 GD.PushError(
@@ -363,23 +329,8 @@ namespace ParadiseGodot
 
             using (project)
             {
-                var document = project.Paths.FromAssetReferencePath(authoringPath);
-                if (project.Paths.PlayPathFor(document) is not { } built)
-                {
-                    GD.PushError($"[Paradise] '{authoringPath}' is not under this project's assets/.");
-                    return null;
-                }
-
-                if (!project.Files.FileExists(built))
-                {
-                    GD.PushError(
-                        $"[Paradise] '{authoringPath}' has not been built yet, so there is nothing to " +
-                        "play. Run `paradise assets build --editor` in the project root, then press " +
-                        "Play again.");
-                    return null;
-                }
-
-                return project.Files.ConvertPathToInternal(built);
+                projectRoot = project.Files.ConvertPathToInternal(project.Layout.Root);
+                return project.Files.ConvertPathToInternal(project.Paths.FromAssetReferencePath(authoringPath));
             }
         }
 
