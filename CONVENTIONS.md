@@ -78,8 +78,9 @@ stay real code rather than becoming authored data — a schema cannot mint anyth
 
 ## Materials (Phase 3)
 
-Godot `BaseMaterial3D` (StandardMaterial3D / ORMMaterial3D) → `LevelMaterialData`, one JSON per
-material under `data/materials/`. Mapping:
+Godot `BaseMaterial3D` (StandardMaterial3D / ORMMaterial3D) → `LevelMaterialData`, one
+`.material` document per material under `assets/materials/` (written by the retired exporter;
+today authored by hand or minted from a GLB by `paradise assets extract`). Mapping:
 
 - `BaseColorFactor` / `EmissiveFactor` — `AlbedoColor` / `Emission × EmissionEnergyMultiplier`,
   **sRGB→linear** (see above), packed 8-bit.
@@ -118,8 +119,8 @@ material under `data/materials/`. Mapping:
   `paradise.rigidbody` component) — the runtime spawns those as simulated balls.
 - **Material naming** — sub-resource materials take their field name from the sub-resource id
   (`materials/mat_ball1.json`), not the scene filename (which used to collide).
-- **Headless export** — `PARADISE_EXPORT_SCENE=res://scenes/x.tscn godot --headless --editor
-  --path .` regenerates `data/` and exits (the CI/regeneration entry).
+- **Headless export** — gone with the exporter. `paradise assets build` is the regeneration
+  entry, and the runtime tests build `assets/` in-process through the same pipeline.
 
 ## Sprite animation & particles (sim-driven)
 
@@ -152,16 +153,17 @@ material under `data/materials/`. Mapping:
 
 ## Runtime (Paradise.Sample.Runtime)
 
-`Paradise.Sample.Runtime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads the
-exported `data/` (scene JSON via `ExportJsonReader`, GLBs via the engine's
-`Paradise.Assets.Gltf`), rebuilds the CollisionWorld from the static
+`Paradise.Sample.Runtime/` is the engine-renderer twin of `runtime/EcsSceneBridge.cs`: it loads a
+BUILT tree (the scene document via `BuiltDocument`, mesh blobs via `Paradise.Assets.Mesh`,
+material documents and KTX2 textures as the build wrote them; a GLB's own slot materials come
+through its seed prefab), rebuilds the CollisionWorld from the static
 entities' colliders, spawns the SAME `SimulationRunner` sim (`Rigidbody.Dynamic` → `SpawnBall`),
 and PBR-renders snapshots interpolated at the bridge's constants (delay 2/60, max lag 4/60,
 Lerp/Slerp). Left-click drags to aim/strike the cue ball. Contract matrices are column-vector
 layout — `SceneAssembler.ToModelMatrix` transposes to System.Numerics row-vector convention. The
 camera projection mode is NOT in the contract (schema v3 candidate): the runtime defaults to
 perspective 75° (Godot's default) with `--ortho`/`--fov` overrides.
-`dotnet run --project Paradise.Sample.Runtime -- --scene data/scenes/sample.json [--headless N]`.
+`dotnet run --project Paradise.Sample.Runtime -- --scene .editor/play/scenes/sample.prefab [--headless N]`.
 
 ## Physics — stateless collision (runtime)
 
@@ -363,7 +365,7 @@ it imports itself.
 
 ## Project settings & layers (Phase 7)
 
-`data/ProjectSettings.json` holds the physics collision matrix + render settings.
+`assets/ProjectSettings.toml` (built beside the scenes) holds the physics collision matrix + render settings.
 
 - **Collision matrix — layer policy (resolves the open question).** Godot's
   `collision_layer`/`collision_mask` are 32-bit (parity with Unity's 32 layers), but Godot has

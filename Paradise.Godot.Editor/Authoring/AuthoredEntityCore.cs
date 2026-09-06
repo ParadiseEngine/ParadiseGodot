@@ -8,7 +8,6 @@ using System.Text.Json.Nodes;
 using Godot;
 using Paradise.Authoring;
 using Paradise.Export.Data;
-using Paradise.Export.Paths;
 using Paradise.Assets.Documents;
 using ParadiseGodot.Documents;
 using ParadiseGodot.Project;
@@ -296,17 +295,42 @@ namespace ParadiseGodot.Authoring
         /// </summary>
         private static ulong SchemaStamp()
         {
-            string path = ParadisePaths.DataDirPrefix + SchemaFileName;
-            if (!global::Godot.FileAccess.FileExists(path))
+            if (SchemaPath() is not { } path || !System.IO.File.Exists(path))
             {
                 return 0;
             }
 
-            ulong modified = global::Godot.FileAccess.GetModifiedTime(path);
-            using global::Godot.FileAccess? file = global::Godot.FileAccess.Open(
-                path, global::Godot.FileAccess.ModeFlags.Read);
-            ulong length = file?.GetLength() ?? 0;
-            return (modified * 31) ^ length;
+            var info = new System.IO.FileInfo(path);
+            return ((ulong)info.LastWriteTimeUtc.Ticks * 31) ^ (ulong)info.Length;
+        }
+
+        private static string? s_schemaPath;
+        private static bool s_schemaPathResolved;
+
+        /// <summary>
+        /// The game's schema: <c>.editor/authoring-schema.json</c> under the asset project's root,
+        /// where the launcher's build dumps it and <c>paradise assets extract</c> reads it. Resolved
+        /// once per session — the project root does not move under a running editor — and null when
+        /// there is no asset project, which leaves every entity componentless with the reason said.
+        /// </summary>
+        private static string? SchemaPath()
+        {
+            if (s_schemaPathResolved) return s_schemaPath;
+            s_schemaPathResolved = true;
+
+            if (ParadiseProject.TryOpen(out var project, out var problem) && project is not null)
+            {
+                using (project)
+                {
+                    s_schemaPath = project.Files.ConvertPathToInternal(project.Layout.Editor / SchemaFileName);
+                }
+            }
+            else
+            {
+                GD.PushError($"[Paradise] No authoring schema can be read: {problem}");
+            }
+
+            return s_schemaPath;
         }
 
         /// <summary>Engine components first, then the game's, so a game cannot redefine an engine id.</summary>
@@ -322,8 +346,16 @@ namespace ParadiseGodot.Authoring
             // own dump, so nothing is lost: what used to arrive as a second document arrives inside
             // the first one.
             var documents = new List<AuthoringSchemaDocument>();
-            string gamePath = ParadisePaths.DataDirPrefix + SchemaFileName;
-            string text = global::Godot.FileAccess.GetFileAsString(gamePath);
+            string? gamePath = SchemaPath();
+            string text = gamePath is not null && System.IO.File.Exists(gamePath)
+                ? System.IO.File.ReadAllText(gamePath)
+                : "";
+            if (gamePath is not null && text.Length == 0)
+            {
+                GD.PushWarning(
+                    $"[Paradise] '{gamePath}' is missing, so no components can be authored. Build the " +
+                    "game's launcher once (`paradise host build`) — its build dumps the schema there.");
+            }
             if (!string.IsNullOrEmpty(text))
             {
                 try
@@ -1140,7 +1172,6 @@ namespace ParadiseGodot.Authoring
         public IReadOnlyDictionary<string, AuthoredValue> BakedHostValues(AssetReferenceResolver? assets = null)
         {
             EnsureSchema();
-            ExportPaths paths = ParadisePaths.ExportPaths();
             var baked = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal);
 
             foreach (ComponentSchema component in _components)
@@ -1157,12 +1188,12 @@ namespace ParadiseGodot.Authoring
                     // off the sprite while fps and loop stay typed in.
                     BakeRef(
                         new HostRef("", wholeKind, IsList: false, null, Array.Empty<string>()),
-                        component, paths, assets, baked);
+                        component, assets, baked);
                 }
 
                 foreach (HostRef host in component.Hosts)
                 {
-                    BakeRef(host, component, paths, assets, baked);
+                    BakeRef(host, component, assets, baked);
                 }
             }
 
@@ -1172,7 +1203,6 @@ namespace ParadiseGodot.Authoring
         private void BakeRef(
             HostRef host,
             ComponentSchema component,
-            ExportPaths paths,
             AssetReferenceResolver? assets,
             Dictionary<string, AuthoredValue> into)
         {
@@ -1227,7 +1257,7 @@ namespace ParadiseGodot.Authoring
                 return;
             }
 
-            if (BakeOne(host.Kind, stored.AsNodePath(), paths, assets) is not { } leaves) return;
+            if (BakeOne(host.Kind, stored.AsNodePath(), assets) is not { } leaves) return;
 
             if (leaves.Count == 1 && leaves.TryGetValue(string.Empty, out AuthoredValue single))
             {
@@ -1347,7 +1377,7 @@ namespace ParadiseGodot.Authoring
         /// <summary>Bake one referenced object into its leaves. A scalar kind returns one entry
         /// under the empty key, which the caller writes at the reference's own path.</summary>
         private Dictionary<string, AuthoredValue>? BakeOne(
-            string kind, NodePath path, ExportPaths paths, AssetReferenceResolver? assets)
+            string kind, NodePath path, AssetReferenceResolver? assets)
         {
             if (path.IsEmpty) return null;
 

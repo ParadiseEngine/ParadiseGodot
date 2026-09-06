@@ -18,9 +18,10 @@
 ## Export
 
 **My model shows in the editor but not in the runtime**
-: Only `AuthoredEntityNode` nodes export. Wrap the model in one (tick `paradise.identity`) with
-  `paradise.renderable` ticked and its `Mesh` pointed at the GLB — which must live **under
-  `data/`**. Note the exporter no longer discovers a GLB child for you; pick it explicitly.
+: Only `AuthoredEntityNode`s are in the document. Give the object one with your mesh component
+  ticked and its mesh field pointed at the model's `.mesh` document (or the GLB it was extracted
+  from) — which must live **under `assets/`**, and must have been extracted: run
+  `paradise assets watch` or **Paradise/Extract Models** once for a freshly dropped GLB.
 
 **Everything is offset in the runtime**
 : The scene root has a non-identity transform. Reset it and re-save.
