@@ -26,15 +26,9 @@
 : The scene root has a non-identity transform. Reset it and re-save.
 
 **Textures missing in the runtime, fine in Godot**
-: The runtime reads only KTX2. Install [KTX-Software](https://github.com/KhronosGroup/KTX-Software),
-  set the path in Paradise/Settings…, then **Paradise/Convert data GLBs → KTX2**. GLBs whose
-  textures are external PNGs (shared atlases) are not covered by the sidecar pass.
-
-**"ktx CLI not found" warnings**
-: Exports still succeed; texture encoding is skipped. Per OS:
-  macOS `brew install ktx` (or the official installer, typically `/usr/local/bin/ktx`);
-  Linux: KTX-Software release packages; Windows: the official installer. Then set the path in
-  Paradise/Settings….
+: The runtime reads only what `paradise assets build` cooked. Run the build (or leave
+  `paradise assets watch` running); the `ktx` CLI it needs is found through `PARADISE_KTX_PATH`
+  or PATH — `brew install ktx` on macOS, the KTX-Software packages elsewhere.
 
 **Collisions wrong in the runtime, correct in Godot**
 : The contract keeps a single layer **index** from the lowest set bit of `collision_layer`.

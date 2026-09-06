@@ -30,10 +30,6 @@ namespace ParadiseGodot
         private const string GameMetaKey = "paradise_game";
 
         private const string OpenDocumentMenuItem = "Paradise/Open Document…";
-        private const string GeneratePrefabsMenuItem = "Paradise/Generate Model Prefabs";
-        private const string GeneratePrimitivesMenuItem = "Paradise/Generate Primitive GLBs";
-        private const string ConvertModelsMenuItem = "Paradise/Convert Models (FBX→GLB→KTX2)";
-        private const string ConvertDataGlbsMenuItem = "Paradise/Convert data GLBs → KTX2";
         private const string ProjectSetupMenuItem = "Paradise/Project Setup";
         private const string SettingsMenuItem = "Paradise/Settings…";
 
@@ -55,10 +51,6 @@ namespace ParadiseGodot
             "OnOpenDocument",
             "OnDocumentChosen",
             "OnDocumentDialogClosed",
-            "OnGenerateModelPrefabs",
-            "OnGeneratePrimitives",
-            "OnConvertModels",
-            "OnConvertDataGlbs",
             "OnProjectSetup",
             "OnOpenSettings",
             "OnPlayDotnet",
@@ -66,13 +58,9 @@ namespace ParadiseGodot
 
         private ParadiseSettingsDialog? _settingsDialog;
         private FileDialog? _documentDialog;
-        private readonly Pipeline.DataGlbImportHook _dataGlbHook = new();
 
         public void EnterTree()
         {
-            // Saved tool paths (toktx/Blender) take effect for the whole session — including
-            // headless exports — before anything can invoke the pipeline.
-            ParadiseSettingsDialog.ApplySavedSettings();
 
             // A payload shim from before these forwarders would leave every menu item dead with
             // an unhelpful native error; say what is actually wrong instead.
@@ -88,15 +76,8 @@ namespace ParadiseGodot
             }
 
             _host.AddToolMenuItem(OpenDocumentMenuItem, new Callable(_host, "OnOpenDocument"));
-            _host.AddToolMenuItem(GeneratePrefabsMenuItem, new Callable(_host, "OnGenerateModelPrefabs"));
-            _host.AddToolMenuItem(GeneratePrimitivesMenuItem, new Callable(_host, "OnGeneratePrimitives"));
-            _host.AddToolMenuItem(ConvertModelsMenuItem, new Callable(_host, "OnConvertModels"));
-            _host.AddToolMenuItem(ConvertDataGlbsMenuItem, new Callable(_host, "OnConvertDataGlbs"));
             _host.AddToolMenuItem(ProjectSetupMenuItem, new Callable(_host, "OnProjectSetup"));
             _host.AddToolMenuItem(SettingsMenuItem, new Callable(_host, "OnOpenSettings"));
-            // Auto-transcode textures of any GLB (re)imported under res://data/ to KTX2, so a model
-            // dropped into data/ is runtime-ready with no manual step.
-            EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported += _dataGlbHook.OnResourcesReimported;
             _playDotnetButton = new Button
             {
                 Text = "Play .NET",
@@ -111,17 +92,6 @@ namespace ParadiseGodot
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
             ProjectSetup.CheckExportVersion();
 
-            // Headless/CI hook: run one or more migration tasks then quit. Any combination of:
-            //   PARADISE_GENERATE_PRIMITIVES=1   generate data/primitives/*.glb
-            //   PARADISE_GENERATE_MODEL_PREFABS=1 generate a prefab per model under data/
-            //   PARADISE_CONVERT_DATA_GLBS=1     transcode data/ GLB textures → KTX2 in place
-            // e.g. godot --headless --editor --path . — tasks run in the above order, then quit.
-            if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1" ||
-                OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1" ||
-                OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")
-            {
-                Callable.From(RunHeadlessTasks).CallDeferred();
-            }
         }
 
         public void ExitTree()
@@ -136,14 +106,9 @@ namespace ParadiseGodot
             }
             OnDocumentDialogClosed();
             _host.RemoveToolMenuItem(OpenDocumentMenuItem);
-            _host.RemoveToolMenuItem(GeneratePrefabsMenuItem);
-            _host.RemoveToolMenuItem(GeneratePrimitivesMenuItem);
-            _host.RemoveToolMenuItem(ConvertModelsMenuItem);
-            _host.RemoveToolMenuItem(ConvertDataGlbsMenuItem);
             _host.RemoveToolMenuItem(ProjectSetupMenuItem);
             _host.RemoveToolMenuItem(SettingsMenuItem);
             _host.SceneSaved -= OnSceneSaved;
-            EditorInterface.Singleton.GetResourceFilesystem().ResourcesReimported -= _dataGlbHook.OnResourcesReimported;
             if (_settingsDialog is not null)
             {
                 _settingsDialog.QueueFree();
@@ -449,73 +414,6 @@ namespace ParadiseGodot
         {
             _documentDialog?.QueueFree();
             _documentDialog = null;
-        }
-
-        public void OnGenerateModelPrefabs()
-        {
-            Pipeline.ModelPrefabGenerator.GenerateAll();
-        }
-
-        public void OnGeneratePrimitives()
-        {
-            Pipeline.PrimitiveGlbGenerator.GenerateAll();
-        }
-
-        public void OnConvertModels()
-        {
-            WarnIfKtxMissing("model conversion");
-            Pipeline.AssetPipeline.ConvertAllModels();
-        }
-
-        public void OnConvertDataGlbs()
-        {
-            WarnIfKtxMissing("data GLB conversion");
-            Pipeline.DataGlbConverter.ConvertAll();
-        }
-
-        // Pre-flight: batch conversions run per-file and would otherwise emit one error per GLB;
-        // a single up-front warning with the fix beats a wall of failures.
-        private static void WarnIfKtxMissing(string operation)
-        {
-            if (Paradise.Assets.Pipeline.KtxTool.Find() is null)
-            {
-                GD.PushWarning(
-                    $"[Paradise.Export] ktx CLI not found — {operation} will skip KTX2 encoding. " +
-                    "Install KTX-Software and set the path in Paradise/Settings….");
-            }
-        }
-
-        // Headless orchestrator: run whichever migration tasks the env selects, in a fixed order
-        // (generate primitives → convert data GLBs → export scene), then quit with a combined code.
-        private void RunHeadlessTasks()
-        {
-            int exitCode = 0;
-            try
-            {
-                if (OS.GetEnvironment("PARADISE_GENERATE_PRIMITIVES") == "1")
-                {
-                    Pipeline.PrimitiveGlbGenerator.GenerateAll();
-                }
-
-                // Reachable headlessly so it can be TESTED. It was menu-only, which is how it
-                // came to produce prefabs with no renderable component without anything noticing.
-                if (OS.GetEnvironment("PARADISE_GENERATE_MODEL_PREFABS") == "1")
-                {
-                    Pipeline.ModelPrefabGenerator.GenerateAll();
-                }
-
-                if (OS.GetEnvironment("PARADISE_CONVERT_DATA_GLBS") == "1")
-                {
-                    Pipeline.DataGlbConverter.ConvertAll();
-                }
-            }
-            catch (System.Exception ex)
-            {
-                GD.PushError($"[Paradise.Export] Headless task failed: {ex}");
-                exitCode = 1;
-            }
-
-            _host.GetTree().Quit(exitCode);
         }
 
         public void OnOpenSettings()

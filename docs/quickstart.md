@@ -68,11 +68,10 @@ executable or `.csproj`.
 
 ## 6. Optional tooling
 
-- **KTX2 textures**: install [KTX-Software](https://github.com/KhronosGroup/KTX-Software) and
-  set the `ktx` path in **Paradise/Settings…**. Any GLB (re)imported under `data/` then gets
-  its textures transcoded to KTX2 sidecars automatically; without it exports still work,
-  textures just stay unconverted (the runtime needs KTX2).
-- **Blender** for FBX → GLB (**Paradise/Convert Models**).
+- **KTX2 textures**: install [KTX-Software](https://github.com/KhronosGroup/KTX-Software);
+  `paradise assets build` finds `ktx` on PATH (or `PARADISE_KTX_PATH`) and cooks every texture
+  the runtime reads. Without it the build still runs, textures just stay uncooked.
+- **Blender** for FBX → GLB, through the engine's `paradise assets` verbs.
 
 Next: the [authoring guide](authoring.md) for entity kinds, physics bodies, collision layers,
 sprites/particles, and navmesh baking.
