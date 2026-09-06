@@ -11,7 +11,7 @@ public class CommittedExportContractTests
     public async Task committed_sample_scene_parses()
     {
         var root = FindRepoRoot();
-        var level = ExportJsonReader.ReadLevel(File.ReadAllText(Path.Combine(root, "data", "scenes", "sample.json")));
+        var level = ExportJsonReader.ReadPrefab(File.ReadAllText(Path.Combine(root, "data", "scenes", "sample.json")));
         await Assert.That(level.SchemaVersion).IsEqualTo(6);
         await Assert.That(level.Entities.Count).IsEqualTo(62);
 

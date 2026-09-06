@@ -36,7 +36,7 @@ public static class LevelLoader
         var dataDir = Path.GetDirectoryName(Path.GetDirectoryName(sceneFullPath))
             ?? throw new InvalidOperationException($"Cannot resolve the data directory from '{sceneFullPath}'.");
 
-        var document = ExportJsonReader.ReadLevel(File.ReadAllText(sceneFullPath));
+        var document = ExportJsonReader.ReadPrefab(File.ReadAllText(sceneFullPath));
         // Materialized ONCE, here, through this assembly's generated registry — since v6 there is
         // no engine tier to fall back on, so a game that passes no registry gets nothing back.
         var unresolved = new List<AuthoredComponentData>();
@@ -97,9 +97,8 @@ public static class LevelLoader
         if (!File.Exists(path))
         {
             Console.Error.WriteLine(
-                $"[LevelLoader] Spritesheet '{field}' has no KTX2 sidecar under data/ — run the " +
-                "editor's Paradise/Convert data GLBs → KTX2 pass (or PARADISE_CONVERT_DATA_GLBS=1). " +
-                "Rendering the sprite untextured.");
+                $"[LevelLoader] Spritesheet '{field}' has no cooked KTX2 under data/ — run " +
+                "`paradise assets build`. Rendering the sprite untextured.");
             return;
         }
         spriteSheets[field] = File.ReadAllBytes(path);
