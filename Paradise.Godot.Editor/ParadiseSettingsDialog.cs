@@ -1,16 +1,14 @@
 #if TOOLS
 using System.IO;
 using Godot;
-using Paradise.Export.Data;
 
 namespace ParadiseGodot
 {
     /// <summary>
-    /// "Paradise/Settings…" window, two storage scopes:
-    /// machine-level (EditorSettings, per-user, never committed) — where the <c>paradise</c> CLI
-    /// is when it is not on PATH, and the launch arguments Play passes on; and project-level (ProjectSettings, committed in project.godot) — the
-    /// global physics dynamics tuning, re-exported to <c>data/ProjectSettings.json</c> on save
-    /// so the standalone runtime simulates with the same values.
+    /// "Paradise/Settings…" window: machine-level settings (EditorSettings, per-user, never
+    /// committed) — where the <c>paradise</c> CLI is when it is not on PATH, and the launch
+    /// arguments Play passes on. Everything about the GAME lives in its asset project:
+    /// <c>assets/project.toml</c> and the config documents beside it are the game's to edit.
     /// </summary>
     [Tool]
     public partial class ParadiseSettingsDialog : ConfirmationDialog
@@ -24,14 +22,6 @@ namespace ParadiseGodot
         private readonly LineEdit _cliEdit;
         private readonly Label _cliStatus;
         private readonly LineEdit _playArgsEdit;
-        private readonly LineEdit _dataDirEdit;
-        private readonly LineEdit _minSpeedEdit;
-        private readonly LineEdit _skinEdit;
-        private readonly LineEdit _pushStrengthEdit;
-        private readonly LineEdit _staticRestitutionEdit;
-        private readonly LineEdit _gravityYEdit;
-        private readonly LineEdit _staticFrictionEdit;
-        private readonly LineEdit _minAngularSpeedEdit;
         private EditorFileDialog? _fileDialog;
         private LineEdit? _browseTarget;
 
@@ -53,33 +43,6 @@ namespace ParadiseGodot
                 "Arguments Play passes on to the game's launcher, after the CLI's own " +
                 "(`paradise host play … -- <these>`), e.g. --fov 60. Double quotes group an " +
                 "argument with spaces.");
-
-            layout.AddChild(new Label
-            {
-                Text = "Project (saved to project.godot)",
-            });
-            _dataDirEdit = AddTextRow(layout, "Data directory",
-                $"res:// directory the engine-neutral contract is exported to (default {ParadisePaths.DefaultDataDir}). " +
-                "The asset pipeline (KTX2 hooks, primitives) and the runtime host read the same tree.");
-
-            layout.AddChild(new Label
-            {
-                Text = "Project physics (saved to project.godot, exported to data/ProjectSettings.json)",
-            });
-            _minSpeedEdit = AddTextRow(layout, "Min speed",
-                "Dynamic-body speeds below this snap to rest (m/s).");
-            _skinEdit = AddTextRow(layout, "Skin",
-                "Clearance kept between dynamic bodies and static surfaces (meters) — the speculative-contact margin.");
-            _pushStrengthEdit = AddTextRow(layout, "Push strength",
-                "Scale applied to a character pusher's velocity when injected into a ball.");
-            _staticRestitutionEdit = AddTextRow(layout, "Static restitution",
-                "Body ↔ static bounce fallback when no obstacle-layer static in the scene authors a Restitution.");
-            _gravityYEdit = AddTextRow(layout, "Gravity Y",
-                "Vertical gravity (m/s²) on balls; holds them on the felt and drives draw/jump/masse. Default -9.81.");
-            _staticFrictionEdit = AddTextRow(layout, "Static friction",
-                "Coulomb μ for ball↔cushion/cloth contacts — the coupling that turns spin into draw/follow/english/throw.");
-            _minAngularSpeedEdit = AddTextRow(layout, "Min angular speed",
-                "Angular speeds below this settle to rest when a ball is supported (rad/s).");
 
             AboutToPopup += LoadFromSettings;
             Confirmed += SaveAndApply;
@@ -205,17 +168,6 @@ namespace ParadiseGodot
             _playArgsEdit.Text = settings.HasSetting(PlayDotnetArgsSetting)
                 ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
                 : DefaultPlayDotnetArgs;
-            _dataDirEdit.Text = ParadisePaths.DataDir;
-
-            var defaults = new PhysicsDynamicsSettingsData();
-            _minSpeedEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.MinSpeedSetting, defaults.MinSpeed);
-            _skinEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.SkinSetting, defaults.Skin);
-            _pushStrengthEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.PushStrengthSetting, defaults.PushStrength);
-            _staticRestitutionEdit.Text = ReadProjectFloat(
-                Export.ProjectSettingsExporter.DefaultStaticRestitutionSetting, defaults.DefaultStaticRestitution);
-            _gravityYEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.GravityYSetting, defaults.GravityY);
-            _staticFrictionEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.StaticFrictionSetting, defaults.StaticFriction);
-            _minAngularSpeedEdit.Text = ReadProjectFloat(Export.ProjectSettingsExporter.MinAngularSpeedSetting, defaults.MinAngularSpeed);
             RefreshStatus();
         }
 
@@ -224,61 +176,6 @@ namespace ParadiseGodot
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
             settings.SetSetting(Play.ParadiseCli.CliPathSetting, _cliEdit.Text.Trim());
-            SaveDataDirectory();
-            SaveProjectPhysics();
-        }
-
-        // Project physics goes to ProjectSettings (committed) and is immediately re-exported so
-        // data/ProjectSettings.json never lags the dialog — the runtime reads the JSON, not
-        // project.godot. Unparseable text falls back to the contract default, mirroring what
-        // ValidateAndNormalize would keep at export time.
-        private void SaveProjectPhysics()
-        {
-            var defaults = new PhysicsDynamicsSettingsData();
-            WriteProjectFloat(Export.ProjectSettingsExporter.MinSpeedSetting, _minSpeedEdit.Text, defaults.MinSpeed);
-            WriteProjectFloat(Export.ProjectSettingsExporter.SkinSetting, _skinEdit.Text, defaults.Skin);
-            WriteProjectFloat(Export.ProjectSettingsExporter.PushStrengthSetting, _pushStrengthEdit.Text, defaults.PushStrength);
-            WriteProjectFloat(Export.ProjectSettingsExporter.DefaultStaticRestitutionSetting,
-                _staticRestitutionEdit.Text, defaults.DefaultStaticRestitution);
-            WriteProjectFloat(Export.ProjectSettingsExporter.GravityYSetting, _gravityYEdit.Text, defaults.GravityY);
-            WriteProjectFloat(Export.ProjectSettingsExporter.StaticFrictionSetting, _staticFrictionEdit.Text, defaults.StaticFriction);
-            WriteProjectFloat(Export.ProjectSettingsExporter.MinAngularSpeedSetting, _minAngularSpeedEdit.Text, defaults.MinAngularSpeed);
-            ProjectSettings.Save();
-            Export.ProjectSettingsExporter.Export(ParadisePaths.ExportPaths());
-        }
-
-        private static string ReadProjectFloat(string name, float fallback)
-        {
-            float value = ProjectSettings.HasSetting(name)
-                ? (float)ProjectSettings.GetSetting(name).AsDouble()
-                : fallback;
-            return value.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        private static void WriteProjectFloat(string name, string text, float fallback)
-        {
-            if (!float.TryParse(text.Trim(), System.Globalization.NumberStyles.Float,
-                    System.Globalization.CultureInfo.InvariantCulture, out float value) || !float.IsFinite(value))
-            {
-                value = fallback;
-            }
-            ProjectSettings.SetSetting(name, value);
-        }
-
-        // Empty text falls back to the conventional default rather than persisting "".
-        private void SaveDataDirectory()
-        {
-            string dir = _dataDirEdit.Text.Trim().TrimEnd('/');
-            if (dir.Length == 0)
-            {
-                dir = ParadisePaths.DefaultDataDir;
-            }
-            else if (!dir.StartsWith("res://", System.StringComparison.Ordinal))
-            {
-                GD.PushWarning($"[Paradise] Data directory must be a res:// path — keeping '{ParadisePaths.DataDir}'.");
-                return;
-            }
-            ProjectSettings.SetSetting(ParadisePaths.DataDirSetting, dir);
         }
 
         private void RefreshStatus()

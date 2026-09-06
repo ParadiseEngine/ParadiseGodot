@@ -212,9 +212,25 @@ namespace ParadiseGodot.Authoring
 
         // ---- collision shapes -----------------------------------------------------------
 
-        /// <summary>Read one collision shape into the contract, in the entity's own local space.
-        /// False when the shape kind has no contract equivalent.</summary>
-        public static bool TryBakeShape(Node3D root, CollisionShape3D collider, ColliderShapeData data)
+        /// <summary>What one collision shape bakes to, in the entity's own local space. The
+        /// engine declares no collider record since 0.41 (#261): a game record marked
+        /// <c>[AuthoredByHost&lt;HostShape&gt;]</c> takes these leaves by name, so this carrier is
+        /// the baker's own and never leaves it.</summary>
+        private sealed class BakedShape
+        {
+            public PhysicsShapeType ShapeType;
+            public SN.Vector3 LocalCenter;
+            public SN.Quaternion LocalRotation = SN.Quaternion.Identity;
+            public SN.Vector3 Size;
+            public float Radius;
+            public float Height;
+            public bool IsTrigger;
+            public int Layer;
+        }
+
+        /// <summary>Read one collision shape, in the entity's own local space. False when the
+        /// shape kind has no contract equivalent.</summary>
+        private static bool TryBakeShape(Node3D root, CollisionShape3D collider, BakedShape data)
         {
             SN.Vector3 relativeScale = ColliderScaleFold.RelativeScale(
                 ToSN(collider.GlobalTransform.Basis.Scale),
@@ -241,11 +257,8 @@ namespace ParadiseGodot.Authoring
 
             // Collider pose expressed in the entity root's local space (right-handed, verbatim).
             Transform3D rootLocal = root.GlobalTransform.AffineInverse() * collider.GlobalTransform;
-            data.Id = collider.Name.ToString();
-            data.Path = RelativePath(root, collider);
             data.IsTrigger = ResolveIsTrigger(collider);
             data.Layer = ResolveLayerIndex(collider);
-            data.LayerName = "";
             data.LocalCenter = ToSN(rootLocal.Origin);
             data.LocalRotation = ToSN(rootLocal.Basis.GetRotationQuaternion());
             return true;
@@ -356,7 +369,7 @@ namespace ParadiseGodot.Authoring
         /// The caller keeps whichever the record declared.</remarks>
         public static Dictionary<string, AuthoredValue>? BakeShape(Node3D root, CollisionShape3D collider)
         {
-            var data = new ColliderShapeData();
+            var data = new BakedShape();
             if (!TryBakeShape(root, collider, data)) return null;
 
             return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)

@@ -3,13 +3,14 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Xml.Linq;
+using Zio;
 using Godot;
 
 namespace ParadiseGodot
 {
-    /// <summary>"Paradise/Project Setup": one-click wiring of a Godot .NET project for the
-    /// Paradise addon — creates the data-directory layout and persists the default settings.
-    /// Idempotent: safe to run repeatedly.
+    /// <summary>"Paradise/Project Setup": one-click check of a Godot .NET project for the
+    /// Paradise addon — the asset project is there, Godot is kept out of its source tree, and
+    /// nothing pins the engine twice. Idempotent: safe to run repeatedly.
     ///
     /// It used to WRITE a pinned <c>Paradise.Export</c> PackageReference into the user's csproj,
     /// because an addon installed from a zip could not reference anything itself. The addon is a
@@ -28,8 +29,7 @@ namespace ParadiseGodot
         {
             bool ok = true;
             ok &= WarnOnRedundantExportReference();
-            ok &= EnsureDataLayout();
-            EnsureProjectSettings();
+            ok &= EnsureAssetProject();
             GD.Print(ok
                 ? "[Paradise] Project Setup complete."
                 : "[Paradise] Project Setup finished with warnings — see errors above.");
@@ -98,43 +98,36 @@ namespace ParadiseGodot
             }
         }
 
-        private static bool EnsureDataLayout()
+        /// <summary>The asset project must exist, and Godot must never scan its trees — see
+        /// <see cref="Project.ParadiseProject.EnsureGodotIgnores"/> for which and why.</summary>
+        private static bool EnsureAssetProject()
         {
-            try
+            if (!Project.ParadiseProject.TryOpen(out var project, out var problem) || project is null)
             {
-                string root = ParadisePaths.DataDirGlobal;
-                foreach (string sub in new[] { "", "scenes", "materials", "Models", "primitives", "sprites" })
-                {
-                    Directory.CreateDirectory(Path.Combine(root, sub));
-                }
-                GD.Print($"[Paradise] Data layout ready under {ParadisePaths.DataDir}/.");
-                return true;
-            }
-            catch (Exception ex)
-            {
-                GD.PushError($"[Paradise] Could not create the data layout: {ex.Message}");
+                GD.PushError(
+                    $"[Paradise] {problem} Create one with `paradise new <name>` beside project.godot, " +
+                    "or point the Godot project at a checkout that has one.");
                 return false;
             }
-        }
 
-        private static void EnsureProjectSettings()
-        {
-            if (!ProjectSettings.HasSetting(ParadisePaths.DataDirSetting))
+            using (project)
             {
-                ProjectSettings.SetSetting(ParadisePaths.DataDirSetting, ParadisePaths.DefaultDataDir);
-            }
-            ProjectSettings.SetInitialValue(ParadisePaths.DataDirSetting, ParadisePaths.DefaultDataDir);
+                try
+                {
+                    foreach (var marker in project.EnsureGodotIgnores())
+                    {
+                        GD.Print($"[Paradise] Wrote {marker} so Godot never scans that tree.");
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    GD.PushError($"[Paradise] Could not write a .gdignore: {ex.Message}");
+                    return false;
+                }
 
-            // The authored UI tree the export pipeline stages into <data>/ui/. Registered here so
-            // it is editable in Project Settings; the default is right for most projects.
-            if (!ProjectSettings.HasSetting(Export.UiAssetExporter.UiSourceDirSetting))
-            {
-                ProjectSettings.SetSetting(
-                    Export.UiAssetExporter.UiSourceDirSetting, Export.UiAssetExporter.DefaultUiSourceDir);
+                GD.Print($"[Paradise] Asset project at {project.Files.ConvertPathToInternal(project.Layout.Root)}.");
+                return true;
             }
-            ProjectSettings.SetInitialValue(
-                Export.UiAssetExporter.UiSourceDirSetting, Export.UiAssetExporter.DefaultUiSourceDir);
-            ProjectSettings.Save();
         }
     }
 }
