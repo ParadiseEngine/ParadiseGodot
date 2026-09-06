@@ -34,13 +34,6 @@ namespace ParadiseGodot
 
         public void OnDocumentDialogClosed() => Core.OnDocumentDialogClosed();
 
-        public void OnGenerateModelPrefabs() => Core.OnGenerateModelPrefabs();
-
-        public void OnGeneratePrimitives() => Core.OnGeneratePrimitives();
-
-        public void OnConvertModels() => Core.OnConvertModels();
-
-        public void OnConvertDataGlbs() => Core.OnConvertDataGlbs();
 
         public void OnProjectSetup() => ProjectSetup.Run();
 
