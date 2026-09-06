@@ -1,3 +1,0 @@
-schema_version = 1
-source = { guid = "2d303b5b-cc91-5910-bd7d-ee327e510569", path = "models/plants/plant_004.glb" }
-slot = "mesh"

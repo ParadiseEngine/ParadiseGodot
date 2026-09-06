@@ -1,9 +1,0 @@
-schema_version = 1
-guid = "ea7cd4fe-b509-51f0-8856-95a4341df616"
-importer = "glb"
-
-[glb]
-mesh = { guid = "7380fc7d-3aa9-49f1-ab73-00126319859b", path = "models/dragon.skinnedmesh" }
-skeleton = { guid = "7845d98d-d3a7-401f-8e21-43a0e2dd0791", path = "models/dragon.skeleton" }
-materials = [{ index = 0, name = "dragonmaterial", guid = "263ed52e-cebb-4f7f-884f-07318871029a", path = "models/dragon.dragonmaterial.material", glb = "7b0bf6541a8ab4c148eb4e251eac8b67d6f9b75d84cb3b3b7a007fcc91d7c2a5", doc = "7b0bf6541a8ab4c148eb4e251eac8b67d6f9b75d84cb3b3b7a007fcc91d7c2a5" }]
-references = [{ slot = "images[0]", uri = "dragon_0.png", guid = "04b29275-f9ac-5125-a7d9-873026208498", path = "models/dragon_0.png" }]

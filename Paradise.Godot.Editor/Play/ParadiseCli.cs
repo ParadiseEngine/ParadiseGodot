@@ -109,17 +109,6 @@ namespace ParadiseGodot.Play
             return _playPid > 0;
         }
 
-        /// <summary>Run any executable detached the way <see cref="Play"/> runs the CLI. For the
-        /// one launch that is not a document: a code-driven sample in a repo that ships its own
-        /// launcher project.</summary>
-        public bool Launch(string executable, IReadOnlyList<string> arguments, string workingDirectory, out string? problem)
-        {
-            Stop();
-            _playPid = Launch(executable, arguments, workingDirectory);
-            problem = _playPid > 0 ? null : $"'{executable}' did not start — see {LogPath}.";
-            return _playPid > 0;
-        }
-
         /// <summary>Stop the running game. SIGTERM rather than SIGKILL where there is a choice:
         /// the CLI turns a TERM into a kill of the whole tree it started — a dotnet watch, the
         /// game — and exits <see cref="Interrupted"/>; a KILL would orphan them.</summary>
@@ -204,26 +193,6 @@ namespace ParadiseGodot.Play
             return
                 $"cd {ShellQuote(workingDirectory)} && export DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1; " +
                 $"exec {ShellQuote(executable)}{string.Concat(arguments.Select(a => " " + ShellQuote(a)))}{redirect}";
-        }
-
-        /// <summary>The dotnet host for the one launch that is not the CLI (a code-driven sample
-        /// through <c>dotnet run</c>): the standard installer locations first, because a
-        /// GUI-launched editor does not inherit the shell PATH that would name it.</summary>
-        public static string FindDotnet()
-        {
-            foreach (string candidate in new[]
-            {
-                "/usr/local/share/dotnet/dotnet",
-                "/usr/local/bin/dotnet",
-                "/opt/homebrew/bin/dotnet",
-                "/usr/bin/dotnet",
-                "/usr/share/dotnet/dotnet",
-            })
-            {
-                if (File.Exists(candidate)) return candidate;
-            }
-
-            return "dotnet";
         }
 
         // POSIX single-quote wrapping: every token becomes one word verbatim, whatever it

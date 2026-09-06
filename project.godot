@@ -11,7 +11,6 @@ config_version=5
 [application]
 
 config/name="ParadiseGodot"
-run/main_scene="res://scenes/sample.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -31,26 +30,6 @@ project/assembly_name="ParadiseGodot"
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/paradise/plugin.cfg")
-
-[navigation]
-
-3d/default_cell_size=0.1
-3d/default_cell_height=0.1
-
-[paradise]
-
-physics/min_speed=0.005
-physics/skin=0.02
-physics/push_strength=1.2
-physics/default_static_restitution=0.4
-physics/gravity_y=-9.81
-physics/static_friction=0.2
-physics/min_angular_speed=0.05
-
-[physics]
-
-2d/physics_engine="Dummy"
-3d/physics_engine="Dummy"
 
 [rendering]
 

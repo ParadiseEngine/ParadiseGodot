@@ -1,6 +1,0 @@
-schema_version = 1
-guid = "8b22d6d2-1191-5d3c-a478-aa825471cfff"
-importer = "glb"
-
-[glb]
-mesh = { guid = "84297188-a6dc-4226-bf14-1e21db7ddbeb", path = "models/plants/plant_005.mesh" }

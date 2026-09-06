@@ -1,4 +1,0 @@
-schema_version = 1
-source = { guid = "8861b562-ed97-50d4-a2b2-43ba7a3228e6", path = "models/elf.glb" }
-slot = "skinnedmesh"
-skeleton = { guid = "991c53f2-3686-42b8-998b-74fbd1f212cb", path = "models/elf.skeleton" }
