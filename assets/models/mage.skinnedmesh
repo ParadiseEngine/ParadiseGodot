@@ -1,4 +1,0 @@
-schema_version = 1
-source = { guid = "ad11f3e9-8676-5def-aa49-6ab3e17a6c35", path = "models/mage.glb" }
-slot = "skinnedmesh"
-skeleton = { guid = "c4372492-3162-49de-a232-68ddb4b66ee9", path = "models/mage.skeleton" }

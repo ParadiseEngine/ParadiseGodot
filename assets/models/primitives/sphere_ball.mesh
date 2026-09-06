@@ -1,3 +1,0 @@
-schema_version = 1
-source = { guid = "3984fc56-9763-55d1-9e90-976546f9ec92", path = "models/primitives/sphere_ball.glb" }
-slot = "mesh"
