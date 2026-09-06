@@ -1,0 +1,6 @@
+schema_version = 1
+source = { guid = "3999ef85-8955-5ca0-b00b-a34fb099bdf0", path = "models/player.glb" }
+slot = "clip"
+name = "Idle"
+index = 0
+hash = "e4c235c3b35ab09cd740a324c01f2e742363b918d1a825309e1bd5e6e95b2ec4"

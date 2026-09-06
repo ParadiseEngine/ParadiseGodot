@@ -6,32 +6,24 @@ using Paradise.Sample.Pool.Physics;
 
 namespace Paradise.Sample.Runtime.Tests;
 
-/// <summary>CPU-side runtime assembly over the committed data/ fixtures: loader round trip,
+/// <summary>CPU-side runtime assembly over the built play tree: loader round trip,
 /// contract-matrix conversion, data-driven CollisionWorld, camera picking, lighting mapping.
 /// (The GPU path is covered by the Paradise.Sample.Runtime --headless end-to-end run.)</summary>
 public class RuntimeAssemblyTests
 {
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "data", "scenes", "sample.json")))
-        {
-            dir = dir.Parent!;
-        }
-        return dir!.FullName;
-    }
-
     private static RuntimeLevel LoadSample() =>
-        LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "sample.json"));
+        LevelLoader.Load(BuiltFixture.Scene("sample"));
 
     [Test]
     public async Task loader_reads_the_committed_sample_scene()
     {
         var level = LoadSample();
-        await Assert.That(level.Scene.Entities.Count).IsEqualTo(62);
-        // Source-GLB references (no per-entity bake): cube (Ground+2 obstacles+2 crates),
-        // sphere (3 balls), capsule (guard) + 11 unique character/plant GLBs = 14 distinct.
-        await Assert.That(level.MeshAssets.Count).IsEqualTo(16);
+        // 62 authored objects under the one root the document model requires.
+        await Assert.That(level.Scene.Entities.Count).IsEqualTo(63);
+        // One cooked mesh per distinct document: the three primitives, the textured ball, and
+        // the character / prop models — the same 16 the scene named as GLBs before the build
+        // cooked them.
+        await Assert.That(level.Meshes.Count).IsEqualTo(16);
         // Every referenced material slot resolved.
         foreach (var entity in level.Scene.Entities)
         {

@@ -1,0 +1,14 @@
+schema_version = 1
+
+[[objects]]
+
+[[objects.components]]
+id = "0f1d4b3a-8c27-4a55-9b6e-2f7c1d40a913"
+type = "meta"
+Guid = "28bf0735-d52f-4cd1-9bb1-a394378593f9"
+Name = "dragon"
+
+[[objects.components]]
+id = "bdc4fc87-d7b4-41f1-bc90-fc827005adfc"
+type = "Paradise.Export.Data.MaterialsComponentData"
+Slots = [{ guid = "263ed52e-cebb-4f7f-884f-07318871029a", path = "models/dragon.dragonmaterial.material" }]

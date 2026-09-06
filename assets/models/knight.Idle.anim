@@ -1,0 +1,6 @@
+schema_version = 1
+source = { guid = "165aff7c-d7ee-5c08-9bc1-be1a17e0b004", path = "models/knight.glb" }
+slot = "clip"
+name = "Idle"
+index = 0
+hash = "cf2975c088f30563e9e73ec824f0d857dc3da38d27122b4202db35bead0c1d26"

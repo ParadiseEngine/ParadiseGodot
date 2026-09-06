@@ -1,0 +1,3 @@
+schema_version = 1
+source = { guid = "8861b562-ed97-50d4-a2b2-43ba7a3228e6", path = "models/elf.glb" }
+slot = "skeleton"

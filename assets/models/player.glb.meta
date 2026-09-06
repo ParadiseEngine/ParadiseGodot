@@ -1,0 +1,10 @@
+schema_version = 1
+guid = "3999ef85-8955-5ca0-b00b-a34fb099bdf0"
+importer = "glb"
+
+[glb]
+mesh = { guid = "b4fd1f08-a735-4fce-91db-81173fcafd76", path = "models/player.skinnedmesh" }
+skeleton = { guid = "348a2f6f-953a-4609-b86c-6e1c00c8b910", path = "models/player.skeleton" }
+clips = [{ index = 0, name = "Idle", guid = "b22467ca-37aa-46e1-ad09-783f4ba4bc3e", path = "models/player.Idle.anim" }]
+materials = [{ index = 0, name = "Ch36_Body", guid = "9ceb0e34-ccc3-46d4-a510-eb7269b07d0e", path = "models/player.Ch36_Body.material", glb = "c19993f82f8f952b8a08d9c252b03615371879163a500bc121c9ce445e9c5704", doc = "c19993f82f8f952b8a08d9c252b03615371879163a500bc121c9ce445e9c5704" }]
+references = [{ slot = "images[0]", uri = "player_0.png", guid = "456ddd64-9200-588f-9881-9566e8174f17", path = "models/player_0.png" }, { slot = "images[1]", uri = "player_1.png", guid = "b016448b-429d-547b-b2f1-199e3dda5cb4", path = "models/player_1.png" }, { slot = "images[2]", uri = "player_2.png", guid = "8b5c089a-b51e-546d-a1ea-1ada76a4c247", path = "models/player_2.png" }]

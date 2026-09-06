@@ -8,20 +8,10 @@ bin/
 obj/
 *.user
 
-# Exported engine-neutral data (build output; regenerate via Paradise/Export or the
-# PARADISE_EXPORT_SCENE headless hook). The sample fixture set IS tracked (force-added): the
-# scene contract (data/scenes/sample.*), materials (data/materials/*.json), the shared unit
-# primitive GLBs (data/primitives/*.glb, from Paradise/Generate Primitive GLBs), the source model
-# GLBs the scene references (data/Models/**/*.glb — geometry only), and their EXTERNAL texture
-# sidecars (data/Models/**/*.ktx2, <glbstem>_<i>.ktx2, from Paradise/Convert data GLBs → KTX2).
-# A GLB and its .ktx2 sidecars must be committed together (relative image URIs). These back
-# ParadiseExport.Tests / Paradise.Sample.Runtime(.Tests) and the engine's real-producer GLB cross-checks.
-# NOT tracked: *.import and any extracted texture PNGs — regenerated on import.
-# TRACKED (force-added): *.uid. An .import file is derived and disposable; a .uid is the opposite
-# — it is the identity Godot mints once and reads back so a re-import keeps the same id. Left out,
-# every fresh clone re-mints one, and any reference to the asset by uid:// resolves differently
-# per checkout. Nothing references these yet; committing them is what keeps that true.
-/data/
+# The engine's derived trees: `paradise assets build` writes build/, the editor's play tree and
+# caches live under .editor/. assets/ is the source of truth and is committed, sidecars included.
+/build/
+/.editor/
 
 # JetBrains IDE
 .idea/

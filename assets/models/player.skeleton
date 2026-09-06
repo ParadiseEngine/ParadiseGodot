@@ -1,0 +1,3 @@
+schema_version = 1
+source = { guid = "3999ef85-8955-5ca0-b00b-a34fb099bdf0", path = "models/player.glb" }
+slot = "skeleton"

@@ -1,0 +1,14 @@
+schema_version = 1
+
+[[objects]]
+
+[[objects.components]]
+id = "0f1d4b3a-8c27-4a55-9b6e-2f7c1d40a913"
+type = "meta"
+Guid = "b1e07f84-3ee2-4f9e-b9bf-85df693bc347"
+Name = "knight"
+
+[[objects.components]]
+id = "bdc4fc87-d7b4-41f1-bc90-fc827005adfc"
+type = "Paradise.Export.Data.MaterialsComponentData"
+Slots = [{ guid = "fead3245-f018-40a8-9894-4ac368362890", path = "models/knight.knightfirst.material" }, { guid = "99b518d1-cac6-4bca-9139-5a49a84011ed", path = "models/knight.knightsecond.material" }]

@@ -1,0 +1,4 @@
+schema_version = 1
+source = { guid = "e8635922-e2c0-5fb6-9d80-fa736a65b268", path = "models/nain.glb" }
+slot = "skinnedmesh"
+skeleton = { guid = "6fcd07cf-d07e-4e8b-b16e-726131aebc4e", path = "models/nain.skeleton" }

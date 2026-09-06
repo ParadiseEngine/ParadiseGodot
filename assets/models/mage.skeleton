@@ -1,0 +1,3 @@
+schema_version = 1
+source = { guid = "ad11f3e9-8676-5def-aa49-6ab3e17a6c35", path = "models/mage.glb" }
+slot = "skeleton"

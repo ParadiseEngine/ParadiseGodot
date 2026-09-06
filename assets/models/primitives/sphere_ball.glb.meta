@@ -1,0 +1,8 @@
+schema_version = 1
+guid = "3984fc56-9763-55d1-9e90-976546f9ec92"
+importer = "glb"
+
+[glb]
+mesh = { guid = "0d544dd0-774f-4fe4-a424-6ffcd4a357b5", path = "models/primitives/sphere_ball.mesh" }
+materials = [{ index = 0, name = "material_0", guid = "1d38f6ab-6f9c-4ade-8768-7f7c845f98eb", path = "models/primitives/sphere_ball.material_0.material", glb = "e96cacde057bef3891135f3b33a03adacb38026acddaf93ee0a4092f6be2e4d1", doc = "e96cacde057bef3891135f3b33a03adacb38026acddaf93ee0a4092f6be2e4d1" }]
+references = [{ slot = "images[0]", uri = "sphere_ball_0.png", guid = "4cac0351-f138-509b-84ea-9669e68cb5b8", path = "models/primitives/sphere_ball_0.png" }]
