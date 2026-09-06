@@ -59,13 +59,16 @@
 
 ## Headless / CI
 
-Import before exporting on a fresh checkout — the plugin's tasks need imported resources:
+A fresh checkout needs no Godot import before the addon works: the addon reads documents through
+the asset project's mounts and never imports `assets/`, `build/` or `.editor/` (it writes a
+`.gdignore` into each at load). What CI does need is the build:
 
 ```bash
-godot --headless --import --path .
-PARADISE_EXPORT_SCENE=res://scenes/main.tscn godot --headless --editor --path .
+dotnet tool install --global Paradise.Cli
+paradise tools install ktx            # KTX-Software, for textures
+paradise assets build                 # build/ — what a runtime reads
 ```
 
-A headless environment doesn't read your editor settings' tool paths — set `PARADISE_KTX_PATH`
-explicitly when the run needs KTX2 encoding. Procedural (sub-resource) textures do not
-rasterize without a GPU; bake concrete images for anything that must export.
+`paradise assets verify` and `paradise assets prefab-check` are the two checks worth running on
+every push: the first names a broken reference or a missing sidecar, the second refuses a document
+that is not in canonical form.

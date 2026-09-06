@@ -1,6 +1,0 @@
-schema_version = 1
-guid = "b1a7ab94-1b1e-5ae0-a74c-7aa72b4f2353"
-importer = "glb"
-
-[glb]
-mesh = { guid = "3304619f-0baf-4485-8de3-24231e0f3a8f", path = "models/primitives/capsule.mesh" }

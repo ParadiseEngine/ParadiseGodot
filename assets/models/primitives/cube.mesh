@@ -1,3 +1,0 @@
-schema_version = 1
-source = { guid = "30fa1765-7ace-554e-ae3b-196a197bfa2c", path = "models/primitives/cube.glb" }
-slot = "mesh"

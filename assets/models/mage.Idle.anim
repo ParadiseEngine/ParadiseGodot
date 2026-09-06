@@ -1,6 +1,0 @@
-schema_version = 1
-source = { guid = "ad11f3e9-8676-5def-aa49-6ab3e17a6c35", path = "models/mage.glb" }
-slot = "clip"
-name = "Idle"
-index = 0
-hash = "1956b99985eecd57f0c8563b20be4100ef96896cffc49eb97153382e086a6754"

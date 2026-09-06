@@ -1,6 +1,0 @@
-schema_version = 1
-source = { guid = "e8635922-e2c0-5fb6-9d80-fa736a65b268", path = "models/nain.glb" }
-slot = "clip"
-name = "Idle"
-index = 0
-hash = "eb5802c9a6bb2f8beda01a7a28173bd26ae028bae29f494b66948b6d112c84b1"

@@ -1,8 +1,0 @@
-schema_version = 1
-guid = "3acfc8a1-229f-5325-b4f2-704eecb82cb2"
-importer = "glb"
-
-[glb]
-mesh = { guid = "06e82586-e59b-4247-a6ad-72fccdc4b2bf", path = "models/waterbottle.mesh" }
-materials = [{ index = 0, name = "BottleMat", guid = "8c9a7002-0b19-4f3e-aeb5-57706930a264", path = "models/waterbottle.BottleMat.material", glb = "ed8ec49baf91bdf67bf210733190a4c6ae9586d0ef039d6449aee84e944d6e03", doc = "ed8ec49baf91bdf67bf210733190a4c6ae9586d0ef039d6449aee84e944d6e03" }]
-references = [{ slot = "images[0]", uri = "waterbottle_0.png", guid = "679205fa-e3fa-528b-a174-f2f84911ebbe", path = "models/waterbottle_0.png" }, { slot = "images[1]", uri = "waterbottle_1.png", guid = "6396284a-2e0e-570a-8e05-7083b70bdf72", path = "models/waterbottle_1.png" }, { slot = "images[2]", uri = "waterbottle_2.png", guid = "3b8589b6-a589-509b-bb23-6a164ba47cd0", path = "models/waterbottle_2.png" }, { slot = "images[3]", uri = "waterbottle_3.png", guid = "52cedb6e-d65c-5377-b150-19f0b2421a1e", path = "models/waterbottle_3.png" }]
