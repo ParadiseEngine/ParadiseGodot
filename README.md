@@ -23,9 +23,10 @@ Add one package reference to your Godot project's csproj:
 
 Build once. That first build installs the addon's `res://` half into `addons/paradise/` —
 `plugin.cfg` and two small scripts. Reload the project, enable the plugin in
-Project Settings > Plugins, then run **Project > Tools > Paradise/Project Setup** to create the
-`data/` layout. `Paradise.Export` arrives with the package at the version the addon was built
-against, so you never pin it yourself.
+Project Settings > Plugins, then run **Project > Tools > Paradise/Project Setup** to check the
+asset project (`assets/project.toml`, from `paradise new`) and keep Godot out of its trees.
+`Paradise.Export` arrives with the package at the version the addon was built against, so you
+never pin it yourself.
 
 Commit `addons/paradise/`, including the `.uid` files Godot mints beside the scripts on import.
 Godot binds a script to a node by res:// path **and** uid, so those files are how your scenes
@@ -53,9 +54,10 @@ dotnet test --project Paradise.Sample.Pool.Tests/Paradise.Sample.Pool.Tests.cspr
 dotnet test --project Paradise.Sample.Ui.Tests/Paradise.Sample.Ui.Tests.csproj
 dotnet test --project Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj
 
-# Run an exported scene in the standalone runtime host
+# Build the asset project and run a scene in the standalone runtime host
+paradise assets build --editor
 dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- \
-  --scene data/scenes/sample.json
+  --scene .editor/play/scenes/sample.prefab
 
 # The ImGui MVVM samples (no exported scene needed): a sci-fi "Space Odyssey" or the pool demo
 dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- --game odyssey

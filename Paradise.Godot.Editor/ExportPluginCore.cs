@@ -105,7 +105,30 @@ namespace ParadiseGodot
             _host.SceneSaved += OnSceneSaved;
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
             ProjectSetup.CheckExportVersion();
+            KeepGodotOutOfTheAssetTrees();
 
+        }
+
+        /// <summary>At every load, not only on Project Setup: the build creates <c>.editor/</c>
+        /// and <c>build/</c> on its own, and a fresh clone has neither yet — the marker has to be
+        /// there before Godot's next scan finds a tree full of documents it cannot import.</summary>
+        private static void KeepGodotOutOfTheAssetTrees()
+        {
+            if (!ParadiseProject.TryOpen(out var project, out _) || project is null) return;
+            using (project)
+            {
+                try
+                {
+                    foreach (var marker in project.EnsureGodotIgnores())
+                    {
+                        GD.Print($"[Paradise] Wrote {marker} so Godot never scans that tree.");
+                    }
+                }
+                catch (System.Exception ex) when (ex is System.IO.IOException or System.UnauthorizedAccessException)
+                {
+                    GD.PushWarning($"[Paradise] Could not write a .gdignore: {ex.Message}");
+                }
+            }
         }
 
         public void ExitTree()

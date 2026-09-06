@@ -1,10 +1,15 @@
 # Data contract reference
 
-The engine-neutral data the addon exports and Paradise Engine runtimes load. The
-serialization types live in the [`Paradise.Export`](https://www.nuget.org/packages/Paradise.Export)
-package (`Paradise.Export.Data`, `Paradise.Export.Serialization`) — the package version's
-**major.minor is the contract version**; the addon warns at load when the referenced package
-diverges from the version it targets.
+The engine-neutral data Paradise Engine runtimes load, as `paradise assets build` writes it from
+the asset project this addon edits. The serialization types live in the
+[`Paradise.Export`](https://www.nuget.org/packages/Paradise.Export) package (`Paradise.Export.Data`,
+`Paradise.Export.Serialization`) — the package version's **major.minor is the contract version**;
+the addon warns at load when the referenced package diverges from the version it targets.
+
+Two forms of every document exist and they are the same contract: the AUTHORED form under
+`assets/` (canonical TOML, references as `{ guid, path }`) and the BUILT form under `build/` or
+`.editor/play/` (TOML or JSON by build profile, every reference baked to the path the build wrote).
+A runtime only ever reads the built form.
 
 ## Coordinate convention
 
@@ -14,16 +19,18 @@ consumer must read the data as-is (no Z-mirror).
 
 ## Files
 
-### `data/scenes/<Scene>.json` — scene contract (`LevelData`)
+### `scenes/<name>.prefab|json` — scene document (`PrefabData`)
 
 - **Environment**: ambient/sky energy, tonemap (mode/exposure/white), SSAO, glow, fog.
 - **Lights**: directional/omni/spot with transforms, color, energy, shadows.
 - **Entities**: one record per `AuthoredEntityNode` —
   - identity: GUID (from `paradise_entity_guid` metadata), name, plus whatever
     `paradise.identity` authored (`Kind`, `IsActive`, `Prefab`, …)
-  - `WorldMatrix` (column-major, world space; primitive size rides in scale)
-  - `Renderable.Mesh`: **data-relative reference** to the source GLB (`Models/knight.glb`,
-    `primitives/cube.glb`) plus per-slot material overrides
+  - `meta` and `transform`: identity, name and parent; LOCAL position, rotation and scale
+    (world space is composed down the parent chain by the loader)
+  - a mesh field (`authoredBy: mesh`): authored as a reference to the `.mesh` or
+    `.skinnedmesh` document minted beside the GLB, built to the blob's path; plus per-slot
+    material overrides (`MaterialsComponentData.Slots`)
   - colliders: unit shapes + layer index (see [authoring](authoring.md#collision-layers));
     `IsTrigger` for interaction volumes
   - optional components, absent = null: `Agent` (move speed/acceleration), `Rigidbody`
@@ -45,30 +52,28 @@ Components the engine does not define, authored with `[Authored]` and carried ve
 source-generated context. **Omitted entirely when an entity authors nothing**, so documents from
 projects that use none of this are unchanged.
 
-### `data/scenes/<Scene>.navmesh.bin`
-
-DotRecast **MeshSet** written by `NavMeshBinaryWriter` (modern format, not the C++ demo
-compatibility layout). Read with `DtMeshSetReader.Read(BinaryReader)` — the overload without
-`maxVertsPerPoly`. Triangles have +Y normals; bake erosion equals agent radius.
-
-### `data/materials/*.json`
+### `materials/*.material`
 
 Material descriptions referenced from entity slot overrides: PBR factors, texture references,
 alpha mode, and the procedural-material extension (`MaterialKind`, flow/noise parameters,
-`ColorA`/`ColorB`, `EmissiveStrength`). Sub-resource (procedural) textures are never
-referenced — texture content always comes from the GLB; overrides carry factors only.
+`ColorA`/`ColorB`, `EmissiveStrength`). Authored with texture slots as references; built with
+them baked to the KTX2 the build wrote. A GLB's own materials are documents too — `paradise assets
+extract` writes them beside it and records them on the GLB's seed prefab, which is how a runtime
+learns what each draw slot had before an override.
 
-### `data/ProjectSettings.json`
+### `ProjectSettings.toml|json`
 
 Global physics dynamics (min speeds, skin, push strength, gravity Y, static
-friction/restitution fallbacks) — the runtime's simulation parameters, edited via
-Paradise/Settings….
+friction/restitution fallbacks) — the runtime's simulation parameters, authored as
+`assets/ProjectSettings.toml`.
 
-### Meshes: `data/**/*.glb` + `*.ktx2` sidecars
+### Meshes: `models/*.mesh|.skinnedmesh` + `*.ktx2`
 
-Standard glTF binary, geometry only where textures were externalized: `images[].uri` points
-at KTX2 sidecars (`<glbstem>_<i>.ktx2`) next to the GLB. Engine-side reading:
-`Paradise.Assets.Gltf.GltfSceneReader.Read(glb, externalImageResolver)`.
+A GLB is interchange and ships nothing. `paradise assets watch` mints a mesh document beside it
+(`.mesh`, or `.skinnedmesh` bound to its `.skeleton`), the build cooks the document to a mesh
+blob at the same path, and the scene's mesh field names that. Engine-side reading:
+`Paradise.Assets.Mesh.MeshBlobFormat.Read`; textures are KTX2 the build encoded from the GLB's
+images or a material's texture references.
 
 ## Versioning
 

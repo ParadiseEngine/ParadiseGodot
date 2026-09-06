@@ -1,5 +1,6 @@
 #if TOOLS
 using System;
+using System.Collections.Generic;
 using Godot;
 using Paradise.Assets.Project;
 using Zio;
@@ -99,6 +100,30 @@ namespace ParadiseGodot.Project
                 problem = $"Could not open the asset project: {failure.Message}";
                 return false;
             }
+        }
+
+        /// <summary>
+        /// Keep Godot out of the asset project's trees: <c>assets/</c>, <c>build/</c> and
+        /// <c>.editor/</c> each get a <c>.gdignore</c>.
+        /// </summary>
+        /// <remarks>
+        /// Not one of them is a Godot resource, and the editor's file-system scan does worse than
+        /// waste time on them: the engine's <c>.mesh</c> and <c>.material</c> documents share
+        /// extensions with Godot's own binary resources, and the importer errors on every one.
+        /// The two derived trees are created if absent so the marker is in place before the build
+        /// first writes there. Returns what it wrote, for the caller to report.</remarks>
+        public IReadOnlyList<string> EnsureGodotIgnores()
+        {
+            var written = new List<string>();
+            foreach (var directory in new[] { Layout.Assets, Layout.Build, Layout.Editor })
+            {
+                var marker = directory / ".gdignore";
+                if (_physical.FileExists(marker)) continue;
+                _physical.CreateDirectory(directory);
+                _physical.WriteAllText(marker, "");
+                written.Add(_physical.ConvertPathToInternal(marker));
+            }
+            return written;
         }
 
         public void Dispose()

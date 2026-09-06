@@ -1,8 +1,9 @@
 # Authoring guide
 
-How scene content in Godot becomes Paradise Engine runtime data. Everything revolves around
-the `AuthoredEntityNode` script and the `data/` directory (configurable via
-`paradise/export/data_dir`; `res://data` by convention).
+How scene content in Godot becomes Paradise Engine runtime data. The source of truth is the
+asset project — `assets/project.toml`, the `*.prefab` documents and the assets they reference,
+each with a `.meta` sidecar — and everything revolves around the `AuthoredEntityNode` script,
+which edits those documents, and `paradise assets build`, which produces what a runtime reads.
 
 ## The entity node
 
@@ -58,7 +59,7 @@ The node reads two schemas and merges them, engine first:
 | Source | Where it comes from |
 |---|---|
 | Engine components | compiled into `Paradise.Export`; always present |
-| Your components | `data/authoring-schema.json`, dumped from your own assembly |
+| Your components | `.editor/authoring-schema.json`, dumped by your launcher's build (`paradise host build`) |
 
 Values export into the entity's `Components.Custom` as `{ "Id": "mygame.ledge", "Data": { … } }`,
 and the runtime reads them straight back into the same record. **Entities that author nothing are
@@ -98,35 +99,24 @@ in the viewport), and the baking of a reference into values at export.
 
 ## Export flow
 
-Saving a scene auto-exports it (the plugin's save hook); **Paradise/Export Active Scene** does
-it on demand. Output per scene:
+Saving a scene writes its document back (the plugin's save hook): `assets/scenes/<name>.prefab`,
+canonical TOML, merging what the author changed over what the document held. Nothing else is
+written by the editor. What a runtime reads is the BUILD — `paradise assets build` (or the play
+tree `paradise host play` maintains under `.editor/play/`):
 
-- `data/scenes/<Scene>.json` — entities (components, world matrices, colliders, materials refs)
-- `data/scenes/<Scene>.navmesh.bin` — DotRecast MeshSet, when the scene has a navmesh
-- `data/materials/*.json` — material descriptions referenced by slot overrides
-- `data/ProjectSettings.json` — global physics tuning (edited via Paradise/Settings…)
-- `data/ui/**` — a staged copy of the authored UI tree (see below)
+- `scenes/<name>.prefab|json` — the document with every reference baked to a built path
+- `materials/*.material` — material documents, texture slots baked to their KTX2
+- `models/*.mesh|.skinnedmesh` — mesh blobs cooked from the GLB the document names
+- `**/*.ktx2` — textures
+- `ProjectSettings.toml|json` — global physics tuning, authored as `assets/ProjectSettings.toml`
 
 ## UI assets
 
-NoesisGUI XAML, fonts and images are **authored** under `res://ui` (configurable via
-`paradise/export/ui_source_dir`) and committed there. Every export copies that tree into
-`data/ui/`, preserving subfolders and taking `.xaml`, `.ttf`, `.otf`, `.png`, `.jpg` and `.svg`.
-Noesis Studio's design-time sidecars (`*.noesis` and the hidden `.noesis/` folder) stay behind.
-A project with no UI directory skips the step silently.
-
-The two locations serve different consumers, so point each at the right one:
-
-| Consumer | Reads | Why |
-|---|---|---|
-| Godot play mode (`EcsSceneBridge.UiXaml`) | `res://ui/…` | Loads the file straight off disk — no export step, edits apply on the next run |
-| Standalone runtime (`--ui`) | `data/ui/…` | Ships `data/` only; the staged copy is its whole world |
-
-Staging is additive — it overwrites what it copies but never wipes `data/ui/`, so renaming an
-authored file leaves the old staged copy behind until `data/` is regenerated. Staged XAML is
-also linted: a `Source="…"` or `FontFamily="folder/#family"` reference that did not stage
-raises an export warning (never an error), which catches an asset left outside the UI
-directory.
+NoesisGUI XAML, fonts and images are **authored** under `ui/` and committed there, and that is
+where every consumer reads them — Godot play mode (`EcsSceneBridge.UiXaml`) and the standalone
+runtime (`--ui ui/<overlay>.xaml`) both load the file straight off disk, so an edit applies on
+the next run and nothing is staged. Noesis Studio's design-time sidecars (`*.noesis` and the
+hidden `.noesis/` folder) never ship.
 
 ## Meshes and textures
 
@@ -160,8 +150,8 @@ Bake in-editor (scene save regenerates `<Scene>.navmesh.bin`). Rules that matter
 
 ## Physics tuning
 
-Global dynamics (gravity, skin, friction, restitution fallbacks) are project settings edited
-in **Paradise/Settings…**, saved to `project.godot`, and exported to
-`data/ProjectSettings.json` — the runtime reads the JSON. Per-entity values (`Body*`) override
+Global dynamics (gravity, skin, friction, restitution fallbacks) are the game's
+`assets/ProjectSettings.toml`, a config document the build copies beside the scenes and the
+runtime reads. Per-entity values (`Body*`) override
 per body. Note: authored values replace runtime defaults exactly — when wiring a previously
 inert field, author the old constant into existing scenes and re-export in the same change.

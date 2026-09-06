@@ -46,10 +46,9 @@ namespace ParadiseGodot.Runtime
         // NoesisGUI overlay XAML (empty = no Noesis). Rendered on a headless WebGPU device and
         // composited as a premultiplied-alpha texture overlay.
         //
-        // Point this at the AUTHORING source (res://ui/…), not the exported copy: play mode loads
-        // the file straight off disk via ProjectSettings.GlobalizePath, so it needs no export step
-        // and picks up edits immediately. The export pipeline separately stages res://ui/** into
-        // <data>/ui/ (UiAssetExporter) for the standalone runtime, which ships only data/.
+        // The AUTHORING source (res://ui/…): play mode loads the file straight off disk via
+        // ProjectSettings.GlobalizePath, and so does the standalone runtime — UI source is
+        // committed under ui/ and never staged through the build.
         [Export(PropertyHint.File, "*.xaml")] public string UiXaml { get; set; } = "";
 
         // Render sampling: interpolate ~2 sim ticks behind the latest snapshot; skip ahead if we fall too far.
