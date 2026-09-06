@@ -1,0 +1,24 @@
+name = "paradise-godot"
+schema_version = 1
+
+[assets]
+ignore = [".DS_Store", "Thumbs.db", "desktop.ini", "*~", "*.tmp", ".#*", "*.import", "*.uid"]
+
+[extract]
+static_mesh_component = "RenderableComponentData"
+
+[host]
+project = "Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj"
+scene = "scenes/sample.prefab"
+
+[build]
+
+[build.profiles]
+
+[build.profiles.dev]
+document_format = "toml"
+texture_quality = "fast"
+
+[build.profiles.release]
+document_format = "json"
+texture_quality = "full"

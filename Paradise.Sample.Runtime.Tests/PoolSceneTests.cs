@@ -5,30 +5,21 @@ using Paradise.Sample.Pool.Physics;
 
 namespace Paradise.Sample.Runtime.Tests;
 
-/// <summary>The committed pool-table scene (data/scenes/pool.json) through the CPU assembly
+/// <summary>The pool-table scene, built, through the CPU assembly
 /// path: trigger pockets stay out of the solid collision world but come back through
 /// ExtractPockets, cushions answer obstacle-filtered casts with pocket gaps open, and the
 /// authored physics material params survive the exporter round trip.</summary>
 public class PoolSceneTests
 {
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "data", "scenes", "pool.json")))
-        {
-            dir = dir.Parent!;
-        }
-        return dir!.FullName;
-    }
-
     private static RuntimeLevel LoadPool() =>
-        LevelLoader.Load(Path.Combine(RepoRoot(), "data", "scenes", "pool.json"));
+        LevelLoader.Load(BuiltFixture.Scene("pool"));
 
     [Test]
     public async Task loader_reads_the_committed_pool_scene()
     {
         var level = LoadPool();
-        await Assert.That(level.Scene.Entities.Count).IsEqualTo(48);
+        // 48 authored objects under the one root the document model requires.
+        await Assert.That(level.Scene.Entities.Count).IsEqualTo(49);
         foreach (var entity in level.Scene.Entities)
         {
             // level.Materials is the runtime's loaded-document dictionary; the slots are the
@@ -106,9 +97,9 @@ public class PoolSceneTests
     [Test]
     public async Task project_physics_dynamics_load_from_the_committed_settings()
     {
-        // data/ProjectSettings.json carries the global solver tuning (Paradise/Settings… →
-        // ProjectSettingsExporter); the loader must surface it normalized. The committed values
-        // are the contract defaults (nothing overridden in project.godot yet).
+        // assets/ProjectSettings.toml carries the global solver tuning and the build copies it
+        // beside the scenes; the loader must surface it normalized. The authored values are the
+        // contract defaults.
         var level = LoadPool();
         var dynamics = level.PhysicsDynamics;
         await Assert.That(MathF.Abs(dynamics.MinSpeed - 0.005f)).IsLessThan(1e-6f);

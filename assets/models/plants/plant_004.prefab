@@ -1,0 +1,14 @@
+schema_version = 1
+
+[[objects]]
+
+[[objects.components]]
+id = "0f1d4b3a-8c27-4a55-9b6e-2f7c1d40a913"
+type = "meta"
+Guid = "0c69aa41-ae4e-4c95-a271-4fa7c7690435"
+Name = "plant_004"
+
+[[objects.components]]
+id = "bdc4fc87-d7b4-41f1-bc90-fc827005adfc"
+type = "Paradise.Export.Data.MaterialsComponentData"
+Slots = [{}]

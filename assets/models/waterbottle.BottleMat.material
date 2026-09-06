@@ -1,0 +1,29 @@
+Name = "BottleMat"
+MetallicFactor = 1.0
+RoughnessFactor = 1.0
+NormalScale = 1.0
+OcclusionStrength = 1.0
+AlphaMode = "Opaque"
+AlphaCutoff = 0.5
+DoubleSided = false
+TransmissionFactor = 0.0
+BaseColorUvOffset = [0.0, 0.0]
+BaseColorUvScale = [1.0, 1.0]
+BaseColorUvRotation = 0.0
+BaseColorTexture = { guid = "679205fa-e3fa-528b-a174-f2f84911ebbe", path = "models/waterbottle_0.png" }
+MetallicRoughnessTexture = { guid = "6396284a-2e0e-570a-8e05-7083b70bdf72", path = "models/waterbottle_1.png" }
+NormalTexture = { guid = "3b8589b6-a589-509b-bb23-6a164ba47cd0", path = "models/waterbottle_2.png" }
+OcclusionTexture = { guid = "6396284a-2e0e-570a-8e05-7083b70bdf72", path = "models/waterbottle_1.png" }
+EmissiveTexture = { guid = "52cedb6e-d65c-5377-b150-19f0b2421a1e", path = "models/waterbottle_3.png" }
+
+[BaseColorFactor]
+r = 1.0
+g = 1.0
+b = 1.0
+a = 1.0
+
+[EmissiveFactor]
+r = 1.0
+g = 1.0
+b = 1.0
+a = 1.0

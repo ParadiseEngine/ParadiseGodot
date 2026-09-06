@@ -1,0 +1,40 @@
+Name = "pool"
+BaseColorTexture = {}
+MetallicFactor = 0
+RoughnessFactor = 0.14
+MetallicRoughnessTexture = {}
+EmissiveTexture = {}
+NormalScale = 1
+NormalTexture = {}
+OcclusionStrength = 1
+OcclusionTexture = {}
+AlphaMode = "Opaque"
+TransmissionFactor = 0.3
+MaterialKind = "amber"
+EmissiveStrength = 2.5
+NoiseScale = 7
+FlowSpeed = 0.2
+
+[BaseColorFactor]
+r = 0.70980394
+g = 0.2627451
+b = 0.011764706
+a = 1
+
+[EmissiveFactor]
+r = 0
+g = 0
+b = 0
+a = 1
+
+[ColorA]
+r = 1
+g = 1
+b = 1
+a = 1
+
+[ColorB]
+r = 0
+g = 0
+b = 0
+a = 1

@@ -1,0 +1,6 @@
+schema_version = 1
+guid = "44957b40-a5bb-58c4-ba78-3e6aba4bcb26"
+importer = "glb"
+
+[glb]
+mesh = { guid = "76d74fb6-ac4a-4efd-85e1-c2105c2220ff", path = "models/plants/plant_017.mesh" }
