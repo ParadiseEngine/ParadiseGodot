@@ -1,100 +1,83 @@
 #if TOOLS
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Paradise.Assets.Documents;
+using Paradise.Assets.Pipeline;
 using Paradise.Assets.Project;
+using Paradise.Authoring;
 using Zio;
 
 namespace ParadiseGodot.Project
 {
     /// <summary>
-    /// Every asset's durable identity, read from the <c>&lt;asset&gt;.meta</c> sidecars beside it.
+    /// Every asset's durable identity, read from the <c>&lt;asset&gt;.meta</c> sidecars beside it —
+    /// plus the identities this session minted since.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// A reference carries both a GUID and a path, and <b>the GUID is authoritative</b>: resolving
-    /// by it is what lets an asset be renamed or moved without touching a document that points at
-    /// it. Following one needs this index, because a GUID says nothing about where its asset is.
+    /// The resolution rule is the engine's <see cref="AssetIndex"/>, not a copy of it: the GUID
+    /// decides and the path is a hint, a file the manifest's <c>[assets] ignore</c> excludes carries
+    /// no identity, and a path matches only when spelled as the file is. A reference this addon
+    /// writes therefore resolves here exactly as it will under <c>paradise assets build</c> — which
+    /// is the point of not having a second rule.
     /// </para>
     /// <para>
-    /// The path is the recovery route, not a second identity. When a GUID resolves to nothing — a
-    /// sidecar lost, a file arriving from a branch that never had one — falling back to the path
-    /// degrades to something a person can fix, which is the whole reason a reference carries both.
-    /// </para>
-    /// <para>
-    /// Built by one walk and then held. It is a snapshot: a sidecar minted by something else after
-    /// this was built is not in it, which is why the addon builds one per operation rather than
-    /// caching it across an editing session.
+    /// The one thing the index does not do is mint. It is one scan, held; an identity minted after
+    /// it is remembered beside it so a pick is usable at once, and the next operation's scan reads
+    /// the sidecar off disk like any other. Duplicate and unreadable sidecars are
+    /// <c>paradise assets verify</c>'s to report — here the first asset in scan order wins, as it
+    /// does at build.
     /// </para>
     /// </remarks>
     public sealed class AssetSidecars
     {
-        private readonly Dictionary<Guid, string> _byGuid = [];
-        private readonly Dictionary<string, Guid> _byPath = new(StringComparer.Ordinal);
+        private readonly AssetIndex _index;
+        private readonly AssetProjectLayout _layout;
+        private readonly Dictionary<Guid, string> _mintedByGuid = [];
+        private readonly Dictionary<string, Guid> _mintedByPath = new(StringComparer.Ordinal);
 
-        private AssetSidecars() { }
+        private AssetSidecars(AssetIndex index, AssetProjectLayout layout)
+        {
+            _index = index;
+            _layout = layout;
+        }
 
         /// <summary>How many assets carry an identity.</summary>
-        public int Count => _byGuid.Count;
-
-        /// <summary>Problems found while indexing, phrased for an author.</summary>
-        public List<string> Problems { get; } = [];
+        public int Count => _index.Files.Count(file => _index.IdentityOf(file) is not null) + _mintedByGuid.Count;
 
         /// <summary>Walk <c>assets/</c> and read every sidecar.</summary>
-        public static AssetSidecars Index(IFileSystem files, AssetProjectLayout layout)
+        /// <param name="ignore">The manifest's <c>[assets] ignore</c>; an ignored file cannot be
+        /// referenced, because the build will never ship it.</param>
+        public static AssetSidecars Index(IFileSystem files, AssetProjectLayout layout, AssetIgnoreRules? ignore = null)
         {
             ArgumentNullException.ThrowIfNull(files);
             ArgumentNullException.ThrowIfNull(layout);
-
-            var index = new AssetSidecars();
-            if (!files.DirectoryExists(layout.Assets)) return index;
-
-            foreach (var sidecar in files.EnumerateFiles(layout.Assets, "*" + SidecarMeta.Suffix, SearchOption.AllDirectories))
-            {
-                var asset = SidecarMeta.AssetPathFor(sidecar);
-                var relative = asset.FullName[(layout.Assets.FullName.TrimEnd('/').Length + 1)..];
-
-                SidecarMeta meta;
-                try
-                {
-                    meta = SidecarMeta.Load(files, sidecar);
-                }
-                catch (SidecarMetaException failure)
-                {
-                    index.Problems.Add($"'{relative}{SidecarMeta.Suffix}' does not read: {failure.Message}");
-                    continue;
-                }
-
-                // Two assets claiming one identity makes every reference to it ambiguous, and the
-                // one that loses is decided by directory order — so it is named rather than
-                // resolved.
-                if (index._byGuid.TryGetValue(meta.Guid, out var existing))
-                {
-                    index.Problems.Add(
-                        $"'{relative}' and '{existing}' both claim the identity {meta.Guid:D}; " +
-                        "references to it resolve to the first. Delete one sidecar and let it be re-minted.");
-                    continue;
-                }
-
-                index._byGuid[meta.Guid] = relative;
-                index._byPath[relative] = meta.Guid;
-            }
-
-            return index;
+            return new AssetSidecars(AssetIndex.Scan(files, layout.Assets, ignore), layout);
         }
 
         /// <summary>The authoring path of an identity, or null when nothing carries it.</summary>
-        public string? PathOf(Guid guid) => _byGuid.GetValueOrDefault(guid);
+        public string? PathOf(Guid guid)
+        {
+            if (_mintedByGuid.TryGetValue(guid, out var minted)) return minted;
+            return _index.Find(guid) is { } path ? _index.Relative(path) : null;
+        }
 
         /// <summary>The identity at an authoring path, or null when it has no sidecar yet.</summary>
         public Guid? GuidAt(string authoringPath) =>
-            _byPath.TryGetValue(authoringPath, out var guid) ? guid : null;
+            _mintedByPath.TryGetValue(authoringPath, out var minted)
+                ? minted
+                : _index.IdentityOf(_layout.Assets / authoringPath);
+
+        /// <summary>Whether the manifest excludes this file from the build.</summary>
+        public bool IsIgnored(string authoringPath) => _index.IsIgnored(_layout.Assets / authoringPath);
 
         /// <summary>
         /// Resolve a reference: by GUID first, then by path.
         /// </summary>
         /// <remarks>The order IS the contract — a rename moves the path and keeps the GUID, so
-        /// trusting the path first would resolve to whatever now sits at the old name.</remarks>
+        /// trusting the path first would resolve to whatever now sits at the old name. The path
+        /// comes back when the GUID names nothing: it is what a person can fix.</remarks>
         public string? Resolve(Guid guid, string? path)
         {
             if (guid != Guid.Empty && PathOf(guid) is { } found) return found;
@@ -106,21 +89,20 @@ namespace ParadiseGodot.Project
         /// </summary>
         /// <remarks>Minting on REFERENCE rather than on import: an asset nobody points at needs no
         /// identity, and a project that mints one per file has a sidecar for every stray image an
-        /// author dropped in to look at. Null when the asset itself does not exist — an identity for
-        /// a file that is not there would be a reference nothing can ever resolve.</remarks>
-        public Guid? EnsureIdentity(IFileSystem files, AssetProjectLayout layout, string authoringPath)
+        /// author dropped in to look at. Null when the asset does not exist or is ignored — either
+        /// way an identity for it would be a reference the build can never honour.</remarks>
+        public Guid? EnsureIdentity(IFileSystem files, string authoringPath)
         {
             ArgumentNullException.ThrowIfNull(files);
-            ArgumentNullException.ThrowIfNull(layout);
             if (GuidAt(authoringPath) is { } existing) return existing;
 
-            var asset = layout.Assets / authoringPath;
-            if (!files.FileExists(asset)) return null;
+            var asset = _layout.Assets / authoringPath;
+            if (!files.FileExists(asset) || _index.IsIgnored(asset)) return null;
 
             var meta = SidecarMeta.Mint();
             meta.Save(files, SidecarMeta.PathFor(asset));
-            _byGuid[meta.Guid] = authoringPath;
-            _byPath[authoringPath] = meta.Guid;
+            _mintedByGuid[meta.Guid] = authoringPath;
+            _mintedByPath[authoringPath] = meta.Guid;
             return meta.Guid;
         }
     }

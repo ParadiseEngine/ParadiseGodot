@@ -7,8 +7,9 @@ using Zio.FileSystems;
 namespace Paradise.Godot.Editor.Tests;
 
 /// <summary>
-/// Resolving a reference to the asset it names. The case that matters is a RENAME: the GUID
-/// survives it and the path does not, which is the whole reason a reference carries both.
+/// Resolving a reference to the asset it names, by the engine's own rule. The case that matters
+/// is a RENAME: the GUID survives it and the path does not, which is the whole reason a reference
+/// carries both.
 /// </summary>
 public class AssetSidecarsTests
 {
@@ -44,7 +45,6 @@ public class AssetSidecarsTests
         await Assert.That(index.Count).IsEqualTo(1);
         await Assert.That(index.PathOf(Adelie)).IsEqualTo("penguins/adelie.glb");
         await Assert.That(index.GuidAt("penguins/adelie.glb")).IsEqualTo(Adelie);
-        await Assert.That(index.Problems).IsEmpty();
     }
 
     /// <summary>THE case. After a rename the path in an old document names nothing, and only the
@@ -73,24 +73,22 @@ public class AssetSidecarsTests
         await Assert.That(index.Resolve(Guid.Empty, null)).IsNull();
     }
 
-    /// <summary>Two assets claiming one identity makes every reference ambiguous, and which one
-    /// wins would be decided by directory order. Named rather than silently resolved.</summary>
+    /// <summary>Two assets claiming one identity: the first in scan order wins, here exactly as at
+    /// build, and <c>paradise assets verify</c> is what names the duplicate.</summary>
     [Test]
-    public async Task a_duplicate_identity_is_reported()
+    public async Task a_duplicate_identity_resolves_to_the_first_asset_in_scan_order()
     {
         var (files, layout) = Project();
-        Asset(files, layout, "penguins/adelie.glb", Adelie);
         Asset(files, layout, "penguins/copy.glb", Adelie);
+        Asset(files, layout, "penguins/adelie.glb", Adelie);
 
         var index = AssetSidecars.Index(files, layout);
 
-        await Assert.That(index.Count).IsEqualTo(1);
-        await Assert.That(index.Problems.Count).IsEqualTo(1);
-        await Assert.That(index.Problems[0]).Contains("both claim the identity");
+        await Assert.That(index.PathOf(Adelie)).IsEqualTo("penguins/adelie.glb");
     }
 
     [Test]
-    public async Task an_unreadable_sidecar_is_reported_and_skipped()
+    public async Task an_unreadable_sidecar_leaves_its_asset_without_an_identity()
     {
         var (files, layout) = Project();
         Asset(files, layout, "penguins/adelie.glb", Adelie);
@@ -100,7 +98,24 @@ public class AssetSidecarsTests
         var index = AssetSidecars.Index(files, layout);
 
         await Assert.That(index.Count).IsEqualTo(1);
-        await Assert.That(index.Problems).IsNotEmpty();
+        await Assert.That(index.GuidAt("penguins/broken.glb")).IsNull();
+    }
+
+    /// <summary>A file the manifest ignores is one the build never ships, so a reference to it
+    /// would name nothing. It carries no identity and is not given one.</summary>
+    [Test]
+    public async Task an_ignored_file_has_no_identity_and_is_not_given_one()
+    {
+        var (files, layout) = Project();
+        Asset(files, layout, "penguins/scratch.tmp", Jeremy);
+        Asset(files, layout, "penguins/draft.glb", guid: null);
+
+        var index = AssetSidecars.Index(files, layout, AssetIgnoreRules.Parse(["*.tmp", "draft.*"]));
+
+        await Assert.That(index.GuidAt("penguins/scratch.tmp")).IsNull();
+        await Assert.That(index.IsIgnored("penguins/draft.glb")).IsTrue();
+        await Assert.That(index.EnsureIdentity(files, "penguins/draft.glb")).IsNull();
+        await Assert.That(files.FileExists(SidecarMeta.PathFor(layout.Assets / "penguins/draft.glb"))).IsFalse();
     }
 
     /// <summary>Minted on REFERENCE, not on import: an asset nobody points at needs no identity,
@@ -113,7 +128,7 @@ public class AssetSidecarsTests
         var index = AssetSidecars.Index(files, layout);
         await Assert.That(index.Count).IsEqualTo(0);
 
-        var minted = index.EnsureIdentity(files, layout, "penguins/jeremy.glb");
+        var minted = index.EnsureIdentity(files, "penguins/jeremy.glb");
 
         await Assert.That(minted).IsNotNull();
         await Assert.That(files.FileExists(
@@ -121,6 +136,7 @@ public class AssetSidecarsTests
         // And it is now resolvable without re-indexing, which is what makes a pick usable at once.
         await Assert.That(index.PathOf(minted!.Value)).IsEqualTo("penguins/jeremy.glb");
         await Assert.That(index.GuidAt("penguins/jeremy.glb")).IsEqualTo(minted);
+        await Assert.That(index.Count).IsEqualTo(1);
     }
 
     [Test]
@@ -130,7 +146,7 @@ public class AssetSidecarsTests
         Asset(files, layout, "penguins/adelie.glb", Adelie);
         var index = AssetSidecars.Index(files, layout);
 
-        await Assert.That(index.EnsureIdentity(files, layout, "penguins/adelie.glb")).IsEqualTo(Adelie);
+        await Assert.That(index.EnsureIdentity(files, "penguins/adelie.glb")).IsEqualTo(Adelie);
     }
 
     /// <summary>An identity for a file that is not there is a reference nothing can ever
@@ -141,7 +157,7 @@ public class AssetSidecarsTests
         var (files, layout) = Project();
         var index = AssetSidecars.Index(files, layout);
 
-        await Assert.That(index.EnsureIdentity(files, layout, "penguins/ghost.glb")).IsNull();
+        await Assert.That(index.EnsureIdentity(files, "penguins/ghost.glb")).IsNull();
         await Assert.That(index.Count).IsEqualTo(0);
     }
 
@@ -152,6 +168,5 @@ public class AssetSidecarsTests
         var index = AssetSidecars.Index(files, new AssetProjectLayout("/nowhere"));
 
         await Assert.That(index.Count).IsEqualTo(0);
-        await Assert.That(index.Problems).IsEmpty();
     }
 }
