@@ -37,8 +37,8 @@ have to be real files, because a type that lives only in an assembly cannot be a
 Or start from [`templates/starter/`](templates/starter) — the same wiring, already done.
 
 Requirements: Godot 4.7+ **.NET build**, .NET SDK 10.0+. Optional:
-[KTX-Software](https://github.com/KhronosGroup/KTX-Software) (`ktx` CLI) for KTX2 texture
-encoding, Blender for FBX conversion, and the preview runtime
+[KTX-Software](https://github.com/KhronosGroup/KTX-Software) (`ktx` CLI, used by
+`paradise assets build`), Blender for FBX conversion, and the preview runtime
 (`dotnet tool install --global Paradise.Sample.Runtime` → `paradise-runtime`).
 
 Start with the **[quickstart](docs/quickstart.md)**, then the

@@ -2,14 +2,12 @@
 using System.IO;
 using Godot;
 using Paradise.Export.Data;
-using Paradise.Assets.Pipeline;
 
 namespace ParadiseGodot
 {
     /// <summary>
     /// "Paradise/Settings…" window, two storage scopes:
-    /// machine-level (EditorSettings, per-user, never committed) — external-tool paths (ktx,
-    /// Blender) applied as <c>PARADISE_*_PATH</c> environment variables, and the "Play .NET"
+    /// machine-level (EditorSettings, per-user, never committed) — the "Play .NET"
     /// launch arguments; and project-level (ProjectSettings, committed in project.godot) — the
     /// global physics dynamics tuning, re-exported to <c>data/ProjectSettings.json</c> on save
     /// so the standalone runtime simulates with the same values.
@@ -17,8 +15,6 @@ namespace ParadiseGodot
     [Tool]
     public partial class ParadiseSettingsDialog : ConfirmationDialog
     {
-        private const string KtxSetting = "paradise/tools/ktx_path";
-        private const string BlenderSetting = "paradise/tools/blender_path";
         private const string PlayDotnetArgsSetting = "paradise/play/dotnet_args";
         private const string RuntimeHostSetting = "paradise/play/runtime_host";
 
@@ -29,15 +25,6 @@ namespace ParadiseGodot
         /// accepted-and-ignored / page-override only.</summary>
         public const string DefaultPlayDotnetArgs = "";
 
-        // Track what THIS session applied, so clearing a setting can unset the variable we set
-        // without wiping one the user provided externally (shell/launchd).
-        private static bool _appliedKtx;
-        private static bool _appliedBlender;
-
-        private readonly LineEdit _ktxEdit;
-        private readonly Label _ktxStatus;
-        private readonly LineEdit _blenderEdit;
-        private readonly Label _blenderStatus;
         private readonly LineEdit _runtimeHostEdit;
         private readonly Label _runtimeHostStatus;
         private readonly LineEdit _playArgsEdit;
@@ -62,10 +49,6 @@ namespace ParadiseGodot
             layout.AddThemeConstantOverride("separation", 10);
             AddChild(layout);
 
-            (_ktxEdit, _ktxStatus) = AddToolRow(layout, "ktx",
-                "KTX-Software v5 `ktx` CLI (`ktx create` KTX2 encoder). Used by scene export for GLB-embedded textures.");
-            (_blenderEdit, _blenderStatus) = AddToolRow(layout, "Blender",
-                "FBX → GLB conversion (Paradise/Convert Models).");
             _playArgsEdit = AddTextRow(layout, "Play .NET args",
                 "Extra runtime-host CLI arguments appended by the toolbar \"Play .NET\" button " +
                 "(after --scene), e.g. --imgui --audio banks --fov 60. Double quotes group an " +
@@ -107,28 +90,6 @@ namespace ParadiseGodot
 
             AboutToPopup += LoadFromSettings;
             Confirmed += SaveAndApply;
-        }
-
-        /// <summary>Apply the saved paths as environment variables — called at plugin load so
-        /// settings take effect every session (including headless exports) and after Save.</summary>
-        public static void ApplySavedSettings()
-        {
-            ApplyOne(ReadSetting(KtxSetting), KtxTool.PathEnvironmentVariable, ref _appliedKtx);
-            ApplyOne(ReadSetting(BlenderSetting), BlenderFbxGlb.BlenderPathEnvironmentVariable, ref _appliedBlender);
-        }
-
-        private static void ApplyOne(string value, string variable, ref bool applied)
-        {
-            if (value.Length > 0)
-            {
-                System.Environment.SetEnvironmentVariable(variable, value);
-                applied = true;
-            }
-            else if (applied)
-            {
-                System.Environment.SetEnvironmentVariable(variable, null);
-                applied = false;
-            }
         }
 
         private static string ReadSetting(string name)
@@ -261,8 +222,6 @@ namespace ParadiseGodot
 
         private void LoadFromSettings()
         {
-            _ktxEdit.Text = ReadSetting(KtxSetting);
-            _blenderEdit.Text = ReadSetting(BlenderSetting);
             _runtimeHostEdit.Text = ProjectSettings.HasSetting(RuntimeHostSetting)
                 ? ProjectSettings.GetSetting(RuntimeHostSetting).AsString()
                 : "";
@@ -287,11 +246,8 @@ namespace ParadiseGodot
         private void SaveAndApply()
         {
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
-            settings.SetSetting(KtxSetting, _ktxEdit.Text.Trim());
-            settings.SetSetting(BlenderSetting, _blenderEdit.Text.Trim());
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
             ProjectSettings.SetSetting(RuntimeHostSetting, _runtimeHostEdit.Text.Trim());
-            ApplySavedSettings();
             SaveDataDirectory();
             SaveProjectPhysics();
         }
@@ -351,8 +307,6 @@ namespace ParadiseGodot
 
         private void RefreshStatus()
         {
-            Describe(_ktxEdit, _ktxStatus, "ktx", () => KtxTool.Find());
-            Describe(_blenderEdit, _blenderStatus, "Blender", BlenderFbxGlb.FindBlender);
             DescribeRuntimeHost();
         }
 
@@ -377,26 +331,6 @@ namespace ParadiseGodot
             _runtimeHostStatus.Modulate = ok ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.4f);
         }
 
-        private static void Describe(LineEdit edit, Label status, string toolName, System.Func<string?> autoDetect)
-        {
-            string path = edit.Text.Trim();
-            bool ok;
-            if (path.Length == 0)
-            {
-                string? found = autoDetect();
-                ok = found is not null;
-                status.Text = ok
-                    ? $"Auto-detected: {found}"
-                    : $"{toolName} not found — set a path here, or via environment/vendored tools.";
-            }
-            else
-            {
-                ok = File.Exists(path);
-                status.Text = ok ? "OK" : "File does not exist.";
-            }
-
-            status.Modulate = ok ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.4f);
-        }
     }
 }
 #endif

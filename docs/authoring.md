@@ -128,25 +128,12 @@ also linted: a `Source="…"` or `FontFamily="folder/#family"` reference that di
 raises an export warning (never an error), which catches an asset left outside the UI
 directory.
 
-Headless (CI) export:
-
-```bash
-PARADISE_EXPORT_SCENE=res://scenes/sample.tscn godot --headless --editor --path .
-```
-
-(`PARADISE_GENERATE_PRIMITIVES=1` and `PARADISE_CONVERT_DATA_GLBS=1` run the other pipeline
-tasks; tasks run in that order, then Godot quits.)
-
 ## Meshes and textures
 
-- **All renderable assets live under `data/`** — the runtime resolves meshes only there.
-- **Primitives** (box/sphere/capsule entities without source art) reference the shared unit
-  GLBs in `data/primitives/` (**Paradise/Generate Primitive GLBs**); the entity's size is
-  carried as transform scale and folded back into collider dimensions at load.
-- **Textures are external KTX2 sidecars** (`<glbstem>_<i>.ktx2`) referenced by `images[].uri`,
-  read natively by both Godot and the engine's GLB reader. The import hook transcodes any GLB
-  (re)imported under `data/` in place (needs the `ktx` CLI); a GLB and its sidecars must
-  travel together.
+- **Source assets live under `assets/`**, and a GLB ships nothing: `paradise assets watch` (or
+  `extract`) mints the `.mesh` / `.skinnedmesh` / `.skeleton` / `.anim` documents beside it, and
+  a mesh reference names the DOCUMENT. `paradise assets build` cooks the blobs and KTX2 textures
+  the runtime reads.
 - A GLB whose textures are **external non-KTX2 images** (shared PNG atlases) renders
   untextured in the runtime — the sidecar pass only covers embedded images.
 - Material look at runtime comes from the GLB plus per-slot overrides

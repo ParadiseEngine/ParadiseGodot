@@ -136,12 +136,10 @@ material under `data/materials/`. Mapping:
   gravity/drag/size-over-life/seed/tint + the sprite-kind sheet). Both are optional (absent =
   null — backward compatible with older documents); both normalize via `ValidateAndNormalize`
   before writing. `MaxParticles` is capped at the runtime pool size (64).
-- **Spritesheets** — source images live under `res://data/sprites/`; the contract stores the
-  data-relative field with the RUNTIME extension (`sprites/torch.ktx2`). The ingest pass
-  (`DataGlbConverter.ConvertSpriteSheets`, part of Paradise/Convert data GLBs → KTX2 and the
-  import hook) encodes a KTX2 SIDECAR next to the source; Godot keeps rendering the source
-  image, only the .NET runtime reads the sidecar. Frames are row-major, left-to-right then
-  top-to-bottom.
+- **Spritesheets** — the sheet is an asset reference under `assets/`; `paradise assets build`
+  cooks it to KTX2 and the built document names the cooked file. Godot keeps rendering the
+  source image, only the .NET runtime reads the cooked one. Frames are row-major, left-to-right
+  then top-to-bottom.
 - **Authoring** — tick `paradise.sprite-animation` and point it at a `Sprite3D`: grid, sheet and
   quad size are read off that node, the clock is authored. It is no longer discovered from the
   children. Likewise `paradise.particle-emitter` — the component's PRESENCE is what exports an
@@ -283,7 +281,7 @@ out to READERS; any shared mutation they trigger keeps ONE owner.
 
 ## UI — MVVM over the sim
 
-The ImGui samples follow immortal-cultivation's MVVM split: a **ViewModel** (no `ImGuiNET`) projects
+The ImGui samples follow immortal-cultivation's MVVM split: a **ViewModel** (no `Hexa.NET.ImGui`) projects
 sim-snapshot state into display data and exposes command methods that drive the sim through its
 command/event seam; a **View** is a thin immediate-mode ImGui renderer over one ViewModel, holding
 only presentation state; a **composition root** owns the runner and wires the pair. Both run on the
@@ -339,9 +337,10 @@ Identity maps cleanly onto the contract:
 - **Template export** — each referenced prefab is written once to `data/prefabs/<name>.json`
   (`PrefabTemplateData`). Template entities are **shallow** (id / kind / transform / renderable);
   the authoritative per-placement component data comes from the scene export.
-- **`ModelPrefabGenerator`** (`Paradise/Generate Model Prefabs`) — generates a clean
-  `AuthoredEntityNode` root with the GLB/glTF instanced as a child. Idempotent: existing prefabs are left untouched,
-  preserving hand-authored roots (the Godot equivalent of Unity's GUID-preserving regenerate).
+- **Model prefabs are seeded by the engine**, not the addon: `paradise assets extract` writes a
+  starter `.prefab` beside a GLB that nothing places yet, once, and never touches it again
+  (ParadiseEngine #257). The addon's own `ModelPrefabGenerator` did the same thing in `.tscn`
+  form and went with engine 0.40.
 
 ### Override granularity — explicit decision (resolves the semantic gap)
 
@@ -353,33 +352,14 @@ already emits each placement's **full** transform, materials, and colliders, so 
 diff instance-vs-prefab itself rather than relying on exported flags. Revisit only if the runtime
 proves it needs the flags, in which case a `.tscn` parser would be required.
 
-## Asset pipeline (Phase 6)
+## Asset pipeline
 
-Both external CLIs are kept (per the migration decision); their orchestration ports near-verbatim
-to engine-neutral Core (`Paradise.Export.Pipeline`), with only the trigger changing from Unity's
-`AssetPostprocessor` to a Godot menu (`Paradise/Convert Models (FBX→GLB→KTX2)`).
-
-- **`BlenderFbxGlb`** — headless Blender (`--background --factory-startup`, embedded Python,
-  `export_yup=True`) converts FBX→GLB. Skips when unchanged: a SHA-256 of the FBX is stored in the
-  GLB's `asset.extras`. Resolved from `PARADISE_BLENDER_PATH` / standard installs / PATH.
-- **`KtxCreate`** — the KTX-Software v5 `ktx create` CLI (toktx was removed in v5) converts the
-  GLB's embedded PNG/JPEG to KTX2 (Basis Universal) and
-  rewrites the GLB to reference them via `KHR_texture_basisu`. Per-texture encoding preset is chosen
-  from material slot usage (base/emissive → sRGB BasisLZ; metallic-roughness/occlusion → linear
-  UASTC; normal → linear UASTC normal-mode), falling back to the image name. Resolved from
-  `PARADISE_KTX_PATH` / the vendored `third_party/tools/KTX-Software/Darwin-arm64` (v5.0.0-rc1
-  `bin/ktx` + `lib/libktx`) / PATH; macOS sets `DYLD_*` to the bundled libs.
-- **Settings window** — `Project > Tools > Paradise/Settings…` sets machine-level ktx/Blender
-  paths (stored in EditorSettings `paradise/tools/*`, never committed) and applies them as the
-  `PARADISE_*_PATH` environment variables above at plugin load and on save — the first stop of
-  both tools' resolution chains, so GUI-launched editors work without a shell PATH.
-- **Graceful degradation** — a missing CLI reports a warning and leaves the asset unconverted
-  rather than failing the run.
-- `GlbBinary` / `ProcessTools` are shared engine-neutral helpers (the GLB container read/write was
-  duplicated across both Unity tools).
-
-Trigger note: conversion is **menu-driven** for now; auto-running on filesystem import is a Phase 7
-automation concern.
+The addon runs no asset pipeline of its own. FBX → GLB, GLB → mesh/skeleton/clip/material
+documents, texture → KTX2 and the build tree are all `paradise assets` verbs (`extract`, `build`,
+`watch`) from ParadiseEngine; the addon's `BlenderFbxGlb`/`ktx` orchestration, its `res://data/`
+import hook and its primitive-GLB generator were deleted with engine 0.40, when a GLB stopped
+shipping anything (#245/#246). What Godot needs from a model — the instanced scene it displays —
+it imports itself.
 
 ## Project settings & layers (Phase 7)
 
