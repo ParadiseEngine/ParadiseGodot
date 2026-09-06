@@ -40,6 +40,10 @@ namespace ParadiseGodot
         public void OnOpenSettings() => Core.OnOpenSettings();
 
         public void OnPlayDotnet() => Core.OnPlayDotnet();
+
+        public void OnStopDotnet() => Core.OnStopDotnet();
+
+        public void OnExtractModels() => Core.OnExtractModels();
     }
 }
 #endif

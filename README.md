@@ -38,8 +38,8 @@ Or start from [`templates/starter/`](templates/starter) — the same wiring, alr
 
 Requirements: Godot 4.7+ **.NET build**, .NET SDK 10.0+. Optional:
 [KTX-Software](https://github.com/KhronosGroup/KTX-Software) (`ktx` CLI, used by
-`paradise assets build`), Blender for FBX conversion, and the preview runtime
-(`dotnet tool install --global Paradise.Sample.Runtime` → `paradise-runtime`).
+`paradise assets build`), Blender for FBX conversion, and the engine CLI the **Play** button
+and **Extract Models** run (`dotnet tool install --global Paradise.Cli` → `paradise`).
 
 Start with the **[quickstart](docs/quickstart.md)**, then the
 [authoring guide](docs/authoring.md), [data contract reference](docs/contract.md), and
@@ -62,8 +62,8 @@ dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- -
 dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- --game pool
 ```
 
-Open the project in Godot to author: saving a scene auto-exports its contract to `data/`;
-the **Play .NET** toolbar button launches the export in the standalone runtime.
+Open the project in Godot to author: a `*.prefab` under `assets/` opens as a scene and saves
+back to its document; the **Play** toolbar button runs it through `paradise host play`.
 
 ### Layout
 

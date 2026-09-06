@@ -34,18 +34,23 @@
 : The contract keeps a single layer **index** from the lowest set bit of `collision_layer`.
   Use single-bit masks (bit 1 Floor, bit 2 Obstacle) on the collider's owning body.
 
-## Play .NET
+## Play
 
-**"No runtime host found"**
-: Install the preview tool `dotnet tool install --global Paradise.Sample.Runtime`, or set
-  Paradise/Settings… > runtime host to your host executable / `.csproj`. Use a `res://` or
-  relative path for a host that lives inside the project — it resolves against the project
-  root and is saved to project.godot, so it works on every device that clones the repo.
+**"No `paradise` CLI found"**
+: Play runs `paradise host play`. Install the CLI (`dotnet tool install --global Paradise.Cli`)
+  or set its path in Paradise/Settings… > paradise CLI. A GUI-launched editor does not inherit
+  your shell's PATH, which is why `~/.dotnet/tools` is probed directly.
+
+**"declares no [host] project"**
+: `paradise host play` needs `[host] project = "<launcher>.csproj"` in `assets/project.toml`
+  (relative to the project root). Add `scene = "scenes/<doc>.prefab"` for a default the tray
+  can play too.
 
 **Button launches but no window / it dies immediately**
-: Output goes to `<tmp>/paradise_play_dotnet.log` (GUI-launched processes have no console).
-  First launch after a code change builds first — give it a few seconds. The runtime needs an
-  existing export: save the scene first.
+: Output goes to `<tmp>/paradise_godot_play.log` (GUI-launched processes have no console).
+  The CLI builds the assets into `.editor/play/` and rebuilds the launcher when stale before the
+  window appears — the first Play after a code change takes a while. Exit 130 is a Stop, not a
+  failure.
 
 **Agent zig-zags or grinds along walls**
 : Navmesh bake issues — `AgentRadius` must equal the capsule radius (never 0), and the baked

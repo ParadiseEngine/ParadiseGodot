@@ -7,8 +7,8 @@ namespace ParadiseGodot
 {
     /// <summary>
     /// "Paradise/Settings…" window, two storage scopes:
-    /// machine-level (EditorSettings, per-user, never committed) — the "Play .NET"
-    /// launch arguments; and project-level (ProjectSettings, committed in project.godot) — the
+    /// machine-level (EditorSettings, per-user, never committed) — where the <c>paradise</c> CLI
+    /// is when it is not on PATH, and the launch arguments Play passes on; and project-level (ProjectSettings, committed in project.godot) — the
     /// global physics dynamics tuning, re-exported to <c>data/ProjectSettings.json</c> on save
     /// so the standalone runtime simulates with the same values.
     /// </summary>
@@ -16,17 +16,13 @@ namespace ParadiseGodot
     public partial class ParadiseSettingsDialog : ConfirmationDialog
     {
         private const string PlayDotnetArgsSetting = "paradise/play/dotnet_args";
-        private const string RuntimeHostSetting = "paradise/play/runtime_host";
 
-        /// <summary>Extra Paradise.Sample.Runtime CLI arguments the "Play .NET" button appends after
-        /// <c>--scene</c>. Only the initial default — an intentionally emptied setting stays empty.
-        /// Empty since the Noesis migration's phase-5 flip: runtime hosts render their UI
-        /// unconditionally now, and the legacy <c>--imgui</c>/<c>--noesis</c> flags are
-        /// accepted-and-ignored / page-override only.</summary>
+        /// <summary>Arguments Play passes to the launcher, after the <c>--</c> that ends the CLI's
+        /// own. Only the initial default — an intentionally emptied setting stays empty.</summary>
         public const string DefaultPlayDotnetArgs = "";
 
-        private readonly LineEdit _runtimeHostEdit;
-        private readonly Label _runtimeHostStatus;
+        private readonly LineEdit _cliEdit;
+        private readonly Label _cliStatus;
         private readonly LineEdit _playArgsEdit;
         private readonly LineEdit _dataDirEdit;
         private readonly LineEdit _minSpeedEdit;
@@ -49,9 +45,13 @@ namespace ParadiseGodot
             layout.AddThemeConstantOverride("separation", 10);
             AddChild(layout);
 
-            _playArgsEdit = AddTextRow(layout, "Play .NET args",
-                "Extra runtime-host CLI arguments appended by the toolbar \"Play .NET\" button " +
-                "(after --scene), e.g. --imgui --audio banks --fov 60. Double quotes group an " +
+            (_cliEdit, _cliStatus) = AddToolRow(layout, "paradise CLI",
+                "The `paradise` CLI Play and Extract Models run. Empty = auto: PATH, then the global " +
+                "dotnet tool (~/.dotnet/tools/paradise). Install it with " +
+                "`dotnet tool install --global Paradise.Cli`.");
+            _playArgsEdit = AddTextRow(layout, "Play args",
+                "Arguments Play passes on to the game's launcher, after the CLI's own " +
+                "(`paradise host play … -- <these>`), e.g. --fov 60. Double quotes group an " +
                 "argument with spaces.");
 
             layout.AddChild(new Label
@@ -61,13 +61,6 @@ namespace ParadiseGodot
             _dataDirEdit = AddTextRow(layout, "Data directory",
                 $"res:// directory the engine-neutral contract is exported to (default {ParadisePaths.DefaultDataDir}). " +
                 "The asset pipeline (KTX2 hooks, primitives) and the runtime host read the same tree.");
-            (_runtimeHostEdit, _runtimeHostStatus) = AddToolRow(layout, "runtime host",
-                "The standalone .NET runtime the \"Play .NET\" button launches. A .csproj path runs " +
-                "`dotnet run --project`; anything else runs directly. res:// and relative paths " +
-                "resolve against the project root, so a host that lives in this repo stays portable " +
-                "across devices (committed to project.godot). Empty = auto: this project's " +
-                "Paradise.Sample.Runtime, else the installed paradise-runtime dotnet tool. A " +
-                "machine-level EditorSettings 'paradise/play/runtime_host' overrides this if set.");
 
             layout.AddChild(new Label
             {
@@ -92,28 +85,13 @@ namespace ParadiseGodot
             Confirmed += SaveAndApply;
         }
 
-        private static string ReadSetting(string name)
+        internal static string ReadSetting(string name)
         {
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             return settings.HasSetting(name) ? settings.GetSetting(name).AsString().Trim() : "";
         }
 
-        /// <summary>The configured runtime-host path ("" = auto-resolve). The machine-level
-        /// EditorSettings value (personal override) wins over the committed project setting
-        /// (the portable default for projects that ship their own host).</summary>
-        public static string RuntimeHostPath()
-        {
-            string machine = ReadSetting(RuntimeHostSetting);
-            if (machine.Length > 0)
-            {
-                return machine;
-            }
-            return ProjectSettings.HasSetting(RuntimeHostSetting)
-                ? ProjectSettings.GetSetting(RuntimeHostSetting).AsString().Trim()
-                : "";
-        }
-
-        /// <summary>The "Play .NET" extra arguments, tokenized for a process argv.
+        /// <summary>The arguments Play passes on to the launcher, tokenized for a process argv.
         /// <see cref="DefaultPlayDotnetArgs"/> until the user first saves the setting.</summary>
         public static string[] PlayDotnetArguments()
         {
@@ -222,9 +200,7 @@ namespace ParadiseGodot
 
         private void LoadFromSettings()
         {
-            _runtimeHostEdit.Text = ProjectSettings.HasSetting(RuntimeHostSetting)
-                ? ProjectSettings.GetSetting(RuntimeHostSetting).AsString()
-                : "";
+            _cliEdit.Text = ReadSetting(Play.ParadiseCli.CliPathSetting);
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             _playArgsEdit.Text = settings.HasSetting(PlayDotnetArgsSetting)
                 ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
@@ -247,7 +223,7 @@ namespace ParadiseGodot
         {
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
-            ProjectSettings.SetSetting(RuntimeHostSetting, _runtimeHostEdit.Text.Trim());
+            settings.SetSetting(Play.ParadiseCli.CliPathSetting, _cliEdit.Text.Trim());
             SaveDataDirectory();
             SaveProjectPhysics();
         }
@@ -307,28 +283,22 @@ namespace ParadiseGodot
 
         private void RefreshStatus()
         {
-            DescribeRuntimeHost();
-        }
-
-        private void DescribeRuntimeHost()
-        {
-            string text = _runtimeHostEdit.Text.Trim();
+            string text = _cliEdit.Text.Trim();
             bool ok;
             if (text.Length == 0)
             {
-                string[]? host = ExportPluginCore.ResolveRuntimeHostCommand();
-                ok = host is not null;
-                _runtimeHostStatus.Text = ok
-                    ? $"Auto-detected: {string.Join(' ', host!)}"
-                    : "No runtime host found — set a path here, or install the paradise-runtime dotnet tool.";
+                string? found = Play.ParadiseCli.Find();
+                ok = found is not null;
+                _cliStatus.Text = ok
+                    ? $"Auto-detected: {found}"
+                    : "No `paradise` CLI found — set a path here, or `dotnet tool install --global Paradise.Cli`.";
             }
             else
             {
-                string resolved = ExportPluginCore.ResolveHostPath(text);
-                ok = File.Exists(resolved);
-                _runtimeHostStatus.Text = ok ? $"OK: {resolved}" : $"File does not exist: {resolved}";
+                ok = File.Exists(text);
+                _cliStatus.Text = ok ? "OK" : "File does not exist.";
             }
-            _runtimeHostStatus.Modulate = ok ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.4f);
+            _cliStatus.Modulate = ok ? new Color(0.55f, 0.85f, 0.55f) : new Color(0.95f, 0.75f, 0.4f);
         }
 
     }
