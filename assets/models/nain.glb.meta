@@ -1,0 +1,10 @@
+schema_version = 1
+guid = "e8635922-e2c0-5fb6-9d80-fa736a65b268"
+importer = "glb"
+
+[glb]
+mesh = { guid = "128eb4f4-b453-491f-89e4-35afacfb924e", path = "models/nain.skinnedmesh" }
+skeleton = { guid = "6fcd07cf-d07e-4e8b-b16e-726131aebc4e", path = "models/nain.skeleton" }
+clips = [{ index = 0, name = "Idle", guid = "7bd77273-a353-472a-b7da-e83c7c5ebff8", path = "models/nain.Idle.anim" }]
+materials = [{ index = 0, name = "nainSecond", guid = "a3306132-d465-4a86-a6c4-a0e29323b61d", path = "models/nain.nainSecond.material", glb = "fcd8c2bbd8b593970155c232522605228ac6033c859a3588ce55b873a512a816", doc = "fcd8c2bbd8b593970155c232522605228ac6033c859a3588ce55b873a512a816" }, { index = 1, name = "nainFirst", guid = "4422352f-1319-4eaf-8632-b9ec09b9a385", path = "models/nain.nainFirst.material", glb = "13a1172e99856ae1068294bc774eed8d271ee112fad10ffe60dc82d34bba4dcb", doc = "13a1172e99856ae1068294bc774eed8d271ee112fad10ffe60dc82d34bba4dcb" }]
+references = [{ slot = "images[0]", uri = "nain_0.png", guid = "9209ce11-004c-574f-b7b6-513cf9752359", path = "models/nain_0.png" }, { slot = "images[1]", uri = "nain_1.png", guid = "1e4a7e1f-46c9-51e0-b509-7b4a834dd606", path = "models/nain_1.png" }]

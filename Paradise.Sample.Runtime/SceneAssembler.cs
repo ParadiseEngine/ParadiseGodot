@@ -1,5 +1,6 @@
 using System.Numerics;
 using Paradise.Assets.Gltf;
+using Paradise.Assets.Mesh;
 using Paradise.ECS;
 using Paradise.Physics;
 using Paradise.Rendering;
@@ -16,7 +17,6 @@ namespace Paradise.Sample.Runtime;
 public sealed record RuntimeInstance(
     Entity? SimEntity,
     PbrInstance Render,
-    SkinnedMeshState? Skinned = null,
     float SimScale = 1f); // sim rebuilds Model from pos+rot; the authored uniform scale must survive
 
 /// <summary>Builds the runtime world from a loaded level: the static CollisionWorld (from data,
@@ -195,13 +195,9 @@ public static class SceneAssembler
         {
             var model = entity.World;
             PbrInstance? render = null;
-            SkinnedMeshState? skinned = null;
-            if (entity.Get<RenderableComponentData>() is { Mesh: { } meshField } renderable)
+            if (entity.Get<RenderableComponentData>() is { Mesh: { } meshField })
             {
-                var asset = level.MeshAssets[meshField];
-                // v5 dropped the entity-level InitialAnimation field; meshes instantiate as
-                // static (skinned playback has no authored clip to start from).
-                var mesh = geometry.InstantiateMesh(asset, entity.Get<MaterialsComponentData>()?.Slots ?? [], level);
+                var mesh = geometry.InstantiateMesh(meshField, level.Meshes[meshField], entity.Get<MaterialsComponentData>()?.Slots ?? [], level);
                 render = new PbrInstance { Mesh = mesh, Model = model };
             }
 
@@ -241,7 +237,7 @@ public static class SceneAssembler
 
             if (render is not null)
             {
-                instances.Add(new RuntimeInstance(simEntity, render, skinned, OwnerScale(model).X));
+                instances.Add(new RuntimeInstance(simEntity, render, OwnerScale(model).X));
             }
 
             // Sprite animations and particle emitters spawn their own sim entities (independent
@@ -440,36 +436,76 @@ public static class SceneAssembler
 
     // -------- materials --------
 
-    public static bool HasAnyTexture(in GltfMaterialData material) =>
-        material.BaseColorImage >= 0 || material.MetallicRoughnessImage >= 0 ||
-        material.NormalImage >= 0 || material.OcclusionImage >= 0 || material.EmissiveImage >= 0;
+    public static bool HasAnyTexture(LevelMaterialData material) =>
+        material.BaseColorTexture is { Length: > 0 } || material.MetallicRoughnessTexture is { Length: > 0 } ||
+        material.NormalTexture is { Length: > 0 } || material.OcclusionTexture is { Length: > 0 } ||
+        material.EmissiveTexture is { Length: > 0 };
 
     /// <summary>Whether a slot override should inherit the GLB material's textures (glTF
     /// factor × texture) rather than render solid. Matches Godot's <c>surface_material_override</c>
     /// semantics: an override that references a texture tints the GLB's; an override with NO
     /// texture (<see cref="LevelMaterialData.BaseColorTexture"/> null) FULLY REPLACES the surface
-    /// (solid factor), so it must not silently pull the GLB's embedded texture back in.</summary>
-    public static bool ShouldInheritTextures(LevelMaterialData data, in GltfMaterialData glb) =>
-        HasAnyTexture(in glb) && data.BaseColorTexture is not null;
+    /// (solid factor), so it must not silently pull the GLB's own texture back in. Both sides are
+    /// documents now: the GLB's materials are what `paradise assets extract` wrote for it.</summary>
+    public static bool ShouldInheritTextures(LevelMaterialData data, LevelMaterialData glb) =>
+        HasAnyTexture(glb) && data.BaseColorTexture is not null;
 
-    /// <summary>A slot-override material: the override JSON's FACTORS over the GLB material's
+    /// <summary>A slot-override material: the override's FACTORS over the GLB material's
     /// TEXTURES (glTF factor × texture — Godot parity for surface_material_override with
     /// textured materials).</summary>
-    public static GltfMaterialData BuildSlotOverrideMaterial(LevelMaterialData data, in GltfMaterialData glbMaterial) =>
-        ToGltfMaterial(data) with
+    public static LevelMaterialData BuildSlotOverrideMaterial(LevelMaterialData data, LevelMaterialData glbMaterial) =>
+        data with
         {
-            BaseColorImage = glbMaterial.BaseColorImage,
-            MetallicRoughnessImage = glbMaterial.MetallicRoughnessImage,
-            NormalImage = glbMaterial.NormalImage,
-            OcclusionImage = glbMaterial.OcclusionImage,
-            EmissiveImage = glbMaterial.EmissiveImage,
-            BaseColorUvTransform = glbMaterial.BaseColorUvTransform,
+            BaseColorTexture = glbMaterial.BaseColorTexture,
+            MetallicRoughnessTexture = glbMaterial.MetallicRoughnessTexture,
+            NormalTexture = glbMaterial.NormalTexture,
+            OcclusionTexture = glbMaterial.OcclusionTexture,
+            EmissiveTexture = glbMaterial.EmissiveTexture,
+            BaseColorUvOffset = glbMaterial.BaseColorUvOffset,
+            BaseColorUvScale = glbMaterial.BaseColorUvScale,
+            BaseColorUvRotation = glbMaterial.BaseColorUvRotation,
         };
 
-    /// <summary>Level material JSON → the renderer's material shape (factors only — texture
-    /// paths in material documents reference Godot-project SOURCE files, not runtime assets;
-    /// the texturing route is GLB-embedded KTX2, inherited by slot overrides via
-    /// <see cref="BuildSlotOverrideMaterial"/>).</summary>
+    /// <summary>
+    /// A material document as the renderer's material record plus the image table it indexes:
+    /// the KTX2 bytes the build wrote for each texture the document names, -1 where a channel
+    /// has none.
+    /// </summary>
+    public static (GltfMaterialData Material, GltfImageData[] Images) ToRendererMaterial(LevelMaterialData data, RuntimeLevel level)
+    {
+        var images = new List<GltfImageData>();
+        int Image(string? texture)
+        {
+            if (texture is not { Length: > 0 } || !level.Textures.TryGetValue(texture, out var bytes)) return -1;
+            images.Add(new GltfImageData(bytes));
+            return images.Count - 1;
+        }
+
+        var baseColor = Image(data.BaseColorTexture);
+        var metallicRoughness = Image(data.MetallicRoughnessTexture);
+        var normal = Image(data.NormalTexture);
+        var occlusion = Image(data.OcclusionTexture);
+        var emissive = Image(data.EmissiveTexture);
+        var material = ToGltfMaterial(data) with
+        {
+            BaseColorImage = baseColor,
+            MetallicRoughnessImage = metallicRoughness,
+            NormalImage = normal,
+            OcclusionImage = occlusion,
+            EmissiveImage = emissive,
+            BaseColorUvTransform = new GltfUvTransform(
+                new Vector2(
+                    data.BaseColorUvOffset is { Length: 2 } offset ? offset[0] : 0f,
+                    data.BaseColorUvOffset is { Length: 2 } offset2 ? offset2[1] : 0f),
+                new Vector2(
+                    data.BaseColorUvScale is { Length: 2 } scale ? scale[0] : 1f,
+                    data.BaseColorUvScale is { Length: 2 } scale2 ? scale2[1] : 1f),
+                data.BaseColorUvRotation),
+        };
+        return (material, [.. images]);
+    }
+
+    /// <summary>A material document's factors as the renderer's material shape, textures unbound.</summary>
     private static GltfMaterialData ToGltfMaterial(LevelMaterialData data) => new(
         Name: data.Name,
         BaseColorFactor: new Vector4(data.BaseColorFactor.R, data.BaseColorFactor.G, data.BaseColorFactor.B, data.BaseColorFactor.A),
@@ -522,157 +558,146 @@ public static class SceneAssembler
 
     // -------- geometry/material caches --------
 
-    /// <summary>Uploads each GLB's geometry once and shares the buffers across entities; each
-    /// entity's mesh clones the primitive records with slot-override material ids. GLB slot
-    /// order == Materials order is the schema-v2 contract rule.</summary>
-    private sealed class GeometryCache(PbrRenderer pbr)
+    /// <summary>Uploads each cooked mesh's draws once and shares the buffers across entities;
+    /// each entity's mesh clones the primitive records with its own slot materials. The blob's
+    /// draw order IS the slot order, on both sides.</summary>
+    private sealed partial class GeometryCache(PbrRenderer pbr)
     {
-        private readonly Dictionary<GltfAsset, (PbrPrimitive Primitive, Matrix4x4 Bake, int GlbMaterialId, int GlbMaterialIndex)[]> _uploaded = new();
-        private readonly Dictionary<(GltfAsset? Asset, int MaterialIndex, string Field), int> _levelMaterialIds = new();
+        /// <summary>One cooked mesh uploaded: the primitives, one per draw, and — parallel to
+        /// them — each draw's material slot.</summary>
+        private readonly record struct UploadedMesh(PbrPrimitive[] Primitives, int[] Slots);
 
-        public PbrMesh InstantiateMesh(GltfAsset asset, IReadOnlyList<string?> slotOverrides, RuntimeLevel level)
+        private readonly Dictionary<string, UploadedMesh> _uploaded = new(StringComparer.Ordinal);
+        private readonly Dictionary<(string? Override, string? Glb), int> _materialIds = new();
+        private int _fallback = -1;
+
+        /// <summary>
+        /// One entity's mesh: the shared upload, with each draw's material decided by the slot
+        /// rule. The scene's slot names a material document and overrides; a null slot keeps the
+        /// material the GLB had, which the build extracted to a document and recorded on the
+        /// GLB's seed prefab. An override with no texture of its own inherits a textured GLB
+        /// material's textures (<see cref="ShouldInheritTextures"/>).
+        /// </summary>
+        public PbrMesh InstantiateMesh(string field, CookedMesh cooked, IReadOnlyList<string?> slotOverrides, RuntimeLevel level)
         {
-            var uploaded = Upload(asset);
-            var primitives = new PbrPrimitive[uploaded.Length];
-            for (var i = 0; i < uploaded.Length; i++)
+            var uploaded = Upload(field, cooked);
+            var primitives = new PbrPrimitive[uploaded.Primitives.Length];
+            for (var i = 0; i < primitives.Length; i++)
             {
-                var (primitive, _, glbMaterialId, glbMaterialIndex) = uploaded[i];
-                var overrideField = i < slotOverrides.Count ? slotOverrides[i] : null;
-                primitives[i] = overrideField is null
-                    ? primitive with { MaterialId = glbMaterialId }
-                    : primitive with { MaterialId = ResolveLevelMaterial(overrideField, level, asset, glbMaterialIndex) };
+                var slot = uploaded.Slots[i];
+                var overrideField = slot >= 0 && slot < slotOverrides.Count ? slotOverrides[slot] : null;
+                var glbField = slot >= 0 && slot < cooked.Materials.Count ? cooked.Materials[slot] : null;
+                primitives[i] = uploaded.Primitives[i] with { MaterialId = ResolveMaterial(overrideField, glbField, level) };
             }
             return new PbrMesh(primitives);
         }
 
-        /// <summary>Skinned variant of <see cref="InstantiateMesh"/>: primitives that carry a
-        /// joints/weights stream get PRIVATE dynamic uploads (per entity — the CPU skinner
-        /// rewrites them each frame); rigid primitives of the same model share the static
-        /// cache. Slot overrides index the same primitive order as the static path. Returns a
-        /// null state (pure static instantiation) when the named clip does not exist.</summary>
-        public (PbrMesh Mesh, SkinnedMeshState? State) InstantiateSkinnedMesh(
-            GltfAsset asset, IReadOnlyList<string?> slotOverrides, RuntimeLevel level, string clipName)
+        /// <summary>
+        /// The cooked mesh's draws as GPU primitives. Rigid draws arrive with their node transform
+        /// already baked into the vertices by the build. A skinned blob keeps its joints and
+        /// weights interleaved and stays in bind space; this sample authors no animation, so the
+        /// geometry half is drawn as it is — the model at its bind pose.
+        /// </summary>
+        private UploadedMesh Upload(string field, CookedMesh cooked)
         {
-            var rig = new GltfAnimationRig(asset);
-            var clip = rig.FindAnimation(clipName);
-            if (clip is null)
-            {
-                Console.Error.WriteLine(
-                    $"[SceneAssembler] InitialAnimation '{clipName}' not found in the model (clips: " +
-                    $"{string.Join(", ", asset.Animations.Select(a => a.Name))}) — rendering static.");
-                return (InstantiateMesh(asset, slotOverrides, level), null);
-            }
+            if (_uploaded.TryGetValue(field, out var cached)) return cached;
 
-            var shared = Upload(asset); // material ids + rigid primitives come from the cache
-            var primitives = new PbrPrimitive[shared.Length];
-            var skinnedPrimitives = new List<SkinnedMeshState.SkinnedPrimitive>();
-            var flat = 0;
-            foreach (var instance in asset.Instances)
+            var (primitives, slots) = UploadDraws(pbr, cooked.Blob, Fallback());
+            return _uploaded[field] = new UploadedMesh(primitives, slots);
+        }
+    }
+
+    /// <summary>
+    /// A cooked mesh's draws as GPU primitives, and — parallel to them — each draw's material slot.
+    /// Rigid draws arrive with their node transform already baked into the vertices by the build.
+    /// A skinned blob keeps its joints and weights interleaved and stays in bind space; this sample
+    /// authors no animation, so the geometry half is drawn as it is — the model at its bind pose.
+    /// </summary>
+    public static (PbrPrimitive[] Primitives, int[] Slots) UploadDraws(PbrRenderer pbr, byte[] blob, int materialId)
+    {
+        var mesh = MeshBlobFormat.Read(blob);
+        var primitives = new PbrPrimitive[mesh.Draws.Count];
+        var slots = new int[mesh.Draws.Count];
+        for (var i = 0; i < primitives.Length; i++)
+        {
+            var draw = mesh.Draws[i];
+            // Each draw gets its own vertex buffer holding only the vertices it indexes: the blob
+            // shares one vertex stream across draws, and uploading it once per draw would pay for
+            // every other draw's vertices again.
+            var (vertices, indices) = Compact(mesh, draw);
+            if (mesh.Layout == MeshVertexLayout.Skinned) vertices = GeometryHalf(vertices);
+            slots[i] = draw.MaterialSlot;
+            primitives[i] = pbr.UploadPrimitive(vertices, indices, materialId);
+        }
+        return (primitives, slots);
+    }
+
+    /// <summary>The vertices one draw indexes, renumbered from zero.</summary>
+    private static (float[] Vertices, uint[] Indices) Compact(MeshData mesh, MeshDrawData draw)
+        {
+            var stride = mesh.FloatsPerVertex;
+            var remap = new Dictionary<uint, uint>();
+            var indices = new uint[draw.IndexCount];
+            var vertices = new List<float>();
+            for (var i = 0; i < indices.Length; i++)
             {
-                foreach (var source in asset.Meshes[instance.MeshIndex].Primitives)
+                var source = mesh.Indices[(int)draw.FirstIndex + i];
+                if (!remap.TryGetValue(source, out var target))
                 {
-                    var (sharedPrimitive, bake, glbMaterialId, glbMaterialIndex) = shared[flat];
-                    var overrideField = flat < slotOverrides.Count ? slotOverrides[flat] : null;
-                    var materialId = overrideField is null
-                        ? glbMaterialId
-                        : ResolveLevelMaterial(overrideField, level, asset, glbMaterialIndex);
-                    if (source.JointsWeights is not null && instance.SkinIndex >= 0)
-                    {
-                        // Private dynamic clone, initialized at bind pose with the node bake —
-                        // identical to the shared upload until the first Advance.
-                        var baked = BakeTransform(source.Vertices, bake);
-                        var gpu = pbr.UploadPrimitive(baked, source.Indices, materialId, dynamic: true);
-                        primitives[flat] = gpu;
-                        skinnedPrimitives.Add(new SkinnedMeshState.SkinnedPrimitive(
-                            source, gpu, bake, instance.SkinIndex, instance.NodeIndex));
-                    }
-                    else
-                    {
-                        primitives[flat] = sharedPrimitive with { MaterialId = materialId };
-                    }
-                    flat++;
+                    target = (uint)remap.Count;
+                    remap[source] = target;
+                    vertices.AddRange(mesh.Vertices.AsSpan((int)source * stride, stride));
                 }
+                indices[i] = target;
             }
-            var state = skinnedPrimitives.Count > 0
-                ? new SkinnedMeshState(asset, clip, skinnedPrimitives.ToArray())
-                : null;
-            return (new PbrMesh(primitives), state);
+            return ([.. vertices], indices);
         }
 
-        private (PbrPrimitive Primitive, Matrix4x4 Bake, int GlbMaterialId, int GlbMaterialIndex)[] Upload(GltfAsset asset)
+    /// <summary>The geometry floats of a skinned stream, without the joints and weights the
+    /// blob interleaves after them.</summary>
+private static float[] GeometryHalf(float[] skinned)
+    {
+        var count = skinned.Length / MeshBlob.SkinnedFloatsPerVertex;
+        var geometry = new float[count * MeshBlob.StaticFloatsPerVertex];
+        for (var v = 0; v < count; v++)
         {
-            if (_uploaded.TryGetValue(asset, out var cached)) return cached;
+            skinned.AsSpan(v * MeshBlob.SkinnedFloatsPerVertex, MeshBlob.StaticFloatsPerVertex)
+                .CopyTo(geometry.AsSpan(v * MeshBlob.StaticFloatsPerVertex));
+        }
+        return geometry;
+    }
 
-            // Register the GLB's own materials (used for null slots / the environment).
-            var glbMaterialIds = new int[asset.Materials.Length];
-            for (var i = 0; i < asset.Materials.Length; i++)
-            {
-                glbMaterialIds[i] = pbr.Materials.AddMaterial(in asset.Materials[i], asset.Images);
-            }
-            var fallback = -1;
 
-            var list = new List<(PbrPrimitive, Matrix4x4, int, int)>();
-            foreach (var instance in asset.Instances)
-            {
-                foreach (var primitive in asset.Meshes[instance.MeshIndex].Primitives)
-                {
-                    // Bake the GLB node transform into the vertices so one PbrInstance model
-                    // matrix per entity is enough (entity GLBs are entity-local by contract).
-                    var vertices = BakeTransform(primitive.Vertices, instance.WorldTransform);
-                    var materialId = primitive.MaterialIndex >= 0
-                        ? glbMaterialIds[primitive.MaterialIndex]
-                        : (fallback >= 0 ? fallback : fallback = pbr.Materials.AddDefaultMaterial(new Vector4(0.8f, 0.8f, 0.8f, 1f)));
-                    list.Add((pbr.UploadPrimitive(vertices, primitive.Indices, materialId), instance.WorldTransform, materialId, primitive.MaterialIndex));
-                }
-            }
+    private sealed partial class GeometryCache
+    {
+        private int Fallback() =>
+            _fallback >= 0 ? _fallback : _fallback = pbr.Materials.AddDefaultMaterial(new Vector4(0.8f, 0.8f, 0.8f, 1f));
 
-            var result = list.ToArray();
-            _uploaded[asset] = result;
-            return result;
+        private int ResolveMaterial(string? overrideField, string? glbField, RuntimeLevel level)
+        {
+            var key = (overrideField, glbField);
+            if (_materialIds.TryGetValue(key, out var id)) return id;
+
+            var chosen = Choose(overrideField, glbField, level);
+            id = chosen is null ? Fallback() : Register(chosen.Value.Material, chosen.Value.Images);
+            return _materialIds[key] = id;
         }
 
-        private int ResolveLevelMaterial(string field, RuntimeLevel level, GltfAsset asset, int glbMaterialIndex)
+        private int Register(GltfMaterialData material, GltfImageData[] images) => pbr.Materials.AddMaterial(in material, images);
+
+        /// <summary>The slot rule, as a document: the override, over the GLB's textures when it
+        /// inherits them; else the GLB's own; else nothing.</summary>
+        private static (GltfMaterialData Material, GltfImageData[] Images)? Choose(string? overrideField, string? glbField, RuntimeLevel level)
         {
-            // Slot overrides carry the FACTORS; textures stay with the GLB's own material
-            // (glTF semantics: factor × texture — the Godot-parity behaviour for
-            // surface_material_override with textured materials). The cache key includes the
-            // texture source so the same override JSON over differently-textured primitives
-            // yields distinct GPU materials.
-            var inherit = glbMaterialIndex >= 0
-                && ShouldInheritTextures(level.Materials[field], in asset.Materials[glbMaterialIndex]);
-            var key = inherit ? (asset, glbMaterialIndex, field) : ((GltfAsset?)null, -1, field);
-            if (_levelMaterialIds.TryGetValue(key, out var id)) return id;
+            LevelMaterialData? overrideData = overrideField is not null && level.Materials.TryGetValue(overrideField, out var o) ? o : null;
+            LevelMaterialData? glbData = glbField is not null && level.Materials.TryGetValue(glbField, out var g) ? g : null;
 
-            var material = inherit
-                ? BuildSlotOverrideMaterial(level.Materials[field], in asset.Materials[glbMaterialIndex])
-                : ToGltfMaterial(level.Materials[field]);
-            var images = inherit ? asset.Images : [];
-
-            id = pbr.Materials.AddMaterial(in material, images);
-            _levelMaterialIds[key] = id;
-            return id;
-        }
-
-        private static float[] BakeTransform(float[] vertices, in Matrix4x4 transform)
-        {
-            if (transform.IsIdentity) return vertices;
-            var baked = new float[vertices.Length];
-            Matrix4x4.Invert(transform, out var inverse);
-            var normalMatrix = Matrix4x4.Transpose(inverse);
-            for (var i = 0; i < vertices.Length; i += GltfPrimitive.FloatsPerVertex)
-            {
-                var position = Vector3.Transform(new Vector3(vertices[i], vertices[i + 1], vertices[i + 2]), transform);
-                var normal = Vector3.Normalize(Vector3.TransformNormal(new Vector3(vertices[i + 3], vertices[i + 4], vertices[i + 5]), normalMatrix));
-                var tangent = Vector3.TransformNormal(new Vector3(vertices[i + 8], vertices[i + 9], vertices[i + 10]), transform);
-                baked[i] = position.X; baked[i + 1] = position.Y; baked[i + 2] = position.Z;
-                baked[i + 3] = normal.X; baked[i + 4] = normal.Y; baked[i + 5] = normal.Z;
-                baked[i + 6] = vertices[i + 6]; baked[i + 7] = vertices[i + 7];
-                var tangentLength = tangent.Length();
-                if (tangentLength > 1e-6f) tangent /= tangentLength;
-                baked[i + 8] = tangent.X; baked[i + 9] = tangent.Y; baked[i + 10] = tangent.Z;
-                baked[i + 11] = vertices[i + 11];
-            }
-            return baked;
+            LevelMaterialData? document = overrideData is null
+                ? glbData
+                : glbData is not null && ShouldInheritTextures(overrideData, glbData)
+                    ? BuildSlotOverrideMaterial(overrideData, glbData)
+                    : overrideData;
+            return document is null ? null : ToRendererMaterial(document, level);
         }
     }
 }

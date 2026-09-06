@@ -1,0 +1,3 @@
+schema_version = 1
+source = { guid = "3522e9ce-3244-5629-894a-6d7809bd11af", path = "models/plants/plant_013.glb" }
+slot = "mesh"

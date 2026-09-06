@@ -1,0 +1,4 @@
+schema_version = 1
+source = { guid = "165aff7c-d7ee-5c08-9bc1-be1a17e0b004", path = "models/knight.glb" }
+slot = "skinnedmesh"
+skeleton = { guid = "f49ffa99-bf9d-4b53-9250-60e0862dc707", path = "models/knight.skeleton" }

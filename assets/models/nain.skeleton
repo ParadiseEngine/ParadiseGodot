@@ -1,0 +1,3 @@
+schema_version = 1
+source = { guid = "e8635922-e2c0-5fb6-9d80-fa736a65b268", path = "models/nain.glb" }
+slot = "skeleton"

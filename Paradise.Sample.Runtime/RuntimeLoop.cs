@@ -92,7 +92,6 @@ public sealed class RuntimeLoop : IDisposable
         foreach (var instance in _instances)
         {
             _scene.Instances.Add(instance.Render);
-            if (instance.Skinned is not null) instance.Skinned.TimeOverride = animTime;
         }
         foreach (var sprite in _sprites) _scene.Instances.Add(sprite.Instance);
         foreach (var batch in _particleBatches) _scene.Instances.Add(batch.Instance);
@@ -354,13 +353,6 @@ public sealed class RuntimeLoop : IDisposable
             {
                 _pool.SunkCount = sunk;
             }
-        }
-
-        // CPU-skinned playback: advance each animated instance's clip and re-upload its
-        // private vertex buffers before the frame renders.
-        foreach (var instance in _instances)
-        {
-            instance.Skinned?.Advance(_pbr, (float)frameDelta);
         }
 
         _scene.Camera = _camera.Build(_width / (float)_height);

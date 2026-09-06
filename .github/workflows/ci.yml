@@ -31,6 +31,14 @@ jobs:
       - name: Build
         run: dotnet build ParadiseGodot.slnx --no-restore
 
+      # Paradise.Sample.Runtime.Tests builds assets/ through the engine's pipeline before it
+      # reads the play tree, and cooking textures needs KTX-Software's `ktx`. Installed the way
+      # `paradise tools install ktx` lays it down, which is where the encoder probes.
+      - name: Install the paradise CLI and ktx
+        run: |
+          dotnet tool install --global Paradise.Cli --version 0.40.0
+          paradise tools install ktx
+
       - name: Test
         run: |
           for project in Paradise.Godot.Editor.Tests Paradise.Sample.Pool.Tests Paradise.Sample.Odyssey.Tests Paradise.Sample.Ui.Tests Paradise.Sample.Runtime.Tests; do

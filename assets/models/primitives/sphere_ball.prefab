@@ -1,0 +1,14 @@
+schema_version = 1
+
+[[objects]]
+
+[[objects.components]]
+id = "0f1d4b3a-8c27-4a55-9b6e-2f7c1d40a913"
+type = "meta"
+Guid = "cd32b3ad-291e-4844-94e0-9f4d6935e369"
+Name = "sphere_ball"
+
+[[objects.components]]
+id = "bdc4fc87-d7b4-41f1-bc90-fc827005adfc"
+type = "Paradise.Export.Data.MaterialsComponentData"
+Slots = [{ guid = "1d38f6ab-6f9c-4ade-8768-7f7c845f98eb", path = "models/primitives/sphere_ball.material_0.material" }]

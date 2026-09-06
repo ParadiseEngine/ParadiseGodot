@@ -1,0 +1,6 @@
+schema_version = 1
+guid = "30fa1765-7ace-554e-ae3b-196a197bfa2c"
+importer = "glb"
+
+[glb]
+mesh = { guid = "b4c77052-013c-475f-8f33-83377a1f8be8", path = "models/primitives/cube.mesh" }

@@ -1,0 +1,40 @@
+Name = "pool"
+BaseColorTexture = {}
+MetallicFactor = 0
+RoughnessFactor = 0.18
+MetallicRoughnessTexture = {}
+EmissiveTexture = {}
+NormalScale = 1
+NormalTexture = {}
+OcclusionStrength = 1
+OcclusionTexture = {}
+AlphaMode = "Opaque"
+TransmissionFactor = 0.35
+MaterialKind = "nebula"
+EmissiveStrength = 1.5
+NoiseScale = 6
+FlowSpeed = 0.3
+
+[BaseColorFactor]
+r = 0.7882353
+g = 0.23137255
+b = 0.31764707
+a = 1
+
+[EmissiveFactor]
+r = 0
+g = 0
+b = 0
+a = 1
+
+[ColorA]
+r = 0.7882353
+g = 0.21568628
+b = 0.34117648
+a = 1
+
+[ColorB]
+r = 0.31764707
+g = 0.03137255
+b = 0.13333334
+a = 1

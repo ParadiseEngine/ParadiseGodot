@@ -1,0 +1,3 @@
+schema_version = 1
+source = { guid = "b1a7ab94-1b1e-5ae0-a74c-7aa72b4f2353", path = "models/primitives/capsule.glb" }
+slot = "mesh"

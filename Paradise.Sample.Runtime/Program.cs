@@ -10,22 +10,23 @@ using Paradise.Windowing;
 
 namespace Paradise.Sample.Runtime;
 
-/// <summary>The standalone Paradise runtime: loads an exported scene from <c>data/</c>, runs
-/// the real 60 Hz game simulation (Paradise.Sample.Pool's SimulationRunner + MovementSystem), and
-/// PBR-renders interpolated snapshots in an SDL window. Left-click drags to aim/strike the cue
-/// ball. <c>--headless N</c> renders N frames offscreen for CI.
+/// <summary>The standalone Paradise runtime: loads a BUILT scene — what `paradise assets build`
+/// wrote into <c>.editor/play/</c> or <c>build/</c> — runs the real 60 Hz game simulation
+/// (Paradise.Sample.Pool's SimulationRunner + MovementSystem), and PBR-renders interpolated
+/// snapshots in an SDL window. Left-click drags to aim/strike the cue ball. <c>--headless N</c>
+/// renders N frames offscreen for CI.
 ///
-/// Usage: Paradise.Sample.Runtime --scene data/scenes/sample.json [--headless N] [--ortho] [--fov N]
-///        [--ui data/ui/&lt;overlay&gt;.xaml]
+/// Usage: Paradise.Sample.Runtime --scene .editor/play/scenes/sample.prefab [--headless N] [--ortho] [--fov N]
+///        [--ui ui/&lt;overlay&gt;.xaml]
 ///
-/// <c>--ui</c> takes an EXPORTED XAML path: this host consumes <c>data/</c> only, and the editor's
-/// export pipeline stages the project's authoring tree (<c>res://ui/**</c>) into <c>data/ui/</c>.
+/// <c>--ui</c> takes the authoring XAML straight from the repo's <c>ui/</c>: UI source is
+/// committed there and loaded off disk, never staged through the build.
 /// The Godot play-mode bridge is the other half of that split — it loads the authoring source
 /// directly and needs no export.
 ///
 /// <c>--game odyssey</c> runs the "Space Odyssey" ImGui MVVM sample (no exported scene needed):
 /// Paradise.Sample.Runtime --game odyssey [--headless N] [--screenshot path]. The pool game and its
-/// UI run only as its scene (<c>--scene data/scenes/pool.json</c>) — see PoolGameController.</summary>
+/// UI run only as its scene (<c>--scene .editor/play/scenes/pool.prefab</c>) — see PoolGameController.</summary>
 internal static class Program
 {
     private const int InitialWidth = 1280;
@@ -33,7 +34,7 @@ internal static class Program
 
     private static int Main(string[] args)
     {
-        string scenePath = "data/scenes/sample.json";
+        string scenePath = ".editor/play/scenes/sample.prefab";
         string? gameName = null;
         string? uiXamlPath = null;
         var enableImGui = false;
@@ -99,7 +100,7 @@ internal static class Program
             var level = LevelLoader.Load(scenePath);
             Console.WriteLine(
                 $"[Paradise.Sample.Runtime] {scenePath}: {level.Scene.Entities.Count} entities, " +
-                $"{level.MeshAssets.Count} mesh assets, {level.Materials.Count} materials.");
+                $"{level.Meshes.Count} meshes, {level.Materials.Count} materials.");
             return headlessFrames is { } n
                 ? RunHeadless(level, n, orthographic, fovDegrees, screenshotPath, animTime, uiXamlPath, enableImGui, audioBanksPath)
                 : RunWindowed(level, orthographic, fovDegrees, animTime, uiXamlPath, enableImGui, audioBanksPath);
@@ -113,7 +114,7 @@ internal static class Program
 
     private static int UnknownGame(string gameName)
     {
-        Console.Error.WriteLine($"Unknown --game '{gameName}' (supported: odyssey). The pool game runs as a scene: --scene data/scenes/pool.json.");
+        Console.Error.WriteLine($"Unknown --game '{gameName}' (supported: odyssey). The pool game runs as a scene: --scene .editor/play/scenes/pool.prefab.");
         return 1;
     }
 

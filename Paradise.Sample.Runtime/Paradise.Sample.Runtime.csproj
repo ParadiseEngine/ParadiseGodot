@@ -13,11 +13,19 @@
          unaffected. Set here, NOT as a CLI global property — that leaks into the netstandard2.0
          source-generator projects, which cannot AOT (NETSDK1207). -->
     <PublishAot>true</PublishAot>
+    <!-- The game's authoring schema, re-dumped after every build by the Paradise.Authoring
+         targets. .editor/ is where `paradise assets extract` reads it to seed a model prefab's
+         mesh component, and where the Godot addon reads it for the inspector. -->
+    <ParadiseAuthoringSchemaPath>$(MSBuildProjectDirectory)/../.editor/authoring-schema.json</ParadiseAuthoringSchemaPath>
   </PropertyGroup>
 
-  <!-- Installable as a global dotnet tool so the addon's "Play .NET" button works in projects
-       that don't clone this repo: `dotnet tool install (global) <PackageId>` then the addon
-       resolves ~/.dotnet/tools/paradise-runtime. Framework-dependent (tools cannot AOT). -->
+  <Target Name="EnsureAuthoringSchemaDirectory" BeforeTargets="ParadiseDumpAuthoringSchema">
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName($(ParadiseAuthoringSchemaPath)))" />
+  </Target>
+
+  <!-- Installable as a global dotnet tool (dotnet tool install, global, this PackageId) for a
+       project that wants the sample host without cloning this repo. Framework-dependent (tools
+       cannot AOT). -->
   <PropertyGroup>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>paradise-runtime</ToolCommandName>
@@ -25,7 +33,7 @@
     <Title>Paradise runtime host (paradise-runtime)</Title>
     <Authors>ParadiseEngine</Authors>
     <Copyright>ParadiseEngine</Copyright>
-    <Description>Standalone Paradise Engine runtime host as a dotnet tool: loads a scene exported by the Godot addon (engine-neutral data contract) and runs it in an SDL window with the engine PBR renderer and the sample simulation. Command: paradise-runtime --scene data/scenes/[scene].json</Description>
+    <Description>Standalone Paradise Engine runtime host as a dotnet tool: loads a scene exported by the Godot addon (engine-neutral data contract) and runs it in an SDL window with the engine PBR renderer and the sample simulation. Command: paradise-runtime --scene .editor/play/scenes/[scene].prefab (what `paradise host play` runs)</Description>
     <PackageProjectUrl>https://github.com/ParadiseEngine/ParadiseGodot</PackageProjectUrl>
     <RepositoryUrl>https://github.com/ParadiseEngine/ParadiseGodot</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -45,7 +53,10 @@
     <PackageReference Include="Paradise.Rendering" Version="0.40.0" />
     <PackageReference Include="Paradise.Rendering.WebGPU" Version="0.40.0" />
     <PackageReference Include="Paradise.Rendering.Pbr" Version="0.40.0" />
+    <!-- The renderer's material record and image table are still the glTF-shaped ones; the
+         GEOMETRY comes from the build's mesh blobs, never from a GLB. -->
     <PackageReference Include="Paradise.Assets.Gltf" Version="0.40.0" />
+    <PackageReference Include="Paradise.Assets.Mesh" Version="0.40.0" />
     <PackageReference Include="Paradise.Assets.Textures" Version="0.40.0" />
     <PackageReference Include="Paradise.Ui" Version="0.40.0" />
     <PackageReference Include="Paradise.Ui.ImGui" Version="0.40.0" />

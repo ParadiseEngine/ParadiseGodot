@@ -35,21 +35,14 @@ namespace Paradise.Sample.Runtime;
 public sealed record RenderableComponentData
 {
     /// <summary>
-    /// Authored by picking the source GLB, and BAKED to the data-relative path the runtime
-    /// resolves.
-    ///
-    /// An ASSET rather than a mesh-node reference, because that is how it was actually
-    /// authored: the field this replaces was a file picker, and in the sample scenes only 6 of
-    /// 28 entities with a mesh had a node to point at at all — the rest named a file. A node
-    /// reference would have been unauthorable for most of them.
+    /// The mesh document this entity draws — minted beside its GLB by the asset watcher; the GLB
+    /// itself ships nothing. Both geometry kinds, because this sample draws a rigged model
+    /// statically at its bind pose rather than refusing it: it authors no animation.
     /// </summary>
-    [AuthoredByHost<HostAsset>]
-    [AuthorAssetKinds(".glb", ".gltf")]
-    [AuthorDoc("The source GLB this entity renders.")]
+    [AuthoredByHost<HostMesh>]
+    [AuthorAssetKinds(".mesh", ".skinnedmesh")]
+    [AuthorDoc("The mesh document this entity draws, minted beside its GLB by `paradise assets watch`.")]
     public string? Mesh { get; set; }
-
-    [AuthorDoc("Optional node inside the GLB; empty means its whole default scene.")]
-    public string? MeshNode { get; set; }
 
     // The material slots are NOT here. They were, from v4, and they moved to
     // MaterialsComponentData in v5 for the reason the whole schema moved: they are not
