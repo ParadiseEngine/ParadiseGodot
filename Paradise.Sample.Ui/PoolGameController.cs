@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Numerics;
 using Paradise.ECS;
 using Paradise.Sample.Pool;
+using Paradise.Ui.ImGui;
 
 namespace Paradise.Sample.Ui;
 
@@ -153,9 +154,9 @@ public sealed class PoolGameController
     /// so it reads and mutates sim state directly and only reads the cached aim endpoints.</summary>
     public void DrawPanel()
     {
-        ImGuiNET.ImGui.Begin("Pool");
+        Hexa.NET.ImGui.ImGui.Begin("Pool");
         var paused = Paused;
-        if (ImGuiNET.ImGui.Checkbox("Paused", ref paused))
+        if (Hexa.NET.ImGui.ImGui.Checkbox("Paused", ref paused))
         {
             Paused = paused;
         }
@@ -163,32 +164,32 @@ public sealed class PoolGameController
         {
             var scrub = _rewindScrub;
             var max = Math.Max(0, _runner.RewindFrameCount - 1);
-            if (ImGuiNET.ImGui.SliderInt("Rewind", ref scrub, 0, max, scrub == 0 ? "now" : $"-{scrub} frames"))
+            if (Hexa.NET.ImGui.ImGui.SliderInt("Rewind", ref scrub, 0, max, scrub == 0 ? "now" : $"-{scrub} frames"))
             {
                 _rewindScrub = Math.Clamp(scrub, 0, max);
             }
-            ImGuiNET.ImGui.TextWrapped(_staged is { } s
+            ImGuiText.Wrapped(_staged is { } s
                 ? $"staged strike: {s.Impulse.Length():F1} m/s — resumes with it"
                 : "drag from the white ball to stage a strike");
         }
         else
         {
-            ImGuiNET.ImGui.TextWrapped("drag from the white ball to strike; pause to rewind");
+            ImGuiText.Wrapped("drag from the white ball to strike; pause to rewind");
         }
 
         DrawCueSpot();
 
         if (SunkCount > 0)
         {
-            ImGuiNET.ImGui.Text($"pocketed: {SunkCount}");
+            ImGuiText.Show($"pocketed: {SunkCount}");
         }
-        ImGuiNET.ImGui.End();
+        Hexa.NET.ImGui.ImGui.End();
 
         // Predicted cue-ball trail: thin translucent polyline + a ghost circle where it ends,
         // drawn UNDER the crisp white aim line so the aim direction still reads clearly.
         if (_trailVisible)
         {
-            var draw = ImGuiNET.ImGui.GetForegroundDrawList();
+            var draw = Hexa.NET.ImGui.ImGui.GetForegroundDrawList();
             int count = _trailCount;
             for (int i = 1; i < count; i++)
             {
@@ -206,7 +207,7 @@ public sealed class PoolGameController
 
         if (_aimVisible)
         {
-            var draw = ImGuiNET.ImGui.GetForegroundDrawList();
+            var draw = Hexa.NET.ImGui.ImGui.GetForegroundDrawList();
             draw.AddLine(_aimBallScreen, _aimPointScreen, 0xE0FFFFFFu, 2.5f);
             draw.AddCircleFilled(_aimPointScreen, 5f, 0xE04E82FFu);
         }
@@ -218,29 +219,29 @@ public sealed class PoolGameController
     /// Checkbox/SliderInt, so it works from the sim-thread draw callback.</summary>
     private void DrawCueSpot()
     {
-        ImGuiNET.ImGui.Text("Cue contact (spin)");
-        Vector2 origin = ImGuiNET.ImGui.GetCursorScreenPos();
+        Hexa.NET.ImGui.ImGui.Text("Cue contact (spin)");
+        Vector2 origin = Hexa.NET.ImGui.ImGui.GetCursorScreenPos();
         float diameter = CueSpotRadius * 2f;
-        ImGuiNET.ImGui.InvisibleButton("##cuespot", new Vector2(diameter, diameter));
+        Hexa.NET.ImGui.ImGui.InvisibleButton("##cuespot", new Vector2(diameter, diameter));
         var center = new Vector2(origin.X + CueSpotRadius, origin.Y + CueSpotRadius);
         float reach = CueSpotRadius - 6f;
 
         float sx = SpotX, sy = SpotY;
-        if (ImGuiNET.ImGui.IsItemActive()) // click or drag anywhere on the disc
+        if (Hexa.NET.ImGui.ImGui.IsItemActive()) // click or drag anywhere on the disc
         {
-            Vector2 m = ImGuiNET.ImGui.GetMousePos();
+            Vector2 m = Hexa.NET.ImGui.ImGui.GetMousePos();
             sx = Math.Clamp((m.X - center.X) / reach, -1f, 1f);
             sy = Math.Clamp((center.Y - m.Y) / reach, -1f, 1f); // screen-up = +Y = top spin
             SpotX = sx;
             SpotY = sy;
         }
-        if (ImGuiNET.ImGui.IsItemClicked(ImGuiNET.ImGuiMouseButton.Right))
+        if (Hexa.NET.ImGui.ImGui.IsItemClicked(Hexa.NET.ImGui.ImGuiMouseButton.Right))
         {
             sx = 0f; sy = 0f;
             SpotX = 0f; SpotY = 0f;
         }
 
-        var dl = ImGuiNET.ImGui.GetWindowDrawList();
+        var dl = Hexa.NET.ImGui.ImGui.GetWindowDrawList();
         dl.AddCircleFilled(center, CueSpotRadius, 0xFFE8E8E8u); // cue ball
         dl.AddCircle(center, CueSpotRadius, 0xFF404040u, 0, 2f); // outline
         dl.AddLine(new Vector2(center.X - CueSpotRadius + 3f, center.Y),
@@ -249,10 +250,10 @@ public sealed class PoolGameController
                    new Vector2(center.X, center.Y + CueSpotRadius - 3f), 0x30404040u, 1f);
         var spot = new Vector2(center.X + sx * reach, center.Y - sy * reach);
         dl.AddCircleFilled(spot, 6f, 0xFFF04040u); // contact spot
-        ImGuiNET.ImGui.Text($"spin x:{sx:+0.0;-0.0; 0.0} y:{sy:+0.0;-0.0; 0.0}");
+        ImGuiText.Show($"spin x:{sx:+0.0;-0.0; 0.0} y:{sy:+0.0;-0.0; 0.0}");
 
         float elev = Elevation;
-        if (ImGuiNET.ImGui.SliderFloat("Elevation", ref elev, 0f, 1f, "%.2f"))
+        if (Hexa.NET.ImGui.ImGui.SliderFloat("Elevation", ref elev, 0f, 1f, "%.2f"))
         {
             Elevation = elev;
         }

@@ -84,7 +84,7 @@ internal static class AuthoredDocuments
     /// reads one — through this assembly's generated registry.</summary>
     public static AuthoredScene Scene(params List<AuthoredComponentData>[] entities)
     {
-        var level = new LevelData();
+        var level = new PrefabData();
         foreach (var entity in entities) level.Entities.Add(entity);
         return AuthoredScene.Read(level, AuthoredComponents.Default);
     }
