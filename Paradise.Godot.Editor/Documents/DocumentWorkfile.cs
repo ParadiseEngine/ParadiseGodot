@@ -58,7 +58,6 @@ namespace ParadiseGodot.Documents
             }
 
             var sidecars = AssetSidecars.Index(project.Files, project.Layout);
-            foreach (var problem in sidecars.Problems) GD.PushWarning($"[Paradise] {problem}");
 
             var resolved = PrefabResolver.Resolve(
                 document, reference => LoadPrefab(project, sidecars, reference));

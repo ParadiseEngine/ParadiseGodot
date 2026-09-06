@@ -27,10 +27,10 @@ namespace ParadiseGodot.Authoring
         /// here, because the interface cannot itself derive from <see cref="Node3D"/>.</summary>
         Node3D Node { get; }
 
-        /// <summary>The source GLB this entity renders, as authored on
-        /// <see cref="RenderableComponentData"/>'s asset-bound <c>Mesh</c> field. Setting it
-        /// enables the Renderable component exactly as ticking the box would, and the host bakes
-        /// the res:// path to its data/-relative contract field at export.</summary>
+        /// <summary>The model this entity renders: a <c>.mesh</c> or <c>.skinnedmesh</c> document
+        /// under <c>assets/</c>, or the GLB it was extracted from, as authored on the game's mesh
+        /// field. Setting it enables the owning component exactly as ticking the box would; the
+        /// bake writes the document's reference.</summary>
         string ModelPath { get; set; }
 
         /// <summary>This entity's GUID as it stands, or <see cref="Guid.Empty"/> if it has none.

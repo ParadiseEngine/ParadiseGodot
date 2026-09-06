@@ -619,13 +619,16 @@ namespace ParadiseGodot.Authoring
         private static global::Godot.Collections.Dictionary HostPicker(
             string name, string kind, bool isList, IReadOnlyList<string>? assetKinds)
         {
-            if (kind == AuthoredBySources.Asset)
+            if (kind is AuthoredBySources.Asset or AuthoredBySources.Mesh)
             {
                 // Godot's filter syntax is built HERE, from the semantic kinds the schema declares.
-                // Putting "*.glb,*.gltf" in the document would make Blender speak Godot.
+                // Putting "*.glb,*.gltf" in the document would make Blender speak Godot. A mesh
+                // field that declares no kinds takes the two geometry documents, and the GLB they
+                // are extracted from — an author points at the model they can see, and the bake
+                // follows the sidecar to the document.
                 string filter = assetKinds is { Count: > 0 }
-                    ? string.Join(",", assetKinds.Select(k => "*" + k))
-                    : "*";
+                    ? string.Join(",", assetKinds.Select(k => "*" + k).Concat(kind == AuthoredBySources.Mesh ? ["*.glb", "*.gltf"] : []))
+                    : kind == AuthoredBySources.Mesh ? "*.mesh,*.skinnedmesh,*.glb,*.gltf" : "*";
                 return new global::Godot.Collections.Dictionary
                 {
                     { "name", name },
@@ -932,6 +935,7 @@ namespace ParadiseGodot.Authoring
                 (Variant.Type.Int, AuthoredValueKind.Integer) => value.Integer,
                 (Variant.Type.Float, AuthoredValueKind.Number) => value.Number,
                 (Variant.Type.String, AuthoredValueKind.Text) => value.Text ?? "",
+                (Variant.Type.String, AuthoredValueKind.Reference) => value.Text ?? "",
                 (Variant.Type.Vector2, AuthoredValueKind.Numbers) =>
                     new Vector2(value.Numbers![0], value.Numbers[1]),
                 (Variant.Type.Vector3, AuthoredValueKind.Numbers) =>
@@ -948,19 +952,17 @@ namespace ParadiseGodot.Authoring
         // ---------------------------------------------------------------------------------
 
         /// <summary>
-        /// The source GLB this entity renders.
-        ///
-        /// A convenience over the authored value, for code that has no inspector to go through:
-        /// the model-prefab generator places entities programmatically. Setting it enables the
-        /// owning component exactly as ticking the box would, and the host bakes the res:// path to
-        /// its data/-relative field at export.
+        /// The model this entity renders: a <c>.mesh</c> or <c>.skinnedmesh</c> document under
+        /// <c>assets/</c>, or the GLB it was extracted from — either spelling the bake turns into
+        /// the document's reference. Setting it enables the owning component exactly as ticking
+        /// the box would.
         /// </summary>
         /// <remarks>
         /// Found through the SCHEMA rather than named on an engine record. Contract v6 deleted
         /// <c>RenderableComponentData</c> along with every other engine-declared component, so
-        /// "the field that holds a model" is now whatever the GAME declared: an asset reference
-        /// that accepts a GLB. The first one wins, and a game with two of them has not said which
-        /// of them is the model.
+        /// "the field that holds a model" is now whatever the GAME declared: a field authored by
+        /// the mesh kind, or an asset reference accepting a mesh document. The first one wins, and
+        /// a game with two of them has not said which of them is the model.
         /// </remarks>
         public string ModelPath
         {
@@ -970,9 +972,9 @@ namespace ParadiseGodot.Authoring
                 if (ModelField() is not { } slot)
                 {
                     GD.PushWarning(
-                        $"[Paradise] '{_host.Name}': no authored component declares an asset field "
-                        + "accepting .glb, so there is nowhere to put a model path. Declare one with "
-                        + "[AuthoredByHost<HostAsset>] and [AuthorAssetKinds(\".glb\")].");
+                        $"[Paradise] '{_host.Name}': no authored component declares a mesh field, "
+                        + "so there is nowhere to put a model. Declare one with "
+                        + "[AuthoredByHost<HostMesh>] and [AuthorAssetKinds(\".mesh\")].");
                     return;
                 }
                 SetAuthored(slot.Component, slot.Path, value);
@@ -987,7 +989,8 @@ namespace ParadiseGodot.Authoring
             {
                 foreach (HostRef host in component.Hosts)
                 {
-                    if (host.Kind == AuthoredBySources.Asset && AcceptsModel(host.AssetKinds))
+                    if (host.Kind == AuthoredBySources.Mesh ||
+                        (host.Kind == AuthoredBySources.Asset && AcceptsModel(host.AssetKinds)))
                     {
                         return (component.Id, host.Path);
                     }
@@ -1000,8 +1003,8 @@ namespace ParadiseGodot.Authoring
         private static bool AcceptsModel(IReadOnlyList<string>? assetKinds) =>
             assetKinds is not null &&
             assetKinds.Any(kind =>
-                kind.Equals(".glb", StringComparison.OrdinalIgnoreCase) ||
-                kind.Equals(".gltf", StringComparison.OrdinalIgnoreCase));
+                kind.Equals(MeshReferenceDocument.MeshSuffix, StringComparison.OrdinalIgnoreCase) ||
+                kind.Equals(MeshReferenceDocument.SkinnedMeshSuffix, StringComparison.OrdinalIgnoreCase));
 
         private Variant StoredValue(Guid componentId, string field) =>
             StoredValue(componentId.ToString(), field);
@@ -1186,7 +1189,11 @@ namespace ParadiseGodot.Authoring
                 return;
             }
 
-            if (host.Kind == AuthoredBySources.Asset)
+            // A mesh field picked as a file rather than as a node: the value is a path, and a
+            // scene authored before the file picker still carries a NodePath, which the node flow
+            // below turns into the same document.
+            if (host.Kind == AuthoredBySources.Asset ||
+                (host.Kind == AuthoredBySources.Mesh && stored.VariantType == Variant.Type.String))
             {
                 string file = stored.AsString();
                 if (string.IsNullOrEmpty(file)) return;
@@ -1199,7 +1206,10 @@ namespace ParadiseGodot.Authoring
                     return;
                 }
 
-                if (assets.Reference(file) is { } reference) into[prefix + at] = reference;
+                AuthoredValue? reference = host.Kind == AuthoredBySources.Mesh
+                    ? assets.MeshDocument(file)
+                    : assets.Reference(file);
+                if (reference is { } value) into[prefix + at] = value;
                 return;
             }
 
@@ -1261,11 +1271,23 @@ namespace ParadiseGodot.Authoring
         {
             if (assets is not null) return assets.Reference(file);
 
+            WarnNoProject(file);
+            return null;
+        }
+
+        /// <summary>A picked model as the mesh DOCUMENT a document stores.</summary>
+        private AuthoredValue? MeshDocument(string file, AssetReferenceResolver? assets)
+        {
+            if (assets is not null) return assets.MeshDocument(file);
+
+            WarnNoProject(file);
+            return null;
+        }
+
+        private void WarnNoProject(string file) =>
             GD.PushWarning(
                 $"[Paradise] '{_host.Name}': '{file}' cannot be given an identity with no asset " +
                 "project open, so the reference is not saved.");
-            return null;
-        }
 
         /// <summary>The kinds whose value is the entity's OWN — read off the node, never picked.</summary>
         private AuthoredValue? SelfSupplied(string kind) => kind switch
@@ -1353,13 +1375,14 @@ namespace ParadiseGodot.Authoring
                 {
                     if (_host.GetNodeOrNull<Node>(path) is not { } node) return null;
 
-                    // The GLB the node was instanced from — a mesh reference points at a model in
-                    // the scene, and what the document stores is the SOURCE that model came from.
+                    // The GLB the node was instanced from — and then the mesh document the engine
+                    // minted beside it, which is what a document references. The GLB itself ships
+                    // nothing, so a reference to it would name a file no runtime is given.
                     string? source = HostObjectBaker.SourceGlbOf(node)
                         ?? HostObjectBaker.ModelDescendants(node)
                             .Select(HostObjectBaker.SourceGlbOf)
                             .FirstOrDefault(p => p is not null);
-                    if (source is null || Reference(source, assets) is not { } mesh) return null;
+                    if (source is null || MeshDocument(source, assets) is not { } mesh) return null;
 
                     return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
                     {
@@ -1395,6 +1418,8 @@ namespace ParadiseGodot.Authoring
         /// which is the common case and costs nothing.</summary>
         private void OnAuthoredChanged()
         {
+            RefreshModelPreview();
+
             if (_wire is not null)
             {
                 _wire.QueueFree();
@@ -1476,6 +1501,68 @@ namespace ParadiseGodot.Authoring
                 : 0f;
 
         public void OnReady() => OnAuthoredChanged();
+
+        // ---------------------------------------------------------------------------------
+        // Model preview
+        // ---------------------------------------------------------------------------------
+
+        private const string ModelPreviewName = "ModelPreview";
+        private string? _previewedModel;
+        private Node? _modelPreview;
+
+        /// <summary>
+        /// Show the model the mesh field names, as a DERIVED child: instanced from the GLB the
+        /// document is cooked from, never owned, never saved, rebuilt when the field changes.
+        /// </summary>
+        /// <remarks>
+        /// The project is opened per change, not per frame, and the sidecar scan is paid only when
+        /// the GLB the document spells has moved. Why the GLB is loaded off disk rather than
+        /// instanced is <see cref="ModelPreview"/>'s to explain.
+        /// </remarks>
+        private void RefreshModelPreview()
+        {
+            if (!Engine.IsEditorHint() || !_host.IsInsideTree()) return;
+
+            string? model = ModelField() is { } slot && _enabled.Contains(slot.Component)
+                ? StoredValue(slot.Component, slot.Path).AsString()
+                : null;
+            if (string.IsNullOrEmpty(model)) model = null;
+            if (string.Equals(model, _previewedModel, StringComparison.Ordinal)) return;
+            _previewedModel = model;
+
+            if (_modelPreview is not null)
+            {
+                _modelPreview.QueueFree();
+                _modelPreview = null;
+            }
+            if (model is null) return;
+
+            if (!ParadiseProject.TryOpen(out var opened, out var problem) || opened is null)
+            {
+                GD.PushWarning($"[Paradise] '{_host.Name}': cannot preview '{model}': {problem}");
+                return;
+            }
+
+            string? glb;
+            using (opened)
+            {
+                glb = ModelDocuments.IsGlb(model)
+                    ? opened.Files.ConvertPathToInternal(opened.Layout.Assets / model)
+                    : AssetReferenceResolver.For(opened).SourceGlbOf(model);
+            }
+            if (glb is null) return;
+
+            if (ModelPreview.Load(glb, out var failure) is not { } scene)
+            {
+                GD.PushWarning($"[Paradise] '{_host.Name}': {failure}");
+                return;
+            }
+
+            scene.Name = ModelPreviewName;
+            scene.SetMeta(DocumentLoader.DerivedMetaKey, true);
+            _host.AddChild(scene);
+            _modelPreview = scene;
+        }
     }
 }
 #endif
