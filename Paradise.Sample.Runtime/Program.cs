@@ -3,6 +3,7 @@ using System.Numerics;
 using Paradise.Rendering;
 using Paradise.Rendering.WebGPU;
 using Paradise.Ui;
+using Paradise.Ui.ImGui;
 using static SDL.SDL3;
 using SDL;
 using Paradise.Windowing;
@@ -212,11 +213,11 @@ internal static class Program
             var showDemo = false;
             imgui.AddDraw(() =>
             {
-                ImGuiNET.ImGui.Begin("Paradise");
-                ImGuiNET.ImGui.Text($"instances: {loop.InstanceCount}");
-                ImGuiNET.ImGui.Checkbox("ImGui demo window", ref showDemo);
-                ImGuiNET.ImGui.End();
-                if (showDemo) ImGuiNET.ImGui.ShowDemoWindow(ref showDemo);
+                Hexa.NET.ImGui.ImGui.Begin("Paradise");
+                ImGuiText.Show($"instances: {loop.InstanceCount}");
+                Hexa.NET.ImGui.ImGui.Checkbox("ImGui demo window", ref showDemo);
+                Hexa.NET.ImGui.ImGui.End();
+                if (showDemo) Hexa.NET.ImGui.ImGui.ShowDemoWindow(ref showDemo);
             });
         }
     }

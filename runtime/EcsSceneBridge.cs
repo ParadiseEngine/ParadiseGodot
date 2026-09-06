@@ -7,6 +7,7 @@ using Paradise.Export.Geometry;
 using Paradise.Sample.Pool;
 using Paradise.Sample.Pool.Physics;
 using Paradise.Ui;
+using Paradise.Ui.ImGui;
 using Paradise.Ui.Noesis;
 using Zio.FileSystems;
 using ParadiseGodot.Runtime.Ui;
@@ -305,15 +306,15 @@ namespace ParadiseGodot.Runtime
         /// Render, so it reads and mutates sim state directly (Paused is a volatile).</summary>
         private void DrawDebugPanel()
         {
-            ImGuiNET.ImGui.Begin("Paradise (Godot)");
-            ImGuiNET.ImGui.Text($"entities: {_agents.Count} dynamic ({_ballCount} balls)");
-            ImGuiNET.ImGui.Text($"sim: t={_runner!.Now:F2}s latest={_runner.LatestSnapshotTime:F2}s");
+            Hexa.NET.ImGui.ImGui.Begin("Paradise (Godot)");
+            ImGuiText.Show($"entities: {_agents.Count} dynamic ({_ballCount} balls)");
+            ImGuiText.Show($"sim: t={_runner!.Now:F2}s latest={_runner.LatestSnapshotTime:F2}s");
             var paused = _runner.Paused;
-            if (ImGuiNET.ImGui.Checkbox("Paused", ref paused))
+            if (Hexa.NET.ImGui.ImGui.Checkbox("Paused", ref paused))
             {
                 _runner.Paused = paused;
             }
-            ImGuiNET.ImGui.End();
+            Hexa.NET.ImGui.ImGui.End();
         }
 
         /// <summary>Mouse events become <see cref="WindowEvent"/>s drained on the sim thread: UI

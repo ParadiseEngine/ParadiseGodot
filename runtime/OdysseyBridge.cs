@@ -5,6 +5,7 @@ using Paradise.ECS;
 using Paradise.Sample.ImGui;
 using Paradise.Sample.Odyssey;
 using Paradise.Ui;
+using Paradise.Ui.ImGui;
 using Paradise.Sample.Ui;
 using ParadiseGodot.Runtime.Ui;
 using SN = System.Numerics;

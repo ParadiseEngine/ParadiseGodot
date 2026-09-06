@@ -1,23 +1,22 @@
 using Paradise.Rendering.WebGPU;
 using Paradise.Ui.ImGui;
 using Paradise.Ui;
-using Paradise.Sample.Ui;
 
 namespace Paradise.Sample.Runtime;
 
-/// <summary>Dear ImGui behind <see cref="IUiSystem"/>: the shared renderer-independent half
+/// <summary>Dear ImGui behind <see cref="IUiSystem"/>: the engine's renderer-independent half
 /// (<see cref="ImGuiUiCore"/> — sim-thread frame + triple-buffered snapshots) plus this host's
 /// WebGPU render half (<see cref="ImGuiWebGpuRenderer"/> into the engine's OverlayPass).</summary>
 internal sealed class ImGuiUi : IUiSystem
 {
     private readonly ImGuiUiCore _core;
+    private readonly List<ImGuiTextureOp> _textureOps = new();
     private WebGpuRenderer? _renderer;
     private ImGuiWebGpuRenderer? _drawRenderer;
 
     public IUiInput Input => _core.Input;
 
-    public ImGuiUi(uint pixelWidth, uint pixelHeight, UiFontConfig? cjkFont = null) =>
-        _core = new ImGuiUiCore(pixelWidth, pixelHeight, cjkFont);
+    public ImGuiUi(uint pixelWidth, uint pixelHeight) => _core = new ImGuiUiCore(pixelWidth, pixelHeight);
 
     /// <summary>Register a per-tick draw delegate — runs ON THE SIM THREAD between NewFrame
     /// and Render, so it may read and mutate sim-owned state freely. Register before the sim
@@ -39,14 +38,17 @@ internal sealed class ImGuiUi : IUiSystem
                 ? WebGpuSharp.TextureFormat.BGRA8Unorm
                 : WebGpuSharp.TextureFormat.RGBA8Unorm;
             _drawRenderer = new ImGuiWebGpuRenderer(renderer.NativeDevice, format);
-            _drawRenderer.SetFontAtlas(_core.FontPixels, _core.FontWidth, _core.FontHeight);
         }
 
-        if (_core.AcquireSnapshotForRender(out _) is { } snapshot)
+        // Texture ops land before the draw: the snapshot from this acquire may name a texture
+        // these ops are what create. ApplyTextureOps clears the list only once every op landed.
+        var snapshot = _core.AcquireSnapshotForRender(_textureOps, out _);
+        _drawRenderer.ApplyTextureOps(_textureOps);
+        if (snapshot is { } frame)
         {
             _drawRenderer.Render(
                 encoder, backbuffer,
-                (uint)snapshot.DisplaySize.X, (uint)snapshot.DisplaySize.Y, snapshot);
+                (uint)frame.DisplaySize.X, (uint)frame.DisplaySize.Y, frame);
         }
     }
 }

@@ -3,10 +3,11 @@ using System.Numerics;
 
 namespace Paradise.Sample.ImGui
 {
-    // Inside the namespace so `ImGui` resolves to ImGuiNET.ImGui, not to this namespace's own
-    // trailing `ImGui` segment (a compilation-unit using cannot win that lookup).
-    using ImGuiNET;
+    // Inside the namespace so `ImGui` resolves to Hexa.NET.ImGui.ImGui, not to this namespace's
+    // own trailing `ImGui` segment (a compilation-unit using cannot win that lookup).
+    using Hexa.NET.ImGui;
     using Paradise.Sample.Ui;
+    using Paradise.Ui.ImGui;
 
     /// <summary>The MVVM VIEW for the "Space Odyssey" sample — a thin ImGui renderer over a single
     /// <see cref="OdysseyViewModel"/>. It holds ONLY presentation state (a fixed starfield laid out
@@ -48,7 +49,7 @@ namespace Paradise.Sample.ImGui
             ImGui.SetNextWindowSize(new Vector2(460, 420), ImGuiCond.FirstUseEver);
             if (ImGui.Begin("Star Voyager"))
             {
-                ImGui.Text($"Sector {vm.Sector}");
+                ImGuiText.Show($"Sector {vm.Sector}");
                 ImGui.Separator();
 
                 // Warp-charge gauge.
@@ -66,9 +67,9 @@ namespace Paradise.Sample.ImGui
                     $"{vm.Hull:F0} / {vm.FullHull:F0}");
 
                 ImGui.Separator();
-                ImGui.Text($"Credits:     {vm.CreditBalance}");
-                ImGui.Text($"Distance:    {vm.Distance:F1} ly");
-                ImGui.Text($"Jump chance: {vm.JumpChance * 100f:F0} %%");
+                ImGuiText.Show($"Credits:     {vm.CreditBalance}");
+                ImGuiText.Show($"Distance:    {vm.Distance:F1} ly");
+                ImGuiText.Show($"Jump chance: {vm.JumpChance * 100f:F0} %");
 
                 ImGui.Separator();
                 if (ImGui.Button(vm.IsCharging ? "Charging…" : "Charge"))
@@ -110,7 +111,7 @@ namespace Paradise.Sample.ImGui
                     var log = vm.Log;
                     for (var i = 0; i < log.Count; i++)
                     {
-                        ImGui.TextWrapped(log[i]);
+                        ImGuiText.Wrapped(log[i]);
                     }
                     // Keep the newest line in view (log appends oldest → newest).
                     if (ImGui.GetScrollY() >= ImGui.GetScrollMaxY() - 1f)

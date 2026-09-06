@@ -42,7 +42,7 @@ public sealed class AuthoredScene
     /// <param name="unresolved">Collects payloads no registry could read — a component the game
     /// removed, or a document from a newer build. Null discards them.</param>
     public static AuthoredScene Read(
-        LevelData level,
+        PrefabData level,
         IAuthoredComponentRegistry registry,
         List<AuthoredComponentData>? unresolved = null)
     {
