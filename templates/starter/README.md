@@ -18,9 +18,10 @@ enabled; `addons/paradise/` is created by the first build, not checked in here.
    has run. Reload the project afterwards. Commit `addons/paradise/`, including the `.uid` files
    Godot mints beside the scripts on import.
 2. Run **Project > Tools > Paradise/Project Setup** — verifies the `Paradise.Export`
-   package reference and creates the `data/` layout.
-3. Install the preview runtime: `dotnet tool install --global Paradise.Sample.Runtime`
-   (provides the `paradise-runtime` command the **Play .NET** toolbar button launches).
+   package reference and the project settings.
+3. Install the engine CLI: `dotnet tool install --global Paradise.Cli`
+   (provides `paradise`, which the **Play** toolbar button runs through `paradise host play`
+   and **Paradise/Extract Models** runs as `paradise assets extract --all`).
 
 ## Author your first entity
 
@@ -30,7 +31,7 @@ enabled; `addons/paradise/` is created by the first build, not checked in here.
    `paradise.renderable` and point the latter's `Mesh` at a GLB under `data/`.
 3. Save the scene — the engine-neutral contract is exported to `data/scenes/main.json`
    automatically on every save.
-4. Press **Play .NET** in the toolbar to run the exported scene in the standalone runtime.
+4. Press **Play** in the toolbar to run the open document through `paradise host play`.
 
 See the addon documentation for the authoring guide (entity kinds, collision layers,
 KTX2 texture pipeline, navmesh baking).
