@@ -87,6 +87,106 @@ namespace ParadiseGodot.Authoring
             return leaves;
         }
 
+        // ---- environment ----------------------------------------------------------------
+
+        /// <summary>
+        /// Read a scene's lighting mood off its <see cref="WorldEnvironment"/> — what
+        /// <c>HostEnvironment</c> describes: ambient, background, the procedural-sky gradient, fog,
+        /// tone mapping and the two screen-space effects.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Godot keeps one ambient colour; the kind keeps three (sky, equator, ground). With a flat
+        /// ambient all three are that colour. With sky ambient over a procedural sky, they are the
+        /// gradient's zenith, horizon and nadir — the integration a renderer would do, approximated
+        /// as the colours it would integrate.
+        /// </para>
+        /// <para>
+        /// <c>SkyCurve</c> and <c>GroundCurve</c> travel as Godot spells them (0.15 / 0.02): the curve a
+        /// sky HAS, not the exponent one shader fits to it. A renderer that wants <c>pow()</c> inverts
+        /// it itself — the #238 review's decision, so the kind's field never holds a host property's
+        /// reciprocal under the same name.
+        /// </para>
+        /// <para>
+        /// The shadow-map size and blur are left absent: Godot sizes shadows per project, not per
+        /// scene, and absent keeps the renderer's own.
+        /// </para>
+        /// </remarks>
+        public static Dictionary<string, AuthoredValue> BakeEnvironment(global::Godot.Environment environment)
+        {
+            ProceduralSkyMaterial? sky = environment.Sky?.SkyMaterial as ProceduralSkyMaterial;
+            bool skyBackground = environment.BackgroundMode == global::Godot.Environment.BGMode.Sky;
+            bool skyAmbient = environment.AmbientLightSource switch
+            {
+                global::Godot.Environment.AmbientSource.Sky => true,
+                global::Godot.Environment.AmbientSource.Bg => skyBackground,
+                _ => false,
+            };
+            bool skyReflections = environment.ReflectedLightSource switch
+            {
+                global::Godot.Environment.ReflectionSource.Sky => true,
+                global::Godot.Environment.ReflectionSource.Bg => skyBackground,
+                _ => false,
+            };
+
+            Color ambient = environment.AmbientLightColor;
+            Color ambientSky = skyAmbient && sky is not null ? sky.SkyTopColor : ambient;
+            Color ambientEquator = skyAmbient && sky is not null ? sky.SkyHorizonColor.Lerp(sky.GroundHorizonColor, 0.5f) : ambient;
+            Color ambientGround = skyAmbient && sky is not null ? sky.GroundBottomColor : ambient;
+            // Disabled ambient is a flat black at zero energy: the kind has no "off", and this is
+            // what off looks like to a renderer.
+            bool ambientOff = environment.AmbientLightSource == global::Godot.Environment.AmbientSource.Disabled;
+
+            var leaves = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+            {
+                ["AmbientMode"] = Text(skyAmbient ? "Sky" : "Color"),
+                ["AmbientSky"] = Rgba(ambientSky),
+                ["AmbientEquator"] = Rgba(ambientEquator),
+                ["AmbientGround"] = Rgba(ambientGround),
+                ["AmbientEnergy"] = Number(ambientOff ? 0f : environment.AmbientLightEnergy),
+                ["SkyReflections"] = Boolean(skyReflections),
+                ["HasBackground"] = Boolean(skyBackground || environment.BackgroundMode == global::Godot.Environment.BGMode.Color),
+                ["BackgroundColor"] = Rgba(environment.BackgroundColor),
+                ["SkyGradient"] = Boolean(skyBackground && sky is not null),
+                ["TonemapMode"] = Text(TonemapName(environment.TonemapMode)),
+                ["TonemapExposure"] = Number(environment.TonemapExposure),
+                ["TonemapWhite"] = Number(environment.TonemapWhite),
+                ["FogEnabled"] = Boolean(environment.FogEnabled),
+                ["FogColor"] = Rgba(environment.FogLightColor),
+                ["FogDensity"] = Number(environment.FogDensity),
+                ["SsaoEnabled"] = Boolean(environment.SsaoEnabled),
+                ["SsaoRadius"] = Number(environment.SsaoRadius),
+                ["SsaoIntensity"] = Number(environment.SsaoIntensity),
+                ["SsaoPower"] = Number(environment.SsaoPower),
+                ["GlowEnabled"] = Boolean(environment.GlowEnabled),
+                ["GlowIntensity"] = Number(environment.GlowIntensity),
+                ["GlowThreshold"] = Number(environment.GlowHdrThreshold),
+            };
+
+            if (sky is not null)
+            {
+                leaves["SkyTop"] = Rgba(sky.SkyTopColor);
+                leaves["SkyHorizon"] = Rgba(sky.SkyHorizonColor);
+                leaves["GroundHorizon"] = Rgba(sky.GroundHorizonColor);
+                leaves["GroundBottom"] = Rgba(sky.GroundBottomColor);
+                leaves["SkyCurve"] = Number(sky.SkyCurve);
+                leaves["GroundCurve"] = Number(sky.GroundCurve);
+            }
+
+            return leaves;
+        }
+
+        /// <summary>The operator's name in the literature, which is what the kind spells — Godot
+        /// calls Reinhard "Reinhardt".</summary>
+        private static string TonemapName(global::Godot.Environment.ToneMapper mode) => mode switch
+        {
+            global::Godot.Environment.ToneMapper.Reinhardt => "Reinhard",
+            global::Godot.Environment.ToneMapper.Filmic => "Filmic",
+            global::Godot.Environment.ToneMapper.Aces => "Aces",
+            global::Godot.Environment.ToneMapper.Agx => "AgX",
+            _ => "Linear",
+        };
+
         /// <summary>Read a camera's lens and pose — what <c>HostCamera</c> describes.</summary>
         /// <remarks>Godot cameras look down their local −Z, which is the contract's convention too,
         /// so the world rotation is stored verbatim. <c>Fov</c> is Godot's <c>fov</c>: a VERTICAL
