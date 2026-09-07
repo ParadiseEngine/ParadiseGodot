@@ -31,6 +31,18 @@ namespace ParadiseGodot.Play
         /// it is neither on PATH nor installed as a global tool.</summary>
         public const string CliPathSetting = "paradise/tools/cli_path";
 
+        /// <summary>Machine-level EditorSettings key: <c>NAME=VALUE</c> pairs exported before the
+        /// CLI runs.</summary>
+        /// <remarks>The CLI shells out to <c>dotnet build</c>, and MSBuild reads environment
+        /// variables as properties — so this is how an editor reaches a build switch it otherwise
+        /// could not. A GUI-launched editor inherits no shell environment, which makes "just
+        /// export it first" advice an author cannot follow. The case it exists for is a workspace
+        /// that overrides package references with engine SOURCE: when that checkout is on a
+        /// different version than the game pins, every build the CLI runs fails against an API the
+        /// game was never written for, and <c>ParadiseUseEngineSource=false</c> here is the whole
+        /// fix.</remarks>
+        public const string CliEnvironmentSetting = "paradise/tools/cli_env";
+
         /// <summary>What <c>paradise host play</c> exits with when it was stopped — not a failure.</summary>
         public const int Interrupted = 130;
 
@@ -273,7 +285,11 @@ namespace ParadiseGodot.Play
             }
             else
             {
-                code = OS.Execute("/bin/sh", ["-c", Wrap(cli, arguments, projectRoot, logPath: null)], lines, readStderr: true);
+                code = OS.Execute(
+                    "/bin/sh",
+                    ["-c", Wrap(cli, arguments, projectRoot, logPath: null, Environment())],
+                    lines,
+                    readStderr: true);
             }
 
             output = string.Join("", lines.Select(line => line.AsString()));
@@ -291,7 +307,8 @@ namespace ParadiseGodot.Play
                 return OS.CreateProcess(executable, [.. arguments]);
             }
 
-            return OS.CreateProcess("/bin/sh", ["-c", Wrap(executable, arguments, workingDirectory, logPath)]);
+            return OS.CreateProcess(
+                "/bin/sh", ["-c", Wrap(executable, arguments, workingDirectory, logPath, Environment())]);
         }
 
         /// <summary>
@@ -311,13 +328,28 @@ namespace ParadiseGodot.Play
         /// <c>dotnet</c> builds sharing one die on MSB0001, which is what Play looked like beside a
         /// live <c>paradise assets watch</c>.</para>
         /// </remarks>
-        public static string Wrap(string executable, IReadOnlyList<string> arguments, string workingDirectory, string? logPath)
+        public static string Wrap(
+            string executable,
+            IReadOnlyList<string> arguments,
+            string workingDirectory,
+            string? logPath,
+            IReadOnlyList<string>? environment = null)
         {
             string redirect = logPath is null ? "" : $" > {ShellQuote(logPath)} 2>&1";
+            string exports = string.Concat(
+                (environment ?? []).Where(IsAssignment).Select(pair => $"export {ShellQuote(pair)}; "));
             return
-                $"cd {ShellQuote(workingDirectory)} && export DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1; " +
+                $"cd {ShellQuote(workingDirectory)} && export DOTNET_CLI_DO_NOT_USE_MSBUILD_SERVER=1; {exports}" +
                 $"exec {ShellQuote(executable)}{string.Concat(arguments.Select(a => " " + ShellQuote(a)))}{redirect}";
         }
+
+        /// <summary>The configured environment, as <c>NAME=VALUE</c> tokens.</summary>
+        public static IReadOnlyList<string> Environment() =>
+            ParadiseSettingsDialog.TokenizeArguments(ParadiseSettingsDialog.ReadSetting(CliEnvironmentSetting));
+
+        // Anything without a name before an '=' is not an assignment, and exporting it would be a
+        // shell error that takes the whole launch with it.
+        private static bool IsAssignment(string pair) => pair.IndexOf('=') > 0;
 
         // POSIX single-quote wrapping: every token becomes one word verbatim, whatever it
         // contains ('...' with embedded quotes spliced as '\'' ).

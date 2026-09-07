@@ -111,4 +111,38 @@ public class ParadiseCliTests
         await Assert.That(WatchSession.LogPathFor("/repo/Pingu"))
             .IsEqualTo(WatchSession.LogPathFor("/repo/Pingu/"));
     }
+
+    [Test]
+    public async Task the_configured_environment_is_exported_before_the_cli_runs()
+    {
+        // MSBuild reads environment variables as properties, which is how an editor reaches a
+        // build switch; a desktop-launched one inherits no shell to set it in.
+        var line = ParadiseCli.Wrap("/bin/paradise", ["host", "build"], "/repo", logPath: null,
+            ["ParadiseUseEngineSource=false"]);
+
+        await Assert.That(line).Contains("export 'ParadiseUseEngineSource=false';");
+        await Assert.That(line.IndexOf("export 'Paradise", System.StringComparison.Ordinal))
+            .IsLessThan(line.IndexOf("exec ", System.StringComparison.Ordinal));
+    }
+
+    [Test]
+    public async Task a_token_that_is_not_an_assignment_is_left_out()
+    {
+        // Exporting it would be a shell error that takes the whole launch with it.
+        var line = ParadiseCli.Wrap("/bin/paradise", ["host", "build"], "/repo", logPath: null,
+            ["nonsense", "=novalue", "GOOD=1"]);
+
+        await Assert.That(line).Contains("export 'GOOD=1';");
+        await Assert.That(line).DoesNotContain("nonsense");
+        await Assert.That(line).DoesNotContain("=novalue");
+    }
+
+    [Test]
+    public async Task an_environment_value_may_contain_spaces()
+    {
+        var line = ParadiseCli.Wrap("/bin/paradise", ["host", "build"], "/repo", logPath: null,
+            ["PARADISE_KTX_PATH=/opt/my tools/ktx"]);
+
+        await Assert.That(line).Contains("export 'PARADISE_KTX_PATH=/opt/my tools/ktx';");
+    }
 }

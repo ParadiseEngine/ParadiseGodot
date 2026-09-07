@@ -23,6 +23,7 @@ namespace ParadiseGodot
         private readonly Label _cliStatus;
         private readonly LineEdit _playArgsEdit;
         private readonly LineEdit _profileEdit;
+        private readonly LineEdit _envEdit;
         private readonly CheckBox _autoWatchCheck;
         private EditorFileDialog? _fileDialog;
         private LineEdit? _browseTarget;
@@ -46,6 +47,10 @@ namespace ParadiseGodot
                 "(`paradise host play … -- <these>`), e.g. --fov 60. Double quotes group an " +
                 "argument with spaces.");
 
+            _envEdit = AddTextRow(layout, "Build env",
+                "NAME=VALUE pairs exported before the CLI runs, e.g. " +
+                "ParadiseUseEngineSource=false. MSBuild reads environment variables as " +
+                "properties, and an editor launched from the desktop inherits no shell.");
             _profileEdit = AddTextRow(layout, "Build profile",
                 "The profile the watcher rebuilds with, from [build.profiles] in " +
                 "assets/project.toml. Empty means the CLI's own default.");
@@ -199,6 +204,7 @@ namespace ParadiseGodot
                 ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
                 : DefaultPlayDotnetArgs;
             _profileEdit.Text = ReadSetting(Play.WatchSession.ProfileSetting);
+            _envEdit.Text = ReadSetting(Play.ParadiseCli.CliEnvironmentSetting);
             _autoWatchCheck.ButtonPressed = ReadFlag(Play.WatchSession.AutoWatchSetting, @default: true);
             RefreshStatus();
         }
@@ -209,6 +215,7 @@ namespace ParadiseGodot
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
             settings.SetSetting(Play.ParadiseCli.CliPathSetting, _cliEdit.Text.Trim());
             settings.SetSetting(Play.WatchSession.ProfileSetting, _profileEdit.Text.Trim());
+            settings.SetSetting(Play.ParadiseCli.CliEnvironmentSetting, _envEdit.Text.Trim());
             settings.SetSetting(Play.WatchSession.AutoWatchSetting, _autoWatchCheck.ButtonPressed);
         }
 

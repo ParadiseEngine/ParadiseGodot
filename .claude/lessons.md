@@ -1,5 +1,17 @@
 # Project Lessons — ParadiseGodotEditor
 
+## Running the CLI from the editor
+
+- **[hits: 1] Every CLI verb the addon runs inherits the workspace's engine-source override, and a
+  source checkout on a different version than the game pins breaks all of them at once.** Play,
+  the tray's Play and `host build` all shell out to `dotnet`, which walks up to the workspace
+  `Directory.Build.targets` and swaps packages for project references. With the engine at v0.42
+  and the game pinning 0.41 the launcher build failed on `PbrRenderer`'s constructor — an API the
+  game never used — and a partially-built output produced a `MissingMethodException` at startup
+  instead. Neither names a version. Check `git -C ParadiseEngine describe --tags` against the
+  game's pin before reading the errors as real, and set `ParadiseUseEngineSource=false` in the
+  addon's Build env setting to build the way CI does.
+
 ## Mirroring and PackedScene
 
 - **[hits: 1] `PackedScene.Pack` writes an EMPTY scene for any node whose `Owner` is not the

@@ -48,10 +48,24 @@
   can play too.
 
 **Button launches but no window / it dies immediately**
-: Output goes to `<tmp>/paradise_godot_play.log` (GUI-launched processes have no console).
-  The CLI builds the assets into `.editor/play/` and rebuilds the launcher when stale before the
-  window appears — the first Play after a code change takes a while. Exit 130 is a Stop, not a
-  failure.
+: Output goes to `paradise_godot_play.log` in the system temp directory — on macOS that is the
+  per-user `$TMPDIR` (`/var/folders/**/T/`), **not** `/tmp`, so an empty `/tmp` is not evidence
+  Play did nothing. Read that file first: it carries the asset build, the launcher build and the
+  game's own output, and a Play that "did nothing" is almost always a launcher build that failed
+  in it. The CLI builds the assets into `.editor/play/` and rebuilds the launcher when stale
+  before the window appears, so the first Play after a code change takes a while. Exit 130 is a
+  Stop, not a failure. The watcher's log sits beside it as
+  `paradise_godot_watch_<project>_<hash>.log`, one per project.
+
+**The build in that log fails on an engine API the game never used**
+: The build is picking up an engine SOURCE override — a workspace that swaps `Paradise.*` package
+  references for project references — and that checkout is on a different version than the game
+  pins. Every CLI build then compiles the game against an engine it was not written for, and the
+  same failure hits Play, the tray's Play, and anything else that shells out to `dotnet`. Put
+  `ParadiseUseEngineSource=false` in Paradise/Settings… > **Build env**: it is exported before the
+  CLI runs, MSBuild reads environment variables as properties, and the build goes back to the
+  packages the game pins. A desktop-launched editor inherits no shell, which is why the setting
+  exists rather than advice to export it yourself.
 
 **Agent zig-zags or grinds along walls**
 : Navmesh bake issues — `AgentRadius` must equal the capsule radius (never 0), and the baked
