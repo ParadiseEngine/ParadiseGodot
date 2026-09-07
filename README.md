@@ -73,6 +73,12 @@ provable inside an editor; a throwaway `[Tool] EditorPlugin` under `addons/probe
 - `templates/starter/` — the starter project (references the addon package)
 - `docs/` — user documentation; `docs/publishing.md` is the maintainer release runbook
 
+The Godot side of a game lives under `.editor/godot/`: a working `.tscn` per document and a `.scn`
+per model, both derived and gitignored. The document under `assets/` stays the source of truth,
+but the working file is rebuilt only when the document has actually moved — so the
+`CollisionShape3D`s, lights and rigs an author builds to point components at survive an open, and
+are carried across when a rebuild is needed.
+
 ## Releasing (maintainers)
 
 Tag `addon-vX.Y.Z` — it must match `Paradise.Godot.Editor/AddonVersion.props` and

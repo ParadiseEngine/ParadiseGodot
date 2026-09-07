@@ -44,8 +44,8 @@ public class AssetProjectPathsTests
     [Test]
     public async Task a_physical_path_inside_the_godot_project_gets_a_resource_path()
     {
-        await Assert.That(Coincident().ToResourcePath("/repo/Pingu/.editor/tscn/scenes/pool.tscn"))
-            .IsEqualTo("res://.editor/tscn/scenes/pool.tscn");
+        await Assert.That(Coincident().ToResourcePath("/repo/Pingu/.editor/godot/scenes/pool.tscn"))
+            .IsEqualTo("res://.editor/godot/scenes/pool.tscn");
     }
 
     /// <summary>Outside the Godot project there is no res:// name at all, and inventing one would
@@ -72,7 +72,7 @@ public class AssetProjectPathsTests
     public async Task a_file_outside_assets_has_no_authoring_path()
     {
         await Assert.That(Coincident().ToAssetReferencePath("/repo/Pingu/scenes/pool.tscn")).IsNull();
-        await Assert.That(Coincident().ToAssetReferencePath("/repo/Pingu/.editor/tscn/pool.tscn")).IsNull();
+        await Assert.That(Coincident().ToAssetReferencePath("/repo/Pingu/.editor/godot/pool.tscn")).IsNull();
         await Assert.That(Coincident().ToAssetMountPath("/repo/Pingu/scenes/pool.tscn")).IsNull();
     }
 
@@ -130,9 +130,9 @@ public class AssetProjectPathsTests
     public async Task a_document_gets_a_workfile_mirroring_its_path()
     {
         await Assert.That(Coincident().WorkfileFor("/repo/Pingu/assets/scenes/pool.prefab"))
-            .IsEqualTo((UPath)"/repo/Pingu/.editor/tscn/scenes/pool.tscn");
+            .IsEqualTo((UPath)"/repo/Pingu/.editor/godot/scenes/pool.tscn");
         await Assert.That(Coincident().WorkfileFor("/repo/Pingu/assets/props/scenes/pool.prefab"))
-            .IsEqualTo((UPath)"/repo/Pingu/.editor/tscn/props/scenes/pool.tscn");
+            .IsEqualTo((UPath)"/repo/Pingu/.editor/godot/props/scenes/pool.tscn");
     }
 
     /// <summary>The workfile follows the ASSET project, not the Godot one — they are allowed to
@@ -141,7 +141,7 @@ public class AssetProjectPathsTests
     public async Task the_workfile_lives_under_the_asset_projects_editor_directory()
     {
         await Assert.That(Nested().WorkfileFor("/repo/Pingu/assets/scenes/pool.prefab"))
-            .IsEqualTo((UPath)"/repo/Pingu/.editor/tscn/scenes/pool.tscn");
+            .IsEqualTo((UPath)"/repo/Pingu/.editor/godot/scenes/pool.tscn");
     }
 
     [Test]

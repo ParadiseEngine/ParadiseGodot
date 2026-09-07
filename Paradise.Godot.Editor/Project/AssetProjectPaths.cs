@@ -114,7 +114,7 @@ namespace ParadiseGodot.Project
             path.IsInDirectory(Layout.Assets, recursive: true) ? Relative(path, Layout.Assets) : null;
 
         /// <summary>
-        /// Where the Godot workfile for a document belongs: <c>.editor/tscn/&lt;path&gt;.tscn</c>,
+        /// Where the Godot workfile for a document belongs: <c>.editor/godot/&lt;path&gt;.tscn</c>,
         /// mirroring the document's own place under <c>assets/</c>. Null when the document is not
         /// under <c>assets/</c> and so is not this project's to open.
         /// </summary>
@@ -140,6 +140,28 @@ namespace ParadiseGodot.Project
                 ? relative[..^DocumentSuffix.Length]
                 : relative;
             return Layout.Editor / WorkfileDirectoryName / (withoutSuffix + WorkfileSuffix);
+        }
+
+        /// <summary>
+        /// Where a model under <c>assets/</c> is mirrored as a Godot scene, or null when the path
+        /// is not this project's to mirror.
+        /// </summary>
+        /// <remarks>
+        /// The mirror sits beside the working files, under the same <c>.editor/godot/</c> root and
+        /// at the model's own relative path, so an author reading a scene's node paths sees the
+        /// shape of <c>assets/</c> reflected back.
+        /// <para>
+        /// It is a <c>.scn</c>, not a copy of the GLB. Nothing under a dot-prefixed directory is
+        /// imported by Godot, so a copied <c>.glb</c> there would be bytes nothing could load —
+        /// whereas a saved scene loads by explicit path with no import step, which is the same
+        /// reason the working <c>.tscn</c> beside it works.
+        /// </para>
+        /// </remarks>
+        public UPath? MirrorModelFor(UPath modelPath)
+        {
+            if (ToAssetReferencePath(modelPath) is not { } relative) return null;
+
+            return Layout.Editor / WorkfileDirectoryName / (relative + MirrorModelSuffix);
         }
 
         /// <summary>
@@ -173,9 +195,12 @@ namespace ParadiseGodot.Project
         public const string DocumentSuffix = ".prefab";
 
         /// <summary>Where workfiles live under <c>.editor/</c>, beside Blender's <c>blend/</c>.</summary>
-        public const string WorkfileDirectoryName = "tscn";
+        public const string WorkfileDirectoryName = "godot";
 
         private const string WorkfileSuffix = ".tscn";
+
+        /// <summary>What a mirrored model is saved as: an ordinary Godot scene.</summary>
+        private const string MirrorModelSuffix = ".scn";
 
         /// <summary>The inverse: an <c>AssetReference</c>'s authoring path, back to a physical one.</summary>
         public UPath FromAssetReferencePath(string authoringPath)

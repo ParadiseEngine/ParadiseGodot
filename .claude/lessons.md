@@ -1,5 +1,28 @@
 # Project Lessons — ParadiseGodotEditor
 
+## Mirroring and PackedScene
+
+- **[hits: 1] `PackedScene.Pack` writes an EMPTY scene for any node whose `Owner` is not the
+  root.** A scene from `GltfDocument.GenerateScene` arrives with its hierarchy unowned, so packing
+  it saved a file that loaded back with zero `MeshInstance3D` and no error anywhere — the save
+  reported `Ok`. Walk the subtree setting `Owner` before packing (`DocumentLoader.Own` and
+  `ModelMirror.Own` both exist for this). Symptom is always the same: a mirror that "worked" and
+  draws nothing.
+
+- **[hits: 1] `ResourceLoader.Load` hands back the CACHED resource, not what is on disk.** Reading
+  a working file to carry the author's nodes across a rebuild returned the version from before
+  their last save, so the carry-over silently preserved an older scene. Pass
+  `cacheMode: ResourceLoader.CacheMode.Ignore` wherever the point is to read the FILE. The same
+  trap bites a probe that verifies its own write — a false negative that looks exactly like the
+  feature being broken.
+
+- **[hits: 1] Godot does not scan dot-prefixed directories, so nothing under `.editor/` is ever
+  imported — but an explicit path still loads.** `OpenSceneFromPath` and
+  `ResourceLoader.Load` on `res://.editor/godot/…` both work (measured, 4.7.1), because a `.tscn`
+  and a `.scn` are native formats needing no import step. A `.glb` there is inert: no `.import`,
+  no dock entry, nothing to load. That is why a model mirror saves a SCENE rather than copying
+  the GLB.
+
 ## Test gotchas
 
 - [hits: 1] **Deleting the `_Get` / `_Set` / `_GetPropertyList` overrides from `AuthoredEntityNode` produces a GREEN build, passing tests, and a node that draws, stores and saves nothing.** The shim is the only place those Godot hooks exist; `AuthoredEntityCore` holds the logic but Godot never calls it directly. Nothing in the unit suite can see the loss — a shim is only ever exercised by a running editor — and the symptom is silent: the inspector shows no components, `Node.Get("<guid>/Enabled")` returns an EMPTY Variant rather than `false` (the tell: `_Get` was never reached), and a save writes an unchanged document. Caused 2026-09-04 by a scripted edit whose replacement boundary (`s.index('    }\n}\n#endif')`) swallowed every member after the one being replaced. Two defences: after any edit to either copy of the shim, `grep -c override` should be **6**; and run the headless probe (`--headless --editor` with a plugin that opens a document and prints `BakedHostValues()`), because that is the only thing that exercises the shim at all.

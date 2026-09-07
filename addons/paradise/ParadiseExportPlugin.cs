@@ -44,6 +44,10 @@ namespace ParadiseGodot
         public void OnStopDotnet() => Core.OnStopDotnet();
 
         public void OnExtractModels() => Core.OnExtractModels();
+
+        public void OnToggleWatch() => Core.OnToggleWatch();
+
+        public void OnConvertProject() => Core.OnConvertProject();
     }
 }
 #endif

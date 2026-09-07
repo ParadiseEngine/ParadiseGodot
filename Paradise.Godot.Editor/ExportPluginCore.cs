@@ -29,6 +29,7 @@ namespace ParadiseGodot
         private const string ExtractModelsMenuItem = "Paradise/Extract Models";
         private const string ProjectSetupMenuItem = "Paradise/Project Setup";
         private const string SettingsMenuItem = "Paradise/Settings…";
+        private const string ConvertProjectMenuItem = "Paradise/Convert Project";
 
         private Button? _playDotnetButton;
         /// <summary>
@@ -53,11 +54,14 @@ namespace ParadiseGodot
             "OnPlayDotnet",
             "OnStopDotnet",
             "OnExtractModels",
+            "OnToggleWatch",
+            "OnConvertProject",
         ];
 
         private ParadiseSettingsDialog? _settingsDialog;
         private FileDialog? _documentDialog;
         private Button? _stopButton;
+        private Button? _watchButton;
         private readonly Play.ParadiseCli _cli = new();
 
         public void EnterTree()
@@ -80,6 +84,7 @@ namespace ParadiseGodot
             _host.AddToolMenuItem(ExtractModelsMenuItem, new Callable(_host, "OnExtractModels"));
             _host.AddToolMenuItem(ProjectSetupMenuItem, new Callable(_host, "OnProjectSetup"));
             _host.AddToolMenuItem(SettingsMenuItem, new Callable(_host, "OnOpenSettings"));
+            _host.AddToolMenuItem(ConvertProjectMenuItem, new Callable(_host, "OnConvertProject"));
             _playDotnetButton = new Button
             {
                 Text = "Play",
@@ -96,6 +101,17 @@ namespace ParadiseGodot
             };
             _stopButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnStopDotnet"));
             _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _stopButton);
+            _watchButton = new Button
+            {
+                Text = "Watch",
+                TooltipText =
+                    "Start or stop `paradise assets watch` for this project: mints sidecars, rebuilds the play tree "
+                    + "on every change, and carries the tray that reports build status.",
+                Flat = true,
+                ToggleMode = true,
+            };
+            _watchButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnToggleWatch"));
+            _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _watchButton);
             // Ctrl+S has to reach the document, or the author's edits live only in a cache that the
             // next open overwrites.
             _host.SceneSaved += OnSceneSaved;
@@ -143,11 +159,21 @@ namespace ParadiseGodot
                 _stopButton.QueueFree();
                 _stopButton = null;
             }
+            if (_watchButton is not null)
+            {
+                _host.RemoveControlFromContainer(EditorPlugin.CustomControlContainer.Toolbar, _watchButton);
+                _watchButton.QueueFree();
+                _watchButton = null;
+            }
+            // A watcher outlives the editor otherwise: nothing else reaps it, and the next session
+            // would find the project already watched by a process it cannot see.
+            Play.WatchSession.StopAll();
             OnDocumentDialogClosed();
             _host.RemoveToolMenuItem(OpenDocumentMenuItem);
             _host.RemoveToolMenuItem(ExtractModelsMenuItem);
             _host.RemoveToolMenuItem(ProjectSetupMenuItem);
             _host.RemoveToolMenuItem(SettingsMenuItem);
+            _host.RemoveToolMenuItem(ConvertProjectMenuItem);
             _host.SceneSaved -= OnSceneSaved;
             if (_settingsDialog is not null)
             {
@@ -287,6 +313,122 @@ namespace ParadiseGodot
             using (project)
             {
                 DocumentWorkfile.Open(project, project.Files.ConvertPathFromInternal(hostPath));
+                StartWatching(project.Files.ConvertPathToInternal(project.Layout.Root), announceRefusal: false);
+            }
+        }
+
+        /// <summary>Start the project's watcher, unless the author has turned that off.</summary>
+        /// <param name="announceRefusal">Whether "already watched elsewhere" is worth a message.
+        /// From the toolbar it is — the author just asked. On document open it is not: a Blender
+        /// host holding the watch is the normal shape of that day's work, not news.</param>
+        private void StartWatching(string projectRoot, bool announceRefusal)
+        {
+            if (!ParadiseSettingsDialog.ReadFlag(Play.WatchSession.AutoWatchSetting, @default: true)) return;
+
+            if (Play.WatchSession.EnsureFor(projectRoot, out var problem))
+            {
+                GD.Print($"[Paradise] Watching {projectRoot} — {Play.WatchSession.LogPathFor(projectRoot)}");
+            }
+            else if (announceRefusal || problem?.StartsWith("Another", StringComparison.Ordinal) != true)
+            {
+                GD.PushWarning($"[Paradise] {problem}");
+            }
+            RefreshWatchButton(projectRoot);
+        }
+
+        private void RefreshWatchButton(string projectRoot)
+        {
+            if (_watchButton is null) return;
+            bool watching = Play.WatchSession.IsWatching(projectRoot);
+            _watchButton.ButtonPressed = watching;
+            _watchButton.Text = watching ? "Watching" : "Watch";
+        }
+
+        /// <summary>
+        /// "Convert Project": build the Godot side of the whole project under
+        /// <c>.editor/godot/</c> — a working scene per document, a Godot scene per model.
+        /// </summary>
+        /// <remarks>On demand rather than at load: it parses every GLB in the project, which is
+        /// seconds of work an author who only wants to open one document should not pay. Stale
+        /// outputs only, so a second run costs nothing.</remarks>
+        public void OnConvertProject()
+        {
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return;
+            }
+
+            using (project)
+            {
+                var models = Documents.ProjectMirror.Models(project.Files, project.Layout, project.Paths);
+                int converted = 0, failed = 0;
+                foreach (var model in models)
+                {
+                    if (!model.Stale) continue;
+                    if (project.Paths.ToResourcePath(model.Mirror) is not { } resPath)
+                    {
+                        failed++;
+                        continue;
+                    }
+
+                    if (Authoring.ModelMirror.Write(
+                        project.Files.ConvertPathToInternal(model.Source), resPath, out var modelProblem))
+                    {
+                        Documents.WorkfileStamp.Write(project.Files, model.Mirror, model.Source);
+                        converted++;
+                    }
+                    else
+                    {
+                        GD.PushWarning($"[Paradise] {model.Source}: {modelProblem}");
+                        failed++;
+                    }
+                }
+
+                var documents = Documents.ProjectMirror.Documents(project.Files, project.Layout, project.Paths);
+                int built = 0;
+                foreach (var document in documents)
+                {
+                    // Stale only: rebuilding a current working file would discard the nodes the
+                    // author has in it, which is the thing the stamp exists to prevent.
+                    if (!document.Stale) continue;
+                    if (Documents.DocumentWorkfile.Materialize(project, document.Source)) built++;
+                }
+
+                GD.Print(
+                    $"[Paradise] Converted the project into .editor/godot/: {built} of {documents.Count} " +
+                    $"document(s) built, {converted} of {models.Count} model(s) mirrored" +
+                    (failed > 0 ? $", {failed} failed." : "."));
+            }
+        }
+
+        /// <summary>Toolbar "Watch": start or stop this project's watcher by hand. An explicit
+        /// click is never silenced by the auto-watch setting.</summary>
+        public void OnToggleWatch()
+        {
+            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            {
+                GD.PushError($"[Paradise] {problem}");
+                return;
+            }
+
+            using (project)
+            {
+                string root = project.Files.ConvertPathToInternal(project.Layout.Root);
+                if (Play.WatchSession.IsWatching(root))
+                {
+                    Play.WatchSession.StopFor(root);
+                    GD.Print("[Paradise] Stopped watching.");
+                }
+                else if (Play.WatchSession.EnsureFor(root, out var refusal))
+                {
+                    GD.Print($"[Paradise] Watching {root} — {Play.WatchSession.LogPathFor(root)}");
+                }
+                else
+                {
+                    GD.PushWarning($"[Paradise] {refusal}");
+                }
+                RefreshWatchButton(root);
             }
         }
 

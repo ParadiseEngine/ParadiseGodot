@@ -1586,18 +1586,33 @@ namespace ParadiseGodot.Authoring
             }
 
             string? glb;
+            string? mirror;
             using (opened)
             {
                 glb = ModelDocuments.IsGlb(model)
                     ? opened.Files.ConvertPathToInternal(opened.Layout.Assets / model)
                     : AssetReferenceResolver.For(opened).SourceGlbOf(model);
+                // The mirror is keyed on the GLB, not on the reference: two documents naming the
+                // same model through different .mesh documents share one mirrored scene.
+                mirror = glb is null
+                    ? null
+                    : opened.Paths.MirrorModelFor(opened.Files.ConvertPathFromInternal(glb)) is { } path
+                        ? opened.Paths.ToResourcePath(path)
+                        : null;
             }
             if (glb is null) return;
 
-            if (ModelPreview.Load(glb, out var failure) is not { } scene)
+            // The mirrored scene when Convert Project has made one — the same geometry, already
+            // parsed. Falling back to the GLB keeps every project that has never converted working.
+            var scene = mirror is null ? null : ModelMirror.Instantiate(mirror);
+            if (scene is null)
             {
-                GD.PushWarning($"[Paradise] '{_host.Name}': {failure}");
-                return;
+                scene = ModelPreview.Load(glb, out var failure);
+                if (scene is null)
+                {
+                    GD.PushWarning($"[Paradise] '{_host.Name}': {failure}");
+                    return;
+                }
             }
 
             scene.Name = ModelPreviewName;

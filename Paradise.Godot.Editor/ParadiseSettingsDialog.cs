@@ -22,6 +22,8 @@ namespace ParadiseGodot
         private readonly LineEdit _cliEdit;
         private readonly Label _cliStatus;
         private readonly LineEdit _playArgsEdit;
+        private readonly LineEdit _profileEdit;
+        private readonly CheckBox _autoWatchCheck;
         private EditorFileDialog? _fileDialog;
         private LineEdit? _browseTarget;
 
@@ -44,6 +46,14 @@ namespace ParadiseGodot
                 "(`paradise host play … -- <these>`), e.g. --fov 60. Double quotes group an " +
                 "argument with spaces.");
 
+            _profileEdit = AddTextRow(layout, "Build profile",
+                "The profile the watcher rebuilds with, from [build.profiles] in " +
+                "assets/project.toml. Empty means the CLI's own default.");
+            _autoWatchCheck = AddCheckRow(layout, "Auto-watch",
+                "Start `paradise assets watch` for the project when a document is opened. One " +
+                "watcher per project, stopped when the editor closes. Turn this off if you run " +
+                "your own, or if another editor is watching the same project.");
+
             AboutToPopup += LoadFromSettings;
             Confirmed += SaveAndApply;
         }
@@ -52,6 +62,15 @@ namespace ParadiseGodot
         {
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             return settings.HasSetting(name) ? settings.GetSetting(name).AsString().Trim() : "";
+        }
+
+        /// <summary>A boolean setting, with the value to use until the author first saves one.
+        /// Unset is not false: a default of true has to survive a settings file that has never
+        /// heard of the key.</summary>
+        internal static bool ReadFlag(string name, bool @default)
+        {
+            EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
+            return settings.HasSetting(name) ? settings.GetSetting(name).AsBool() : @default;
         }
 
         /// <summary>The arguments Play passes on to the launcher, tokenized for a process argv.
@@ -121,6 +140,17 @@ namespace ParadiseGodot
             return (edit, status);
         }
 
+        private static CheckBox AddCheckRow(VBoxContainer layout, string label, string hint)
+        {
+            var row = new HBoxContainer();
+            row.AddChild(new Label { Text = label, CustomMinimumSize = new Vector2(110, 0) });
+
+            var check = new CheckBox { TooltipText = hint };
+            row.AddChild(check);
+            layout.AddChild(row);
+            return check;
+        }
+
         private static LineEdit AddTextRow(VBoxContainer layout, string label, string hint)
         {
             var row = new HBoxContainer();
@@ -168,6 +198,8 @@ namespace ParadiseGodot
             _playArgsEdit.Text = settings.HasSetting(PlayDotnetArgsSetting)
                 ? settings.GetSetting(PlayDotnetArgsSetting).AsString()
                 : DefaultPlayDotnetArgs;
+            _profileEdit.Text = ReadSetting(Play.WatchSession.ProfileSetting);
+            _autoWatchCheck.ButtonPressed = ReadFlag(Play.WatchSession.AutoWatchSetting, @default: true);
             RefreshStatus();
         }
 
@@ -176,6 +208,8 @@ namespace ParadiseGodot
             EditorSettings settings = EditorInterface.Singleton.GetEditorSettings();
             settings.SetSetting(PlayDotnetArgsSetting, _playArgsEdit.Text.Trim());
             settings.SetSetting(Play.ParadiseCli.CliPathSetting, _cliEdit.Text.Trim());
+            settings.SetSetting(Play.WatchSession.ProfileSetting, _profileEdit.Text.Trim());
+            settings.SetSetting(Play.WatchSession.AutoWatchSetting, _autoWatchCheck.ButtonPressed);
         }
 
         private void RefreshStatus()

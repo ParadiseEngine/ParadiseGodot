@@ -54,8 +54,11 @@ Run **Project > Tools > Paradise/Project Setup**. It is idempotent and:
 dotnet tool install --global Paradise.Cli
 ```
 
-This provides `paradise`, which the **Play** toolbar button and **Paradise/Extract Models** run
-(found on PATH or in `~/.dotnet/tools`; Paradise/Settings… > "paradise CLI" overrides). Name
+This provides `paradise`, which the **Play** and **Watch** toolbar buttons and
+**Paradise/Extract Models** run. A global install is the fallback: when your project pins a
+version, the addon fetches exactly that one into `~/.paradise/cli/<version>/` and runs it instead,
+so two projects on different engine versions never fight over one slot. Paradise/Settings… >
+"paradise CLI" overrides everything, for pointing at a source build. Name
 your game's launcher in `assets/project.toml`:
 
 ```toml
@@ -74,7 +77,16 @@ scene = "scenes/main.prefab"
    GLB under `assets/models/` and `paradise assets watch` (or **Paradise/Extract Models**) mints
    the document beside it.
 3. **Save the scene.** Ctrl+S writes the document back to `assets/scenes/<name>.prefab`.
-4. Press **Play** in the toolbar — `paradise host play` builds the assets into `.editor/play/`,
+4. Press **Watch** in the toolbar (or just open a document — it starts on its own) to run
+   `paradise assets watch` for the project: it mints sidecars, rebuilds the play tree on every
+   change, and puts a status icon in the system tray. One watcher per project; it stops when the
+   editor closes. The CLI it runs is the one the project PINS — read from
+   `Directory.Packages.props` or the csprojs, fetched once into `~/.paradise/cli/<version>/` —
+   so a CLI older than the tree can never write documents the runtime cannot read.
+5. **Paradise/Convert Project** builds the Godot side of the whole project under
+   `.editor/godot/`: a working scene per document, and a Godot scene per model so a GLB is parsed
+   once rather than once per entity per open. Derived and gitignored; delete it and it rebuilds.
+6. Press **Play** in the toolbar — `paradise host play` builds the assets into `.editor/play/`,
    brings the launcher up to date and runs it on the open document. **Stop** ends it.
 
 ## 6. Optional tooling

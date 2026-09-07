@@ -15,11 +15,19 @@ namespace ParadiseGodot.Documents
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The <c>.tscn</c> under <c>.editor/tscn/</c> is a CACHE, not a source. It is rewritten from
-    /// the document on every open, which is why nothing here checks whether it is up to date: the
-    /// document is the truth, and re-materializing costs an import Godot was going to do anyway.
-    /// The freshness stamp taken here protects the SAVE instead (<see cref="DocumentSession"/>):
-    /// what it guards against is writing over a document something else changed meanwhile.
+    /// The <c>.tscn</c> under <c>.editor/godot/</c> is DERIVED but not disposable-on-sight: the
+    /// document is still the truth, and deleting the working file still costs nothing but a
+    /// rebuild — but it is rebuilt only when the document has actually moved
+    /// (<see cref="WorkfileStamp"/>), because it also holds what the document has no place for.
+    /// The editor camera and the selection are the small half of that; the author's own
+    /// <c>CollisionShape3D</c>s, lights and rigs are the half that matters, and rebuilding
+    /// unconditionally used to delete them on every open.
+    /// </para>
+    /// <para>
+    /// When it does rebuild, those nodes are carried across (<see cref="WorkfileCarryover"/>)
+    /// rather than lost. The freshness stamp taken here protects the SAVE instead
+    /// (<see cref="DocumentSession"/>): what it guards against is writing over a document
+    /// something else changed meanwhile.
     /// </para>
     /// <para>
     /// Instances are expanded before the scene is built, so what an author sees is the whole scene
@@ -38,14 +46,39 @@ namespace ParadiseGodot.Documents
         {
             ArgumentNullException.ThrowIfNull(project);
 
-            if (project.Paths.WorkfileFor(documentPath) is not { } workfile)
+            if (Locate(project, documentPath, out var workfile, out var resPath) is not true) return false;
+
+            // A current working file is opened as the author left it — scaffolding, camera and
+            // all. Rebuilding here would be right about the entities and wrong about the rest.
+            if (!WorkfileStamp.IsCurrent(project.Files, workfile, documentPath))
             {
-                GD.PushError(
-                    $"[Paradise] '{documentPath}' is not under this project's assets/ directory, so it " +
-                    "is not a document this project can open.");
-                return false;
+                if (!Materialize(project, documentPath, workfile, resPath!)) return false;
+            }
+            else
+            {
+                GD.Print($"[Paradise] '{documentPath}' is already current in its working file.");
             }
 
+            EditorInterface.Singleton.OpenSceneFromPath(resPath);
+            RememberSession(project, documentPath);
+            return true;
+        }
+
+        /// <summary>
+        /// Build one document's working file without opening it — what a whole-project conversion
+        /// does, and what <see cref="Open"/> does first when the file is stale.
+        /// </summary>
+        public static bool Materialize(ParadiseProject project, UPath documentPath)
+        {
+            ArgumentNullException.ThrowIfNull(project);
+
+            return Locate(project, documentPath, out var workfile, out var resPath) is true &&
+                Materialize(project, documentPath, workfile, resPath!);
+        }
+
+        private static bool Materialize(
+            ParadiseProject project, UPath documentPath, UPath workfile, string resPath)
+        {
             PrefabDocument document;
             try
             {
@@ -72,31 +105,86 @@ namespace ParadiseGodot.Documents
                 return false;
             }
 
-            var resPath = project.Paths.ToResourcePath(workfile);
+            var carried = Carry(resPath, root);
+
+            if (!Save(root, resPath)) return false;
+            WorkfileStamp.Write(project.Files, workfile, documentPath);
+
+            GD.Print(
+                $"[Paradise] Built '{documentPath}': {built.Objects} object(s), " +
+                $"{built.Components} component payload(s), {resolved.Expanded} instance(s) expanded" +
+                (carried > 0 ? $", {carried} authored node(s) carried over." : "."));
+            return true;
+        }
+
+        /// <summary>The working file for a document, as both a physical and a res:// path.</summary>
+        private static bool Locate(
+            ParadiseProject project, UPath documentPath, out UPath workfile, out string? resPath)
+        {
+            workfile = default;
+            resPath = null;
+
+            if (project.Paths.WorkfileFor(documentPath) is not { } found)
+            {
+                GD.PushError(
+                    $"[Paradise] '{documentPath}' is not under this project's assets/ directory, so it " +
+                    "is not a document this project can open.");
+                return false;
+            }
+            workfile = found;
+
+            resPath = project.Paths.ToResourcePath(workfile);
             if (resPath is null)
             {
                 GD.PushError(
                     $"[Paradise] The working file for '{documentPath}' would be at '{workfile}', outside " +
                     "the Godot project, so the editor cannot open it. The asset project and the Godot " +
                     "project must share a root for now.");
-                root.QueueFree();
                 return false;
             }
+            return true;
+        }
 
-            if (!Save(root, resPath)) return false;
-
-            EditorInterface.Singleton.OpenSceneFromPath(resPath);
-            // Recorded on the root the EDITOR now holds, not on the detached one that was packed:
-            // the writer reads this off the edited scene, and the packed node is already freed.
+        /// <summary>Recorded on the root the EDITOR now holds, not on the detached one that was
+        /// packed: the writer reads this off the edited scene, and the packed node is already
+        /// freed.</summary>
+        private static void RememberSession(ParadiseProject project, UPath documentPath)
+        {
             if (project.Paths.ToAssetReferencePath(documentPath) is { } authoringPath &&
                 EditorInterface.Singleton.GetEditedSceneRoot() is { } opened)
             {
                 DocumentSession.Remember(opened, project.Files, documentPath, authoringPath);
             }
-            GD.Print(
-                $"[Paradise] Opened '{documentPath}': {built.Objects} object(s), " +
-                $"{built.Components} component payload(s), {resolved.Expanded} instance(s) expanded.");
-            return true;
+        }
+
+        /// <summary>Move the author's own nodes out of the working file being replaced and into
+        /// the tree that replaces it.</summary>
+        private static int Carry(string resPath, Node3D root)
+        {
+            if (!ResourceLoader.Exists(resPath)) return 0;
+
+            Node? previous = null;
+            try
+            {
+                // CacheMode.Ignore: this must read what is ON DISK. Godot hands back the cached
+                // PackedScene otherwise — the one from before the author's last save — and the
+                // carry-over then silently preserves an older scene than the one they are looking
+                // at. Measured: the light added in a probe vanished on every rebuild.
+                previous = ResourceLoader
+                    .Load<PackedScene>(resPath, cacheMode: ResourceLoader.CacheMode.Ignore)
+                    ?.Instantiate();
+            }
+            catch (Exception failure)
+            {
+                // A working file that will not load is one the author cannot have edited since it
+                // broke; rebuilding without it beats refusing to open the document.
+                GD.PushWarning($"[Paradise] Could not read the previous working file: {failure.Message}");
+            }
+            if (previous is null) return 0;
+
+            var adopted = WorkfileCarryover.Take(previous);
+            previous.QueueFree();
+            return WorkfileCarryover.Restore(root, adopted);
         }
 
         private static bool Save(Node3D root, string resPath)

@@ -95,6 +95,13 @@ namespace ParadiseGodot.Documents
             }
 
             DocumentSession.Restamp(project.Files, document, authoringPath);
+            // The working file was built from the document this save just replaced. Re-stamping it
+            // too is what keeps a save from invalidating the very scene it was made in — without
+            // this, every Ctrl+S would make the next open rebuild and discard the author's nodes.
+            if (project.Paths.WorkfileFor(document) is { } workfile)
+            {
+                WorkfileStamp.Write(project.Files, workfile, document);
+            }
             Forget(root);
             GD.Print($"[Paradise] Wrote '{authoringPath}': {states.Count} object(s).");
             return Outcome.Written;
