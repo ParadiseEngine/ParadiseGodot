@@ -111,12 +111,21 @@ namespace ParadiseGodot.Project
         /// waste time on them: the engine's <c>.mesh</c> and <c>.material</c> documents share
         /// extensions with Godot's own binary resources, and the importer errors on every one.
         /// The two derived trees are created if absent so the marker is in place before the build
-        /// first writes there. Returns what it wrote, for the caller to report.</remarks>
+        /// first writes there.
+        /// <para>
+        /// Only trees INSIDE the Godot project get one. Godot scans <c>res://</c> and nothing
+        /// above it, so a marker anywhere else is a file this would mint forever and Godot would
+        /// never read — which is every one of them once the Godot project lives under
+        /// <c>.editor/godot/</c> rather than at the repository root.
+        /// </para>
+        /// Returns what it wrote, for the caller to report.</remarks>
         public IReadOnlyList<string> EnsureGodotIgnores()
         {
             var written = new List<string>();
             foreach (var directory in new[] { Layout.Assets, Layout.Build, Layout.Editor })
             {
+                if (Paths.ToResourcePath(directory / ".gdignore") is null) continue;
+
                 var marker = directory / ".gdignore";
                 if (_physical.FileExists(marker)) continue;
                 _physical.CreateDirectory(directory);
