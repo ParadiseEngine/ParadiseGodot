@@ -6,43 +6,30 @@ using ParadiseGodot.Project;
 
 namespace ParadiseGodot
 {
-    /// <summary>
-    /// Phase 0 editor plugin scaffold. Registers a Project &gt; Tools menu item and confirms the
-    /// engine-neutral <c>Paradise.Export</c> library is wired in. Export logic arrives in
-    /// later phases — see MIGRATION.md.
-    /// </summary>
+    /// <summary>Editor plugin behavior, delegated from the res:// shim.</summary>
     /// <remarks>
-    /// A plain class, not an EditorPlugin. The res:// <c>ParadiseExportPlugin</c> is the plugin and
-    /// forwards its lifecycle here. A res:// script may not derive from a GodotObject-derived type
-    /// in another assembly - Godot registers the base as a script type as well and its
-    /// ScriptTypeBiMap throws a duplicate-key exception on every assembly reload, breaking editor
-    /// hot-reload. See godotengine/godot#75352.
+    /// Cross-assembly GodotObject inheritance breaks assembly reloads with duplicate script registrations
+    /// (godotengine/godot#75352), so the shim forwards to this plain class.
     /// </remarks>
     public sealed class ExportPluginCore
     {
-        /// <summary>The plugin this core drives; every editor call goes through it.</summary>
         private readonly EditorPlugin _host;
 
         public ExportPluginCore(EditorPlugin host) => _host = host;
 
         private const string OpenDocumentMenuItem = "Paradise/Open Document…";
-        private const string ExtractModelsMenuItem = "Paradise/Extract Models";
-        private const string ProjectSetupMenuItem = "Paradise/Project Setup";
-        private const string SettingsMenuItem = "Paradise/Settings…";
+        private static readonly (string Label, string Method)[] MenuItems =
+        [
+            (OpenDocumentMenuItem, nameof(OnOpenDocument)),
+            ("Paradise/Extract Models", nameof(OnExtractModels)),
+            ("Paradise/Project Setup", "OnProjectSetup"),
+            ("Paradise/Settings…", nameof(OnOpenSettings)),
+            ("Paradise/Convert Project", nameof(OnConvertProject)),
+        ];
 
         private Button? _playDotnetButton;
-        /// <summary>
-        /// Methods the res:// plugin script must forward to this core, BY THESE NAMES.
-        ///
-        /// Editor UI is wired with name-based callables — new Callable(_host, name) — never with
-        /// Callable.From(delegate). A delegate-backed callable is a ManagedCallableMiddleman
-        /// holding a GC handle into the CURRENT assembly; a .NET assembly reload frees that handle,
-        /// and any UI that survives the reload then fails its clicks with
-        /// "Parameter delegate_handle.value is null … ManagedCallableMiddleman:: Method not found".
-        /// A name-based callable re-resolves against whatever assembly is loaded when it is
-        /// invoked, so it survives every reload — and this editor now reloads often: the payload
-        /// materializer, the schema auto-dump and hammer builds all trigger it.
-        /// </summary>
+        // The res:// shim must expose these names. Name-based callables survive assembly reloads;
+        // Callable.From delegates retain GC handles that become invalid on reload.
         private static readonly string[] ForwardedMethods =
         [
             "OnOpenDocument",
@@ -53,18 +40,19 @@ namespace ParadiseGodot
             "OnPlayDotnet",
             "OnStopDotnet",
             "OnExtractModels",
+            "OnToggleWatch",
+            "OnConvertProject",
         ];
 
         private ParadiseSettingsDialog? _settingsDialog;
         private FileDialog? _documentDialog;
         private Button? _stopButton;
+        private Button? _watchButton;
         private readonly Play.ParadiseCli _cli = new();
 
         public void EnterTree()
         {
-
-            // A payload shim from before these forwarders would leave every menu item dead with
-            // an unhelpful native error; say what is actually wrong instead.
+            // Diagnose an outdated shim before its missing forwarders cause native callable errors.
             foreach (var method in ForwardedMethods)
             {
                 if (!_host.HasMethod(method))
@@ -76,41 +64,28 @@ namespace ParadiseGodot
                 }
             }
 
-            _host.AddToolMenuItem(OpenDocumentMenuItem, new Callable(_host, "OnOpenDocument"));
-            _host.AddToolMenuItem(ExtractModelsMenuItem, new Callable(_host, "OnExtractModels"));
-            _host.AddToolMenuItem(ProjectSetupMenuItem, new Callable(_host, "OnProjectSetup"));
-            _host.AddToolMenuItem(SettingsMenuItem, new Callable(_host, "OnOpenSettings"));
-            _playDotnetButton = new Button
+            foreach (var item in MenuItems)
             {
-                Text = "Play",
-                TooltipText = "Run the open document's game through `paradise host play`: builds the assets into .editor/play/, brings the launcher named by [host] in assets/project.toml up to date, and runs it.",
-                Flat = true,
-            };
-            _playDotnetButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnPlayDotnet"));
-            _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
-            _stopButton = new Button
-            {
-                Text = "Stop",
-                TooltipText = "Stop the game Play started.",
-                Flat = true,
-            };
-            _stopButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnStopDotnet"));
-            _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, _stopButton);
-            // Ctrl+S has to reach the document, or the author's edits live only in a cache that the
-            // next open overwrites.
+                _host.AddToolMenuItem(item.Label, new Callable(_host, item.Method));
+            }
+            _playDotnetButton = AddToolbarButton("Play", nameof(OnPlayDotnet),
+                "Run the open document's game through `paradise host play`: builds the assets into .editor/play/, brings the launcher named by [host] in assets/project.toml up to date, and runs it.");
+            _stopButton = AddToolbarButton("Stop", nameof(OnStopDotnet), "Stop the game Play started.");
+            _watchButton = AddToolbarButton("Watch", nameof(OnToggleWatch),
+                "Start or stop `paradise assets watch` for this project: mints sidecars, rebuilds the play tree "
+                + "on every change, and carries the tray that reports build status.", toggle: true);
+            // Save edits to the source document before the working cache can be regenerated.
             _host.SceneSaved += OnSceneSaved;
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
             ProjectSetup.CheckExportVersion();
             KeepGodotOutOfTheAssetTrees();
-
         }
 
-        /// <summary>At every load, not only on Project Setup: the build creates <c>.editor/</c>
-        /// and <c>build/</c> on its own, and a fresh clone has neither yet — the marker has to be
-        /// there before Godot's next scan finds a tree full of documents it cannot import.</summary>
+        // Create markers at every load: fresh clones lack the derived trees, and Godot must
+        // ignore them before the build populates them with engine documents.
         private static void KeepGodotOutOfTheAssetTrees()
         {
-            if (!ParadiseProject.TryOpen(out var project, out _) || project is null) return;
+            if (!ParadiseProject.TryOpen(out var project, out _)) return;
             using (project)
             {
                 try
@@ -129,39 +104,36 @@ namespace ParadiseGodot
 
         public void ExitTree()
         {
-            // Button first: if any teardown below throws, a leftover toolbar button whose pressed
-            // connection points into an unloaded assembly is the failure users actually see.
-            if (_playDotnetButton is not null)
-            {
-                _host.RemoveControlFromContainer(EditorPlugin.CustomControlContainer.Toolbar, _playDotnetButton);
-                _playDotnetButton.QueueFree();
-                _playDotnetButton = null;
-            }
-            if (_stopButton is not null)
-            {
-                _host.RemoveControlFromContainer(EditorPlugin.CustomControlContainer.Toolbar, _stopButton);
-                _stopButton.QueueFree();
-                _stopButton = null;
-            }
+            // Remove the button first so a later teardown failure cannot leave it calling an unloaded assembly.
+            RemoveToolbarButton(ref _playDotnetButton);
+            RemoveToolbarButton(ref _stopButton);
+            RemoveToolbarButton(ref _watchButton);
+            // Watchers otherwise survive editor shutdown.
+            Play.WatchSession.StopAll();
             OnDocumentDialogClosed();
-            _host.RemoveToolMenuItem(OpenDocumentMenuItem);
-            _host.RemoveToolMenuItem(ExtractModelsMenuItem);
-            _host.RemoveToolMenuItem(ProjectSetupMenuItem);
-            _host.RemoveToolMenuItem(SettingsMenuItem);
+            foreach (var item in MenuItems) _host.RemoveToolMenuItem(item.Label);
             _host.SceneSaved -= OnSceneSaved;
-            if (_settingsDialog is not null)
-            {
-                _settingsDialog.QueueFree();
-                _settingsDialog = null;
-            }
+            _settingsDialog?.QueueFree();
+            _settingsDialog = null;
         }
 
-        /// <summary>
-        /// Toolbar "Play": hand the edited document to <c>paradise host play</c>, which builds the
-        /// assets into <c>.editor/play/</c>, brings the launcher up to date and runs it.
-        /// </summary>
-        /// <remarks>The addon builds nothing itself; what to run and where it is built are the
-        /// CLI's to know.</remarks>
+        private Button AddToolbarButton(string text, string method, string tooltip, bool toggle = false)
+        {
+            var button = new Button { Text = text, TooltipText = tooltip, Flat = true, ToggleMode = toggle };
+            button.Connect(BaseButton.SignalName.Pressed, new Callable(_host, method));
+            _host.AddControlToContainer(EditorPlugin.CustomControlContainer.Toolbar, button);
+            return button;
+        }
+
+        private void RemoveToolbarButton(ref Button? button)
+        {
+            if (button is null) return;
+            _host.RemoveControlFromContainer(EditorPlugin.CustomControlContainer.Toolbar, button);
+            button.QueueFree();
+            button = null;
+        }
+
+        /// <summary>Play the edited document through the CLI, which owns builds and launch paths.</summary>
         public void OnPlayDotnet()
         {
             try
@@ -174,14 +146,14 @@ namespace ParadiseGodot
                 }
 
                 string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
-                if (DocumentHostPath(root, out string? projectRoot) is not { } document) return;
-                if (!_cli.Play(projectRoot!, document, extraArgs, out string? problem))
+                if (DocumentHostPaths(root) is not { } paths) return;
+                if (!_cli.Play(paths.Root, paths.Document, extraArgs, out string? problem))
                 {
                     GD.PushError($"[Paradise] {problem}");
                     return;
                 }
 
-                GD.Print($"[Paradise] Playing '{document}' through `paradise host play` — output: {Play.ParadiseCli.LogPath}");
+                GD.Print($"[Paradise] Playing '{paths.Document}' through `paradise host play` — output: {Play.ParadiseCli.LogPath}");
             }
             catch (System.Exception ex)
             {
@@ -189,7 +161,6 @@ namespace ParadiseGodot
             }
         }
 
-        /// <summary>Toolbar "Stop": end the game Play started, and the CLI with it.</summary>
         public void OnStopDotnet()
         {
             if (!_cli.IsPlaying)
@@ -202,18 +173,11 @@ namespace ParadiseGodot
             GD.Print("[Paradise] Stopped.");
         }
 
-        /// <summary>
-        /// "Paradise/Extract Models": <c>paradise assets extract --all</c> — every GLB under
-        /// <c>assets/</c> gets its mesh, skeleton, clip and material documents, and a starter prefab
-        /// where nothing places it yet. Runs to completion; the output lands in the editor log.
-        /// </summary>
+        /// <summary>Extract model documents and missing starter prefabs from every GLB under assets/.</summary>
         public void OnExtractModels()
         {
-            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
-            {
-                GD.PushError($"[Paradise] {problem}");
-                return;
-            }
+            var project = OpenProject();
+            if (project is null) return;
 
             string root;
             using (project)
@@ -235,17 +199,11 @@ namespace ParadiseGodot
             if (code != 0) GD.PushError($"[Paradise] `paradise assets extract --all` exited {code}.");
         }
 
-        /// <summary>Pick a <c>*.prefab</c> under assets/ and open it as a scene.</summary>
-        /// <remarks>A dialog rather than the FileSystem dock: documents live under
-        /// <c>assets/</c>, which a Godot project marks <c>.gdignore</c> precisely so Godot does not
-        /// try to import the source tree. The dock cannot show what it is told to ignore.</remarks>
+        // The FileSystem dock cannot show assets/ because Godot ignores the source tree.
         public void OnOpenDocument()
         {
-            if (!ParadiseProject.TryOpen(out var opened, out var problem) || opened is null)
-            {
-                GD.PushError($"[Paradise] {problem}");
-                return;
-            }
+            var opened = OpenProject();
+            if (opened is null) return;
 
             string assets;
             using (opened)
@@ -262,9 +220,6 @@ namespace ParadiseGodot
                 CurrentDir = assets,
                 Filters = [$"*{AssetProjectPaths.DocumentSuffix} ; Paradise documents"],
             };
-            // Name-based, like every other callable here: a delegate-backed one holds a GC handle
-            // into the current assembly, and a rebuild between opening this dialog and choosing a
-            // file would leave the selection firing into nothing.
             _documentDialog.Connect(
                 FileDialog.SignalName.FileSelected, new Callable(_host, "OnDocumentChosen"));
             _documentDialog.Connect(
@@ -273,29 +228,113 @@ namespace ParadiseGodot
             _documentDialog.PopupCentered(new Vector2I(900, 640));
         }
 
-        /// <summary>The project is reopened here rather than captured: the dialog is modal to the
-        /// author, not to this method, and a disposed mount would be waiting on the other side.</summary>
+        // Reopen the project after selection: the dialog outlives the mount used to open it.
         public void OnDocumentChosen(string hostPath)
         {
             OnDocumentDialogClosed();
-            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
-            {
-                GD.PushError($"[Paradise] {problem}");
-                return;
-            }
+            using var project = OpenProject();
+            if (project is null) return;
 
-            using (project)
-            {
-                DocumentWorkfile.Open(project, project.Files.ConvertPathFromInternal(hostPath));
-            }
+            DocumentWorkfile.Open(project, project.Files.ConvertPathFromInternal(hostPath));
+            StartWatching(project.Files.ConvertPathToInternal(project.Layout.Root));
         }
 
-        /// <summary>The edited document as a host path, and the asset project's root — what
-        /// <c>paradise host play --project … --scene …</c> takes. The CLI resolves the built twin
-        /// and builds it, so nothing here looks at <c>.editor/play/</c>.</summary>
-        private static string? DocumentHostPath(Node root, out string? projectRoot)
+        // Automatic watching leaves an existing external watcher unannounced.
+        private void StartWatching(string projectRoot)
         {
-            projectRoot = null;
+            if (!ParadiseSettingsDialog.ReadFlag(Play.WatchSession.AutoWatchSetting, @default: true)) return;
+
+            if (Play.WatchSession.EnsureFor(projectRoot, out var problem))
+            {
+                GD.Print($"[Paradise] Watching {projectRoot} — {Play.WatchSession.LogPathFor(projectRoot)}");
+            }
+            else if (problem?.StartsWith("Another", StringComparison.Ordinal) != true)
+            {
+                GD.PushWarning($"[Paradise] {problem}");
+            }
+            RefreshWatchButton(projectRoot);
+        }
+
+        private void RefreshWatchButton(string projectRoot)
+        {
+            if (_watchButton is null) return;
+            bool watching = Play.WatchSession.IsWatching(projectRoot);
+            _watchButton.ButtonPressed = watching;
+            _watchButton.Text = watching ? "Watching" : "Watch";
+        }
+
+        /// <summary>Build stale document workfiles and model scenes under .editor/godot/.</summary>
+        /// <remarks>Run on demand: parsing every GLB is too expensive for plugin load.</remarks>
+        public void OnConvertProject()
+        {
+            using var project = OpenProject();
+            if (project is null) return;
+
+            var models = ProjectMirror.Models(project.Files, project.Layout, project.Paths);
+            int converted = 0, failed = 0;
+            foreach (var model in models)
+            {
+                if (!model.Stale) continue;
+                if (project.Paths.ToResourcePath(model.Mirror) is not { } resPath)
+                {
+                    failed++;
+                    continue;
+                }
+
+                if (Authoring.ModelMirror.Write(
+                    project.Files.ConvertPathToInternal(model.Source), resPath, out var modelProblem))
+                {
+                    WorkfileStamp.Write(project.Files, model.Mirror, model.Source);
+                    converted++;
+                }
+                else
+                {
+                    GD.PushWarning($"[Paradise] {model.Source}: {modelProblem}");
+                    failed++;
+                }
+            }
+
+            var documents = ProjectMirror.Documents(project.Files, project.Layout, project.Paths);
+            int built = 0;
+            foreach (var document in documents)
+            {
+                // Rebuilding a current workfile would discard authored nodes.
+                if (!document.Stale) continue;
+                if (DocumentWorkfile.Materialize(project, document.Source)) built++;
+            }
+
+            GD.Print(
+                $"[Paradise] Converted the project into .editor/godot/: {built} of {documents.Count} " +
+                $"document(s) built, {converted} of {models.Count} model(s) mirrored" +
+                (failed > 0 ? $", {failed} failed." : "."));
+        }
+
+        /// <summary>Toggle watching explicitly, regardless of the auto-watch setting.</summary>
+        public void OnToggleWatch()
+        {
+            using var project = OpenProject();
+            if (project is null) return;
+
+            string root = project.Files.ConvertPathToInternal(project.Layout.Root);
+            if (Play.WatchSession.IsWatching(root))
+            {
+                Play.WatchSession.StopFor(root);
+                GD.Print("[Paradise] Stopped watching.");
+            }
+            else if (Play.WatchSession.EnsureFor(root, out var refusal))
+            {
+                GD.Print($"[Paradise] Watching {root} — {Play.WatchSession.LogPathFor(root)}");
+            }
+            else
+            {
+                GD.PushWarning($"[Paradise] {refusal}");
+            }
+            RefreshWatchButton(root);
+        }
+
+        // Pass source paths to the CLI; it resolves and builds the play-tree copies.
+        private static (string Root, string Document)? DocumentHostPaths(Node root)
+        {
             if (DocumentSession.DocumentOf(root) is not { } authoringPath)
             {
                 GD.PushError(
@@ -304,35 +343,29 @@ namespace ParadiseGodot
                 return null;
             }
 
-            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
-            {
-                GD.PushError($"[Paradise] {problem}");
-                return null;
-            }
+            using var project = OpenProject();
+            if (project is null) return null;
 
-            using (project)
-            {
-                projectRoot = project.Files.ConvertPathToInternal(project.Layout.Root);
-                return project.Files.ConvertPathToInternal(project.Paths.FromAssetReferencePath(authoringPath));
-            }
+            return (
+                project.Files.ConvertPathToInternal(project.Layout.Root),
+                project.Files.ConvertPathToInternal(project.Paths.FromAssetReferencePath(authoringPath)));
         }
 
-        /// <summary>
-        /// Godot has written the working scene; write the document it came from.
-        /// </summary>
-        /// <remarks>
-        /// After the <c>.tscn</c> rather than before it, which is the opposite of what the Blender
-        /// host does — and for the opposite reason. Blender saves pre-write so the fresh stamp lands
-        /// INSIDE the .blend it is about to write; Godot's stamp lives in this process, so there is
-        /// nothing to get into the file, and running after means a refusal never costs the author
-        /// their working scene.
-        /// </remarks>
+        private static ParadiseProject? OpenProject()
+        {
+            if (ParadiseProject.TryOpen(out var project, out var problem)) return project;
+            GD.PushError($"[Paradise] {problem}");
+            return null;
+        }
+
+        // Save the document after Godot saves the workfile, so a refusal preserves the author's scene.
+        // The stamp is in memory and does not need to be included in the .tscn write.
         private void OnSceneSaved(string filePath)
         {
             var root = EditorInterface.Singleton.GetEditedSceneRoot();
             if (DocumentSession.DocumentOf(root) is null) return;
 
-            if (!ParadiseProject.TryOpen(out var project, out var problem) || project is null)
+            if (!ParadiseProject.TryOpen(out var project, out var problem))
             {
                 GD.PushError($"[Paradise] The scene saved, but its document did not: {problem}");
                 return;

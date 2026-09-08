@@ -6,33 +6,25 @@ using Paradise.Assets.Documents;
 
 namespace ParadiseGodot.Documents
 {
-    /// <summary>What kind of thing an <see cref="AuthoredValue"/> holds.</summary>
     public enum AuthoredValueKind
     {
-        /// <summary>The field was absent, or present in a shape it cannot be read as.</summary>
+        /// <summary>An absent field or an unreadable value.</summary>
         None,
         Bool,
         Integer,
         Number,
         Text,
-        /// <summary>A fixed-length float run: a vector, or a quaternion.</summary>
+        /// <summary>A fixed-length vector or quaternion.</summary>
         Numbers,
         /// <summary>Four channels in 0..1, from <c>{ r, g, b, a }</c> or a four-float array.</summary>
         Rgba,
-        /// <summary>An asset reference: <c>{ guid, path }</c>. Both, because the GUID is what
-        /// survives a rename and the path is what a human can fix when it does not.</summary>
+        /// <summary><c>{ guid, path }</c>: the GUID survives renames; the path supports manual repair.</summary>
         Reference,
     }
 
-    /// <summary>
-    /// One authored leaf, in a form that carries no Godot <c>Variant</c>.
-    /// </summary>
-    /// <remarks>
-    /// A neutral union rather than a <c>Variant</c> because CONSTRUCTING a Variant outside a
-    /// running Godot process segfaults the host — see <c>.claude/lessons.md</c>. Keeping the
-    /// conversion pure is what makes the shape rules below testable at all; turning one of these
-    /// into a Variant is a one-line switch at the editor edge.
-    /// </remarks>
+    /// <summary>An authored value that can be used without a running Godot process.</summary>
+    /// <remarks>Constructing a Godot <c>Variant</c> outside Godot segfaults the test host.
+    /// Conversion to Variant belongs at the editor edge.</remarks>
     public readonly record struct AuthoredValue(
         AuthoredValueKind Kind,
         bool Bool = false,
@@ -44,35 +36,18 @@ namespace ParadiseGodot.Documents
     {
         public static AuthoredValue None { get; } = new(AuthoredValueKind.None);
 
-        /// <summary>An asset reference. <paramref name="path"/> is the AUTHORING path — the file
-        /// under <c>assets/</c>, never the built one.</summary>
+        /// <summary>An asset reference whose <paramref name="path"/> is relative to <c>assets/</c>.</summary>
         public static AuthoredValue Reference(Guid guid, string path) =>
             new(AuthoredValueKind.Reference, Text: path, Identity: guid);
     }
 
-    /// <summary>
-    /// Reads a document's component payload at the types the authoring schema declares.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The inverse of what the exporter writes, and deliberately written as the inverse: a field's
-    /// path is slash-separated and nests, a vector is a float run, and a colour is
-    /// <c>{ r, g, b, a }</c> — the shapes the generated reader parses.
-    /// </para>
-    /// <para>
-    /// A leaf that is absent, or present in a shape the field cannot take, reads as
-    /// <see cref="AuthoredValue.None"/> rather than as a zero. The difference matters: the caller
-    /// falls back to the schema's own default, so a payload written by a newer build with a field
-    /// this one does not understand leaves that field at its default instead of silently zeroing
-    /// what an author set.
-    /// </para>
-    /// </remarks>
+    /// <summary>Reads component payloads using the authoring schema's types.</summary>
+    /// <remarks>Missing or unreadable leaves return <see cref="AuthoredValue.None"/> so callers
+    /// use schema defaults. Field paths nest with slashes; vectors are float arrays and colours
+    /// are <c>{ r, g, b, a }</c>, matching the exporter.</remarks>
     public static class AuthoredPayload
     {
-        /// <summary>Read one field out of a payload.</summary>
-        /// <param name="data">The component's payload.</param>
-        /// <param name="path">Slash-separated field path, as the schema spells it.</param>
-        /// <param name="type">What the schema says the field is.</param>
+        /// <param name="path">Slash-separated field path from the schema.</param>
         public static AuthoredValue Read(CanonicalTomlTable data, string path, Variant.Type type)
         {
             ArgumentNullException.ThrowIfNull(data);
@@ -81,7 +56,6 @@ namespace ParadiseGodot.Documents
             return Leaf(data, path) is { } value ? Coerce(value, type) : AuthoredValue.None;
         }
 
-        /// <summary>Walk a slash-separated path through nested tables to its leaf, or null.</summary>
         private static object? Leaf(CanonicalTomlTable data, string path)
         {
             var current = data;
@@ -103,19 +77,17 @@ namespace ParadiseGodot.Documents
                 ? new AuthoredValue(AuthoredValueKind.Bool, Bool: flag)
                 : AuthoredValue.None,
 
-            // A TOML integer where a float is wanted is not a mistake: canonical TOML widens 1.0 to
-            // 1, so a whole number arrives as a long and refusing it would drop every round value.
-            Variant.Type.Int => Integral(value) is { } integral
+            // Reject floats here rather than rounding authored values.
+            Variant.Type.Int => value is long integral
                 ? new AuthoredValue(AuthoredValueKind.Integer, Integer: integral)
                 : AuthoredValue.None,
 
+            // Canonical TOML may encode 1.0 as integer 1, so float fields must accept integers.
             Variant.Type.Float => Numeric(value) is { } number
                 ? new AuthoredValue(AuthoredValueKind.Number, Number: number)
                 : AuthoredValue.None,
 
-            // A reference and a plain string share a schema type, because a GUID travels as a
-            // string. They are told apart by SHAPE, which is what the document actually carries: an
-            // inline { guid, path } table is a reference and anything else is a name.
+            // References share the string schema type; the inline { guid, path } shape distinguishes them.
             Variant.Type.String => value switch
             {
                 string text => new AuthoredValue(AuthoredValueKind.Text, Text: text),
@@ -130,8 +102,7 @@ namespace ParadiseGodot.Documents
             _ => AuthoredValue.None,
         };
 
-        /// <summary>A fixed-length float run. WRONG LENGTH IS NOT SHORT: <c>Position = [0, 1.5]</c>
-        /// once baked silently as the origin, and a reader that accepted it would put that back.</summary>
+        /// <summary>Require the exact vector length; accepting short arrays can silently reset placement.</summary>
         private static AuthoredValue Run(object value, int length)
         {
             if (value is not IReadOnlyList<object> items || items.Count != length) return AuthoredValue.None;
@@ -146,14 +117,13 @@ namespace ParadiseGodot.Documents
             return new AuthoredValue(AuthoredValueKind.Numbers, Numbers: numbers);
         }
 
-        /// <summary>A colour, from the <c>{ r, g, b, a }</c> table the contract writes — or from a
-        /// four-float array, which is what a hand-edited document tends to contain.</summary>
+        /// <summary>Read <c>{ r, g, b, a }</c> or a hand-authored four-float array.</summary>
         private static AuthoredValue Rgba(object value)
         {
             if (value is CanonicalTomlTable table)
             {
                 var channels = new float[4];
-                // Alpha defaults to opaque: a colour written without one is not transparent.
+                // Omitted alpha means opaque.
                 channels[3] = 1f;
                 var names = new[] { "r", "g", "b", "a" };
                 for (int index = 0; index < names.Length; index++)
@@ -172,28 +142,13 @@ namespace ParadiseGodot.Documents
                 : AuthoredValue.None;
         }
 
-        /// <summary>An inline <c>{ guid, path }</c> table. A malformed one reads as ABSENT rather
-        /// than as an empty reference: the field keeps whatever the record declares instead of
-        /// asserting that it points at nothing.</summary>
+        /// <summary>Malformed references read as absent, preserving the schema default.</summary>
         private static AuthoredValue Reference(CanonicalInlineTable inline)
         {
-            Guid guid = default;
-            string path = "";
-            foreach (var (key, value) in inline)
-            {
-                switch (key)
-                {
-                    case "guid" when value is string text && Guid.TryParse(text, out var parsed):
-                        guid = parsed;
-                        break;
-                    case "path" when value is string text:
-                        path = text;
-                        break;
-                }
-            }
+            Guid.TryParse(inline.Value("guid") as string, out var guid);
+            var path = inline.Value("path") as string ?? "";
 
-            // An empty slot — {} — is a real value: "no material here, keep the GLB's own". It is
-            // NOT the same as a field nobody wrote.
+            // {} explicitly keeps the GLB's own material; it is distinct from an absent field.
             return inline.Count == 0 || guid != default || path.Length > 0
                 ? AuthoredValue.Reference(guid, path)
                 : AuthoredValue.None;
@@ -205,10 +160,6 @@ namespace ParadiseGodot.Documents
             long integer => integer,
             _ => null,
         };
-
-        /// <summary>An integer field takes a TOML integer only. A float here would have to round,
-        /// and silently rounding an authored value is worse than leaving the default.</summary>
-        private static long? Integral(object value) => value is long integer ? integer : null;
     }
 }
 #endif

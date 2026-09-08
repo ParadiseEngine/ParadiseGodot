@@ -1,62 +1,40 @@
-# Quickstart — first entity in ten minutes
+# Quickstart
 
-Goal: a Godot project where saving a scene exports Paradise Engine data, and one button runs
-that data in the standalone .NET runtime.
+Set up Godot to edit Paradise asset documents and run the game through its launcher.
 
-## 1. Prerequisites
+## 1. Install the addon
 
-- **Godot 4.7+ .NET build** (the standard build cannot load C# addons)
-- **.NET SDK 10.0+** (`dotnet --version`)
+Requires Godot 4.7+ **.NET build** and .NET SDK 10.0+.
+Copy the [starter project](../templates/starter) or add this to an existing Godot csproj:
 
-## 2. Get a project
+```xml
+<PackageReference Include="Paradise.Godot.Editor" Version="0.40.0" />
+```
 
-Easiest: copy [`templates/starter/`](../templates/starter) — already wired, skip to step 4 after
-building once.
+If needed, create the csproj with **Project > Tools > C# > Create C# solution**.
+Build once, reload, and enable **Paradise Engine Tools** in Project Settings > Plugins.
+The starter already enables the plugin.
 
-For an existing Godot .NET project:
+The build installs `addons/paradise/`. Commit it, including the `.uid` files Godot
+creates on import. Package updates replace the scripts, so keep custom code elsewhere.
+`Paradise.Export` comes with the addon; remove any redundant direct reference.
 
-1. If your project has no csproj yet: Project > Tools > C# > Create C# solution.
-2. Add the addon to it:
+## 2. Set up the asset project
 
-   ```xml
-   <PackageReference Include="Paradise.Godot.Editor" Version="0.14.0" />
-   ```
-
-3. Build once (hammer icon or `dotnet build`). **This is what installs the addon**: the package
-   writes its `res://` half into `addons/paradise/` — `plugin.cfg` and the two scripts your
-   scenes will bind entities to. Reload the project afterwards.
-4. Enable **Paradise Engine Tools** in Project Settings > Plugins.
-
-Commit `addons/paradise/`, including the `.uid` files Godot mints beside the scripts on import.
-A scene stores a script binding as a res:// path *and* a uid, so those files are how your scenes
-keep hold of their authored entities. Don't hand-edit the scripts either — the package rewrites
-them whenever you bump its version.
-
-You do not add a `Paradise.Export` reference. It comes with the addon, at the version the addon
-was built against, which is the only version guaranteed to match the contract it writes.
-
-## 3. Project Setup
-
-Your game is an **asset project**: `assets/project.toml` beside `project.godot` (create one with
-`paradise new <name>`), source assets under `assets/` — GLBs, textures, `*.material` and
-`*.prefab` documents, each with a `.meta` sidecar the tooling mints — and `paradise assets build`
-producing what the runtime reads. Godot is the editor over that tree, never its owner.
-
-Run **Project > Tools > Paradise/Project Setup**. It is idempotent and:
-
-- checks the asset project is there and writes a `.gdignore` into `assets/`, `build/` and
-  `.editor/` so Godot never scans them (the addon also does this at every load),
-- warns if your csproj still pins `Paradise.Export` by hand (remove it — see above).
-
-## 4. Install the engine CLI
+Install the engine CLI:
 
 ```bash
 dotnet tool install --global Paradise.Cli
 ```
 
-This provides `paradise`, which the **Play** toolbar button and **Paradise/Extract Models** run
-(found on PATH or in `~/.dotnet/tools`; Paradise/Settings… > "paradise CLI" overrides). Name
-your game's launcher in `assets/project.toml`:
+Use a game project created with `paradise new <name>`, with `assets/project.toml`
+beside the Godot project. Source assets, prefab documents, and their `.meta`
+sidecars belong under `assets/` and should be committed.
+
+Run **Project > Tools > Paradise/Project Setup**. It checks the manifest and adds
+`.gdignore` files to `assets/`, `build/`, and `.editor/`. It is safe to run again.
+
+Configure your launcher in `assets/project.toml`:
 
 ```toml
 [host]
@@ -64,25 +42,37 @@ project = "MyGame.Launcher/MyGame.Launcher.csproj"
 scene = "scenes/main.prefab"
 ```
 
-## 5. Author and run an entity
+Run `paradise host build` to build the launcher and write the game's component
+schema to `.editor/authoring-schema.json`.
 
-1. **Paradise/Open Document…** and pick a `*.prefab` under `assets/scenes/`; it opens as a
-   scene whose nodes are `AuthoredEntityNode`s. Add one for a new object and tick the components
-   it should carry — your game's own `[Authored]` records, read from the schema its launcher build
-   dumps to `.editor/authoring-schema.json`.
-2. Give it geometry: pick the model's `.mesh` document, or the GLB it was extracted from. Drop a
-   GLB under `assets/models/` and `paradise assets watch` (or **Paradise/Extract Models**) mints
-   the document beside it.
-3. **Save the scene.** Ctrl+S writes the document back to `assets/scenes/<name>.prefab`.
-4. Press **Play** in the toolbar — `paradise host play` builds the assets into `.editor/play/`,
-   brings the launcher up to date and runs it on the open document. **Stop** ends it.
+## 3. Edit a document
 
-## 6. Optional tooling
+1. Choose **Paradise/Open Document…** and select a `*.prefab` under `assets/`.
+2. Add an `AuthoredEntityNode` for each new entity. Use **Add Component** to select
+   components from the game's schema; clear a component's **Enabled** toggle to remove it.
+3. For geometry, set the mesh field to a `.mesh` or `.skinnedmesh` document, or its
+   source GLB. For a new GLB, run **Paradise/Extract Models** or `paradise assets watch`
+   to create the mesh document first.
+4. Save the scene to write changes back to the prefab document. Opening an ordinary
+   `.tscn` does not link it to an asset document.
 
-- **KTX2 textures**: install [KTX-Software](https://github.com/KhronosGroup/KTX-Software);
-  `paradise assets build` finds `ktx` on PATH (or `PARADISE_KTX_PATH`) and cooks every texture
-  the runtime reads. Without it the build still runs, textures just stay uncooked.
-- **Blender** for FBX → GLB, through the engine's `paradise assets` verbs.
+By default, opening a document starts **Watch**, which maintains sidecars and rebuilds changed
+assets. One watcher runs per project and stops when its owning editor closes.
+**Paradise/Convert Project** creates working scenes and reusable model scenes under
+`.editor/godot/`; see [working scenes](authoring.md#working-scenes) before deleting them.
 
-Next: the [authoring guide](authoring.md) for entity kinds, physics bodies, collision layers,
-sprites/particles, and navmesh baking.
+## 4. Run the game
+
+Press **Play** in the toolbar. `paradise host play` builds assets into `.editor/play/`,
+updates the launcher, and runs the open document. **Stop** ends the process.
+
+The addon reads the engine version from `Directory.Packages.props` or agreeing
+`Paradise.*` package references and installs that CLI in `~/.paradise/cli/<version>/`.
+Otherwise it uses the installed CLI. **Paradise/Settings… > paradise CLI** overrides
+this selection, for example to use a source build.
+
+For texture encoding, install [KTX-Software](https://github.com/KhronosGroup/KTX-Software)
+with `paradise tools install ktx`. The asset build finds `ktx` through PATH or
+`PARADISE_KTX_PATH`. FBX conversion also needs Blender.
+
+Next: [authoring](authoring.md) and [troubleshooting](troubleshooting.md).

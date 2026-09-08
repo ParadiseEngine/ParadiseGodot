@@ -9,11 +9,7 @@ using Zio.FileSystems;
 
 namespace Paradise.Godot.Editor.Tests;
 
-/// <summary>
-/// The two hops between a model and its document. A GLB ships nothing under engine 0.40, so a
-/// mesh reference must name the document the watcher minted — and to SHOW the model, the
-/// document must lead back to the GLB.
-/// </summary>
+// The engine ships mesh documents, not GLBs; previews must resolve documents back to source GLBs.
 public class ModelDocumentsTests
 {
     private static readonly UPath Root = "/repo/Pingu";
@@ -58,8 +54,6 @@ public class ModelDocumentsTests
         await Assert.That(ModelDocuments.IsMeshDocument(path)).IsEqualTo(expected);
     }
 
-    /// <summary>THE hop: the author picks the GLB they can see, the document gets the .mesh the
-    /// watcher minted beside it — identity and path both, straight from the sidecar.</summary>
     [Test]
     public async Task a_glb_resolves_to_the_mesh_document_its_sidecar_records()
     {
@@ -74,8 +68,6 @@ public class ModelDocumentsTests
         await Assert.That(reference.Value.Text).IsEqualTo("models/crate.mesh");
     }
 
-    /// <summary>Referencing the GLB itself would be the old contract: a file the build never
-    /// ships. Nothing is written, and the author is told what mints the document.</summary>
     [Test]
     public async Task a_glb_nobody_extracted_is_refused_with_the_command_that_would()
     {
@@ -115,8 +107,6 @@ public class ModelDocumentsTests
         await Assert.That(glb).IsEqualTo("models/crate.glb");
     }
 
-    /// <summary>A GLB renamed in Finder keeps its sidecar and so its identity; the document still
-    /// spells the old name. Only then is the identity lookup paid for.</summary>
     [Test]
     public async Task a_moved_glb_is_found_by_identity_when_the_spelled_path_is_gone()
     {

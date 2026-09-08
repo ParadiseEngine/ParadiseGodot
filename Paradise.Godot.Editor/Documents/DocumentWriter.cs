@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Godot;
 using Paradise.Assets.Documents;
 using ParadiseGodot.Authoring;
@@ -11,36 +12,21 @@ using SN = System.Numerics;
 
 namespace ParadiseGodot.Documents
 {
-    /// <summary>
-    /// Writes an open scene back to the document it came from.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The document is RE-READ and merged into, never regenerated from the scene. That is what lets
-    /// a component this addon has never heard of round-trip verbatim, and it is why a save refuses
-    /// rather than proceeds when the file has moved underneath it: merging blind would drop
-    /// whatever changed it.
-    /// </para>
-    /// <para>
-    /// A refusal is reported, not raised. The working <c>.tscn</c> still saves, so the author's
-    /// edits are not lost — they sit in the workfile while the refusal stands, and re-opening the
-    /// document is what resolves it.
-    /// </para>
-    /// </remarks>
+    /// <summary>Merges an open scene's edits into its source document.</summary>
+    /// <remarks>Re-read before merging to preserve unknown payloads; refuse if the source changed.
+    /// The working <c>.tscn</c> still saves on refusal, retaining edits until the conflict is resolved.</remarks>
     public static class DocumentWriter
     {
-        /// <summary>What a save did.</summary>
         public enum Outcome
         {
-            /// <summary>This scene is not a materialized document; nothing to do.</summary>
+            /// <summary>An ordinary Godot scene with no source document.</summary>
             NotADocument,
             Written,
-            /// <summary>Nothing had changed, so the file was left alone.</summary>
+            /// <summary>Identical content; the file was left untouched.</summary>
             Unchanged,
             Refused,
         }
 
-        /// <summary>Write the scene rooted at <paramref name="root"/> back to its document.</summary>
         public static Outcome Save(ParadiseProject project, Node root)
         {
             ArgumentNullException.ThrowIfNull(project);
@@ -78,15 +64,14 @@ namespace ParadiseGodot.Documents
             var after = PrefabDocumentSerializer.Write(merged.Document);
             if (string.Equals(before, after, StringComparison.Ordinal))
             {
-                // Nothing to write. Not an optimization: touching the file would restamp it, dirty
-                // git, and invalidate anything keyed on its mtime, all to say the same bytes.
+                // Identical bytes must not change mtime or invalidate dependent caches.
                 Forget(root);
                 return Outcome.Unchanged;
             }
 
             try
             {
-                PrefabDocumentSerializer.Save(project.Files, document, merged.Document);
+                project.Files.WriteAllBytes(document, Encoding.UTF8.GetBytes(after));
             }
             catch (Exception failure) when (failure is System.IO.IOException or UnauthorizedAccessException)
             {
@@ -95,26 +80,24 @@ namespace ParadiseGodot.Documents
             }
 
             DocumentSession.Restamp(project.Files, document, authoringPath);
+            // Restamp the workfile too so this save does not trigger a rebuild on the next open.
+            if (project.Paths.WorkfileFor(document) is { } workfile)
+            {
+                WorkfileStamp.Write(project.Files, workfile, document);
+            }
             Forget(root);
             GD.Print($"[Paradise] Wrote '{authoringPath}': {states.Count} object(s).");
             return Outcome.Written;
         }
 
-        /// <summary>The overlay has been applied, so it is no longer what the author changed: the
-        /// document on disk now says what it used to.</summary>
+        /// <summary>Clear edits now represented in the saved document.</summary>
         private static void Forget(Node node)
         {
             if (node is IAuthoredEntity entity) entity.Edits.Clear();
             foreach (var child in node.GetChildren()) Forget(child);
         }
 
-        /// <summary>
-        /// Walk the scene, collecting every entity that belongs to the document.
-        /// </summary>
-        /// <remarks>A DERIVED node is a prefab instance's expanded child: it belongs to the prefab,
-        /// not to this document, and writing it back would flatten the instance. Its own children
-        /// are skipped with it, because a child of something that is not here has nowhere to
-        /// hang.</remarks>
+        /// <summary>Collect document entities, skipping derived prefab subtrees to preserve instances.</summary>
         private static void Harvest(
             Node node, Guid? parent, AssetReferenceResolver assets, List<DocumentMerge.ObjectState> states)
         {
@@ -142,13 +125,17 @@ namespace ParadiseGodot.Documents
             foreach (var child in node.GetChildren()) Harvest(child, childParent, assets, states);
         }
 
-        /// <summary>Read the three channels, never the matrix — the same reason the loader assigns
-        /// them: a TRS round trip through a Transform3D is lossy at about 1e-7, and a save that
-        /// changed nothing would move things.</summary>
-        private static LocalTransform Local(Node3D node) => new(
-            new SN.Vector3(node.Position.X, node.Position.Y, node.Position.Z),
-            new SN.Quaternion(node.Quaternion.X, node.Quaternion.Y, node.Quaternion.Z, node.Quaternion.W),
-            new SN.Vector3(node.Scale.X, node.Scale.Y, node.Scale.Z));
+        /// <summary>Read TRS channels directly; matrix round trips lose precision even without edits.</summary>
+        private static LocalTransform Local(Node3D node)
+        {
+            var position = node.Position;
+            var rotation = node.Quaternion;
+            var scale = node.Scale;
+            return new LocalTransform(
+                new SN.Vector3(position.X, position.Y, position.Z),
+                new SN.Quaternion(rotation.X, rotation.Y, rotation.Z, rotation.W),
+                new SN.Vector3(scale.X, scale.Y, scale.Z));
+        }
     }
 }
 #endif

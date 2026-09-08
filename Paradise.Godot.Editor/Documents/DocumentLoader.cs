@@ -8,47 +8,25 @@ using SN = System.Numerics;
 
 namespace ParadiseGodot.Documents
 {
-    /// <summary>
-    /// Builds a Godot scene tree from an authoring document.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// One direction only, and one direction is the point of this half: <c>assets/</c> is the
-    /// source of truth, the <c>.tscn</c> is a cache of it, and re-materializing is always correct.
-    /// The other direction — nodes back to a document — is a separate problem with its own rules
-    /// (re-read, merge, refuse on drift) and does not belong in the reader.
-    /// </para>
-    /// <para>
-    /// <b>Placement is assigned as CHANNELS, never as a matrix.</b> Round-tripping a TRS through a
-    /// <c>Transform3D</c> is lossy at about 1e-6 — enough to move objects on a save that changed
-    /// nothing, which is how the Blender host learned it (it moved 25 of ShiningPie's 321 objects
-    /// per export). Position, rotation and scale go to the properties that hold them.
-    /// </para>
-    /// </remarks>
+    /// <summary>Builds a cached Godot scene tree from an authoring document.</summary>
+    /// <remarks>The document remains authoritative. Placement uses separate position, rotation and
+    /// scale channels because a <c>Transform3D</c> round trip loses precision.</remarks>
     public static class DocumentLoader
     {
-        /// <summary>Set on a node the RESOLVER produced rather than the document: a prefab
-        /// instance's expanded children. Saving one back would flatten the instance, so the writer
-        /// must skip them.</summary>
+        /// <summary>Marks expanded prefab children that the writer must skip to preserve instances.</summary>
         public const string DerivedMetaKey = "paradise_derived";
 
-        /// <summary>What a build produced, for the caller to report.</summary>
-        /// <param name="Root">The scene root, or null when nothing could be built.</param>
+        /// <param name="Root">The scene root, or null if it could not be built.</param>
         /// <param name="Objects">Nodes created.</param>
-        /// <param name="Components">Component payloads seen, including the format's own two. A
-        /// payload the schema does not describe is counted but not shown: it cannot be drawn, and
-        /// the writer preserves it by re-reading the document rather than by echoing it here.</param>
-        /// <param name="Problems">Everything that could not be honoured, phrased for an author.</param>
+        /// <param name="Components">Payloads seen, including built-ins and unknown components.
+        /// Unknown payloads are hidden here and preserved by the writer's merge.</param>
+        /// <param name="Problems">Problems phrased for the author.</param>
         public readonly record struct Result(
             Node3D? Root, int Objects, int Components, IReadOnlyList<string> Problems);
 
-        /// <summary>
-        /// Build <paramref name="document"/> into nodes.
-        /// </summary>
-        /// <param name="document">A document, already resolved if it had instances.</param>
-        /// <param name="sceneName">Names a wrapper root, used only when the document has no single
-        /// root of its own — which <c>PrefabDocument.Validate</c> refuses, but an author has to be
-        /// able to open a document in order to fix it.</param>
+        /// <param name="document">A document with prefab instances already resolved.</param>
+        /// <param name="sceneName">Wrapper name for a document without a single root, allowing invalid
+        /// hierarchies to open for repair.</param>
         public static Result Build(PrefabDocument document, string sceneName)
         {
             ArgumentNullException.ThrowIfNull(document);
@@ -61,49 +39,36 @@ namespace ParadiseGodot.Documents
             }
 
             var built = new List<Node3D>(ordered.Nodes.Count);
+            var roots = new List<Node3D>();
             int components = 0;
             foreach (var node in ordered.Nodes)
             {
                 if (Create(node.Object, problems) is not { } created)
                 {
-                    // Placeholder-free on purpose: a null here means the addon payload is missing,
-                    // which Create has already reported, and inventing a bare Node3D would produce
-                    // a scene that saves back as an object with every component silently dropped.
+                    // A bare Node3D fallback would silently drop all components on save.
                     return new Result(null, 0, 0, problems);
                 }
 
                 components += node.Object.Components.Count;
                 built.Add(created);
                 if (node.ParentIndex >= 0) built[node.ParentIndex].AddChild(created);
+                else roots.Add(created);
             }
 
-            var roots = Roots(ordered.Nodes, built);
-            if (roots.Count == 1)
+            Node3D scene;
+            if (roots.Count == 1) scene = roots[0];
+            else
             {
-                Own(roots[0], roots[0]);
-                return new Result(roots[0], built.Count, components, problems);
+                // Open invalid multi-root documents under a non-entity holder so authors can repair them.
+                problems.Add(
+                    $"The document has {roots.Count} root objects; they are shown under a '{sceneName}' " +
+                    "holder, which is NOT part of the document. Parent them beneath one root.");
+                scene = new Node3D { Name = sceneName };
+                foreach (var root in roots) scene.AddChild(root);
             }
 
-            // More than one root: the document is invalid (an instance places exactly one thing),
-            // but it opens, under a holder that is not itself an entity.
-            problems.Add(
-                $"The document has {roots.Count} root objects; they are shown under a '{sceneName}' " +
-                "holder, which is NOT part of the document. Parent them beneath one root.");
-            var wrapper = new Node3D { Name = sceneName };
-            foreach (var root in roots) wrapper.AddChild(root);
-            Own(wrapper, wrapper);
-            return new Result(wrapper, built.Count, components, problems);
-        }
-
-        private static List<Node3D> Roots(IReadOnlyList<DocumentTree.Node> ordered, List<Node3D> built)
-        {
-            var roots = new List<Node3D>();
-            for (int index = 0; index < ordered.Count; index++)
-            {
-                if (ordered[index].ParentIndex < 0) roots.Add(built[index]);
-            }
-
-            return roots;
+            Own(scene, scene);
+            return new Result(scene, built.Count, components, problems);
         }
 
         private static Node3D? Create(PrefabObject entry, List<string> problems)
@@ -127,9 +92,7 @@ namespace ParadiseGodot.Documents
 
             entity.AdoptDocumentComponents(entry.Components);
 
-            // An override carrier addresses a prefab child rather than being one, and a resolved
-            // instance's children are the resolver's rather than the document's. Both are marked so
-            // the writer can tell them from what an author placed.
+            // Mark override carriers and resolved prefab children so the writer skips them.
             if (entry.Target is not null || entry.Prefab is not null)
             {
                 node.SetMeta(DerivedMetaKey, true);
@@ -138,9 +101,7 @@ namespace ParadiseGodot.Documents
             return node;
         }
 
-        /// <summary>Assign the three channels. Scale last: Godot recomposes the local transform on
-        /// every setter, and writing the rotation after a non-uniform scale is what bakes shear
-        /// into the basis.</summary>
+        /// <summary>Set scale last: rotating after non-uniform scaling can bake shear into Godot's basis.</summary>
         private static void Place(Node3D node, LocalTransform transform)
         {
             node.Position = ToGodot(transform.Position);
@@ -149,8 +110,7 @@ namespace ParadiseGodot.Documents
             node.Scale = ToGodot(transform.Scale);
         }
 
-        /// <summary>Every node in a built scene must be OWNED by its root or PackedScene writes an
-        /// empty file — the failure that looks like "the save worked and lost everything".</summary>
+        /// <summary>PackedScene omits nodes unless their Owner is the scene root.</summary>
         private static void Own(Node node, Node owner)
         {
             foreach (var child in node.GetChildren())
@@ -160,8 +120,7 @@ namespace ParadiseGodot.Documents
             }
         }
 
-        // No handedness conversion: the contract IS Godot/glTF convention (Y-up, -Z forward), which
-        // is why the exporter wrote its values verbatim and why this reads them the same way.
+        // The document uses Godot/glTF coordinates: Y-up, -Z forward; no handedness conversion.
         private static Vector3 ToGodot(SN.Vector3 v) => new(v.X, v.Y, v.Z);
     }
 }

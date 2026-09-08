@@ -1,83 +1,64 @@
 # Data contract reference
 
-The engine-neutral data Paradise Engine runtimes load, as `paradise assets build` writes it from
-the asset project this addon edits. The serialization types live in the
-[`Paradise.Export`](https://www.nuget.org/packages/Paradise.Export) package (`Paradise.Export.Data`,
-`Paradise.Export.Serialization`) — the package version's **major.minor is the contract version**;
-the addon warns at load when the referenced package diverges from the version it targets.
+The addon edits documents defined by `Paradise.Assets.Documents` and uses
+`Paradise.Export` for authoring and value conversion. The packages referenced in
+`Paradise.Godot.Editor.csproj` define the supported contract.
 
-Two forms of every document exist and they are the same contract: the AUTHORED form under
-`assets/` (canonical TOML, references as `{ guid, path }`) and the BUILT form under `build/` or
-`.editor/play/` (TOML or JSON by build profile, every reference baked to the path the build wrote).
-A runtime only ever reads the built form.
+## Authored and built data
 
-## Coordinate convention
+| Form | Location | Contents |
+| --- | --- | --- |
+| Authored | `assets/` | Canonical TOML documents; asset references carry `{ guid, path }` |
+| Built | `build/` or `.editor/play/` | Runtime files produced by `paradise assets build` or `paradise host play`; references resolve to built paths |
+| Godot workfiles | `.editor/godot/` | Derived scenes used for editing and model previews |
 
-**Right-handed, Y-up, −Z forward, +X right** (the Godot/glTF standard), meters, column-major
-matrices. The exporter writes Godot values verbatim — no handedness conversion anywhere; any
-consumer must read the data as-is (no Z-mirror).
+Commit authored data and its `.meta` identity sidecars. The runtime reads built data.
+Godot ignores all three trees during its resource scan because engine extensions
+such as `.mesh` and `.material` overlap Godot resource extensions.
 
-## Files
+## Coordinates
 
-### `scenes/<name>.prefab|json` — scene document (`PrefabData`)
+Use right-handed coordinates, Y up, −Z forward, +X right, and meters, matching
+Godot and glTF. Matrices use the contract's column-major convention.
+The addon performs no handedness conversion.
 
-- **Environment**: ambient/sky energy, tonemap (mode/exposure/white), SSAO, glow, fog.
-- **Lights**: directional/omni/spot with transforms, color, energy, shadows.
-- **Entities**: one record per `AuthoredEntityNode` —
-  - identity: GUID (from `paradise_entity_guid` metadata), name, plus whatever
-    `paradise.identity` authored (`Kind`, `IsActive`, `Prefab`, …)
-  - `meta` and `transform`: identity, name and parent; LOCAL position, rotation and scale
-    (world space is composed down the parent chain by the loader)
-  - a mesh field (`authoredBy: mesh`): authored as a reference to the `.mesh` or
-    `.skinnedmesh` document minted beside the GLB, built to the blob's path; plus per-slot
-    material overrides (`MaterialsComponentData.Slots`)
-  - colliders: unit shapes + layer index (see [authoring](authoring.md#collision-layers));
-    `IsTrigger` for interaction volumes
-  - optional components, absent = null: `Agent` (move speed/acceleration), `Rigidbody`
-    (mass/damping/restitution/friction), `SpriteAnimation`, `ParticleEmitter`,
-    `Interactable`, skeletal animation clip names.
+Prefab transforms store local position, quaternion rotation, and scale.
+World placement is composed through entity parentage. The editor reads and writes
+the separate transform channels to avoid matrix decomposition drift.
 
-Unknown/absent optional fields deserialize to defaults — additive schema evolution is
-non-breaking (the reason the contract version follows the package's major.minor).
+## Prefab documents
 
-#### `Entities[].Components.Custom` — game-defined components
+Each `PrefabDocument` contains objects with component payloads:
 
-Components the engine does not define, authored with `[Authored]` and carried verbatim:
+- `meta`: object GUID, name, and parent identity.
+- `transform`: local position, rotation, and scale.
+- Game components: stable component GUID, type name, and data described by the
+  game's authoring schema.
 
-```json
-"Custom": [ { "Id": "mygame.ledge", "Data": { "Overhang": 2.0, "Friction": 0.35, "IsTrigger": false } } ]
-```
+There is no fixed engine component list in the addon. The inspector reads
+`.editor/authoring-schema.json` from the launcher build. Components missing from
+that schema remain in the document even though the inspector cannot display them.
 
-`Data` is opaque to the engine — the game deserializes it into its own record through its own
-source-generated context. **Omitted entirely when an entity authors nothing**, so documents from
-projects that use none of this are unchanged.
+Saving merges edits into the document read from disk. Unchanged values and unknown
+payloads survive; externally changed documents are protected from overwrite.
+References to Godot nodes are baked into values before writing.
 
-### `materials/*.material`
+## Asset documents
 
-Material descriptions referenced from entity slot overrides: PBR factors, texture references,
-alpha mode, and the procedural-material extension (`MaterialKind`, flow/noise parameters,
-`ColorA`/`ColorB`, `EmissiveStrength`). Authored with texture slots as references; built with
-them baked to the KTX2 the build wrote. A GLB's own materials are documents too — `paradise assets
-extract` writes them beside it and records them on the GLB's seed prefab, which is how a runtime
-learns what each draw slot had before an override.
+| Asset | Authored form | Built form |
+| --- | --- | --- |
+| Mesh | `.mesh` or `.skinnedmesh` document naming a source model | Cooked mesh blob |
+| Material | `.material` document with PBR values and texture references | Material with built texture paths |
+| Texture | Source image referenced by a material or extracted model | KTX2 texture |
+| Project settings | `assets/ProjectSettings.toml` | Runtime settings in the selected build format |
 
-### `ProjectSettings.toml|json`
-
-Global physics dynamics (min speeds, skin, push strength, gravity Y, static
-friction/restitution fallbacks) — the runtime's simulation parameters, authored as
-`assets/ProjectSettings.toml`.
-
-### Meshes: `models/*.mesh|.skinnedmesh` + `*.ktx2`
-
-A GLB is interchange and ships nothing. `paradise assets watch` mints a mesh document beside it
-(`.mesh`, or `.skinnedmesh` bound to its `.skeleton`), the build cooks the document to a mesh
-blob at the same path, and the scene's mesh field names that. Engine-side reading:
-`Paradise.Assets.Mesh.MeshBlobFormat.Read`; textures are KTX2 the build encoded from the GLB's
-images or a material's texture references.
+`paradise assets watch` or `paradise assets extract` creates documents beside source
+GLBs. A GLB reference selected in the inspector resolves through its sidecar to a
+mesh document. The GLB itself is source data, not the runtime mesh.
 
 ## Versioning
 
-- Contract version = `Paradise.Export` major.minor (currently **0.3**).
-- Additive fields: allowed within a minor (consumers default them).
-- Breaking changes bump the minor (pre-1.0) and will ship with migration notes; the addon's
-  Project Setup pins the version it supports and the plugin warns on mismatch.
+The addon's minor tracks the `Paradise.Export` minor it targets. At load,
+`ProjectSetup.SupportedExportVersion` is compared with the resolved assembly's
+major.minor, and a mismatch produces a warning. Keep the addon and game engine
+versions aligned; see [publishing](publishing.md) for release checks.

@@ -3,11 +3,7 @@ using ParadiseGodot.Documents;
 
 namespace Paradise.Godot.Editor.Tests;
 
-/// <summary>
-/// Ordering a document for a host that must create a parent before its child. The cases that
-/// matter are the malformed ones: a document an author needs to OPEN in order to fix must not be
-/// the one the loader refuses.
-/// </summary>
+// Malformed documents must remain openable so authors can repair them.
 public class DocumentTreeTests
 {
     private static readonly Guid A = new("aaaaaaaa-0000-4000-8000-000000000001");
@@ -25,7 +21,6 @@ public class DocumentTreeTests
     private static List<string> Names(DocumentTree.Result result) =>
         result.Nodes.Select(n => n.Object.Name ?? "").ToList();
 
-    /// <summary>The whole reason this type exists: a document may list a child first.</summary>
     [Test]
     public async Task a_child_listed_before_its_parent_is_still_placed_after_it()
     {
@@ -39,8 +34,6 @@ public class DocumentTreeTests
         await Assert.That(result.Problems).IsEmpty();
     }
 
-    /// <summary>A subtree is contiguous, so the built scene reads like the document rather than
-    /// like a breadth-first shuffle of it.</summary>
     [Test]
     public async Task a_subtree_is_placed_contiguously()
     {
@@ -52,8 +45,6 @@ public class DocumentTreeTests
         await Assert.That(Names(result)).IsEquivalentTo(new[] { "Root", "Child", "OtherRoot" });
     }
 
-    /// <summary>Sibling order is the document's, and a re-open that reshuffled it would move the
-    /// scene an author is looking at.</summary>
     [Test]
     public async Task siblings_keep_document_order()
     {
@@ -77,8 +68,6 @@ public class DocumentTreeTests
         await Assert.That(result.Problems[0]).Contains("Orphan");
     }
 
-    /// <summary>Two objects parented to each other. Every object still reaches the tree — losing
-    /// them would leave an author with a document they cannot open and cannot repair.</summary>
     [Test]
     public async Task a_parent_cycle_is_reported_and_every_object_still_appears()
     {
@@ -90,7 +79,6 @@ public class DocumentTreeTests
         await Assert.That(result.Problems).IsNotEmpty();
     }
 
-    /// <summary>A self-parent is the degenerate cycle, and the one a hand-edited document hits.</summary>
     [Test]
     public async Task an_object_parented_to_itself_becomes_a_root()
     {
@@ -101,8 +89,7 @@ public class DocumentTreeTests
         await Assert.That(result.Problems).IsNotEmpty();
     }
 
-    /// <summary>A lookup can be last-wins about duplicates; building a tree from them drops an
-    /// object, so it has to be said out loud.</summary>
+    // Silently accepting a duplicate identity would drop an object from the tree.
     [Test]
     public async Task a_duplicate_identity_is_reported()
     {

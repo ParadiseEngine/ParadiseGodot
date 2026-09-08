@@ -2,10 +2,6 @@ using ParadiseGodot.Documents;
 
 namespace Paradise.Godot.Editor.Tests;
 
-/// <summary>
-/// The overlay a save applies on top of the document it re-reads. Every case here is one where
-/// remembering the wrong thing would ask the writer to do something contradictory or destructive.
-/// </summary>
 public class AuthoredEditsTests
 {
     private const string Rigidbody = "b7ab4dd8-c8da-4dc2-9e5e-192fd74deb11";
@@ -35,8 +31,7 @@ public class AuthoredEditsTests
         await Assert.That(edits.FieldsOf(Rigidbody)).IsEquivalentTo(new[] { "Mass" });
     }
 
-    /// <summary>Nested paths are the common case for a composed host kind, and a prefix match that
-    /// was not anchored on the separator would leak fields between components.</summary>
+    // Anchor component prefixes on the separator to keep nested fields in their own component.
     [Test]
     public async Task nested_field_paths_survive_the_round_trip()
     {
@@ -47,8 +42,20 @@ public class AuthoredEditsTests
         await Assert.That(edits.FieldsOf(Rigidbody)).IsEmpty();
     }
 
-    /// <summary>Tick then untick is no change. An overlay that remembered both would ask the writer
-    /// to add and drop the same component in one pass.</summary>
+    [Test]
+    public async Task shared_component_prefixes_do_not_mix_their_fields()
+    {
+        var edits = new AuthoredEdits();
+        edits.FieldChanged("body", "Mass");
+        edits.FieldChanged("body-extra", "Shape/Radius");
+
+        await Assert.That(edits.FieldsOf("body")).IsEquivalentTo(["Mass"]);
+        edits.ComponentRemoved("body");
+
+        await Assert.That(edits.FieldsOf("body")).IsEmpty();
+        await Assert.That(edits.FieldsOf("body-extra")).IsEquivalentTo(["Shape/Radius"]);
+    }
+
     [Test]
     public async Task adding_then_removing_a_component_leaves_only_the_removal()
     {
@@ -71,8 +78,6 @@ public class AuthoredEditsTests
         await Assert.That(edits.Added).IsEquivalentTo(new[] { Rigidbody });
     }
 
-    /// <summary>Its fields go with it: setting a value on a component being deleted in the same
-    /// pass is the contradiction this prevents.</summary>
     [Test]
     public async Task removing_a_component_forgets_its_edited_fields()
     {
@@ -85,8 +90,6 @@ public class AuthoredEditsTests
         await Assert.That(edits.FieldsOf(Collider)).IsEquivalentTo(new[] { "Layer" });
     }
 
-    /// <summary>Taking a field back means taking the component back — otherwise the writer would
-    /// drop the component and then be asked to set one of its fields.</summary>
     [Test]
     public async Task editing_a_field_of_a_removed_component_re_adds_it()
     {
@@ -99,7 +102,6 @@ public class AuthoredEditsTests
         await Assert.That(edits.IsFieldEdited(Rigidbody, "Mass")).IsTrue();
     }
 
-    /// <summary>A successful save makes the document say what the overlay used to.</summary>
     [Test]
     public async Task clearing_leaves_nothing_to_apply()
     {

@@ -34,13 +34,7 @@ jobs:
       - name: Test
         run: dotnet test --project Paradise.Godot.Editor.Tests/Paradise.Godot.Editor.Tests.csproj --no-build --output normal
 
-  # Protects the package half of the addon: it must pack, the payload and targets must be IN the
-  # package (a lib-only package restores fine and then silently does nothing in a game repo), and
-  # the materializer must still place that payload correctly in every state a repo can be in -
-  # fresh install, up to date, a deleted file, a local edit, a version bump, and adoption of a
-  # hand-vendored copy. The uid assertions in that harness are the ones that matter most: Godot
-  # mints resource uids per project and scenes bind scripts by uid, so a materializer that
-  # rewrote one would silently detach every node using it.
+  # Verify package installation, repair, updates, and UID preservation.
   addon-nuget:
     runs-on: ubuntu-latest
     steps:
@@ -66,13 +60,7 @@ jobs:
           name: paradise-godot-editor-nupkg
           path: artifacts/nuget/*.nupkg
 
-  # The gate that protects addon users: import the project with a real headless Godot editor and
-  # require the C# assembly to RELOAD cleanly with the addon enabled.
-  #
-  # It used to also run a scene export and check the runtime contract tests against the freshly
-  # written data/. That went with the exporter itself at contract v6 — assets/ is the source of
-  # truth now and `paradise assets build` writes what a runtime reads. The document round-trip is
-  # what replaces it as this job's second half, once there is one to test.
+  # Exercise addon loading and assembly reload in a real Godot editor.
   editor-smoke:
     runs-on: ubuntu-latest
     steps:
@@ -107,15 +95,8 @@ jobs:
       - name: Import project
         run: $GODOT_BIN --headless --import --path . || true  # first import surfaces non-fatal warnings
 
-      # The addon's res:// scripts must never DERIVE from a type in the package assembly. Godot
-      # registers such a base as a script type too, and its ScriptTypeBiMap throws a duplicate-key
-      # exception on every assembly reload - breaking editor hot-reload and pinning the inspector
-      # to "This inspector might be out of date" (godotengine/godot#75352). Composition avoids it.
-      #
-      # This only reproduces on a RELOAD, which a cold headless run never performs - which is
-      # exactly how it shipped in 0.13.0 past a green build, passing tests and a byte-identical
-      # export. Touching a source and passing --build-solutions makes the editor rebuild and
-      # reload in-process, which is the path that throws.
+      # Cross-assembly GodotObject inheritance breaks script registration on reload
+      # (godotengine/godot#75352). Trigger a rebuild: cold starts do not expose it.
       - name: Assembly reload must be clean
         run: |
           touch addons/paradise/Authoring/AuthoredEntityNode.cs
@@ -125,10 +106,7 @@ jobs:
             grep -oE "Key: [A-Za-z.]+" reload.log | sort -u
             exit 1
           fi
-          # The space after res:// is load-bearing: it matches Godot's
-          # "Resource file not found: res:// (expected type: Script)" - an EMPTY path, which is the
-          # reload symptom. A genuinely missing file reads "res://some/path.tscn (expected ...)"
-          # and must not trip this.
+          # The space after res:// matches an empty script path, not an unrelated missing file.
           if grep -qE "Resource file not found: res:// \\(" reload.log; then
             echo "::error::Script resolution failed on reload with an empty path - same cause as above."
             exit 1
