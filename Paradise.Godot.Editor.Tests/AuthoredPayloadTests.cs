@@ -4,14 +4,8 @@ using VariantType = global::Godot.Variant.Type;
 
 namespace Paradise.Godot.Editor.Tests;
 
-/// <summary>
-/// Reading a document payload at the schema's declared types.
-/// </summary>
-/// <remarks>
-/// Only <c>Variant.Type</c> appears here — a plain enum. A <c>Variant</c> VALUE would segfault the
-/// test host (see <c>.claude/lessons.md</c>), which is exactly why the conversion is split so this
-/// half can be tested at all.
-/// </remarks>
+// Variant.Type is safe here; constructing a Variant segfaults the test host.
+// See .claude/lessons.md.
 public class AuthoredPayloadTests
 {
     private static CanonicalTomlTable Table(params (string Key, object Value)[] pairs)
@@ -32,8 +26,7 @@ public class AuthoredPayloadTests
         await Assert.That(AuthoredPayload.Read(data, "Label", VariantType.String).Text).IsEqualTo("hello");
     }
 
-    /// <summary>Canonical TOML widens 1.0 to 1, so a whole number arrives as an integer. A float
-    /// field that refused it would drop every round value an author typed.</summary>
+    // Canonical TOML writes 1.0 as 1, so float fields must accept integers.
     [Test]
     public async Task a_float_field_accepts_a_whole_number_written_as_an_integer()
     {
@@ -43,8 +36,6 @@ public class AuthoredPayloadTests
         await Assert.That(value.Number).IsEqualTo(3.0);
     }
 
-    /// <summary>The reverse is NOT symmetric: rounding an authored 2.5 into an int field would
-    /// change the value silently, and leaving the default is the honest answer.</summary>
     [Test]
     public async Task an_int_field_refuses_a_fractional_number()
     {
@@ -68,8 +59,7 @@ public class AuthoredPayloadTests
             .IsEquivalentTo(new[] { 0f, 0f, 0f, 1f });
     }
 
-    /// <summary>The failure this guards is real: <c>Position = [0.0, 1.5]</c> once baked silently
-    /// as the origin, and a reader that took a short run would put that back.</summary>
+    // Regression: a short Position = [0.0, 1.5] once silently baked as the origin.
     [Test]
     public async Task a_run_of_the_wrong_length_reads_as_absent()
     {
@@ -88,7 +78,6 @@ public class AuthoredPayloadTests
             .IsEquivalentTo(new[] { 1f, 0.5f, 0f, 0.25f });
     }
 
-    /// <summary>A colour written without alpha is opaque, not invisible.</summary>
     [Test]
     public async Task a_colour_without_alpha_is_opaque()
     {
@@ -97,8 +86,7 @@ public class AuthoredPayloadTests
         await Assert.That(AuthoredPayload.Read(data, "Tint", VariantType.Color).Numbers![3]).IsEqualTo(1f);
     }
 
-    /// <summary>Hand-edited documents write colours as arrays; taking both costs nothing and saves
-    /// an author from a field that silently ignores what they typed.</summary>
+    // Hand-edited documents may use arrays for colours.
     [Test]
     public async Task a_colour_also_reads_from_a_four_float_array()
     {
@@ -109,7 +97,7 @@ public class AuthoredPayloadTests
         await Assert.That(value.Numbers).IsEquivalentTo(new[] { 0f, 0.25f, 0.5f, 1f });
     }
 
-    /// <summary>A field path nests, because the exporter writes it nested.</summary>
+    // Match the exporter's nested field structure.
     [Test]
     public async Task a_slash_path_walks_into_nested_tables()
     {
@@ -139,8 +127,7 @@ public class AuthoredPayloadTests
         return table;
     }
 
-    /// <summary>A reference and a name share the schema type <c>string</c>, because a GUID travels
-    /// as one. Shape is what tells them apart.</summary>
+    // References and names share the schema type string; the payload shape distinguishes them.
     [Test]
     public async Task an_inline_guid_and_path_table_reads_as_a_reference()
     {
@@ -155,9 +142,7 @@ public class AuthoredPayloadTests
         await Assert.That(value.Text).IsEqualTo("penguins/adelie.glb");
     }
 
-    /// <summary>An empty slot is a real value — "no material here, keep the GLB's own" — and is not
-    /// the same as a field nobody wrote. Dropping it would shift every material after it onto the
-    /// wrong primitive.</summary>
+    // Empty slots retain the GLB material; dropping them shifts later materials to the wrong primitive.
     [Test]
     public async Task an_empty_inline_table_is_a_reference_to_nothing_rather_than_absent()
     {
@@ -168,8 +153,6 @@ public class AuthoredPayloadTests
         await Assert.That(value.Text).IsEqualTo("");
     }
 
-    /// <summary>A path with no identity is what a hand-written document carries, and it still has to
-    /// resolve — the GUID is authoritative, not mandatory.</summary>
     [Test]
     public async Task a_reference_with_only_a_path_still_reads()
     {
@@ -180,8 +163,6 @@ public class AuthoredPayloadTests
         await Assert.That(value.Text).IsEqualTo("penguins/adelie.glb");
     }
 
-    /// <summary>A plain string in a reference-shaped field is still a string: the schema cannot tell
-    /// them apart, so the document has to.</summary>
     [Test]
     public async Task a_bare_string_in_the_same_field_is_still_a_name()
     {
@@ -191,8 +172,7 @@ public class AuthoredPayloadTests
         await Assert.That(value.Text).IsEqualTo("just a name");
     }
 
-    /// <summary>The distinction the caller depends on: absent means "use the schema default", and a
-    /// zero would overwrite what an author set with something they never typed.</summary>
+    // Absent selects the schema default; zero would overwrite it.
     [Test]
     public async Task a_value_in_the_wrong_shape_reads_as_absent_rather_than_zero()
     {

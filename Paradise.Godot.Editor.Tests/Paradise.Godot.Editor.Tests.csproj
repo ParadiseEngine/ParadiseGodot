@@ -1,12 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!--
-    The addon's path arithmetic, run WITHOUT Godot.
-
-    Only types that touch no Godot static are reachable here — ParadiseProject's res:// lookup is
-    not one of them, which is exactly why the arithmetic lives in AssetProjectPaths instead. TUnit
-    on Microsoft.Testing.Platform, matching the repo's test stack.
-  -->
+  <!-- TUnit tests run without Godot. Test pure logic; native Godot calls need an editor probe. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -14,9 +8,9 @@
     <OutputType>Exe</OutputType>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
-    <!-- Microsoft.Testing.Platform ships resource locales the .NET 10 SDK doesn't recognize. -->
+    <!-- Microsoft.Testing.Platform includes locales the .NET 10 SDK does not recognize. -->
     <NoWarn>$(NoWarn);NETSDK1188</NoWarn>
-    <!-- The addon is #if TOOLS throughout; without this its types do not exist to compile against. -->
+    <!-- Include the addon's editor-only API. -->
     <DefineConstants>$(DefineConstants);TOOLS</DefineConstants>
   </PropertyGroup>
 

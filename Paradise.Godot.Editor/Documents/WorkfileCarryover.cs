@@ -5,51 +5,31 @@ using Godot;
 
 namespace ParadiseGodot.Documents
 {
-    /// <summary>
-    /// The nodes an author added to a working file, carried across a rebuild of it.
-    /// </summary>
+    /// <summary>Preserves author-added nodes when rebuilding a working file.</summary>
     /// <remarks>
-    /// <para>
-    /// A document describes entities and component payloads; it has no place for a
-    /// <c>CollisionShape3D</c>, a <c>Light3D</c> or a camera rig, and those are exactly what an
-    /// author builds in Godot to point components at. Rebuilding the working file used to delete
-    /// them — the values they had been baked into survived in the document, the nodes themselves
-    /// did not, and the author had to build them again.
-    /// </para>
-    /// <para>
-    /// So a rebuild takes them with it. Anchored by the GUID of the nearest entity ABOVE each one,
-    /// not by node path: the rebuild may reorder or rename siblings, and an entity that has gone
-    /// from the document takes its scaffolding with it rather than stranding it at the root.
-    /// </para>
-    /// <para>
-    /// Entity nodes themselves are never carried — they are the document's, and the whole point of
-    /// a rebuild is that they come from the file. Derived nodes are never carried either: the
-    /// instance expansion and the model preview are regenerated, and a stale copy of one would be
-    /// indistinguishable from an authored node the next time round.
-    /// </para>
+    /// Documents cannot store Godot colliders, lights or rigs. Carry these under the nearest entity
+    /// ancestor's GUID so renames and reordering do not break their placement. If that entity was
+    /// deleted, drop its nodes. Entity and derived nodes are regenerated from the document.
     /// </remarks>
     public static class WorkfileCarryover
     {
         private const string GuidMetaKey = "paradise_entity_guid";
 
-        /// <summary>One node an author added, and the entity it hung under.</summary>
-        /// <param name="Anchor">The GUID of the nearest entity ancestor, or null for the root.</param>
+        /// <param name="Anchor">Nearest entity ancestor's GUID, or null for the scene root.</param>
         public readonly record struct Adopted(string? Anchor, Node Node);
 
-        /// <summary>Take the author's own nodes out of a scene, detached and ready to re-attach.
-        /// The scene itself is left to the caller to free.</summary>
+        /// <summary>Detach author nodes for reattachment; the caller must free the remaining scene.</summary>
         public static List<Adopted> Take(Node root)
         {
             ArgumentNullException.ThrowIfNull(root);
 
             var adopted = new List<Adopted>();
             Collect(root, anchor: null, adopted);
-            foreach (var entry in adopted) entry.Node.GetParent()?.RemoveChild(entry.Node);
             return adopted;
         }
 
-        /// <summary>Re-attach what <see cref="Take"/> removed, and own it so a save keeps it.</summary>
-        /// <returns>How many were placed; the rest had no entity left to hang under.</returns>
+        /// <summary>Reattach detached nodes and set ownership so PackedScene keeps them.</summary>
+        /// <returns>Nodes placed; nodes whose entity was deleted are dropped.</returns>
         public static int Restore(Node root, IReadOnlyList<Adopted> adopted)
         {
             ArgumentNullException.ThrowIfNull(root);
@@ -63,11 +43,10 @@ namespace ParadiseGodot.Documents
             {
                 var parent = entry.Anchor is null
                     ? root
-                    : byGuid.TryGetValue(entry.Anchor, out var found) ? found : null;
+                    : byGuid.GetValueOrDefault(entry.Anchor);
                 if (parent is null)
                 {
-                    // Its entity is gone from the document. Dropping it is the honest answer:
-                    // re-rooting would move it somewhere the author never put it.
+                    // Re-rooting nodes whose entity was deleted would change their authored placement.
                     entry.Node.QueueFree();
                     continue;
                 }
@@ -91,8 +70,8 @@ namespace ParadiseGodot.Documents
                     continue;
                 }
 
-                // Not an entity: the author's, and so is everything under it — recursing further
-                // would take a subtree apart and re-attach the pieces separately.
+                // Take the whole authored subtree; recursing would split it into separate attachments.
+                node.RemoveChild(child);
                 adopted.Add(new Adopted(anchor, child));
             }
         }
@@ -106,7 +85,7 @@ namespace ParadiseGodot.Documents
             }
         }
 
-        // Every node the scene keeps must be owned by its root, or PackedScene writes it away.
+        // PackedScene only retains nodes owned by the scene root.
         private static void Own(Node node, Node root)
         {
             node.Owner = root;

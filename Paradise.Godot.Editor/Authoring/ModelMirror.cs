@@ -3,39 +3,26 @@ using Godot;
 
 namespace ParadiseGodot.Authoring
 {
-    /// <summary>
-    /// A model under <c>assets/</c> as an ordinary Godot scene under <c>.editor/godot/</c>.
-    /// </summary>
+    /// <summary>Cache an assets/ model as a Godot scene under .editor/godot/.</summary>
     /// <remarks>
-    /// <para>
-    /// The GLB is parsed once, here, instead of once per entity per open. A pond with twelve rocks
-    /// used to re-parse the same file twelve times on every open; now the twelve instantiate one
-    /// saved scene. That is the whole benefit — a mirrored model is NOT more capable than the GLB
-    /// it came from, because nothing under a dot-prefixed directory is imported by Godot: no
-    /// FileSystem dock, no drag-and-drop, no imported materials.
-    /// </para>
-    /// <para>
-    /// It is saved rather than copied for the same reason. A copied <c>.glb</c> in an unscanned
-    /// directory is bytes nothing can load; a saved scene loads by explicit path with no import
-    /// step, which is exactly why the working <c>.tscn</c> beside it works.
-    /// </para>
+    /// Parsing once lets entities instantiate a shared scene. Godot does not scan dot-prefixed
+    /// directories, so a copied GLB would not load there; a saved scene loads by explicit path
+    /// without import. Mirrors still have no FileSystem dock entry or imported materials.
     /// </remarks>
     public static class ModelMirror
     {
-        /// <summary>Convert one GLB and save it. False with the reason on any failure.</summary>
-        /// <param name="glbHostPath">The model under <c>assets/</c>, as an OS path.</param>
-        /// <param name="mirrorResPath">Where to save it, as a <c>res://</c> path.</param>
+        /// <summary>Convert and save a GLB; false with a reason on failure.</summary>
+        /// <param name="glbHostPath">Source model's OS path.</param>
+        /// <param name="mirrorResPath">Destination res:// path.</param>
         public static bool Write(string glbHostPath, string mirrorResPath, out string? problem)
         {
             if (ModelPreview.Load(glbHostPath, out problem) is not { } scene) return false;
 
-            // Every node must be owned by the root or Pack writes a scene with nothing in it —
-            // measured: the GLB's own hierarchy arrives unowned, and the mirror loaded back with
-            // zero meshes. DocumentLoader does the same for the same reason.
+            // GLB children arrive unowned; Pack silently omits them unless the root owns them.
             Own(scene, scene);
 
             var packed = new PackedScene();
-            // Pack before freeing: the scene is detached, and PackedScene copies out of the node.
+            // Pack copies the detached scene, so it must run before freeing it.
             var packError = packed.Pack(scene);
             scene.QueueFree();
             if (packError != Error.Ok)
@@ -70,7 +57,7 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        /// <summary>Instantiate a mirrored model, or null when it has not been mirrored yet.</summary>
+        /// <summary>Instantiate a mirrored model, or null if missing or unreadable.</summary>
         public static Node3D? Instantiate(string mirrorResPath)
         {
             if (!ResourceLoader.Exists(mirrorResPath)) return null;
@@ -81,8 +68,7 @@ namespace ParadiseGodot.Authoring
             }
             catch (System.Exception)
             {
-                // A mirror that will not load is stale or half-written; the caller falls back to
-                // parsing the GLB, which is what it did before any mirror existed.
+                // The caller falls back to the GLB if the mirror is stale or incomplete.
                 return null;
             }
         }

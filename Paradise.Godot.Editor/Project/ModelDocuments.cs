@@ -9,45 +9,25 @@ using Zio;
 
 namespace ParadiseGodot.Project
 {
-    /// <summary>
-    /// The two hops between a model on disk and what a document references.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A GLB ships nothing (engine 0.40): the watcher mints a <c>.mesh</c> or <c>.skinnedmesh</c>
-    /// document beside it, and a prefab references THAT — never the GLB. The GLB's sidecar records
-    /// which document was minted, so an author who points at a model is pointing, one hop away, at
-    /// its document. That hop is <see cref="MeshDocumentOf"/>.
-    /// </para>
-    /// <para>
-    /// The reverse hop is what an editor needs to SHOW the model: the document names the GLB it is
-    /// cooked from, and only the GLB has geometry. That is <see cref="SourceGlbOf"/>.
-    /// </para>
-    /// <para>
-    /// Neither hop is invented here. Both read what the engine's own tools wrote, in the engine's
-    /// own types, so a reference this addon stores is the one <c>paradise assets build</c> expects.
-    /// </para>
-    /// </remarks>
+    /// <summary>Maps between source GLBs and the mesh documents prefabs reference.</summary>
+    /// <remarks>The build ships <c>.mesh</c>/<c>.skinnedmesh</c> documents, not GLBs. Read the
+    /// GLB's engine-written sidecar to find its mesh document; read that document's source to find
+    /// geometry for previews. Both directions use the engine's document types.</remarks>
     public static class ModelDocuments
     {
         private const string RunTheWatcher =
             "Run `paradise assets watch` (or `paradise assets extract`) and pick it again.";
 
-        /// <summary>Whether a path names a model the engine extracts.</summary>
         public static bool IsGlb(string path) =>
             path.EndsWith(".glb", StringComparison.OrdinalIgnoreCase) ||
             path.EndsWith(".gltf", StringComparison.OrdinalIgnoreCase);
 
-        /// <summary>Whether a path names a geometry document — a <c>.mesh</c> or
-        /// <c>.skinnedmesh</c>, the two kinds a mesh reference may carry.</summary>
+        /// <summary>Whether the path is a <c>.mesh</c> or <c>.skinnedmesh</c> document.</summary>
         public static bool IsMeshDocument(string path) =>
             MeshReferenceDocument.SlotOf(path) is { } slot && MeshReferenceDocument.IsGeometry(slot);
 
-        /// <summary>
-        /// The mesh document minted for a GLB, as the reference a document stores — or null with
-        /// the reason an author can act on.
-        /// </summary>
-        /// <param name="glbAuthoringPath">The GLB, relative to <c>assets/</c>.</param>
+        /// <summary>The GLB's generated mesh reference, or null with a reason.</summary>
+        /// <param name="glbAuthoringPath">The GLB path relative to <c>assets/</c>.</param>
         public static AuthoredValue? MeshDocumentOf(
             IFileSystem files, AssetProjectLayout layout, string glbAuthoringPath, out string? problem)
         {
@@ -82,12 +62,9 @@ namespace ParadiseGodot.Project
             return AuthoredValue.Reference(mesh.Guid, mesh.Path);
         }
 
-        /// <summary>
-        /// The GLB a mesh document is cooked from, as an authoring path — or null with the reason.
-        /// </summary>
-        /// <param name="findByIdentity">Where an identity's asset is now, consulted only when the
-        /// path the document spells no longer exists. Lazy because answering it means scanning
-        /// every sidecar, and a document whose source has not moved never needs that.</param>
+        /// <summary>The mesh document's source GLB as an authoring path, or null with a reason.</summary>
+        /// <param name="findByIdentity">Resolve the source identity only if its path no longer exists,
+        /// avoiding a full sidecar scan when the source has not moved.</param>
         public static string? SourceGlbOf(
             IFileSystem files,
             AssetProjectLayout layout,

@@ -7,21 +7,14 @@ using Zio;
 
 namespace ParadiseGodot.Documents
 {
-    /// <summary>
-    /// What a whole-project conversion has to touch: every document that becomes a working scene,
-    /// and every model that becomes a Godot scene beside it.
-    /// </summary>
-    /// <remarks>
-    /// The decision half only — which files, and whether each output is stale. Doing the work
-    /// needs Godot, and this stays Godot-free so the walking and the staleness rules can be tested
-    /// against a memory filesystem.
-    /// </remarks>
+    /// <summary>Lists document/model mirrors and their staleness without requiring Godot.</summary>
+    /// <remarks>Separates filesystem decisions from scene creation so memory-filesystem tests can cover them.</remarks>
     public static class ProjectMirror
     {
-        /// <summary>One source under <c>assets/</c> and where it is mirrored.</summary>
+        /// <summary>A source under <c>assets/</c> and its mirror path.</summary>
         public readonly record struct Entry(UPath Source, UPath Mirror, bool Stale);
 
-        /// <summary>Every <c>*.prefab</c> in the project, with the working file it builds into.</summary>
+        /// <summary>Project prefabs and their working files.</summary>
         public static IReadOnlyList<Entry> Documents(
             IFileSystem files, AssetProjectLayout layout, AssetProjectPaths paths)
         {
@@ -30,9 +23,8 @@ namespace ParadiseGodot.Documents
             return Walk(files, layout, AssetProjectPaths.DocumentSuffix, paths.WorkfileFor);
         }
 
-        /// <summary>Every model in the project, with the Godot scene it mirrors into.</summary>
-        /// <remarks>Only <c>.glb</c>: the engine refuses <c>.gltf</c> by name, so a mirror of one
-        /// would be a scene for a model no build will ever ship.</remarks>
+        /// <summary>Project models and their Godot mirrors.</summary>
+        /// <remarks>Only <c>.glb</c>: the engine build rejects <c>.gltf</c>.</remarks>
         public static IReadOnlyList<Entry> Models(
             IFileSystem files, AssetProjectLayout layout, AssetProjectPaths paths)
         {

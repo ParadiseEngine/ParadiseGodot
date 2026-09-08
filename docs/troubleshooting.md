@@ -1,88 +1,91 @@
 # Troubleshooting
 
-## Install / build
+## Installation and build
 
-**The addon doesn't compile after installing the zip** (`Paradise.Export` not found)
-: An addon zip cannot edit your csproj. Run **Project > Tools > Paradise/Project Setup**
-  (adds the package reference), or add `<PackageReference Include="Paradise.Export"
-  Version="0.3.0" />` yourself, then rebuild.
+**Missing `Paradise.Export` or an addon installed from a zip**
 
-**No Paradise menu appears**
-: You need the Godot **.NET build** and a built C# project. Check Project Settings > Plugins
-  (Paradise Engine Tools enabled) and build once with the hammer icon.
+Install the `Paradise.Godot.Editor` package as shown in the [quickstart](quickstart.md),
+then build and reload. Project Setup checks the project; it does not add package references.
+For an old vendored addon, follow the [migration steps](publishing.md#new-and-migrating-projects).
 
-**Plugin warns about a Paradise.Export version mismatch**
-: The addon targets a specific contract major.minor. Align the package version (re-run
-  Project Setup, which pins the supported one) or update the addon.
+**No Paradise menu**
 
-## Export
+Use Godot's **.NET build**, build the C# project, and enable **Paradise Engine Tools**
+in Project Settings > Plugins.
 
-**My model shows in the editor but not in the runtime**
-: Only `AuthoredEntityNode`s are in the document. Give the object one with your mesh component
-  ticked and its mesh field pointed at the model's `.mesh` document (or the GLB it was extracted
-  from) — which must live **under `assets/`**, and must have been extracted: run
-  `paradise assets watch` or **Paradise/Extract Models** once for a freshly dropped GLB.
+**Package version mismatch**
 
-**Everything is offset in the runtime**
-: The scene root has a non-identity transform. Reset it and re-save.
+Remove redundant direct `Paradise.Export` references and align the addon with the
+engine minor your game uses. Project Setup reports redundant references without editing them.
 
-**Textures missing in the runtime, fine in Godot**
-: The runtime reads only what `paradise assets build` cooked. Run the build (or leave
-  `paradise assets watch` running); the `ktx` CLI it needs is found through `PARADISE_KTX_PATH`
-  or PATH — `brew install ktx` on macOS, the KTX-Software packages elsewhere.
+**No components in the inspector**
 
-**Collisions wrong in the runtime, correct in Godot**
-: The contract keeps a single layer **index** from the lowest set bit of `collision_layer`.
-  Use single-bit masks (bit 1 Floor, bit 2 Obstacle) on the collider's owning body.
+Run `paradise host build` to generate `.editor/authoring-schema.json`.
+Check the editor output for schema errors. The addon reads the game's schema only.
 
-## Play
+## Documents and assets
 
-**"No `paradise` CLI found"**
-: Play runs `paradise host play`. Install the CLI (`dotnet tool install --global Paradise.Cli`)
-  or set its path in Paradise/Settings… > paradise CLI. A GUI-launched editor does not inherit
-  your shell's PATH, which is why `~/.dotnet/tools` is probed directly.
+**Model visible in Godot but missing at runtime**
 
-**"declares no [host] project"**
-: `paradise host play` needs `[host] project = "<launcher>.csproj"` in `assets/project.toml`
-  (relative to the project root). Add `scene = "scenes/<doc>.prefab"` for a default the tray
-  can play too.
+Use an `AuthoredEntityNode` with an enabled mesh component and a selected `.mesh`,
+`.skinnedmesh`, or source GLB under `assets/`. Run **Paradise/Extract Models** or
+`paradise assets watch` for a new GLB, then save the open prefab document.
 
-**Button launches but no window / it dies immediately**
-: Output goes to `paradise_godot_play.log` in the system temp directory — on macOS that is the
-  per-user `$TMPDIR` (`/var/folders/**/T/`), **not** `/tmp`, so an empty `/tmp` is not evidence
-  Play did nothing. Read that file first: it carries the asset build, the launcher build and the
-  game's own output, and a Play that "did nothing" is almost always a launcher build that failed
-  in it. The CLI builds the assets into `.editor/play/` and rebuilds the launcher when stale
-  before the window appears, so the first Play after a code change takes a while. Exit 130 is a
-  Stop, not a failure. The watcher's log sits beside it as
-  `paradise_godot_watch_<project>_<hash>.log`, one per project.
+**Saving a scene does not update a prefab**
 
-**The build in that log fails on an engine API the game never used**
-: The build is picking up an engine SOURCE override — a workspace that swaps `Paradise.*` package
-  references for project references — and that checkout is on a different version than the game
-  pins. Every CLI build then compiles the game against an engine it was not written for, and the
-  same failure hits Play, the tray's Play, and anything else that shells out to `dotnet`. Put
-  `ParadiseUseEngineSource=false` in Paradise/Settings… > **Build env**: it is exported before the
-  CLI runs, MSBuild reads environment variables as properties, and the build goes back to the
-  packages the game pins. A desktop-launched editor inherits no shell, which is why the setting
-  exists rather than advice to export it yourself.
+Open the prefab through **Paradise/Open Document…**. An ordinary `.tscn` has no document
+link. If the prefab changed externally, the addon refuses to overwrite it and reports
+an error; your workfile still saves. Reopen the document to load the new version.
 
-**Agent zig-zags or grinds along walls**
-: Navmesh bake issues — `AgentRadius` must equal the capsule radius (never 0), and the baked
-  `.bin` must be current (re-save the scene).
+**Textures missing at runtime**
 
-## Headless / CI
+Run `paradise assets build` or keep Watch running. Texture encoding needs `ktx`,
+installed with `paradise tools install ktx` and found through PATH or `PARADISE_KTX_PATH`.
+External images can also be missing from Godot previews because `assets/` is ignored;
+embedded GLB textures avoid that preview limitation.
 
-A fresh checkout needs no Godot import before the addon works: the addon reads documents through
-the asset project's mounts and never imports `assets/`, `build/` or `.editor/` (it writes a
-`.gdignore` into each at load). What CI does need is the build:
+**Collision layers differ from Godot**
+
+Use a single-bit mask on the collider's owning body. The contract stores the lowest
+set bit's index, not the full mask; see [collision layers](authoring.md#collision-layers).
+
+## Play and Watch
+
+**No `paradise` CLI found**
+
+Run `dotnet tool install --global Paradise.Cli`, or set its path in
+**Paradise/Settings… > paradise CLI**. The addon probes `~/.dotnet/tools` because a
+GUI-launched editor may not inherit the shell's PATH.
+
+**No `[host] project` declared**
+
+Set `[host] project = "<launcher>.csproj"` in `assets/project.toml`, relative to the
+project root. Add `scene = "scenes/<doc>.prefab"` as the default scene for tray Play.
+
+**Play opens no window or exits immediately**
+
+Read `paradise_godot_play.log` in the system temp directory. On macOS this is usually
+`$TMPDIR` under `/var/folders/`, not `/tmp`. The log includes asset builds, launcher
+builds, and game output. The first run after code changes can take longer; exit 130
+means Stop. Watch uses `paradise_godot_watch_<project>_<hash>.log` beside it.
+
+**Build errors reference unexpected engine APIs**
+
+A workspace `Directory.Build.targets` may replace pinned packages with an engine
+source checkout at another version. Set `ParadiseUseEngineSource=false` in
+**Paradise/Settings… > Build env** to use the game's published package versions.
+This setting applies to CLI builds, including Play and Watch.
+
+## Asset checks in CI
+
+Asset builds do not require Godot to import the source tree:
 
 ```bash
 dotnet tool install --global Paradise.Cli
-paradise tools install ktx            # KTX-Software, for textures
-paradise assets build                 # build/ — what a runtime reads
+paradise tools install ktx
+paradise assets build
+paradise assets verify
+paradise assets prefab-check
 ```
 
-`paradise assets verify` and `paradise assets prefab-check` are the two checks worth running on
-every push: the first names a broken reference or a missing sidecar, the second refuses a document
-that is not in canonical form.
+The last two commands check references/sidecars and canonical prefab formatting.
