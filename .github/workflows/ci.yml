@@ -32,10 +32,7 @@ jobs:
         run: dotnet build ParadiseGodot.slnx --no-restore
 
       - name: Test
-        run: |
-          for project in Paradise.Godot.Editor.Tests Paradise.Sample.Pool.Tests Paradise.Sample.Odyssey.Tests Paradise.Sample.Ui.Tests Paradise.Sample.Runtime.Tests; do
-            dotnet test --project "$project/$project.csproj" --no-build --output normal
-          done
+        run: dotnet test --project Paradise.Godot.Editor.Tests/Paradise.Godot.Editor.Tests.csproj --no-build --output normal
 
   # Protects the package half of the addon: it must pack, the payload and targets must be IN the
   # package (a lib-only package restores fine and then silently does nothing in a game repo), and

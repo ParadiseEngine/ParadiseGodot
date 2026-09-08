@@ -1,14 +1,12 @@
 # ParadiseGodot — Godot as the Paradise Engine editor
 
-This repository is two things:
-
-1. **The Paradise addon** (`Paradise.Godot.Editor`, on nuget.org) — a Godot EditorPlugin that turns any Godot
-   .NET project into an authoring editor for [Paradise Engine](https://github.com/ParadiseEngine/ParadiseEngine):
-   entity authoring, asset pipeline (GLB → KTX2, primitives, model prefabs), and export of the
-   engine-neutral data contract (scene JSON, navmesh, materials) that the engine runtime loads.
-2. **The flagship sample project** — this Godot project itself, with the `Paradise.Sample.*`
-   .NET projects (game simulation, standalone SDL/WebGPU runtime host, UI cores) exercising the
-   full authoring → export → run loop.
+**The Paradise addon** (`Paradise.Godot.Editor`, on nuget.org): a Godot EditorPlugin that turns a
+Godot .NET project into an authoring editor for
+[Paradise Engine](https://github.com/ParadiseEngine/ParadiseEngine). A game is an **asset
+project** — `assets/project.toml`, `*.prefab` documents and the assets they reference — and
+this addon opens those documents as scenes, edits them against the game's own `[Authored]`
+components, saves them back, and runs the game through the engine's `paradise` CLI. Godot is the
+editor over that tree, never its owner; `paradise assets build` writes what a runtime reads.
 
 The engine is consumed as published NuGet packages (`Paradise.*`); nothing here needs the
 engine repository checked out.
@@ -18,14 +16,15 @@ engine repository checked out.
 Add one package reference to your Godot project's csproj:
 
 ```xml
-<PackageReference Include="Paradise.Godot.Editor" Version="0.14.0" />
+<PackageReference Include="Paradise.Godot.Editor" Version="0.40.0" />
 ```
 
 Build once. That first build installs the addon's `res://` half into `addons/paradise/` —
 `plugin.cfg` and two small scripts. Reload the project, enable the plugin in
-Project Settings > Plugins, then run **Project > Tools > Paradise/Project Setup** to create the
-`data/` layout. `Paradise.Export` arrives with the package at the version the addon was built
-against, so you never pin it yourself.
+Project Settings > Plugins, then run **Project > Tools > Paradise/Project Setup** to check the
+asset project (`assets/project.toml`, from `paradise new`) and keep Godot out of its trees.
+`Paradise.Export` arrives with the package at the version the addon was built against, so you
+never pin it yourself.
 
 Commit `addons/paradise/`, including the `.uid` files Godot mints beside the scripts on import.
 Godot binds a script to a node by res:// path **and** uid, so those files are how your scenes
@@ -36,59 +35,47 @@ have to be real files, because a type that lives only in an assembly cannot be a
 
 Or start from [`templates/starter/`](templates/starter) — the same wiring, already done.
 
-Requirements: Godot 4.7+ **.NET build**, .NET SDK 10.0+. Optional:
-[KTX-Software](https://github.com/KhronosGroup/KTX-Software) (`ktx` CLI, used by
-`paradise assets build`), Blender for FBX conversion, and the engine CLI the **Play** button
-and **Extract Models** run (`dotnet tool install --global Paradise.Cli` → `paradise`).
+Requirements: Godot 4.7+ **.NET build**, .NET SDK 10.0+, and the engine CLI the **Play** button
+and **Extract Models** run (`dotnet tool install --global Paradise.Cli` → `paradise`). Optional:
+[KTX-Software](https://github.com/KhronosGroup/KTX-Software) (`ktx`, used by
+`paradise assets build`; `paradise tools install ktx` fetches it).
 
 Start with the **[quickstart](docs/quickstart.md)**, then the
 [authoring guide](docs/authoring.md), [data contract reference](docs/contract.md), and
 [troubleshooting](docs/troubleshooting.md).
 
-## This repo as the sample project
+## Working on the addon
 
 ```bash
-dotnet build ParadiseGodot.slnx        # everything, including the Godot assembly
-dotnet test --project Paradise.Sample.Pool.Tests/Paradise.Sample.Pool.Tests.csproj
-dotnet test --project Paradise.Sample.Ui.Tests/Paradise.Sample.Ui.Tests.csproj
-dotnet test --project Paradise.Sample.Runtime.Tests/Paradise.Sample.Runtime.Tests.csproj
-
-# Run an exported scene in the standalone runtime host
-dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- \
-  --scene data/scenes/sample.json
-
-# The ImGui MVVM samples (no exported scene needed): a sci-fi "Space Odyssey" or the pool demo
-dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- --game odyssey
-dotnet run --project Paradise.Sample.Runtime/Paradise.Sample.Runtime.csproj -- --game pool
+dotnet build ParadiseGodot.slnx        # the addon, its tests, and this repo's Godot assembly
+dotnet test --project Paradise.Godot.Editor.Tests/Paradise.Godot.Editor.Tests.csproj
+bash scripts/check_addon_deps.sh       # the package's dependency allowlist
+bash Paradise.Godot.Editor/tests/materialize-tests.sh   # the res:// payload materializer
 ```
 
-Open the project in Godot to author: a `*.prefab` under `assets/` opens as a scene and saves
-back to its document; the **Play** toolbar button runs it through `paradise host play`.
+The repo's own `project.godot` is the smallest consumer of the addon: it authors nothing, and
+exists so the payload materializer, the two res:// shims and an editor assembly reload are
+exercised here the way every game repo exercises them (CI's `editor-smoke` job). The Godot edge
+of the addon — anything touching a `Variant`, `_GetPropertyList`, `GltfDocument` — is only
+provable inside an editor; a throwaway `[Tool] EditorPlugin` under `addons/probe/`, enabled in
+`project.godot` and run with `godot --headless --editor --path . --quit-after N`, is the way
+(see `.claude/lessons.md`).
 
 ### Layout
 
-- `Paradise.Godot.Editor/` — the publishable addon, packaged (only depends on Godot +
-  `Paradise.Export`; CI enforces this). `addon/` inside it is the res:// payload it installs into
-  consuming repos, and `build/` the targets that place it
+- `Paradise.Godot.Editor/` — the publishable addon, packaged (only depends on Godot and the
+  `Paradise.*` packages the allowlist names; CI enforces this). `addon/` inside it is the res://
+  payload it installs into consuming repos, and `build/` the targets that place it
+- `Paradise.Godot.Editor.Tests/` — the Godot-free half under test: path arithmetic, document
+  merge, the edits overlay, payload reading, sidecars, the CLI's argument shapes
 - `addons/paradise/` — this repo's own installed copy of that payload: `plugin.cfg` and the two
   res:// scripts, placed by the same targets every consumer uses
-- `Paradise.Sample.Pool(.Tests)` / `.Navigation.Detour` — engine-agnostic game simulation
-  (Paradise.ECS), shared by the Godot bridge and the runtime host
-- `Paradise.Sample.Runtime(.Tests)` — standalone SDL/WebGPU runtime host; also packs as the
-  `paradise-runtime` dotnet tool
-- `Paradise.Sample.Odyssey(.Tests)` — engine-agnostic "Space Odyssey" progression sim (Paradise.ECS)
-- `Paradise.Sample.Ui(.Tests)` / `Paradise.Sample.ImGui` — renderer-independent UI cores (the pool +
-  odyssey MVVM ViewModels/Views) and the shared ImGui sim-thread driver
-- `runtime/`, `scripts/`(godot), `scenes/` — Godot-side bridges and sample scenes
 - `templates/starter/` — the starter project (references the addon package)
 - `docs/` — user documentation; `docs/publishing.md` is the maintainer release runbook
 
 ## Releasing (maintainers)
 
-- Addon package: tag `addon-vX.Y.Z` (must match `Paradise.Godot.Editor/AddonVersion.props`
-  and `Paradise.Godot.Editor/addon/plugin.cfg` — CI refuses to publish otherwise)
-- `paradise-runtime` tool: tag `runtime-vX.Y.Z`
-- Details, including the one-time NuGet trusted-publishing setup:
-  [docs/publishing.md](docs/publishing.md)
-
-See [ROADMAP.md](ROADMAP.md) for where this is heading.
+Tag `addon-vX.Y.Z` — it must match `Paradise.Godot.Editor/AddonVersion.props` and
+`Paradise.Godot.Editor/addon/plugin.cfg`, or CI refuses to publish. The addon's minor tracks the
+engine's. Details, including the one-time NuGet trusted-publishing setup:
+[docs/publishing.md](docs/publishing.md).

@@ -5,7 +5,6 @@
 | Artifact | Trigger | Workflow |
 | --- | --- | --- |
 | `Paradise.Godot.Editor` (the addon) on nuget.org | tag `addon-vX.Y.Z` | `publish-addon-package.yml` |
-| `Paradise.Sample.Runtime` dotnet tool (`paradise-runtime`) on nuget.org | tag `runtime-vX.Y.Z` | `publish-runtime-tool.yml` |
 | Engine packages (`Paradise.*`) | `v*` tag **in the engine repo** | engine `publish-nuget.yml` |
 
 The addon zip and the Godot Asset Library listing were retired when the addon became a package.
@@ -105,14 +104,13 @@ those uids.
 
 ### NuGet trusted publishing
 
-Both nuget.org workflows use OIDC, so there is no API key to store. On nuget.org, as the package
+The nuget.org workflow uses OIDC, so there is no API key to store. On nuget.org, as the package
 owner: **Account > Trusted Publishing**, add a policy per workflow for repository
 `ParadiseEngine/ParadiseGodot`:
 
 | Package | Workflow file |
 | --- | --- |
 | `Paradise.Godot.Editor` | `publish-addon-package.yml` |
-| `Paradise.Sample.Runtime` | `publish-runtime-tool.yml` |
 
 `Paradise.Godot.Editor` has never been published, so the first run also claims the package id —
 make sure the policy exists before the first `addon-v*` tag, or the push fails on an unowned id.
@@ -126,5 +124,4 @@ Optionally set the `NUGET_USER` repository variable (defaults to the repo owner)
 | Contract | `Paradise.Export` major.minor |
 | Addon package | `AddonVersion.props` + `addon/plugin.cfg` + `addon-v*` tag (all three must match) |
 | Addon's targeted contract | `ProjectSetup.SupportedExportVersion` |
-| Runtime tool | `runtime-v*` tag |
 | Engine packages | engine `v*` tag |

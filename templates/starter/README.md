@@ -27,10 +27,9 @@ enabled; `addons/paradise/` is created by the first build, not checked in here.
 
 1. Open `scenes/main.tscn`.
 2. Add a `Node3D`, attach the `AuthoredEntityNode` script
-   (`addons/paradise/Authoring/AuthoredEntityNode.cs`), then tick `paradise.identity` and
-   `paradise.renderable` and point the latter's `Mesh` at a GLB under `data/`.
-3. Save the scene — the engine-neutral contract is exported to `data/scenes/main.json`
-   automatically on every save.
+   (`addons/paradise/Authoring/AuthoredEntityNode.cs`), then tick your game's components and
+   point its mesh field at a `.mesh` document under `assets/` (or the GLB it was extracted from).
+3. Save the scene — the document under `assets/scenes/` is written back on every save.
 4. Press **Play** in the toolbar to run the open document through `paradise host play`.
 
 See the addon documentation for the authoring guide (entity kinds, collision layers,

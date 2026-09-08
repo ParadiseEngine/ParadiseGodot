@@ -1,9 +1,15 @@
 # ParadiseGodotEditor — agent guide
 
-Godot-based editor for Paradise Engine (`ParadiseGodot.slnx`, `project.godot`), and the reference
-implementation of the export contract that `ParadiseBlenderEditor` mirrors. The contract's pinned
-conventions live in `CONVENTIONS.md`; migration notes in `MIGRATION.md`; empirical gotchas in
-`.claude/lessons.md`.
+The Godot addon for Paradise Engine (`Paradise.Godot.Editor`, `ParadiseGodot.slnx`,
+`project.godot`): Godot as an editor over a game's asset project, the second authoring host
+beside `ParadiseBlenderEditor` for the same document contract. Empirical gotchas live in
+`.claude/lessons.md`; the plan for engine catch-ups in
+`paradise-workspace/GODOT-ADDON-V6-MIGRATION.md` (outside this repo).
+
+This repo is the addon and nothing else. Its `project.godot` authors nothing; it is the smallest
+consumer of the addon, kept so the payload materializer, the res:// shims and an editor reload are
+exercised here. Samples, workbench scenes and a sample runtime used to live here and were removed
+so an engine catch-up is one job, not three.
 
 ## Code conventions
 
@@ -11,8 +17,12 @@ conventions live in `CONVENTIONS.md`; migration notes in `MIGRATION.md`; empiric
 over a comment that says what the code does, and restructure before commenting. A comment is for
 what code cannot say: a constraint, a decision and the alternative it rejected, a failure mode
 someone would reintroduce, a contract with the engine or another repo. Delete comments that
-narrate control flow or restate the next line. `CONVENTIONS.md` is the record of contract
-decisions; the code should not repeat it.
+narrate control flow or restate the next line.
+
+The Godot edge is thin on purpose: everything decidable lives in Godot-free types under
+`Documents/`, `Project/` and `Play/` and is unit-tested; a `Variant` appears only in
+`Authoring/`. A `Variant` cannot exist in a unit test (it segfaults the host), so anything that
+must touch one is proved with a throwaway headless probe plugin, never assumed.
 
 ## Git conventions
 

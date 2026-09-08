@@ -25,10 +25,6 @@ namespace ParadiseGodot
 
         public ExportPluginCore(EditorPlugin host) => _host = host;
 
-        // Scene-root metadata naming a code-driven runtime sample (`--game <name>`) for the "Play"
-        // button — set on scenes that spawn their world in a bridge script rather than AuthoredEntityNode nodes.
-        private const string GameMetaKey = "paradise_game";
-
         private const string OpenDocumentMenuItem = "Paradise/Open Document…";
         private const string ExtractModelsMenuItem = "Paradise/Extract Models";
         private const string ProjectSetupMenuItem = "Paradise/Project Setup";
@@ -87,7 +83,7 @@ namespace ParadiseGodot
             _playDotnetButton = new Button
             {
                 Text = "Play",
-                TooltipText = "Run the open document's game through `paradise host play`: builds the assets into .editor/play/, brings the launcher named by [host] in assets/project.toml up to date, and runs it. A scene root carrying the paradise_game metadata launches that code-driven sample instead.",
+                TooltipText = "Run the open document's game through `paradise host play`: builds the assets into .editor/play/, brings the launcher named by [host] in assets/project.toml up to date, and runs it.",
                 Flat = true,
             };
             _playDotnetButton.Connect(BaseButton.SignalName.Pressed, new Callable(_host, "OnPlayDotnet"));
@@ -105,7 +101,30 @@ namespace ParadiseGodot
             _host.SceneSaved += OnSceneSaved;
             GD.Print($"[Paradise.Export] Plugin loaded. Core: {ParadiseExportInfo.Describe()}");
             ProjectSetup.CheckExportVersion();
+            KeepGodotOutOfTheAssetTrees();
 
+        }
+
+        /// <summary>At every load, not only on Project Setup: the build creates <c>.editor/</c>
+        /// and <c>build/</c> on its own, and a fresh clone has neither yet — the marker has to be
+        /// there before Godot's next scan finds a tree full of documents it cannot import.</summary>
+        private static void KeepGodotOutOfTheAssetTrees()
+        {
+            if (!ParadiseProject.TryOpen(out var project, out _) || project is null) return;
+            using (project)
+            {
+                try
+                {
+                    foreach (var marker in project.EnsureGodotIgnores())
+                    {
+                        GD.Print($"[Paradise] Wrote {marker} so Godot never scans that tree.");
+                    }
+                }
+                catch (System.Exception ex) when (ex is System.IO.IOException or System.UnauthorizedAccessException)
+                {
+                    GD.PushWarning($"[Paradise] Could not write a .gdignore: {ex.Message}");
+                }
+            }
         }
 
         public void ExitTree()
@@ -141,13 +160,8 @@ namespace ParadiseGodot
         /// Toolbar "Play": hand the edited document to <c>paradise host play</c>, which builds the
         /// assets into <c>.editor/play/</c>, brings the launcher up to date and runs it.
         /// </summary>
-        /// <remarks>
-        /// The addon builds nothing itself; what to run and where it is built are the CLI's to
-        /// know. One exception stays: a scene root carrying the <c>paradise_game</c> metadata names
-        /// a CODE-DRIVEN sample (Odyssey, the pool demo) that has no document, and this repo's own
-        /// runtime project runs it directly — the dev-workbench case, until the repo is an asset
-        /// project with a <c>[host]</c> of its own.
-        /// </remarks>
+        /// <remarks>The addon builds nothing itself; what to run and where it is built are the
+        /// CLI's to know.</remarks>
         public void OnPlayDotnet()
         {
             try
@@ -160,13 +174,6 @@ namespace ParadiseGodot
                 }
 
                 string[] extraArgs = ParadiseSettingsDialog.PlayDotnetArguments();
-                string game = root.HasMeta(GameMetaKey) ? root.GetMeta(GameMetaKey).AsString() : "";
-                if (!string.IsNullOrEmpty(game))
-                {
-                    PlaySample(game, extraArgs);
-                    return;
-                }
-
                 if (DocumentHostPath(root, out string? projectRoot) is not { } document) return;
                 if (!_cli.Play(projectRoot!, document, extraArgs, out string? problem))
                 {
@@ -226,29 +233,6 @@ namespace ParadiseGodot
                 GD.Print($"[paradise] {line}");
             }
             if (code != 0) GD.PushError($"[Paradise] `paradise assets extract --all` exited {code}.");
-        }
-
-        /// <summary>The code-driven sample flow: this repo's own runtime project, run directly.</summary>
-        private void PlaySample(string game, string[] extraArgs)
-        {
-            string repo = ProjectSettings.GlobalizePath("res://");
-            string sampleProject = System.IO.Path.Combine(repo, "Paradise.Sample.Runtime", "Paradise.Sample.Runtime.csproj");
-            if (!System.IO.File.Exists(sampleProject))
-            {
-                GD.PushError(
-                    $"[Paradise] The scene names the code-driven sample '{game}', which only this " +
-                    "addon's own repo can run (Paradise.Sample.Runtime is not here).");
-                return;
-            }
-
-            string[] argv = ["run", "--project", sampleProject, "--", "--game", game, .. extraArgs];
-            if (!_cli.Launch(Play.ParadiseCli.FindDotnet(), argv, repo, out string? problem))
-            {
-                GD.PushError($"[Paradise] {problem}");
-                return;
-            }
-
-            GD.Print($"[Paradise] Playing sample '{game}' — output: {Play.ParadiseCli.LogPath}");
         }
 
         /// <summary>Pick a <c>*.prefab</c> under assets/ and open it as a scene.</summary>
@@ -316,8 +300,7 @@ namespace ParadiseGodot
             {
                 GD.PushError(
                     "[Paradise] This scene is not an open Paradise document, so there is nothing " +
-                    $"built to play. Open one with '{OpenDocumentMenuItem}', or mark the scene root " +
-                    $"with the '{GameMetaKey}' metadata to launch a runtime sample instead.");
+                    $"to play. Open one with '{OpenDocumentMenuItem}'.");
                 return null;
             }
 
