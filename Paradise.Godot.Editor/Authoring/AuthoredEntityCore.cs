@@ -1,10 +1,8 @@
-// Editor-only: this is an authoring surface that never runs in a game.
 #if TOOLS
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using Godot;
 using Paradise.Authoring;
 using Paradise.Export.Data;
@@ -14,93 +12,40 @@ using ParadiseGodot.Project;
 
 namespace ParadiseGodot.Authoring
 {
-    /// <summary>
-    /// THE entity node. One class for every entity there will ever be, and every component it can
-    /// carry, built from the authoring schema rather than from fields declared here.
-    ///
-    /// It replaced <c>EntityExport</c>, which hardcoded 41 <c>[Export]</c> fields — nine of which
-    /// any real scene ever used. Ticking a component in the inspector reveals that component's
-    /// fields, with the schema's types, units, ranges, docs, defaults and visibility guards. Adding
-    /// a component to the engine, or to a game, is an <c>[Authored]</c> record and a re-dump of the
-    /// schema: nothing here changes.
-    ///
-    /// Three things stay real code, because no schema can carry them:
-    ///
-    /// - <b>Identity minting.</b> A GUID has to be generated and kept unique across the edited
-    ///   scene. That is behaviour, and it lives here.
-    /// - <b>Transform.</b> Position, rotation and scale belong to <see cref="Node3D"/>; the
-    ///   exporter reads <c>GlobalTransform</c>. You keep moving nodes in the viewport.
-    /// - <b>Baking references to values.</b> See <see cref="HostObjectBaker"/>.
-    ///
-    /// It is hand-written on purpose and must stay so. Godot's own ScriptPropertiesGenerator is a
-    /// source generator, and two Roslyn generators cannot observe each other's output — a generated
-    /// <c>[Export]</c> never reaches the inspector and a generated <c>_Set</c> is never called, so
-    /// the scene's values are silently dropped with no error anywhere.
-    /// </summary>
+    /// <summary>Schema-driven authoring logic for the consuming project's AuthoredEntityNode shim.</summary>
     /// <remarks>
-    /// This is the BASE half, and it ships in the Paradise.Godot.Editor package. The type scenes
-    /// actually attach is the five-line <c>AuthoredEntityNode</c> shim at
-    /// <c>res://addons/paradise/Authoring/AuthoredEntityNode.cs</c>, which derives from this and
-    /// exists only because Godot serializes a script binding as a res:// path plus uid - a type
-    /// that lives only in an assembly cannot be attached to a node at all.
-    ///
-    /// No <c>[GlobalClass]</c> here: the shim carries it. Godot only registers global classes
-    /// declared by res:// scripts, so the attribute on a packaged type would claim a registration
-    /// it never gets.
+    /// The shim owns the Godot hooks and <c>[GlobalClass]</c> registration. Godot needs a
+    /// <c>res://</c> script to attach and serialize it; an assembly-only type is insufficient.
+    /// Keep the hooks handwritten: Godot's source generator cannot see another generator's
+    /// output, so generated exports or property hooks silently lose authored values.
+    /// Identity, node transforms and host-object baking remain outside the schema.
     /// </remarks>
     public sealed class AuthoredEntityCore
     {
-        /// <summary>
-        /// The node this core drives. Everything Godot-facing goes through it rather than through
-        /// inheritance, and that is not a style choice: a res:// script may not derive from a
-        /// GodotObject-derived type declared in another assembly. Godot registers the base as a
-        /// script type too and its ScriptTypeBiMap then rejects the duplicate on every assembly
-        /// reload, which breaks editor hot-reload and pins the inspector to "might be out of date".
-        /// See godotengine/godot#75352. Composition sidesteps it entirely: this type is a plain
-        /// class, so Godot has no reason to look at it at all.
-        /// </summary>
+        // Composition avoids Godot's cross-assembly script inheritance reload bug
+        // (godotengine/godot#75352); this core must remain a plain class.
         private readonly Node3D _host;
 
         public AuthoredEntityCore(Node3D host) => _host = host;
 
-        /// <summary>What this entity's author has changed since it was materialized.</summary>
+        /// <summary>Author changes since this entity was materialized.</summary>
         public AuthoredEdits Edits => _edits;
 
-        /// <summary>
-        /// Whether a write to this node is an AUTHOR's rather than Godot's.
-        /// </summary>
-        /// <remarks>
-        /// Authored values carry <c>PropertyUsageFlags.Default</c>, which includes STORAGE, so they
-        /// are written into the working <c>.tscn</c> and replayed through <c>_Set</c> when it is
-        /// loaded again. Without this every reopen looked like the author had retyped every field,
-        /// and the overlay a save applies would have rewritten payloads nobody touched — the exact
-        /// thing it exists to prevent.
-        ///
-        /// The discriminator is tree membership: Godot applies stored properties while
-        /// instantiating a PackedScene, BEFORE the node is added to a tree, and an author using the
-        /// inspector is by definition looking at a node that is in one.
-        /// </remarks>
+        // PackedScene replays stored properties before tree entry. Only writes in the tree
+        // count as author edits, so reopening a workfile does not dirty untouched payloads.
         private bool IsAuthorEdit => _host.IsInsideTree();
 
         private const string GuidMetaKey = "paradise_entity_guid";
         private const string SchemaFileName = "authoring-schema.json";
 
-        /// <summary>Name the shim registers under, and the handle used to find it.</summary>
         private const string ShimGlobalClassName = "AuthoredEntityNode";
 
-        /// <summary>
-        /// Builds a new entity node - the CONCRETE shim type, not this one.
-        ///
-        /// Package code cannot <c>new</c> it: the shim is in the consuming assembly, which this
-        /// one does not reference. And constructing the base instead would produce a node with no
-        /// res:// script, so packing it into a .tscn yields a bare Node3D - every authored value
-        /// dropped, no error raised. So go through the script resource, which returns a real shim
-        /// instance that is usable here as its base.
-        ///
-        /// The path is resolved through the global class list rather than hardcoded, so a project
-        /// that relocated the addon (ParadiseGodotAddonDir) still works.
-        /// </summary>
-        /// <returns>The new node, or null if the shim is missing from the project.</returns>
+        /// <summary>Create the consuming project's registered shim through its script resource.</summary>
+        /// <remarks>
+        /// A bare Node3D would lose authored values when packed. Resolving the global class path
+        /// also supports addons relocated with ParadiseGodotAddonDir.
+        /// </remarks>
+        /// <returns>The new entity, or null if its shim cannot be found or loaded.</returns>
         public static IAuthoredEntity? CreateNode()
         {
             foreach (Godot.Collections.Dictionary entry in ProjectSettings.GetGlobalClassList())
@@ -127,63 +72,48 @@ namespace ParadiseGodot.Authoring
             return null;
         }
 
-        /// <summary>Suffix of the per-component toggle. Inside the component's own group, so it
-        /// reads as "this entity has this component" rather than as one of its fields.</summary>
+        /// <summary>Per-component toggle, stored within the component group.</summary>
         private const string EnabledSuffix = "/Enabled";
 
-        /// <summary>Property holding a component-level host reference — the whole component is
-        /// authored by pointing at one object (a sprite, say) rather than filled in as a form.</summary>
+        /// <summary>Host reference that supplies values for the whole component.</summary>
         private const string SourceSuffix = "/Source";
 
-        /// <summary>The picker that ADDS a component. Editor-only: it is a verb, not state, and
-        /// storing it in the .tscn would persist a menu selection as though it were data.</summary>
+        /// <summary>Transient add action; must not be stored in the workfile.</summary>
         private const string AddProperty = "Add Component";
 
-        /// <summary>Resting value of the add picker.</summary>
         private const string AddNone = "(add…)";
 
         private readonly List<ComponentSchema> _components = new();
         private readonly Dictionary<string, ComponentSchema> _byId = new(StringComparer.Ordinal);
 
-        /// <summary>Add-menu label -> component id. Godot hands back the chosen ITEM TEXT for a
-        /// String enum, so the menu's labels have to map home somehow. Rebuilt in
-        /// <see cref="BuildPropertyList"/> alongside the menu itself, never separately, because a
-        /// map that outlived its menu would resolve a label the author cannot see.</summary>
+        // String enums return item text. Rebuild this label-to-id map with the menu
+        // in BuildPropertyList so it cannot resolve stale labels.
         private readonly Dictionary<string, string> _byAddLabel = new(StringComparer.Ordinal);
         private readonly HashSet<string> _enabled = new(StringComparer.Ordinal);
         private readonly Dictionary<string, Variant> _values = new(StringComparer.Ordinal);
 
-        /// <summary>What the AUTHOR changed, as opposed to what the document said. The writer
-        /// applies this over the file it re-reads; see <see cref="AuthoredEdits"/> for why the
-        /// values themselves are not what travels.</summary>
+        // The writer applies only these edits over the document it re-reads.
         private readonly AuthoredEdits _edits = new();
         private bool _loaded;
 
-        /// <summary>Modified time of the game's schema file when it was last read, so a re-dump is
-        /// noticed without reopening the project.</summary>
+        // Schema fingerprint used to detect re-dumps without reopening the project.
         private ulong _schemaStamp;
         private MeshInstance3D? _wire;
 
-        /// <summary>One component, flattened for the inspector.</summary>
         private sealed class ComponentSchema
         {
-            /// <summary>The component's [Guid], canonical lowercase-hyphenated, kept as text
-            /// because every use here is a Godot property NAME (<c>&lt;id&gt;/&lt;Path&gt;</c>) and
-            /// those are strings. Parsed back to a Guid once, on export.</summary>
+            /// <summary>Canonical GUID text used in Godot property names: &lt;id&gt;/&lt;path&gt;.</summary>
             public string Id = "";
 
-            /// <summary>Fully qualified CLR name, written beside the id on export. The only thing
-            /// in a payload a human can read, so it is carried even though nothing here uses
-            /// it.</summary>
+            /// <summary>Fully qualified CLR name used to disambiguate display names.</summary>
             public string Type = "";
 
             public string DisplayName = "";
-            /// <summary>Host-object kind the WHOLE component is authored by, or null.</summary>
+            /// <summary>Host kind supplying the whole component, or null.</summary>
             public string? AuthoredBy;
             public AuthoredGizmoSchema? Gizmo;
-            /// <summary>Leaf rows, by slash-separated path within the component.</summary>
+            /// <summary>Leaves with slash-separated paths within the component.</summary>
             public readonly List<SchemaField> Fields = new();
-            /// <summary>Paths that are host references rather than typed values.</summary>
             public readonly List<HostRef> Hosts = new();
         }
 
@@ -196,30 +126,19 @@ namespace ParadiseGodot.Authoring
             string? GuardField,
             JsonElement? GuardValue,
             Variant Default,
-            /// <summary>Whether the record DECLARED a default. An empty string with no declared
-            /// default means absent, and exports as null; one with a declared default means that
-            /// default, and exports as the empty string.</summary>
-            bool HasDefault,
-            /// <summary>File extensions this field accepts, if it is a path. Gives it a file
-            /// picker without making it a BAKED asset reference.</summary>
+            /// <summary>File-picker extensions for a path stored verbatim, without reference baking.</summary>
             IReadOnlyList<string>? AssetKinds);
 
-        /// <summary>A field authored by pointing at one of Godot's own objects.</summary>
         private readonly record struct HostRef(
             string Path,
             string Kind,
             bool IsList,
             IReadOnlyList<string>? AssetKinds,
-            /// <summary>Leaf field names the referencing record declares BENEATH this reference —
-            /// what the bake is allowed to fill in. Different records want different slices of the
-            /// same object: the engine's collider wants Size and LocalCenter, a game's box part
-            /// wants SizeX/SizeY/SizeZ. Baking a fixed record would serve one and corrupt the
-            /// other.</summary>
+            /// <summary>Declared leaves the bake may fill. Records can request different
+            /// fields from the same host object, such as Size or SizeX/SizeY/SizeZ.</summary>
             IReadOnlyList<string> Fields);
 
-        // ---------------------------------------------------------------------------------
         // Schema
-        // ---------------------------------------------------------------------------------
 
         private void EnsureSchema()
         {
@@ -227,9 +146,8 @@ namespace ParadiseGodot.Authoring
             {
                 return;
             }
-            // Latched before any work, so a failure reports once instead of on every inspector
-            // redraw. Everything after it is guarded: a throw that escaped would leave the node
-            // permanently componentless with no error, which gives an author nothing to go on.
+            // Latch before loading to avoid repeating initialization errors on every redraw.
+            // Catch all load errors so inspector redraws do not fail silently.
             _loaded = true;
             _schemaStamp = SchemaStamp();
 
@@ -243,18 +161,8 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        /// <summary>
-        /// Re-read the schema if the game's file changed since it was last read.
-        ///
-        /// A game adds a component by declaring an <c>[Authored]</c> record and re-dumping
-        /// <c>authoring-schema.json</c>. Without this the node holds whatever it read when the
-        /// scene opened, so the new component is absent from the picker until the whole project is
-        /// reloaded — with nothing on screen to suggest why.
-        ///
-        /// Called only from <see cref="BuildPropertyList"/>: that is where freshness matters, and
-        /// it runs once per inspector rebuild rather than once per property like the rest of the
-        /// EnsureSchema callers, so this costs one stat rather than hundreds.
-        /// </summary>
+        /// <summary>Reload changed schemas so new components appear without reopening the project.</summary>
+        /// <remarks>Called only from BuildPropertyList: one file stat per inspector rebuild.</remarks>
         private void RefreshSchemaIfChanged()
         {
             EnsureSchema();
@@ -265,13 +173,8 @@ namespace ParadiseGodot.Authoring
                 return;
             }
 
-            // Only the SCHEMA is rebuilt. _enabled and _values are this node's authored data and
-            // must survive: a re-dump changes what components exist, never what this node carries.
-            //
-            // Torn down only AFTER the replacement loaded, and the stamp latched only then too: an
-            // uncaught throw from a load must leave the node on the schema it had — still working,
-            // and retrying on the next rebuild — rather than empty with the new stamp latched,
-            // which would pin the picker empty until the file changes AGAIN.
+            // Preserve authored values and enabled components across schema changes.
+            // Advance the stamp only after loading returns, so thrown failures can be retried.
             try
             {
                 LoadSchema();
@@ -284,15 +187,7 @@ namespace ParadiseGodot.Authoring
             _schemaStamp = stamp;
         }
 
-        /// <summary>
-        /// A cheap fingerprint of the game's schema file: modified time combined with length, or 0
-        /// when it does not exist.
-        ///
-        /// Length is in there because <c>GetModifiedTime</c> has one-SECOND resolution, so a
-        /// re-dump landing in the same second as the previous read would otherwise look unchanged.
-        /// Adding or removing a component always moves the length, which covers exactly the case
-        /// this refresh exists for.
-        /// </summary>
+        /// <summary>Schema modification time and length, or zero when the file is absent.</summary>
         private static ulong SchemaStamp()
         {
             if (SchemaPath() is not { } path || !System.IO.File.Exists(path))
@@ -307,18 +202,14 @@ namespace ParadiseGodot.Authoring
         private static string? s_schemaPath;
         private static bool s_schemaPathResolved;
 
-        /// <summary>
-        /// The game's schema: <c>.editor/authoring-schema.json</c> under the asset project's root,
-        /// where the launcher's build dumps it and <c>paradise assets extract</c> reads it. Resolved
-        /// once per session — the project root does not move under a running editor — and null when
-        /// there is no asset project, which leaves every entity componentless with the reason said.
-        /// </summary>
+        /// <summary>The game's .editor/authoring-schema.json, or null without an asset project.</summary>
+        /// <remarks>Resolved once per session because the project root stays fixed.</remarks>
         private static string? SchemaPath()
         {
             if (s_schemaPathResolved) return s_schemaPath;
             s_schemaPathResolved = true;
 
-            if (ParadiseProject.TryOpen(out var project, out var problem) && project is not null)
+            if (ParadiseProject.TryOpen(out var project, out var problem))
             {
                 using (project)
                 {
@@ -333,50 +224,45 @@ namespace ParadiseGodot.Authoring
             return s_schemaPath;
         }
 
-        /// <summary>Engine components first, then the game's, so a game cannot redefine an engine id.</summary>
         private void LoadSchema()
         {
             _components.Clear();
             _byId.Clear();
 
-            // The GAME's schema is the only one. Contract v6 removed the engine tier entirely —
-            // Paradise.Export publishes no AuthoringSchema.Json any more, because the engine
-            // declares no authored components to describe. A game that builds with
-            // ParadiseAuthoringScanReferences already merges every assembly it references into its
-            // own dump, so nothing is lost: what used to arrive as a second document arrives inside
-            // the first one.
-            var documents = new List<AuthoringSchemaDocument>();
+            // The game's dump is the sole schema. ParadiseAuthoringScanReferences includes
+            // referenced assemblies; the engine no longer publishes a separate component schema.
             string? gamePath = SchemaPath();
-            string text = gamePath is not null && System.IO.File.Exists(gamePath)
+            if (gamePath is null) return;
+
+            string text = System.IO.File.Exists(gamePath)
                 ? System.IO.File.ReadAllText(gamePath)
                 : "";
-            if (gamePath is not null && text.Length == 0)
+            if (text.Length == 0)
             {
                 GD.PushWarning(
                     $"[Paradise] '{gamePath}' is missing, so no components can be authored. Build the " +
                     "game's launcher once (`paradise host build`) — its build dumps the schema there.");
-            }
-            if (!string.IsNullOrEmpty(text))
-            {
-                try
-                {
-                    documents.Add(AuthoringSchemaReader.Read(text));
-                }
-                catch (Exception e)
-                {
-                    // Named loudly: the symptom of a silently skipped schema is "my component is
-                    // missing", which gives an author nothing to go on.
-                    GD.PushError($"[Paradise.Export] '{gamePath}' is not a readable authoring schema: {e.Message}");
-                }
+                return;
             }
 
-            foreach (AuthoredComponentSchema source in AuthoringSchemaReader.Merge(documents).Components)
+            AuthoringSchemaDocument document;
+            try
+            {
+                document = AuthoringSchemaReader.Read(text);
+            }
+            catch (Exception e)
+            {
+                GD.PushError($"[Paradise.Export] '{gamePath}' is not a readable authoring schema: {e.Message}");
+                return;
+            }
+
+            foreach (AuthoredComponentSchema source in AuthoringSchemaReader.Merge([document]).Components)
             {
                 var component = new ComponentSchema
                 {
                     Id = source.Id.ToString(),
                     Type = source.Type,
-                    // Falls back to the TYPE, not the id: a bare GUID is not a label.
+                    // Use the CLR type as a readable fallback for an unnamed component.
                     DisplayName = string.IsNullOrEmpty(source.DisplayName)
                         ? source.Type
                         : source.DisplayName,
@@ -389,13 +275,7 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        /// <summary>
-        /// Flatten the schema's field tree into inspector PATHS ("Box/SizeX").
-        ///
-        /// Composition is a tree in the data and a path in the editor: Godot renders a
-        /// slash-separated name as a nested group for free, and the path is also what the export
-        /// uses to rebuild the nesting, so the two cannot disagree about shape.
-        /// </summary>
+        /// <summary>Flatten fields into slash-separated paths shared by inspector groups and export.</summary>
         private static void ReadFields(List<AuthoredFieldSchema> fields, string prefix, ComponentSchema into)
         {
             foreach (AuthoredFieldSchema field in fields)
@@ -404,9 +284,7 @@ namespace ParadiseGodot.Authoring
 
                 if (field.Type == AuthoredFieldTypes.Array)
                 {
-                    // Only a list of host references is supported — the shape the engine's collider
-                    // list has. A list of typed rows has no author asking for it yet, and guessing
-                    // at a control nobody wants is how a schema grows things no editor implements.
+                    // Only arrays of host references have an inspector control.
                     if (field.Items is { AuthoredBy: { } listKind })
                     {
                         into.Hosts.Add(new HostRef(
@@ -425,7 +303,7 @@ namespace ParadiseGodot.Authoring
                 {
                     into.Hosts.Add(new HostRef(
                         path, kind, IsList: false, field.AssetKinds, LeafNames(field.Fields)));
-                    // Its nested fields are what the reference BAKES into; they are never typed in.
+                    // Nested fields are bake outputs, not editable inputs.
                     continue;
                 }
 
@@ -445,22 +323,16 @@ namespace ParadiseGodot.Authoring
                     field.VisibleWhen?.Field,
                     field.VisibleWhen?.EqualTo,
                     DefaultOf(type, field),
-                    field.Default is not null,
                     field.AssetKinds));
             }
         }
 
-        /// <summary>The immediate leaf names of a field list — what a bake may fill in.</summary>
+        /// <summary>Declared leaf names a bake may fill.</summary>
         private static IReadOnlyList<string> LeafNames(List<AuthoredFieldSchema>? fields) =>
             fields is null ? Array.Empty<string>() : fields.Select(f => f.Name).ToList();
 
-        /// <summary>
-        /// A field's default, read AT ITS SCHEMA TYPE.
-        ///
-        /// Reading everything as a double is the obvious shortcut and a latent crash: on a JSON
-        /// <c>true</c> it throws InvalidOperationException, which is NOT a JsonException, so it
-        /// escapes the guard around schema loading and takes the node down inside the editor.
-        /// </summary>
+        /// <summary>Read defaults at their schema type.</summary>
+        /// <remarks>Reading a JSON boolean as a double throws InvalidOperationException.</remarks>
         private static Variant DefaultOf(Variant.Type type, AuthoredFieldSchema field)
         {
             if (field.Default is not { } value)
@@ -483,14 +355,11 @@ namespace ParadiseGodot.Authoring
             };
         }
 
-        /// <summary>An enum with no declared default still has to start on a legal member, or the
-        /// dropdown opens on a value the runtime cannot parse.</summary>
+        /// <summary>Choose a legal enum member when no default is declared.</summary>
         private static string EnumFallback(AuthoredFieldSchema field) =>
             field.Values is { Count: > 0 } values ? values[0] : "";
 
-        /// <summary>Enums are drawn as a String with an Enum hint: the value STORED is the member
-        /// name, exactly what the contract serializes, so no mapping table is needed either side.
-        /// Vectors and colours have real Variant types; everything else falls back to a string.</summary>
+        /// <summary>Enum strings store member names, matching the document contract.</summary>
         private static Variant.Type VariantTypeOf(string schemaType) => schemaType switch
         {
             AuthoredFieldTypes.Float => Variant.Type.Float,
@@ -503,18 +372,11 @@ namespace ParadiseGodot.Authoring
             _ => Variant.Type.String,
         };
 
-        // ---------------------------------------------------------------------------------
         // Inspector
-        // ---------------------------------------------------------------------------------
 
-        /// <summary>A menu label for one component: its display name, qualified with the CLR type
-        /// when another component shares that name.
-        ///
-        /// Commas are stripped because a Godot enum hint_string is comma-JOINED — a display name
-        /// containing one would silently become two menu entries, one of which resolves to
-        /// nothing. And any label that still collides or comes out empty falls back to the id:
-        /// ugly, but an ambiguous menu entry is worse than an unreadable one, because picking it
-        /// adds a component the author did not choose.</summary>
+        /// <summary>Build a unique, readable menu label, qualifying shared names with the CLR type.</summary>
+        /// <remarks>Remove commas because Godot splits enum hints on them; empty or colliding
+        /// labels fall back to the component id.</remarks>
         private string AddLabel(ComponentSchema component)
         {
             string name = EnumSafe(component.DisplayName);
@@ -530,22 +392,7 @@ namespace ParadiseGodot.Authoring
             RefreshSchemaIfChanged();
             var list = new global::Godot.Collections.Array<global::Godot.Collections.Dictionary>();
 
-            // ADD, rather than a toggle for every component that exists. Listing them all put a
-            // dozen checkboxes on a node that carries two — and the list grows with every component
-            // the engine or the game ever declares, so the wall only gets worse. What an entity
-            // HAS should be what the inspector shows; the rest belongs behind a menu.
-            //
-            // Display names rather than ids. This read ids because an id USED to be a readable
-            // name — `paradise.identity` — and it has been a GUID since ParadiseEngine #151, which
-            // turned this menu into a list of `0c068bf4-495f-495b-…`. Nobody picks a component by
-            // its GUID. LoadSchema already drew this same conclusion for the group header ("a bare
-            // GUID is not a label"); the menu simply never followed.
-            //
-            // The original reason for ids — two components may share a display name — is real, so
-            // it is answered rather than dropped: a shared name is qualified with the CLR type,
-            // which is unique by construction. Falling back to an unreadable id for EVERY
-            // component to stay safe against a collision that almost never happens was the bad
-            // trade.
+            // Show carried components; put the rest in a menu with readable, unique labels.
             _byAddLabel.Clear();
             var addable = new List<string> { AddNone };
             foreach (ComponentSchema component in _components.Where(c => !_enabled.Contains(c.Id)))
@@ -554,16 +401,9 @@ namespace ParadiseGodot.Authoring
                 _byAddLabel[label] = component.Id;
                 addable.Add(label);
             }
-            list.Add(new global::Godot.Collections.Dictionary
-            {
-                { "name", AddProperty },
-                { "type", (int)Variant.Type.String },
-                // Editor, NOT Default: Default includes Storage, which would write the menu's
-                // resting value into the scene as if it were authored data.
-                { "usage", (int)PropertyUsageFlags.Editor },
-                { "hint", (int)PropertyHint.Enum },
-                { "hint_string", string.Join(",", addable) },
-            });
+            // Default includes Storage, which would persist this transient menu value.
+            list.Add(InspectorProperty(AddProperty, Variant.Type.String,
+                PropertyUsageFlags.Editor, PropertyHint.Enum, string.Join(",", addable)));
 
             foreach (ComponentSchema component in _components)
             {
@@ -572,23 +412,11 @@ namespace ParadiseGodot.Authoring
                     continue;
                 }
 
-                // A group per component the entity actually carries.
-                list.Add(new global::Godot.Collections.Dictionary
-                {
-                    { "name", component.DisplayName },
-                    { "type", (int)Variant.Type.Nil },
-                    { "usage", (int)PropertyUsageFlags.Group },
-                    { "hint_string", component.Id + "/" },
-                });
+                list.Add(InspectorProperty(component.DisplayName, Variant.Type.Nil,
+                    PropertyUsageFlags.Group, hintString: component.Id + "/"));
 
-                // Kept as the way to REMOVE one: unticking is how the component goes away, and it
-                // is also what the .tscn stores, so scenes authored before this change still load.
-                list.Add(new global::Godot.Collections.Dictionary
-                {
-                    { "name", component.Id + EnabledSuffix },
-                    { "type", (int)Variant.Type.Bool },
-                    { "usage", (int)PropertyUsageFlags.Default },
-                });
+                // Preserve the stored toggle so older workfiles load and components can be removed.
+                list.Add(InspectorProperty(component.Id + EnabledSuffix, Variant.Type.Bool));
 
                 if (component.AuthoredBy is { } componentKind)
                 {
@@ -598,9 +426,7 @@ namespace ParadiseGodot.Authoring
 
                 foreach (HostRef host in component.Hosts)
                 {
-                    // A self-supplied kind has NOTHING to point at: its value is the entity's own
-                    // identity, name or placement, read off the node at save. Drawing a picker for
-                    // one would offer an author a choice that changes nothing.
+                    // Identity, name and placement come from the entity itself, so need no picker.
                     if (IsSelfSupplied(host.Kind)) continue;
 
                     list.Add(HostPicker(
@@ -614,17 +440,11 @@ namespace ParadiseGodot.Authoring
                         continue;
                     }
 
-                    var entry = new global::Godot.Collections.Dictionary
-                    {
-                        { "name", component.Id + "/" + field.Path },
-                        { "type", (int)field.Type },
-                        { "usage", (int)PropertyUsageFlags.Default },
-                    };
+                    var entry = InspectorProperty(component.Id + "/" + field.Path, field.Type);
 
                     if (field.AssetKinds is { Count: > 0 } fileKinds)
                     {
-                        // A path the author picks but that travels VERBATIM — unlike an asset
-                        // REFERENCE, which is baked. Same control, different contract.
+                        // This path is stored verbatim; it is not a baked asset reference.
                         entry["hint"] = (int)PropertyHint.File;
                         entry["hint_string"] = string.Join(",", fileKinds.Select(k => "*" + k));
                     }
@@ -635,8 +455,7 @@ namespace ParadiseGodot.Authoring
                     }
                     else if (field.Minimum is { } min && field.Maximum is { } max)
                     {
-                        // Advisory only: the runtime still decides what is playable, because only it
-                        // can cross-check a value against the rest of the configuration.
+                        // Advisory: only the runtime can validate against the rest of the configuration.
                         entry["hint"] = (int)PropertyHint.Range;
                         entry["hint_string"] = $"{min},{max}";
                     }
@@ -647,82 +466,60 @@ namespace ParadiseGodot.Authoring
             return list;
         }
 
-        /// <summary>A picker for one of Godot's own objects, filtered to what the kind means here.</summary>
+        private static global::Godot.Collections.Dictionary InspectorProperty(
+            string name, Variant.Type type,
+            PropertyUsageFlags usage = PropertyUsageFlags.Default,
+            PropertyHint hint = PropertyHint.None, string? hintString = null)
+        {
+            var property = new global::Godot.Collections.Dictionary
+            {
+                { "name", name },
+                { "type", (int)type },
+                { "usage", (int)usage },
+            };
+            if (hint != PropertyHint.None) property["hint"] = (int)hint;
+            if (hintString is not null) property["hint_string"] = hintString;
+            return property;
+        }
+
+        /// <summary>A Godot object picker filtered by the schema host kind.</summary>
         private static global::Godot.Collections.Dictionary HostPicker(
             string name, string kind, bool isList, IReadOnlyList<string>? assetKinds)
         {
             if (kind is AuthoredBySources.Asset or AuthoredBySources.Mesh)
             {
-                // Godot's filter syntax is built HERE, from the semantic kinds the schema declares.
-                // Putting "*.glb,*.gltf" in the document would make Blender speak Godot. A mesh
-                // field that declares no kinds takes the two geometry documents, and the GLB they
-                // are extracted from — an author points at the model they can see, and the bake
-                // follows the sidecar to the document.
+                // Translate semantic asset kinds into Godot filters here, keeping the schema
+                // host-neutral. Mesh defaults accept geometry documents and their source GLBs.
                 string filter = assetKinds is { Count: > 0 }
                     ? string.Join(",", assetKinds.Select(k => "*" + k).Concat(kind == AuthoredBySources.Mesh ? ["*.glb", "*.gltf"] : []))
                     : kind == AuthoredBySources.Mesh ? "*.mesh,*.skinnedmesh,*.glb,*.gltf" : "*";
-                return new global::Godot.Collections.Dictionary
-                {
-                    { "name", name },
-                    { "type", (int)Variant.Type.String },
-                    { "usage", (int)PropertyUsageFlags.Default },
-                    // GLOBAL, not File. A File hint browses the EDITOR filesystem, which skips any
-                    // directory carrying a .gdignore — and a game's assets/ carries one precisely so
-                    // Godot does not try to import the source tree. The picker would show an author
-                    // an empty tree containing the one thing they came for. A global picker walks
-                    // the OS filesystem, and the bake refuses anything outside assets/ anyway.
-                    { "hint", (int)PropertyHint.GlobalFile },
-                    { "hint_string", filter },
-                };
+                // GlobalFile includes assets/ despite .gdignore; File would hide the source tree.
+                // The bake separately rejects paths outside assets/.
+                return InspectorProperty(name, Variant.Type.String,
+                    hint: PropertyHint.GlobalFile, hintString: filter);
             }
 
             string nodeType = kind switch
             {
                 AuthoredBySources.Shape => "CollisionShape3D",
-                AuthoredBySources.Sprite => "Sprite3D",
-                // A sprite sheet's geometry is read off the same node as a sprite reference: the
-                // kind divides the sheet where the value kind only names it.
-                AuthoredBySources.SpriteSheet => "Sprite3D",
+                // Sprite and sprite-sheet references read geometry from the same node.
+                AuthoredBySources.Sprite or AuthoredBySources.SpriteSheet => "Sprite3D",
                 AuthoredBySources.Light => "Light3D",
                 AuthoredBySources.Camera => "Camera3D",
                 AuthoredBySources.Environment => "WorldEnvironment",
-                // An entity reference points at another AuthoredEntityNode, but that type lives in
-                // the CONSUMING assembly and Godot filters by class NAME — so the filter is the
-                // shim's registered global class, not a type this assembly can name.
+                // The shim lives in the consuming assembly; Godot filters by its registered class name.
                 AuthoredBySources.Entity => ShimGlobalClassName,
                 _ => "Node3D",
             };
 
-            if (isList)
-            {
-                // A typed array of node paths — the same control EntityExport.PhysicsColliders had,
-                // which is what an author was already used to.
-                return new global::Godot.Collections.Dictionary
-                {
-                    { "name", name },
-                    { "type", (int)Variant.Type.Array },
-                    { "usage", (int)PropertyUsageFlags.Default },
-                    { "hint", (int)PropertyHint.TypeString },
-                    {
-                        "hint_string",
-                        $"{(int)Variant.Type.NodePath}/{(int)PropertyHint.NodePathValidTypes}:{nodeType}"
-                    },
-                };
-            }
-
-            return new global::Godot.Collections.Dictionary
-            {
-                { "name", name },
-                { "type", (int)Variant.Type.NodePath },
-                { "usage", (int)PropertyUsageFlags.Default },
-                { "hint", (int)PropertyHint.NodePathValidTypes },
-                { "hint_string", nodeType },
-            };
+            return isList
+                ? InspectorProperty(name, Variant.Type.Array, hint: PropertyHint.TypeString,
+                    hintString: $"{(int)Variant.Type.NodePath}/{(int)PropertyHint.NodePathValidTypes}:{nodeType}")
+                : InspectorProperty(name, Variant.Type.NodePath,
+                    hint: PropertyHint.NodePathValidTypes, hintString: nodeType);
         }
 
-        /// <summary>Evaluate a field's visibility guard. This is what EntityExport did in
-        /// _ValidateProperty, except the rule now travels in the schema so Blender and a browser
-        /// form get it too instead of reimplementing it.</summary>
+        /// <summary>Apply the schema visibility guard shared by authoring hosts.</summary>
         private bool IsVisible(ComponentSchema component, SchemaField field)
         {
             if (field.GuardField is not { } guard || field.GuardValue is not { } expected)
@@ -749,8 +546,7 @@ namespace ParadiseGodot.Authoring
             EnsureSchema();
             string name = property.ToString();
 
-            // The add picker always reads as its resting value: it is a verb that fires on set,
-            // never a selection that persists.
+            // Setting the picker performs an action; reading it always returns the resting value.
             if (name == AddProperty)
             {
                 return AddNone;
@@ -770,21 +566,16 @@ namespace ParadiseGodot.Authoring
             if (name == AddProperty)
             {
                 string chosen = value.AsString();
-                // A label from the menu, or an id — the latter both for a component whose label
-                // collided and fell back to one, and for anything driving this from a script.
+                // Accept menu labels and raw ids for fallback labels or scripted callers.
                 if (!_byAddLabel.TryGetValue(chosen, out string? id))
                 {
                     id = chosen;
                 }
-                if (id != AddNone && _byId.TryGetValue(id, out ComponentSchema? added) &&
-                    _enabled.Add(id))
+                if (_byId.TryGetValue(id, out ComponentSchema? added) && EnableComponent(added))
                 {
-                    SeedDefaults(added);
-                    if (IsAuthorEdit) _edits.ComponentAdded(id);
                     OnAuthoredChanged();
                 }
-                // Always redraw: the picker has to fall back to its resting value and drop the id
-                // it just added from its own list.
+                // Reset the picker and remove the newly added component from its menu.
                 _host.NotifyPropertyListChanged();
                 return true;
             }
@@ -798,17 +589,12 @@ namespace ParadiseGodot.Authoring
                 }
                 if (value.AsBool())
                 {
-                    if (_enabled.Add(id))
-                    {
-                        SeedDefaults(component);
-                        if (IsAuthorEdit) _edits.ComponentAdded(id);
-                    }
+                    EnableComponent(component);
                 }
                 else if (_enabled.Remove(id))
                 {
                     if (IsAuthorEdit) _edits.ComponentRemoved(id);
-                    // Forget the component's values with it. Keeping them would resurrect numbers
-                    // an author removed the moment the box was ticked again.
+                    // Re-adding a removed component must not resurrect its old values.
                     foreach (string key in _values.Keys
                                  .Where(k => k.StartsWith(id + "/", StringComparison.Ordinal))
                                  .ToList())
@@ -828,9 +614,10 @@ namespace ParadiseGodot.Authoring
             _values[name] = value;
             if (IsAuthorEdit)
             {
-                _edits.FieldChanged(name[..name.IndexOf('/')], name[(name.IndexOf('/') + 1)..]);
+                int slash = name.IndexOf('/');
+                _edits.FieldChanged(name[..slash], name[(slash + 1)..]);
             }
-            // A guard field changing reveals or hides its dependants.
+            // Refresh fields whose visibility depends on the changed value.
             _host.NotifyPropertyListChanged();
             OnAuthoredChanged();
             return true;
@@ -849,35 +636,22 @@ namespace ParadiseGodot.Authoring
                 || component.Fields.Any(f => f.Path == path);
         }
 
-        private void SeedDefaults(ComponentSchema component)
+        private bool EnableComponent(ComponentSchema component)
         {
+            if (!_enabled.Add(component.Id)) return false;
+
             foreach (SchemaField field in component.Fields)
             {
                 _values[component.Id + "/" + field.Path] = field.Default;
             }
+            if (IsAuthorEdit) _edits.ComponentAdded(component.Id);
+            return true;
         }
 
-        /// <summary>
-        /// Show the components this entity carries in its DOCUMENT.
-        /// </summary>
+        /// <summary>Seed document components without recording edits.</summary>
         /// <remarks>
-        /// <para>
-        /// Seeding, not editing: nothing here touches <see cref="Edits"/>, so an entity opened and
-        /// closed without an author typing anything has no changes to write back. That is what
-        /// keeps a save from rewriting payloads nobody touched.
-        /// </para>
-        /// <para>
-        /// A component the schema does not describe is SKIPPED rather than dropped. It cannot be
-        /// drawn — there is nothing to draw it from — but the writer re-reads the document and only
-        /// applies the overlay, so an unknown payload is never in a position to be lost. A game
-        /// whose schema is simply out of date must not have its data quietly deleted by opening a
-        /// scene.
-        /// </para>
-        /// <para>
-        /// <c>meta</c> and <c>transform</c> are the format's own vocabulary and belong to the node
-        /// — identity is the node's metadata, placement is its channels — so they are not
-        /// components the inspector has any business showing.
-        /// </para>
+        /// Unknown components stay in the document: the writer re-reads it and applies only edits.
+        /// Meta and transform belong to the node, so they are omitted from the component inspector.
         /// </remarks>
         public void AdoptDocumentComponents(IReadOnlyList<PrefabComponent> components)
         {
@@ -902,24 +676,16 @@ namespace ParadiseGodot.Authoring
                 foreach (SchemaField field in schema.Fields)
                 {
                     AuthoredValue read = AuthoredPayload.Read(component.Data, field.Path, field.Type);
-                    // Absent, or in a shape this field cannot take: the schema's own default, never
-                    // a zero. A payload from a newer build must not blank what an author set.
-                    _values[id + "/" + field.Path] = read.Kind == AuthoredValueKind.None
-                        ? field.Default
-                        : ToVariant(read, field.Type, field.Default);
+                    // Missing or incompatible values retain the schema default.
+                    _values[id + "/" + field.Path] = ToVariant(read, field.Type, field.Default);
                 }
             }
 
             _host.NotifyPropertyListChanged();
         }
 
-        /// <summary>
-        /// Every authored value this entity holds, keyed <c>&lt;componentId&gt;/&lt;path&gt;</c>.
-        /// </summary>
-        /// <remarks>The other side of the edge: values leave as <see cref="AuthoredValue"/> so the
-        /// merge that writes them into a document can be tested, which a <c>Variant</c> would
-        /// prevent. Only ENABLED components are included — a component the entity does not carry
-        /// has no values to write.</remarks>
+        /// <summary>Enabled components' values, keyed &lt;componentId&gt;/&lt;path&gt;.</summary>
+        /// <remarks>Neutral AuthoredValue values keep the document merge testable outside Godot.</remarks>
         public IReadOnlyDictionary<string, AuthoredValue> AuthoredValues()
         {
             EnsureSchema();
@@ -939,39 +705,31 @@ namespace ParadiseGodot.Authoring
             return values;
         }
 
-        /// <summary>The one place a document value is read OUT of a <see cref="Variant"/>.</summary>
         private static AuthoredValue FromVariant(Variant value, Variant.Type type) => type switch
         {
-            Variant.Type.Bool => new AuthoredValue(AuthoredValueKind.Bool, Bool: value.AsBool()),
-            Variant.Type.Int => new AuthoredValue(AuthoredValueKind.Integer, Integer: value.AsInt64()),
-            Variant.Type.Float => new AuthoredValue(AuthoredValueKind.Number, Number: value.AsDouble()),
-            Variant.Type.String => new AuthoredValue(AuthoredValueKind.Text, Text: value.AsString()),
-            Variant.Type.Vector2 => Numbers(value.AsVector2().X, value.AsVector2().Y),
-            Variant.Type.Vector3 => Numbers(value.AsVector3().X, value.AsVector3().Y, value.AsVector3().Z),
-            Variant.Type.Quaternion => Numbers(
+            Variant.Type.Bool => HostObjectBaker.Boolean(value.AsBool()),
+            Variant.Type.Int => HostObjectBaker.Integer(value.AsInt64()),
+            Variant.Type.Float => HostObjectBaker.Number(value.AsDouble()),
+            Variant.Type.String => HostObjectBaker.Text(value.AsString()),
+            Variant.Type.Vector2 => HostObjectBaker.Numbers(value.AsVector2().X, value.AsVector2().Y),
+            Variant.Type.Vector3 => HostObjectBaker.Numbers(value.AsVector3().X, value.AsVector3().Y, value.AsVector3().Z),
+            Variant.Type.Quaternion => HostObjectBaker.Numbers(
                 value.AsQuaternion().X, value.AsQuaternion().Y,
                 value.AsQuaternion().Z, value.AsQuaternion().W),
-            Variant.Type.Color => new AuthoredValue(
-                AuthoredValueKind.Rgba,
-                Numbers: [value.AsColor().R, value.AsColor().G, value.AsColor().B, value.AsColor().A]),
+            Variant.Type.Color => HostObjectBaker.Rgba(value.AsColor()),
             _ => AuthoredValue.None,
         };
 
-        private static AuthoredValue Numbers(params float[] values) =>
-            new(AuthoredValueKind.Numbers, Numbers: values);
-
-        /// <summary>The one place a <see cref="Variant"/> is built from a document value. Kept to a
-        /// switch because a Variant cannot exist in a unit test — constructing one outside a running
-        /// Godot process segfaults the host — so everything decidable lives in
-        /// <see cref="AuthoredPayload"/> instead.</summary>
+        /// <summary>Convert neutral values at the Godot boundary.</summary>
+        /// <remarks>Constructing a Variant outside Godot segfaults the test host; keep testable
+        /// conversion logic in <see cref="AuthoredPayload"/>.</remarks>
         private static Variant ToVariant(AuthoredValue value, Variant.Type type, Variant fallback) =>
             (type, value.Kind) switch
             {
                 (Variant.Type.Bool, AuthoredValueKind.Bool) => value.Bool,
                 (Variant.Type.Int, AuthoredValueKind.Integer) => value.Integer,
                 (Variant.Type.Float, AuthoredValueKind.Number) => value.Number,
-                (Variant.Type.String, AuthoredValueKind.Text) => value.Text ?? "",
-                (Variant.Type.String, AuthoredValueKind.Reference) => value.Text ?? "",
+                (Variant.Type.String, AuthoredValueKind.Text or AuthoredValueKind.Reference) => value.Text ?? "",
                 (Variant.Type.Vector2, AuthoredValueKind.Numbers) =>
                     new Vector2(value.Numbers![0], value.Numbers[1]),
                 (Variant.Type.Vector3, AuthoredValueKind.Numbers) =>
@@ -983,23 +741,11 @@ namespace ParadiseGodot.Authoring
                 _ => fallback,
             };
 
-        // ---------------------------------------------------------------------------------
-        // Model path — the one thing a schema cannot carry
-        // ---------------------------------------------------------------------------------
+        // Model path and identity
 
-        /// <summary>
-        /// The model this entity renders: a <c>.mesh</c> or <c>.skinnedmesh</c> document under
-        /// <c>assets/</c>, or the GLB it was extracted from — either spelling the bake turns into
-        /// the document's reference. Setting it enables the owning component exactly as ticking
-        /// the box would.
-        /// </summary>
-        /// <remarks>
-        /// Found through the SCHEMA rather than named on an engine record. Contract v6 deleted
-        /// <c>RenderableComponentData</c> along with every other engine-declared component, so
-        /// "the field that holds a model" is now whatever the GAME declared: a field authored by
-        /// the mesh kind, or an asset reference accepting a mesh document. The first one wins, and
-        /// a game with two of them has not said which of them is the model.
-        /// </remarks>
+        /// <summary>The entity's .mesh/.skinnedmesh document or source GLB under assets/.</summary>
+        /// <remarks>Setting it enables its component. The first schema field accepting a mesh
+        /// supplies the model; baking converts either path form into a document reference.</remarks>
         public string ModelPath
         {
             get => ModelField() is { } slot ? StoredValue(slot.Component, slot.Path).AsString() : "";
@@ -1017,7 +763,7 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        /// <summary>The first schema field a model reference belongs in, or null.</summary>
+        /// <summary>The first schema field accepting a model reference, or null.</summary>
         private (string Component, string Path)? ModelField()
         {
             EnsureSchema();
@@ -1042,30 +788,13 @@ namespace ParadiseGodot.Authoring
                 kind.Equals(MeshReferenceDocument.MeshSuffix, StringComparison.OrdinalIgnoreCase) ||
                 kind.Equals(MeshReferenceDocument.SkinnedMeshSuffix, StringComparison.OrdinalIgnoreCase));
 
-        private Variant StoredValue(Guid componentId, string field) =>
-            StoredValue(componentId.ToString(), field);
-
-        private Variant StoredValue(string componentId, string field)
-        {
-            EnsureSchema();
-            return _values.TryGetValue(componentId + "/" + field, out Variant value) ? value : default;
-        }
-
-        private void SetAuthored(Guid componentId, string field, Variant value) =>
-            SetAuthored(componentId.ToString(), field, value);
+        private Variant StoredValue(string componentId, string field) =>
+            _values.TryGetValue(componentId + "/" + field, out Variant value) ? value : default;
 
         private void SetAuthored(string componentId, string field, Variant value)
         {
-            EnsureSchema();
-            if (!_byId.TryGetValue(componentId, out ComponentSchema? component))
-            {
-                return;
-            }
-            if (_enabled.Add(componentId))
-            {
-                SeedDefaults(component);
-                if (IsAuthorEdit) _edits.ComponentAdded(componentId);
-            }
+            ComponentSchema component = _byId[componentId];
+            EnableComponent(component);
             _values[componentId + "/" + field] = value;
             if (IsAuthorEdit) _edits.FieldChanged(componentId, field);
         }
@@ -1074,8 +803,7 @@ namespace ParadiseGodot.Authoring
         public Guid EntityGuid =>
             _host.HasMeta(GuidMetaKey) && Guid.TryParse(_host.GetMeta(GuidMetaKey).AsString(), out Guid g) ? g : Guid.Empty;
 
-        /// <summary>Force a specific GUID (used by rebuild pipelines to carry identity across a
-        /// destroy/recreate). Rejects <see cref="Guid.Empty"/>.</summary>
+        /// <summary>Restore document identity when rebuilding a node; rejects Guid.Empty.</summary>
         public bool RestoreEntityGuid(Guid value)
         {
             if (value == Guid.Empty)
@@ -1086,9 +814,7 @@ namespace ParadiseGodot.Authoring
             return true;
         }
 
-        /// <summary>Ensure a GUID exists — minting and persisting one if the node has none — and
-        /// return it. The exporter calls this so a freshly-placed, never-saved entity still exports
-        /// a stable identity instead of the all-zero GUID, which would collide across entities.</summary>
+        /// <summary>Mint and persist an identity if absent, including for unsaved entities.</summary>
         public Guid EnsureEntityGuid()
         {
             Guid current = EntityGuid;
@@ -1110,8 +836,7 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        // Ensure a GUID exists and is unique among entity nodes in the edited scene; if a collision
-        // is found (e.g. a duplicated node), regenerate this node's.
+        // Duplicated nodes inherit metadata; regenerate this GUID if another entity already owns it.
         private void EnsureUniqueGuid()
         {
             EnsureEntityGuid();
@@ -1144,31 +869,13 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        // ---------------------------------------------------------------------------------
         // Host references
-        // ---------------------------------------------------------------------------------
 
-        /// <summary>
-        /// Every leaf a host reference contributes to this entity, keyed
-        /// <c>&lt;componentId&gt;/&lt;path&gt;</c>.
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// The other half of <c>authoredBy</c>: an author points at a CollisionShape3D, a light, a
-        /// camera or another entity and edits it with Godot's own tools, and this reads the result
-        /// out. A node path means nothing to a runtime, so nothing but VALUES ever reaches the
-        /// document — which is the same asymmetry the schema states, authored as a reference and
-        /// stored as a value.
-        /// </para>
-        /// <para>
-        /// Recomputed on every save rather than tracked as an edit, because the value can change
-        /// without the author touching this entity at all: moving the shape a collider points at is
-        /// an edit to the collider, and nothing in the inspector would have noticed.
-        /// </para>
-        /// </remarks>
-        /// <param name="assets">Resolves and mints asset identities. Null while no project is
-        /// open, in which case an asset reference cannot be turned into one and is skipped rather
-        /// than written as a bare path — half a reference is worse than none.</param>
+        /// <summary>Baked host values, keyed &lt;componentId&gt;/&lt;path&gt;.</summary>
+        /// <remarks>Recompute on every save: referenced objects can change independently of this
+        /// inspector. Documents store their values, since node paths have no runtime meaning.</remarks>
+        /// <param name="assets">Resolves asset identities. Without a project, asset references are
+        /// skipped rather than stored as bare paths.</param>
         public IReadOnlyDictionary<string, AuthoredValue> BakedHostValues(AssetReferenceResolver? assets = null)
         {
             EnsureSchema();
@@ -1183,9 +890,7 @@ namespace ParadiseGodot.Authoring
 
                 if (component.AuthoredBy is { } wholeKind)
                 {
-                    // A component-level reference contributes its leaves ALONGSIDE the authored
-                    // ones rather than replacing them: a sprite animation reads its sheet and quad
-                    // off the sprite while fps and loop stay typed in.
+                    // Host leaves supplement typed fields, such as sprite geometry beside authored fps.
                     BakeRef(
                         new HostRef("", wholeKind, IsList: false, null, Array.Empty<string>()),
                         component, assets, baked);
@@ -1207,25 +912,22 @@ namespace ParadiseGodot.Authoring
             Dictionary<string, AuthoredValue> into)
         {
             string prefix = component.Id + "/";
-            string at = host.Path.Length == 0 ? string.Empty : host.Path;
+            string at = host.Path;
 
-            // Self-supplied kinds read the NODE, not a picker: there is nothing for an author to
-            // point at when the value is the object's own identity, name or placement.
             if (SelfSupplied(host.Kind) is { } own)
             {
                 into[prefix + at] = own;
                 return;
             }
 
-            if (!_values.TryGetValue(prefix + (at.Length == 0 ? SourceSuffix.TrimStart('/') : at), out Variant stored) &&
-                !_values.TryGetValue(component.Id + (at.Length == 0 ? SourceSuffix : "/" + at), out stored))
+            string key = at.Length == 0 ? component.Id + SourceSuffix : prefix + at;
+            if (!_values.TryGetValue(key, out Variant stored))
             {
                 return;
             }
 
-            // A mesh field picked as a file rather than as a node: the value is a path, and a
-            // scene authored before the file picker still carries a NodePath, which the node flow
-            // below turns into the same document.
+            // File pickers store strings. Older workfiles store mesh NodePaths, which
+            // the node-reference flow below resolves to the same document.
             if (host.Kind == AuthoredBySources.Asset ||
                 (host.Kind == AuthoredBySources.Mesh && stored.VariantType == Variant.Type.String))
             {
@@ -1249,8 +951,7 @@ namespace ParadiseGodot.Authoring
 
             if (host.IsList)
             {
-                // A list of references has no leaf-per-element spelling in a canonical document yet.
-                // Saying so beats writing something the reader cannot take.
+                // Canonical documents do not yet support leaves for reference-list elements.
                 GD.PushWarning(
                     $"[Paradise] '{_host.Name}': '{host.Path}' is a LIST of {host.Kind} references, " +
                     "which this addon cannot write to a document yet. It is not saved.");
@@ -1266,7 +967,8 @@ namespace ParadiseGodot.Authoring
             }
 
             WarnOnShapeMismatch(host, leaves);
-            foreach (string wanted in host.Fields.Count > 0 ? host.Fields : leaves.Keys.ToList())
+            IEnumerable<string> fields = host.Fields.Count > 0 ? host.Fields : leaves.Keys;
+            foreach (string wanted in fields)
             {
                 if (leaves.TryGetValue(wanted, out AuthoredValue value))
                 {
@@ -1275,20 +977,17 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        /// <summary>Whether a kind's value comes from the entity itself rather than from something
-        /// an author points at.</summary>
         private static bool IsSelfSupplied(string kind) =>
             kind is AuthoredBySources.Id or AuthoredBySources.Name or AuthoredBySources.Parent
                 or AuthoredBySources.LocalPosition or AuthoredBySources.LocalRotation
                 or AuthoredBySources.LocalScale;
 
-        /// <summary>The sheet a Sprite3D draws, as a reference — or null when it has no standalone
-        /// image to point at.</summary>
+        /// <summary>The sprite sheet reference, or null without a standalone image.</summary>
         private AuthoredValue? SheetReference(Sprite3D sprite, AssetReferenceResolver? assets)
         {
             if (sprite.Texture?.ResourcePath is not { Length: > 0 } texture) return null;
 
-            // A sub-resource has no file of its own, so there is nothing to give an identity to.
+            // Sub-resources have no file to identify.
             if (texture.Contains("::", StringComparison.Ordinal))
             {
                 GD.PushWarning(
@@ -1300,7 +999,6 @@ namespace ParadiseGodot.Authoring
             return Reference(texture, assets);
         }
 
-        /// <summary>One picked or referenced file as the reference a document stores.</summary>
         private AuthoredValue? Reference(string file, AssetReferenceResolver? assets)
         {
             if (assets is not null) return assets.Reference(file);
@@ -1309,7 +1007,6 @@ namespace ParadiseGodot.Authoring
             return null;
         }
 
-        /// <summary>A picked model as the mesh DOCUMENT a document stores.</summary>
         private AuthoredValue? MeshDocument(string file, AssetReferenceResolver? assets)
         {
             if (assets is not null) return assets.MeshDocument(file);
@@ -1323,7 +1020,6 @@ namespace ParadiseGodot.Authoring
                 $"[Paradise] '{_host.Name}': '{file}' cannot be given an identity with no asset " +
                 "project open, so the reference is not saved.");
 
-        /// <summary>The kinds whose value is the entity's OWN — read off the node, never picked.</summary>
         private AuthoredValue? SelfSupplied(string kind) => kind switch
         {
             AuthoredBySources.Id => HostObjectBaker.Text(DocumentGuid.Format(EnsureEntityGuid())),
@@ -1338,8 +1034,7 @@ namespace ParadiseGodot.Authoring
             _ => null,
         };
 
-        /// <summary>The nearest ancestor entity's identity, or empty at the root — which is how the
-        /// kind spells "no parent".</summary>
+        /// <summary>The nearest ancestor entity GUID; an empty string means no parent.</summary>
         private string ParentEntityGuid()
         {
             for (Node? node = _host.GetParent(); node is not null; node = node.GetParent())
@@ -1350,13 +1045,8 @@ namespace ParadiseGodot.Authoring
             return string.Empty;
         }
 
-        /// <summary>
-        /// A record asking for box EXTENTS, pointed at something that is not a box.
-        ///
-        /// A game part that declared SizeX/SizeY/SizeZ gets zeroes from a sphere or capsule, since
-        /// only a box sets Size. The warning is what stops an authoring mistake becoming a
-        /// zero-sized collider nobody notices.
-        /// </summary>
+        /// <summary>Warn when a record requests box extents from another shape.</summary>
+        /// <remarks>Spheres and capsules leave SizeX/SizeY/SizeZ zero.</remarks>
         private void WarnOnShapeMismatch(HostRef host, Dictionary<string, AuthoredValue> leaves)
         {
             if (host.Kind != AuthoredBySources.Shape ||
@@ -1374,8 +1064,8 @@ namespace ParadiseGodot.Authoring
                 + "record the fields that shape fills (Size, Radius, Height).");
         }
 
-        /// <summary>Bake one referenced object into its leaves. A scalar kind returns one entry
-        /// under the empty key, which the caller writes at the reference's own path.</summary>
+        /// <summary>Bake a referenced object. Scalar results use the empty key, which maps
+        /// to the reference's own path.</summary>
         private Dictionary<string, AuthoredValue>? BakeOne(
             string kind, NodePath path, AssetReferenceResolver? assets)
         {
@@ -1389,8 +1079,6 @@ namespace ParadiseGodot.Authoring
                         : null;
 
                 case AuthoredBySources.Light:
-                    // One reader for a light however it was found, so a light cannot describe
-                    // itself one way when it is owned and another when it is not.
                     return _host.GetNodeOrNull<Light3D>(path) is { } light
                         ? HostObjectBaker.BakeLight(light)
                         : null;
@@ -1402,8 +1090,7 @@ namespace ParadiseGodot.Authoring
 
                 case AuthoredBySources.Sprite:
                 case AuthoredBySources.SpriteSheet:
-                    // One reader for both: the value kind keeps the Sheet leaf and the composed
-                    // kind keeps all five, and BakeRef hands each record the leaves it declared.
+                    // BakeRef selects the leaves each sprite or sprite-sheet record declares.
                     return _host.GetNodeOrNull<Sprite3D>(path) is { } sprite
                         ? HostObjectBaker.BakeSprite(sprite, SheetReference(sprite, assets))
                         : null;
@@ -1417,9 +1104,7 @@ namespace ParadiseGodot.Authoring
                 {
                     if (_host.GetNodeOrNull<Node>(path) is not { } node) return null;
 
-                    // The GLB the node was instanced from — and then the mesh document the engine
-                    // minted beside it, which is what a document references. The GLB itself ships
-                    // nothing, so a reference to it would name a file no runtime is given.
+                    // Runtime references name the mesh document extracted from the GLB, not the source GLB.
                     string? source = HostObjectBaker.SourceGlbOf(node)
                         ?? HostObjectBaker.ModelDescendants(node)
                             .Select(HostObjectBaker.SourceGlbOf)
@@ -1434,8 +1119,7 @@ namespace ParadiseGodot.Authoring
 
                 case AuthoredBySources.Entity:
                 {
-                    // A GUID, not a name: names are not unique, and the identity is the one the
-                    // referenced object's own meta carries.
+                    // Entity names are not unique; references use the target metadata GUID.
                     if (_host.GetNodeOrNull<Node>(path) is not IAuthoredEntity target) return null;
 
                     return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
@@ -1452,12 +1136,8 @@ namespace ParadiseGodot.Authoring
 
 
 
-        // ---------------------------------------------------------------------------------
         // Gizmo
-        // ---------------------------------------------------------------------------------
 
-        /// <summary>Redraw whatever an enabled component declared. A scene of props draws nothing,
-        /// which is the common case and costs nothing.</summary>
         private void OnAuthoredChanged()
         {
             RefreshModelPreview();
@@ -1516,9 +1196,8 @@ namespace ParadiseGodot.Authoring
             mesh.SurfaceEnd();
 
             _wire = new MeshInstance3D { Name = "AuthoredGizmo", Mesh = mesh };
-            // INTERNAL: GetChildren() skips internal children, and the exporter walks children for
-            // both entities and MATERIAL SLOTS. As a plain child, this wireframe's material was
-            // exported as the entity's own and written into data/materials/.
+            // Internal children are skipped by GetChildren(), keeping the gizmo and its
+            // material out of exports.
             _host.AddChild(_wire, forceReadableName: false, @internal: Node.InternalMode.Front);
         }
 
@@ -1544,23 +1223,14 @@ namespace ParadiseGodot.Authoring
 
         public void OnReady() => OnAuthoredChanged();
 
-        // ---------------------------------------------------------------------------------
         // Model preview
-        // ---------------------------------------------------------------------------------
 
         private const string ModelPreviewName = "ModelPreview";
         private string? _previewedModel;
         private Node? _modelPreview;
 
-        /// <summary>
-        /// Show the model the mesh field names, as a DERIVED child: instanced from the GLB the
-        /// document is cooked from, never owned, never saved, rebuilt when the field changes.
-        /// </summary>
-        /// <remarks>
-        /// The project is opened per change, not per frame, and the sidecar scan is paid only when
-        /// the GLB the document spells has moved. Why the GLB is loaded off disk rather than
-        /// instanced is <see cref="ModelPreview"/>'s to explain.
-        /// </remarks>
+        /// <summary>Rebuild the model preview when its field changes; never own or save it.</summary>
+        /// <remarks>Project resolution runs per change. See <see cref="ModelPreview"/> for GLB loading.</remarks>
         private void RefreshModelPreview()
         {
             if (!Engine.IsEditorHint() || !_host.IsInsideTree()) return;
@@ -1579,7 +1249,7 @@ namespace ParadiseGodot.Authoring
             }
             if (model is null) return;
 
-            if (!ParadiseProject.TryOpen(out var opened, out var problem) || opened is null)
+            if (!ParadiseProject.TryOpen(out var opened, out var problem))
             {
                 GD.PushWarning($"[Paradise] '{_host.Name}': cannot preview '{model}': {problem}");
                 return;
@@ -1592,8 +1262,7 @@ namespace ParadiseGodot.Authoring
                 glb = ModelDocuments.IsGlb(model)
                     ? opened.Files.ConvertPathToInternal(opened.Layout.Assets / model)
                     : AssetReferenceResolver.For(opened).SourceGlbOf(model);
-                // The mirror is keyed on the GLB, not on the reference: two documents naming the
-                // same model through different .mesh documents share one mirrored scene.
+                // Key mirrors by source GLB so multiple mesh documents share one scene.
                 mirror = glb is null
                     ? null
                     : opened.Paths.MirrorModelFor(opened.Files.ConvertPathFromInternal(glb)) is { } path
@@ -1602,8 +1271,7 @@ namespace ParadiseGodot.Authoring
             }
             if (glb is null) return;
 
-            // The mirrored scene when Convert Project has made one — the same geometry, already
-            // parsed. Falling back to the GLB keeps every project that has never converted working.
+            // Reuse the converted scene, falling back to the GLB for unconverted projects.
             var scene = mirror is null ? null : ModelMirror.Instantiate(mirror);
             if (scene is null)
             {

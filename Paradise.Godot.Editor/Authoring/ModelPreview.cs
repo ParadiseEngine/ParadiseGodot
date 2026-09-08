@@ -3,35 +3,23 @@ using Godot;
 
 namespace ParadiseGodot.Authoring
 {
-    /// <summary>
-    /// A GLB as a scene the editor can show, loaded straight off disk.
-    /// </summary>
+    /// <summary>Load a GLB directly from disk as a drawable editor scene.</summary>
     /// <remarks>
-    /// <para>
-    /// Through <see cref="GltfDocument"/> rather than as an imported resource, because
-    /// <c>assets/</c> carries a <c>.gdignore</c>: Godot never imports the source tree — and must
-    /// not, since its own <c>.mesh</c> extension collides with the engine's mesh document and the
-    /// importer chokes on every one of them — so nothing under it can be instanced by path.
-    /// </para>
-    /// <para>
-    /// In an editor <c>GenerateScene</c> produces <see cref="ImporterMeshInstance3D"/> nodes, the
-    /// import pipeline's intermediate form, which draw nothing. They are swapped for the
-    /// <see cref="MeshInstance3D"/> they would have become, keeping name, transform and the
-    /// material the GLB bound.
-    /// </para>
+    /// assets/ needs .gdignore because engine .mesh documents conflict with Godot's resource
+    /// format, so loading must bypass imports. In the editor, GenerateScene returns non-drawing
+    /// ImporterMeshInstance3D nodes; replace them with MeshInstance3D, keeping mesh materials,
+    /// name, transform, skin, visibility and children.
     /// </remarks>
     public static class ModelPreview
     {
-        /// <summary>Load a GLB at a host path as a drawable scene, or null with the reason.</summary>
+        /// <summary>Load a drawable scene from an OS path, or null with a failure reason.</summary>
         public static Node3D? Load(string glbHostPath, out string? problem)
         {
             var state = new GltfState();
             var document = new GltfDocument();
-            // A GLB whose images are external files loads untextured here: Godot localizes any
-            // path inside the project to res:// and fetches the images through the resource
-            // loader, which cannot see a .gdignore'd tree. Passing a host base path does not
-            // change that (it is localized too). Geometry is what a preview is for; textures are
-            // the build's.
+            // External images under .gdignore cannot load: Godot localizes project paths
+            // to res://, even with an absolute base path. Geometry still previews; embedded
+            // textures avoid this limitation.
             Error error = document.AppendFromFile(glbHostPath, state);
             if (error != Error.Ok)
             {
@@ -50,7 +38,6 @@ namespace ParadiseGodot.Authoring
             return scene;
         }
 
-        /// <summary>Replace every importer mesh with the mesh instance it stands for, in place.</summary>
         private static void Materialize(Node node)
         {
             foreach (Node child in node.GetChildren())

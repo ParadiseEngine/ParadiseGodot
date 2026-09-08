@@ -1,15 +1,14 @@
-# Godot 4+ specific ignores
+# Godot
 .godot/
 /android/
 
-# .NET / Godot Mono build output
+# .NET build output
 .mono/
 bin/
 obj/
 *.user
 
-# The engine's derived trees: `paradise assets build` writes build/, the editor's play tree and
-# caches live under .editor/. assets/ is the source of truth and is committed, sidecars included.
+# Derived engine output; commit assets/ and its sidecars.
 /build/
 /.editor/
 

@@ -1,36 +1,27 @@
 # Paradise Starter
 
-A minimal Godot .NET project pre-wired for [Paradise Engine](https://github.com/ParadiseEngine/ParadiseEngine)
-authoring. The Paradise addon comes from the `Paradise.Godot.Editor` NuGet package and is already
-enabled; `addons/paradise/` is created by the first build, not checked in here.
+A minimal Godot .NET project referencing `Paradise.Godot.Editor` with the plugin
+enabled. The first build creates `addons/paradise/`.
 
-## Requirements
+## Setup
 
-- Godot 4.7+ **.NET build** (the standard build cannot run C# addons)
-- .NET SDK 10.0+
-- Optional, for KTX2 texture encoding: [KTX-Software](https://github.com/KhronosGroup/KTX-Software) (`ktx` CLI)
+Requires Godot 4.7+ **.NET build** and .NET SDK 10.0+.
 
-## First run
+1. Copy this template into your game project, keeping `project.godot` beside
+   `assets/project.toml`. Create a game asset project with `paradise new <name>` if needed.
+2. Build with `dotnet build` or Godot's hammer button, then reload. Until that build,
+   Godot reports the plugin as missing.
+3. Commit `addons/paradise/` and the `.uid` files Godot creates on import. The template's
+   `.gitignore` ignores UIDs by default; remove that rule or add these files explicitly.
+4. Run **Project > Tools > Paradise/Project Setup** to check the manifest and Godot ignores.
+5. Install the CLI with `dotnet tool install --global Paradise.Cli`. Configure your
+   launcher in the manifest and run `paradise host build` to generate its authoring schema.
 
-1. Open the project in Godot (.NET build). Build the C# project once
-   (the hammer icon, or `dotnet build`). **The first build is what installs the addon** - it
-   writes `addons/paradise/` from the package, so Godot reports the plugin as missing until it
-   has run. Reload the project afterwards. Commit `addons/paradise/`, including the `.uid` files
-   Godot mints beside the scripts on import.
-2. Run **Project > Tools > Paradise/Project Setup** — verifies the `Paradise.Export`
-   package reference and the project settings.
-3. Install the engine CLI: `dotnet tool install --global Paradise.Cli`
-   (provides `paradise`, which the **Play** toolbar button runs through `paradise host play`
-   and **Paradise/Extract Models** runs as `paradise assets extract --all`).
+## Edit and run
 
-## Author your first entity
+Use **Paradise/Open Document…** to open a `*.prefab` under `assets/`. Add an
+`AuthoredEntityNode`, choose components, and select an extracted mesh document for
+geometry. Save to update the prefab, then press **Play**.
 
-1. Open `scenes/main.tscn`.
-2. Add a `Node3D`, attach the `AuthoredEntityNode` script
-   (`addons/paradise/Authoring/AuthoredEntityNode.cs`), then tick your game's components and
-   point its mesh field at a `.mesh` document under `assets/` (or the GLB it was extracted from).
-3. Save the scene — the document under `assets/scenes/` is written back on every save.
-4. Press **Play** in the toolbar to run the open document through `paradise host play`.
-
-See the addon documentation for the authoring guide (entity kinds, collision layers,
-KTX2 texture pipeline, navmesh baking).
+The included `scenes/main.tscn` is an ordinary Godot scene, not a linked asset document.
+See the [quickstart](../../docs/quickstart.md) for the full workflow and optional texture tools.

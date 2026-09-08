@@ -6,9 +6,6 @@ using Zio.FileSystems;
 
 namespace ParadiseGodot.Tests;
 
-/// <summary>
-/// What a whole-project conversion walks, and what it decides is stale.
-/// </summary>
 public class ProjectMirrorTests
 {
     private const string Root = "/repo/Pingu";
@@ -22,8 +19,7 @@ public class ProjectMirrorTests
         foreach (var path in assetPaths)
         {
             var full = (UPath)(Root + "/assets/" + path);
-            var directory = full.GetDirectory();
-            if (!directory.IsNull && !fs.DirectoryExists(directory)) fs.CreateDirectory(directory);
+            fs.CreateDirectory(full.GetDirectory());
             fs.WriteAllText(full, "x");
         }
         return fs;
@@ -60,8 +56,7 @@ public class ProjectMirrorTests
     [Test]
     public async Task only_glb_is_mirrored()
     {
-        // The engine refuses .gltf by name, so a mirror of one would be a scene for a model no
-        // build will ever ship. The documents and sidecars beside it are not models at all.
+        // The engine rejects .gltf; documents and sidecars are not source models.
         using var fs = Project("models/cube.glb", "models/cube.gltf", "models/cube.mesh", "models/cube.glb.meta");
 
         var models = ProjectMirror.Models(fs, new AssetProjectLayout(Root), Paths());
@@ -92,7 +87,7 @@ public class ProjectMirrorTests
         await Assert.That(ProjectMirror.Models(fs, new AssetProjectLayout(Root), Paths()).Single().Stale)
             .IsFalse();
 
-        // Rewriting the GLB moves its length, which is half the stamp.
+        // Length is part of the source stamp.
         fs.WriteAllText(source, "a longer model than before");
 
         await Assert.That(ProjectMirror.Models(fs, new AssetProjectLayout(Root), Paths()).Single().Stale)
@@ -102,8 +97,6 @@ public class ProjectMirrorTests
     [Test]
     public async Task a_missing_output_is_stale_however_recent_its_stamp()
     {
-        // The stamp says what the source looked like, not that the output survived: someone
-        // deleting .editor/ must get a rebuild, not a claim that everything is current.
         using var fs = Project("models/cube.glb");
         var source = (UPath)$"{Root}/assets/models/cube.glb";
         var mirror = Paths().MirrorModelFor(source)!.Value;
@@ -111,6 +104,66 @@ public class ProjectMirrorTests
 
         await Assert.That(ProjectMirror.Models(fs, new AssetProjectLayout(Root), Paths()).Single().Stale)
             .IsTrue();
+    }
+
+    [Test]
+    public async Task a_workfile_without_a_stamp_is_stale()
+    {
+        using var fs = Project("models/cube.glb");
+        var source = (UPath)$"{Root}/assets/models/cube.glb";
+        var mirror = Paths().MirrorModelFor(source)!.Value;
+        fs.CreateDirectory(mirror.GetDirectory());
+        fs.WriteAllText(mirror, "scene");
+
+        await Assert.That(WorkfileStamp.IsCurrent(fs, mirror, source)).IsFalse();
+    }
+
+    [Test]
+    public async Task clearing_a_stamp_twice_leaves_the_workfile_intact_and_stale()
+    {
+        using var fs = Project("models/cube.glb");
+        var source = (UPath)$"{Root}/assets/models/cube.glb";
+        var mirror = Paths().MirrorModelFor(source)!.Value;
+        fs.CreateDirectory(mirror.GetDirectory());
+        fs.WriteAllText(mirror, "scene");
+        WorkfileStamp.Write(fs, mirror, source);
+        await Assert.That(WorkfileStamp.IsCurrent(fs, mirror, source)).IsTrue();
+
+        WorkfileStamp.Clear(fs, mirror);
+        WorkfileStamp.Clear(fs, mirror);
+
+        await Assert.That(WorkfileStamp.IsCurrent(fs, mirror, source)).IsFalse();
+        await Assert.That(fs.ReadAllText(mirror)).IsEqualTo("scene");
+        await Assert.That(fs.ReadAllText(source)).IsEqualTo("x");
+    }
+
+    [Test]
+    public async Task session_and_workfile_stamps_have_independent_lifetimes()
+    {
+        using var fs = Project("scenes/main.prefab");
+        var source = (UPath)$"{Root}/assets/scenes/main.prefab";
+        var workfile = Paths().WorkfileFor(source)!.Value;
+        string session = Guid.NewGuid().ToString();
+        fs.CreateDirectory(workfile.GetDirectory());
+        fs.WriteAllText(workfile, "scene");
+
+        DocumentSession.Restamp(fs, source, session);
+        WorkfileStamp.Write(fs, workfile, source);
+        await Assert.That(DocumentSession.IsUnchanged(fs, source, session)).IsTrue();
+        await Assert.That(WorkfileStamp.IsCurrent(fs, workfile, source)).IsTrue();
+
+        fs.WriteAllText(source, "changed document");
+        await Assert.That(DocumentSession.IsUnchanged(fs, source, session)).IsFalse();
+        await Assert.That(WorkfileStamp.IsCurrent(fs, workfile, source)).IsFalse();
+
+        DocumentSession.Restamp(fs, source, session);
+        await Assert.That(DocumentSession.IsUnchanged(fs, source, session)).IsTrue();
+        await Assert.That(WorkfileStamp.IsCurrent(fs, workfile, source)).IsFalse();
+
+        WorkfileStamp.Write(fs, workfile, source);
+        WorkfileStamp.Clear(fs, workfile);
+        await Assert.That(DocumentSession.IsUnchanged(fs, source, session)).IsTrue();
+        await Assert.That(WorkfileStamp.IsCurrent(fs, workfile, source)).IsFalse();
     }
 
     [Test]

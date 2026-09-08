@@ -1,6 +1,7 @@
 #if TOOLS
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Godot;
 using Paradise.Assets.Project;
 using Zio;
@@ -8,29 +9,11 @@ using Zio.FileSystems;
 
 namespace ParadiseGodot.Project
 {
-    /// <summary>
-    /// The asset project the open Godot project is editing: where it is, and the mounted file
-    /// system every other part of the addon reads and writes it through.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b><c>assets/</c> is the source of truth and the addon never reads the build output.</b>
-    /// Documents, sidecars and the schema are reached through <see cref="Mounts"/> — <c>/assets</c>
-    /// read-only, <c>/cache</c> and <c>/play</c> writable — rather than through res:// or a host
-    /// path, so the same code runs against a real project here and against a MemoryFileSystem in a
-    /// test.
-    /// </para>
-    /// <para>
-    /// <c>/assets</c> is mounted READ-ONLY by <see cref="ProjectMounts"/>, which is a guard rather
-    /// than an inconvenience: a consumer that writes sources through the build's own mount has made
-    /// the build unreproducible. Saving a document writes through <see cref="Files"/> at the path
-    /// <see cref="Paths"/> resolves, which is the one place that is allowed to.
-    /// </para>
-    /// <para>
-    /// The Godot edge lives here and nowhere else — <see cref="ProjectSettings.GlobalizePath"/> is
-    /// called once, in <see cref="TryOpen"/>. Everything downstream is Zio.
-    /// </para>
-    /// </remarks>
+    /// <summary>The asset project edited by the open Godot project.</summary>
+    /// <remarks>Read source documents, sidecars and schema through <see cref="Mounts"/>. Its
+    /// <c>/assets</c> mount is read-only to protect build inputs; document saves use <see cref="Files"/>
+    /// and physical <see cref="Paths"/> explicitly. Only <see cref="TryOpen"/> globalizes Godot paths;
+    /// downstream filesystem access uses Zio.</remarks>
     public sealed class ParadiseProject : IDisposable
     {
         private readonly PhysicalFileSystem _physical;
@@ -43,31 +26,22 @@ namespace ParadiseGodot.Project
             Paths = paths;
         }
 
-        /// <summary>Path arithmetic for this project.</summary>
         public AssetProjectPaths Paths { get; }
 
-        /// <summary>The project's directory layout.</summary>
         public AssetProjectLayout Layout => Paths.Layout;
 
-        /// <summary>The physical file system the project lives in. Absolute
-        /// <see cref="UPath"/>s from <see cref="Paths"/> are resolved against this.</summary>
+        /// <summary>The physical filesystem for absolute paths returned by <see cref="Paths"/>.</summary>
         public IFileSystem Files => _physical;
 
-        /// <summary>
-        /// <c>/assets</c>, <c>/cache</c> and <c>/play</c>.
-        /// </summary>
-        /// <remarks><c>/play</c> rather than <c>/build</c>: the editor's own output is what it
-        /// launches, and a shipping build is the CLI's to write.</remarks>
+        /// <summary>Read-only <c>/assets</c> and writable <c>/cache</c> and <c>/play</c> mounts.</summary>
+        /// <remarks>The editor launches its own play output; shipping builds belong to the CLI.</remarks>
         public IFileSystem Mounts => _mounts;
 
-        /// <summary>
-        /// Locate the asset project at or above the open Godot project.
-        /// </summary>
+        /// <summary>Find the asset project at or above the open Godot project.</summary>
         /// <param name="project">The opened project, or null.</param>
-        /// <param name="problem">Why it could not be opened, phrased for an author.</param>
-        /// <remarks>The marker walked for is <c>assets/project.toml</c> — the FILE, because a game
-        /// repo can easily hold some other <c>assets</c> folder.</remarks>
-        public static bool TryOpen(out ParadiseProject? project, out string? problem)
+        /// <param name="problem">An author-facing failure reason.</param>
+        /// <remarks>Require <c>assets/project.toml</c>; an unrelated assets folder is not a project.</remarks>
+        public static bool TryOpen([NotNullWhen(true)] out ParadiseProject? project, out string? problem)
         {
             var physical = new PhysicalFileSystem();
             try
@@ -102,32 +76,18 @@ namespace ParadiseGodot.Project
             }
         }
 
-        /// <summary>
-        /// Keep Godot out of the asset project's trees: <c>assets/</c>, <c>build/</c> and
-        /// <c>.editor/</c> each get a <c>.gdignore</c>.
-        /// </summary>
-        /// <remarks>
-        /// Not one of them is a Godot resource, and the editor's file-system scan does worse than
-        /// waste time on them: the engine's <c>.mesh</c> and <c>.material</c> documents share
-        /// extensions with Godot's own binary resources, and the importer errors on every one.
-        /// The two derived trees are created if absent so the marker is in place before the build
-        /// first writes there.
-        /// <para>
-        /// Only trees INSIDE the Godot project get one. Godot scans <c>res://</c> and nothing
-        /// above it, so a marker anywhere else is a file this would mint forever and Godot would
-        /// never read — which is every one of them once the Godot project lives under
-        /// <c>.editor/godot/</c> rather than at the repository root.
-        /// </para>
-        /// Returns what it wrote, for the caller to report.</remarks>
+        /// <summary>Add <c>.gdignore</c> to asset, build and editor trees inside the Godot project.</summary>
+        /// <remarks>Engine <c>.mesh</c>/<c>.material</c> documents collide with Godot resource extensions.
+        /// Create derived trees early so ignores exist before the first build. Trees outside
+        /// <c>res://</c> need no marker because Godot does not scan them.</remarks>
+        /// <returns>Paths written, for the caller to report.</returns>
         public IReadOnlyList<string> EnsureGodotIgnores()
         {
             var written = new List<string>();
             foreach (var directory in new[] { Layout.Assets, Layout.Build, Layout.Editor })
             {
-                if (Paths.ToResourcePath(directory / ".gdignore") is null) continue;
-
                 var marker = directory / ".gdignore";
-                if (_physical.FileExists(marker)) continue;
+                if (Paths.ToResourcePath(marker) is null || _physical.FileExists(marker)) continue;
                 _physical.CreateDirectory(directory);
                 _physical.WriteAllText(marker, "");
                 written.Add(_physical.ConvertPathToInternal(marker));

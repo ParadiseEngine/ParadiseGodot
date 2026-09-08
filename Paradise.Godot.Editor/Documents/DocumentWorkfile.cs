@@ -1,6 +1,7 @@
 #if TOOLS
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Godot;
 using Paradise.Assets.Documents;
 using Paradise.Assets.Pipeline;
@@ -10,49 +11,27 @@ using Zio;
 
 namespace ParadiseGodot.Documents
 {
-    /// <summary>
-    /// Opens an authoring document as a Godot scene, through a disposable working file.
-    /// </summary>
+    /// <summary>Opens an authoring document through a cached Godot working scene.</summary>
     /// <remarks>
-    /// <para>
-    /// The <c>.tscn</c> under <c>.editor/godot/</c> is DERIVED but not disposable-on-sight: the
-    /// document is still the truth, and deleting the working file still costs nothing but a
-    /// rebuild — but it is rebuilt only when the document has actually moved
-    /// (<see cref="WorkfileStamp"/>), because it also holds what the document has no place for.
-    /// The editor camera and the selection are the small half of that; the author's own
-    /// <c>CollisionShape3D</c>s, lights and rigs are the half that matters, and rebuilding
-    /// unconditionally used to delete them on every open.
-    /// </para>
-    /// <para>
-    /// When it does rebuild, those nodes are carried across (<see cref="WorkfileCarryover"/>)
-    /// rather than lost. The freshness stamp taken here protects the SAVE instead
-    /// (<see cref="DocumentSession"/>): what it guards against is writing over a document
-    /// something else changed meanwhile.
-    /// </para>
-    /// <para>
-    /// Instances are expanded before the scene is built, so what an author sees is the whole scene
-    /// rather than an opaque reference. The expanded children are marked
-    /// <see cref="DocumentLoader.DerivedMetaKey"/>: they are the resolver's, not the document's,
-    /// and saving one back would flatten the instance.
-    /// </para>
+    /// Rebuild only when <see cref="WorkfileStamp"/> is stale: workfiles also hold author-added
+    /// colliders, lights, rigs and editor state. <see cref="WorkfileCarryover"/> preserves author
+    /// nodes across rebuilds; <see cref="DocumentSession"/> separately guards saves against drift.
+    /// Expanded prefab children are marked derived so saving cannot flatten instances.
     /// </remarks>
     public static class DocumentWorkfile
     {
-        /// <summary>Materialize <paramref name="documentPath"/> and open it in the editor.</summary>
-        /// <param name="project">The open asset project.</param>
         /// <param name="documentPath">Absolute physical path of the <c>.prefab</c>.</param>
         /// <returns>Whether the scene was opened.</returns>
         public static bool Open(ParadiseProject project, UPath documentPath)
         {
             ArgumentNullException.ThrowIfNull(project);
 
-            if (Locate(project, documentPath, out var workfile, out var resPath) is not true) return false;
+            if (!Locate(project, documentPath, out var workfile, out var resPath)) return false;
 
-            // A current working file is opened as the author left it — scaffolding, camera and
-            // all. Rebuilding here would be right about the entities and wrong about the rest.
+            // Reuse current workfiles to preserve author-added nodes and editor state.
             if (!WorkfileStamp.IsCurrent(project.Files, workfile, documentPath))
             {
-                if (!Materialize(project, documentPath, workfile, resPath!)) return false;
+                if (!Materialize(project, documentPath, workfile, resPath)) return false;
             }
             else
             {
@@ -64,16 +43,13 @@ namespace ParadiseGodot.Documents
             return true;
         }
 
-        /// <summary>
-        /// Build one document's working file without opening it — what a whole-project conversion
-        /// does, and what <see cref="Open"/> does first when the file is stale.
-        /// </summary>
+        /// <summary>Build a working file without opening it, for stale files or project conversion.</summary>
         public static bool Materialize(ParadiseProject project, UPath documentPath)
         {
             ArgumentNullException.ThrowIfNull(project);
 
-            return Locate(project, documentPath, out var workfile, out var resPath) is true &&
-                Materialize(project, documentPath, workfile, resPath!);
+            return Locate(project, documentPath, out var workfile, out var resPath) &&
+                Materialize(project, documentPath, workfile, resPath);
         }
 
         private static bool Materialize(
@@ -117,9 +93,10 @@ namespace ParadiseGodot.Documents
             return true;
         }
 
-        /// <summary>The working file for a document, as both a physical and a res:// path.</summary>
+        /// <summary>The document's working file as physical and res:// paths.</summary>
         private static bool Locate(
-            ParadiseProject project, UPath documentPath, out UPath workfile, out string? resPath)
+            ParadiseProject project, UPath documentPath, out UPath workfile,
+            [NotNullWhen(true)] out string? resPath)
         {
             workfile = default;
             resPath = null;
@@ -145,9 +122,7 @@ namespace ParadiseGodot.Documents
             return true;
         }
 
-        /// <summary>Recorded on the root the EDITOR now holds, not on the detached one that was
-        /// packed: the writer reads this off the edited scene, and the packed node is already
-        /// freed.</summary>
+        /// <summary>Stamp the editor's live root; the detached root used for packing is already freed.</summary>
         private static void RememberSession(ParadiseProject project, UPath documentPath)
         {
             if (project.Paths.ToAssetReferencePath(documentPath) is { } authoringPath &&
@@ -157,8 +132,6 @@ namespace ParadiseGodot.Documents
             }
         }
 
-        /// <summary>Move the author's own nodes out of the working file being replaced and into
-        /// the tree that replaces it.</summary>
         private static int Carry(string resPath, Node3D root)
         {
             if (!ResourceLoader.Exists(resPath)) return 0;
@@ -166,18 +139,14 @@ namespace ParadiseGodot.Documents
             Node? previous = null;
             try
             {
-                // CacheMode.Ignore: this must read what is ON DISK. Godot hands back the cached
-                // PackedScene otherwise — the one from before the author's last save — and the
-                // carry-over then silently preserves an older scene than the one they are looking
-                // at. Measured: the light added in a probe vanished on every rebuild.
+                // Ignore Godot's cached scene or carryover can restore a version older than the last save.
                 previous = ResourceLoader
                     .Load<PackedScene>(resPath, cacheMode: ResourceLoader.CacheMode.Ignore)
                     ?.Instantiate();
             }
             catch (Exception failure)
             {
-                // A working file that will not load is one the author cannot have edited since it
-                // broke; rebuilding without it beats refusing to open the document.
+                // An unreadable workfile must not prevent opening its source document.
                 GD.PushWarning($"[Paradise] Could not read the previous working file: {failure.Message}");
             }
             if (previous is null) return 0;
@@ -190,8 +159,7 @@ namespace ParadiseGodot.Documents
         private static bool Save(Node3D root, string resPath)
         {
             var packed = new PackedScene();
-            // Pack BEFORE freeing: the scene is built detached from the tree, and PackedScene copies
-            // out of the node rather than holding it.
+            // Pack before freeing: PackedScene copies the detached nodes.
             var packError = packed.Pack(root);
             root.QueueFree();
             if (packError != Error.Ok)
@@ -201,7 +169,8 @@ namespace ParadiseGodot.Documents
             }
 
             var directory = resPath[..resPath.LastIndexOf('/')];
-            if (DirAccess.MakeDirRecursiveAbsolute(directory) is var dirError && dirError != Error.Ok)
+            var dirError = DirAccess.MakeDirRecursiveAbsolute(directory);
+            if (dirError != Error.Ok)
             {
                 GD.PushError($"[Paradise] Could not create '{directory}': {dirError}.");
                 return false;
@@ -217,17 +186,11 @@ namespace ParadiseGodot.Documents
             return true;
         }
 
-        /// <summary>
-        /// Resolve a prefab reference to its document.
-        /// </summary>
-        /// <remarks>By GUID first, then by path. The order is the contract: a rename moves the path
-        /// and keeps the identity, so trusting the path first would open whatever now sits at the
-        /// old name. The path is the recovery route for an identity nothing carries.</remarks>
+        /// <summary>Resolve by GUID first so renames preserve identity; use the path as fallback.</summary>
         private static PrefabDocument? LoadPrefab(
             ParadiseProject project, AssetSidecars sidecars, AssetReference reference)
         {
-            if (reference is null) return null;
-            if (sidecars.Resolve(reference.Guid, reference.Path) is not { Length: > 0 } path) return null;
+            if (sidecars.Resolve(reference.Guid, reference.Path) is not { } path) return null;
 
             var full = project.Paths.FromAssetReferencePath(path);
             try

@@ -7,59 +7,31 @@ using Zio;
 
 namespace ParadiseGodot.Play
 {
-    /// <summary>
-    /// The <c>Paradise.*</c> version a game project pins, read out of the project itself.
-    /// </summary>
+    /// <summary>Read the project's engine pin to select a compatible CLI.</summary>
     /// <remarks>
-    /// <para>
-    /// The CLI has no version verb — <c>paradise --version</c> is an unknown command — so the
-    /// addon cannot ask a CLI what it is. It can only decide WHICH one to run, and this is the
-    /// number that decides. It matters because a CLI older than the tree writes documents the
-    /// runtime cannot read, and one that cannot read the manifest falls back to defaults and
-    /// reports a cascade of errors about everything except the version.
-    /// </para>
-    /// <para>
-    /// Two shapes exist in the wild and both are read here: a single
-    /// <c>&lt;ParadiseVersion&gt;</c> in <c>Directory.Packages.props</c> (ShiningPie, ParadiseTown),
-    /// and bare <c>PackageReference</c> versions spread across the csprojs (Pingu, which has no
-    /// central props file). The second only answers when every reference agrees — a project
-    /// mid-bump pins nothing coherent, and guessing which half is right is how you install a CLI
-    /// that writes documents half the tree cannot read.
-    /// </para>
-    /// <para>
-    /// <c>Paradise.Godot.Editor</c> is excluded from that agreement on purpose: the addon has its
-    /// own release line that tracks the engine's minor rather than matching it, so counting it
-    /// would make every project that is one addon release behind look like a disagreement.
-    /// </para>
+    /// The CLI has no version command. Read ParadiseVersion from Directory.Packages.props, or require
+    /// all Paradise.* PackageReferences to agree; mixed versions cannot select a safe document writer.
+    /// Exclude Paradise.Godot.Editor because it has an independent release line.
     /// </remarks>
     public static class ProjectEngineVersion
     {
         private const string AddonPackageId = "Paradise.Godot.Editor";
 
-        /// <summary>The version this project pins, or null when it pins nothing this can read.</summary>
-        /// <param name="root">The repository root — where <c>Directory.Packages.props</c> would be.</param>
+        /// <summary>Return the engine pin, or null if unavailable.</summary>
+        /// <param name="root">Repository root containing Directory.Packages.props.</param>
         public static string? Of(IFileSystem files, UPath root)
         {
             ArgumentNullException.ThrowIfNull(files);
             return Central(files, root) ?? Agreed(files, root);
         }
 
-        /// <summary><c>&lt;ParadiseVersion&gt;</c> from <c>Directory.Packages.props</c>.</summary>
         private static string? Central(IFileSystem files, UPath root)
         {
-            var props = root / "Directory.Packages.props";
-            if (!files.FileExists(props)) return null;
-
-            return Read(files, props) is { } document
-                ? document.Descendants()
-                    .FirstOrDefault(e => e.Name.LocalName == "ParadiseVersion")?.Value.Trim() is { Length: > 0 } version
-                    ? version
-                    : null
-                : null;
+            var version = Read(files, root / "Directory.Packages.props")?.Descendants()
+                .FirstOrDefault(e => e.Name.LocalName == "ParadiseVersion")?.Value.Trim();
+            return string.IsNullOrEmpty(version) ? null : version;
         }
 
-        /// <summary>The one version every <c>Paradise.*</c> PackageReference in the tree names, or
-        /// null when they disagree or there are none.</summary>
         private static string? Agreed(IFileSystem files, UPath root)
         {
             var versions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -79,9 +51,7 @@ namespace ParadiseGodot.Play
             return versions.Count == 1 ? versions.First() : null;
         }
 
-        /// <summary>Every csproj in the tree, skipping build output and dot directories — a
-        /// published <c>wwwroot</c> holds copies of the project's own files, and reading those
-        /// would let stale output outvote the source.</summary>
+        // Ignore build output and dot directories so stale project copies cannot affect the pin.
         private static IEnumerable<UPath> Projects(IFileSystem files, UPath root)
         {
             IEnumerable<UPath> found;
@@ -115,8 +85,7 @@ namespace ParadiseGodot.Play
             }
             catch (Exception failure) when (failure is IOException or System.Xml.XmlException or UnauthorizedAccessException)
             {
-                // A project that does not parse pins nothing readable; the ladder falls through to
-                // whatever is installed rather than stopping the author over someone's broken XML.
+                // An unreadable pin falls through to an installed CLI.
                 return null;
             }
         }

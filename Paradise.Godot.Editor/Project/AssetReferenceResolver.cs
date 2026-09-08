@@ -7,22 +7,10 @@ using Zio;
 
 namespace ParadiseGodot.Project
 {
-    /// <summary>
-    /// Turns what an author PICKED into the reference a document stores.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// A picker hands back a path — absolute from the OS dialog, <c>res://</c> from Godot's own, or
-    /// the <c>assets/</c>-relative spelling a loaded document displayed. A document stores
-    /// <c>{ guid, path }</c>: the identity that survives a rename, and the authoring path that makes
-    /// a broken reference fixable by hand.
-    /// </para>
-    /// <para>
-    /// The path is relative to <c>assets/</c> and is never the built one. That asymmetry is the
-    /// contract's — authored as a reference, exported as a value — and it is why nothing here looks
-    /// at <c>.editor/play/</c> or <c>build/</c>.
-    /// </para>
-    /// </remarks>
+    /// <summary>Converts picker paths to document references.</summary>
+    /// <remarks>Accepts absolute, <c>res://</c> and authoring paths. Stores <c>{ guid, path }</c>,
+    /// with the path relative to <c>assets/</c>: the GUID survives renames and the path allows repair.
+    /// References use source assets, never play or build output.</remarks>
     public sealed class AssetReferenceResolver
     {
         private readonly IFileSystem _files;
@@ -36,8 +24,7 @@ namespace ParadiseGodot.Project
             _sidecars = sidecars;
         }
 
-        /// <summary>Build one from an open project, indexing its sidecars under the manifest's
-        /// ignore rules.</summary>
+        /// <summary>Index an open project's sidecars using its manifest ignore rules.</summary>
         public static AssetReferenceResolver For(ParadiseProject project)
         {
             ArgumentNullException.ThrowIfNull(project);
@@ -49,8 +36,7 @@ namespace ParadiseGodot.Project
             }
             catch (ProjectManifestException failure)
             {
-                // A manifest that does not read is verify's to report; references still resolve,
-                // they just cannot honour an ignore list nobody could parse.
+                // Keep resolving without ignores; assets verify reports the unreadable manifest.
                 GD.PushWarning($"[Paradise] {failure.Message}");
                 ignore = AssetIgnoreRules.None;
             }
@@ -59,11 +45,8 @@ namespace ParadiseGodot.Project
             return new AssetReferenceResolver(project.Files, project.Paths, sidecars);
         }
 
-        /// <summary>
-        /// The reference for a picked file, minting its identity if it has none, or null with the
-        /// reason reported.
-        /// </summary>
-        /// <param name="picked">An absolute host path, a <c>res://</c> one, or an authoring path.</param>
+        /// <summary>Resolve a picked file, minting its identity if needed; return null with a reason on failure.</summary>
+        /// <param name="picked">An absolute, <c>res://</c> or authoring path.</param>
         public AuthoredValue? Reference(string picked)
         {
             if (AuthoringPathOf(picked) is not { } authoring) return null;
@@ -79,13 +62,8 @@ namespace ParadiseGodot.Project
             return AuthoredValue.Reference(guid, authoring);
         }
 
-        /// <summary>
-        /// The reference a MESH field stores for a picked model: the <c>.mesh</c> or
-        /// <c>.skinnedmesh</c> document itself, or the one minted beside a picked GLB.
-        /// </summary>
-        /// <remarks>A GLB is accepted so an author can point at the model they see, but what is
-        /// written is never the GLB — the build ships nothing for it (engine #245/#246), and a
-        /// reference to it would name a file no runtime is ever given.</remarks>
+        /// <summary>Resolve a mesh document directly or through a picked GLB's sidecar.</summary>
+        /// <remarks>Store the <c>.mesh</c> or <c>.skinnedmesh</c> reference; the build does not ship GLBs.</remarks>
         public AuthoredValue? MeshDocument(string picked)
         {
             if (ModelDocuments.IsMeshDocument(picked)) return Reference(picked);
@@ -105,8 +83,7 @@ namespace ParadiseGodot.Project
             return reference;
         }
 
-        /// <summary>The GLB a mesh document is cooked from, as a host path Godot can load — or
-        /// null with the reason reported.</summary>
+        /// <summary>The source GLB's physical path, or null with a reason.</summary>
         public string? SourceGlbOf(string meshAuthoringPath)
         {
             var glb = ModelDocuments.SourceGlbOf(
@@ -115,19 +92,16 @@ namespace ParadiseGodot.Project
             return glb is null ? null : _files.ConvertPathToInternal(_paths.Layout.Assets / glb);
         }
 
-        /// <summary>Where a stored reference points now, for showing an author what they picked.
-        /// By GUID first, so a renamed asset still displays.</summary>
+        /// <summary>Resolve the current display path by GUID first, preserving renamed references.</summary>
         public string? Display(Guid guid, string? path) => _sidecars.Resolve(guid, path);
 
-        /// <summary>A picked path as the <c>assets/</c>-relative one, or null with the reason
-        /// reported. Refuses anything outside <c>assets/</c>: the build only knows about the source
-        /// tree, so a reference to anything else names a file no runtime will ever be given.</summary>
+        /// <summary>An <c>assets/</c>-relative path, or null with a reason. Reject outside paths
+        /// because the build cannot ship them.</summary>
         private string? AuthoringPathOf(string picked)
         {
             if (string.IsNullOrWhiteSpace(picked)) return null;
 
-            // What a loaded document displays is already the authoring path; round-tripping it
-            // through the OS would make "penguins/adelie.glb" relative to the process, not the tree.
+            // Loaded authoring paths are relative to assets, not the process working directory.
             if (!AssetProjectPaths.IsResourcePath(picked) && !System.IO.Path.IsPathRooted(picked) &&
                 _files.FileExists(_paths.Layout.Assets / picked))
             {

@@ -1,44 +1,30 @@
 <Project Sdk="Godot.NET.Sdk/4.7.1">
 
-  <!--
-    This repo's own Godot project: the smallest consumer of the addon, kept so the payload
-    materializer, the res:// shims and an editor reload are exercised the way every game repo
-    exercises them (CI's editor-smoke job). It authors nothing and ships nothing.
-  -->
+  <!-- Minimal addon consumer for installation and editor-reload checks; no game content. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <RootNamespace>ParadiseGodot</RootNamespace>
-    <!-- Required for Godot editor hot-reload of this assembly. -->
+    <!-- Required for Godot editor hot-reload. -->
     <EnableDynamicLoading>true</EnableDynamicLoading>
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- ParadiseEngine is a local-only symlink for reference (see .gitignore);
-         keep its sources out of this assembly's recursive **/*.cs glob. -->
+    <!-- Exclude the optional local engine symlink from the recursive source glob. -->
     <Compile Remove="ParadiseEngine/**/*.cs" />
-    <!-- The addon is its own packable project. Its sources must not also compile into this
-         assembly, or every addon type would exist twice. What this assembly still compiles from
-         the addon is addons/paradise/*.cs - the two res:// shims, which have to live in the
-         Godot project because scenes bind scripts by path. -->
+    <!-- Compile the addon and tests in their own projects to avoid duplicate types.
+         This project compiles only the installed addons/paradise/ scripts. -->
     <Compile Remove="Paradise.Godot.Editor/**/*.cs" />
     <Compile Remove="Paradise.Godot.Editor.Tests/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The addon. Paradise.Export and Paradise.Authoring arrive THROUGH it and are deliberately
-         not restated here: the addon assembly declares the versions it was compiled against, so
-         there is no longer a second place for them to drift. Restating them by hand is how the
-         addon once silently built against a schema v1 model after the engine had moved to v2. -->
+    <!-- The addon supplies the engine dependencies and their versions. -->
     <ProjectReference Include="Paradise.Godot.Editor/Paradise.Godot.Editor.csproj" />
   </ItemGroup>
 
-  <!--
-    Dogfood the payload placement. A ProjectReference does not carry a package's build/ assets, so
-    import the targets by hand here; consuming games get this automatically from the package. It
-    keeps this repo's own addons/paradise/ shims from drifting out of sync with the payload the
-    package ships, which is the exact failure the packaging exists to remove.
-  -->
+  <!-- ProjectReference does not import NuGet build assets. Import them here to exercise
+    the same payload installation as consuming games. -->
   <Import Project="Paradise.Godot.Editor/AddonVersion.props" />
   <Import Project="Paradise.Godot.Editor/build/Paradise.Godot.Editor.targets" />
 

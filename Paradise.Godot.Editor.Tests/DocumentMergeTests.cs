@@ -4,25 +4,15 @@ using ParadiseGodot.Documents;
 
 namespace Paradise.Godot.Editor.Tests;
 
-/// <summary>
-/// Applying an author's changes over the document as it stands on disk.
-/// </summary>
-/// <remarks>
-/// The load-bearing test is <see cref="an_untouched_scene_round_trips_byte_identically"/>. Every
-/// other rule here — key order, the epsilon guard, merging rather than regenerating — exists to
-/// make that one true, and without it a save of a scene nobody edited is a diff of the whole file.
-/// </remarks>
 public class DocumentMergeTests
 {
     private static readonly Guid RootGuid = new("11111111-1111-4111-8111-111111111111");
     private static readonly Guid ChildGuid = new("22222222-2222-4222-8222-222222222222");
-    private static readonly Guid Buoyancy = new("aa11bb22-cc33-4d44-8e55-ff6677889900");
+    private static readonly Guid Buoyancy = new(BuoyancyId);
 
     private const string BuoyancyId = "aa11bb22-cc33-4d44-8e55-ff6677889900";
 
-    /// <summary>A canonical document — written by the serializer, so the bytes it produces are the
-    /// bytes a round trip has to reproduce. A hand-typed one is not canonical and would be
-    /// rewritten on first save, which is what "canonical" means rather than a defect.</summary>
+    // Canonical serializer output must round-trip byte-for-byte; hand-written TOML may normalize.
     private static PrefabDocument Canonical()
     {
         var document = new PrefabDocument();
@@ -45,25 +35,23 @@ public class DocumentMergeTests
         return Reread(document);
     }
 
-    /// <summary>Write and read back, so the fixture is exactly what a file would hand over.</summary>
     private static PrefabDocument Reread(PrefabDocument document) =>
         PrefabDocumentSerializer.Parse(PrefabDocumentSerializer.Write(document), "fixture");
 
     private static DocumentMerge.ObjectState State(
-        Guid guid, string name, Guid? parent, LocalTransform transform,
-        AuthoredEdits? edits = null, Dictionary<string, AuthoredValue>? values = null) =>
-        new(guid, name, parent, transform, edits ?? new AuthoredEdits(),
-            values ?? new Dictionary<string, AuthoredValue>());
+        Guid guid, string name, Guid? parent, LocalTransform transform) =>
+        new(guid, name, parent, transform, new AuthoredEdits(), new Dictionary<string, AuthoredValue>());
 
-    private static IReadOnlyList<DocumentMerge.ObjectState> Untouched() =>
-    [
+    private static DocumentMerge.ObjectState RootState() =>
         State(RootGuid, "Root", null,
-            new LocalTransform(new Vector3(1f, 2f, 3f), Quaternion.Identity, Vector3.One)),
-        State(ChildGuid, "Child", RootGuid,
-            new LocalTransform(Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f))),
-    ];
+            new LocalTransform(new Vector3(1f, 2f, 3f), Quaternion.Identity, Vector3.One));
 
-    /// <summary>THE test. A save that changed nothing must change nothing.</summary>
+    private static DocumentMerge.ObjectState ChildState() =>
+        State(ChildGuid, "Child", RootGuid,
+            new LocalTransform(Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f)));
+
+    private static IReadOnlyList<DocumentMerge.ObjectState> Untouched() => [RootState(), ChildState()];
+
     [Test]
     public async Task an_untouched_scene_round_trips_byte_identically()
     {
@@ -76,8 +64,7 @@ public class DocumentMergeTests
         await Assert.That(merged.Problems).IsEmpty();
     }
 
-    /// <summary>Godot's Transform3D round trip costs about 1e-7. Without the guard, every save of
-    /// an untouched scene rewrites every number in the file.</summary>
+    // Godot Transform3D round trips introduce about 1e-7 of error.
     [Test]
     public async Task a_transform_nudged_below_the_epsilon_is_not_rewritten()
     {
@@ -88,7 +75,7 @@ public class DocumentMergeTests
         [
             State(RootGuid, "Root", null, new LocalTransform(
                 new Vector3(1f + 1e-8f, 2f, 3f), Quaternion.Identity, Vector3.One)),
-            Untouched()[1],
+            ChildState(),
         ]);
 
         await Assert.That(PrefabDocumentSerializer.Write(merged.Document)).IsEqualTo(before);
@@ -102,7 +89,7 @@ public class DocumentMergeTests
         [
             State(RootGuid, "Root", null, new LocalTransform(
                 new Vector3(9f, 2f, 3f), Quaternion.Identity, Vector3.One)),
-            Untouched()[1],
+            ChildState(),
         ]);
 
         var written = Reread(merged.Document);
@@ -111,8 +98,6 @@ public class DocumentMergeTests
         await Assert.That(transform.Position.X).IsEqualTo(9f);
     }
 
-    /// <summary>An edited field replaces its own key and nothing else — that is what keeps a diff
-    /// to the line that changed.</summary>
     [Test]
     public async Task an_edited_field_replaces_only_itself_and_keeps_key_order()
     {
@@ -122,14 +107,15 @@ public class DocumentMergeTests
 
         var merged = DocumentMerge.Apply(document,
         [
-            Untouched()[0],
-            State(ChildGuid, "Child", RootGuid,
-                new LocalTransform(Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f)),
-                edits,
-                new Dictionary<string, AuthoredValue>
+            RootState(),
+            ChildState() with
+            {
+                Edits = edits,
+                Values = new Dictionary<string, AuthoredValue>
                 {
                     [BuoyancyId + "/Density"] = new(AuthoredValueKind.Number, Number: 0.25),
-                }),
+                },
+            },
         ]);
 
         var payload = Reread(merged.Document).Objects[1].Component(Buoyancy)!.Data;
@@ -140,8 +126,48 @@ public class DocumentMergeTests
         await Assert.That(payload.Value("Label")).IsEqualTo("hull");
     }
 
-    /// <summary>The reason the document is the base rather than the scene: this addon cannot draw a
-    /// component it has no schema for, and must not therefore delete it.</summary>
+    [Test]
+    public async Task nested_edits_and_baked_fields_preserve_unrelated_values_and_order()
+    {
+        var document = Canonical();
+        var payload = document.Objects[1].Component(Buoyancy)!.Data;
+        var shape = new CanonicalTomlTable();
+        shape.Add("Radius", 1.0);
+        shape.Add("Height", 2.0);
+        payload.Add("Shape", shape);
+        var edits = new AuthoredEdits();
+        edits.FieldChanged(BuoyancyId, "Shape/Radius");
+        edits.FieldChanged(BuoyancyId, "Density");
+        edits.FieldChanged(BuoyancyId, "Label");
+
+        var result = DocumentMerge.Apply(document,
+        [
+            RootState(),
+            ChildState() with
+            {
+                Edits = edits,
+                HostBaked = [BuoyancyId + "/Shape/Radius", BuoyancyId + "/Shape/Height"],
+                Values = new Dictionary<string, AuthoredValue>
+                {
+                    [BuoyancyId + "/Shape/Radius"] = new(AuthoredValueKind.Number, Number: 0.5),
+                    [BuoyancyId + "/Shape/Height"] = new(AuthoredValueKind.Number, Number: 3.0),
+                    [BuoyancyId + "/Density"] = AuthoredValue.None,
+                },
+            },
+        ]);
+
+        var merged = Reread(result.Document).Objects[1].Component(Buoyancy)!.Data;
+        await Assert.That(merged.Select(entry => entry.Key))
+            .IsEquivalentTo(["Segments", "Density", "Label", "Shape"]);
+        await Assert.That(merged.Value("Density")).IsEqualTo(0.75);
+        await Assert.That(merged.Value("Label")).IsEqualTo("hull");
+        var mergedShape = (CanonicalTomlTable)merged.Value("Shape")!;
+        await Assert.That(mergedShape.Select(entry => entry.Key)).IsEquivalentTo(["Radius", "Height"]);
+        await Assert.That(mergedShape.Value("Radius")).IsEqualTo(0.5);
+        await Assert.That(mergedShape.Value("Height")).IsEqualTo(3.0);
+    }
+
+    // Components without a schema cannot be shown, but must survive saves.
     [Test]
     public async Task a_component_the_addon_never_showed_survives_a_save()
     {
@@ -169,16 +195,13 @@ public class DocumentMergeTests
 
         var merged = DocumentMerge.Apply(document,
         [
-            Untouched()[0],
-            State(ChildGuid, "Child", RootGuid,
-                new LocalTransform(Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f)), edits),
+            RootState(),
+            ChildState() with { Edits = edits },
         ]);
 
         await Assert.That(Reread(merged.Document).Objects[1].Component(Buoyancy)).IsNull();
     }
 
-    /// <summary>An added component has nothing in the document to override, so its whole payload
-    /// comes from the scene.</summary>
     [Test]
     public async Task an_added_component_is_written_whole()
     {
@@ -188,15 +211,16 @@ public class DocumentMergeTests
 
         var merged = DocumentMerge.Apply(document,
         [
-            State(RootGuid, "Root", null,
-                new LocalTransform(new Vector3(1f, 2f, 3f), Quaternion.Identity, Vector3.One),
-                edits,
-                new Dictionary<string, AuthoredValue>
+            RootState() with
+            {
+                Edits = edits,
+                Values = new Dictionary<string, AuthoredValue>
                 {
                     [BuoyancyId + "/Segments"] = new(AuthoredValueKind.Integer, Integer: 3),
                     [BuoyancyId + "/Tint"] = new(AuthoredValueKind.Rgba, Numbers: [1f, 0f, 0f, 1f]),
-                }),
-            Untouched()[1],
+                },
+            },
+            ChildState(),
         ]);
 
         var added = Reread(merged.Document).Objects[0].Component(Buoyancy);
@@ -211,17 +235,14 @@ public class DocumentMergeTests
         var document = Canonical();
         var merged = DocumentMerge.Apply(document,
         [
-            State(RootGuid, "Renamed", null,
-                new LocalTransform(new Vector3(1f, 2f, 3f), Quaternion.Identity, Vector3.One)),
-            Untouched()[1],
+            RootState() with { Name = "Renamed" },
+            ChildState(),
         ]);
 
         await Assert.That(Reread(merged.Document).Objects[0].Name).IsEqualTo("Renamed");
     }
 
-    /// <summary>Absent is how the format spells "root"; an empty guid would read as a broken
-    /// reference. Reparenting the ROOT object itself is not the case — a document has exactly one
-    /// root, so this moves a grandchild up instead.</summary>
+    // A parentless root omits Parent; an empty GUID would be a broken reference.
     [Test]
     public async Task reparenting_drops_the_parent_key_when_the_new_parent_is_the_root()
     {
@@ -232,8 +253,7 @@ public class DocumentMergeTests
         document.Objects.Add(third);
         document = Reread(document);
 
-        // Root keeps its parentless meta; the grandchild moves under Root, so its Parent key
-        // changes rather than disappearing — and the ROOT's stays absent throughout.
+        // Move the grandchild under Root; Root itself remains parentless.
         var merged = DocumentMerge.Apply(document,
         [
             .. Untouched(),
@@ -250,14 +270,13 @@ public class DocumentMergeTests
     public async Task an_object_with_no_node_left_is_deleted()
     {
         var document = Canonical();
-        var merged = DocumentMerge.Apply(document, [Untouched()[0]]);
+        var merged = DocumentMerge.Apply(document, [RootState()]);
 
         await Assert.That(merged.Document.Objects.Count).IsEqualTo(1);
         await Assert.That(merged.Document.Objects[0].Guid).IsEqualTo(RootGuid);
     }
 
-    /// <summary>The loader orders parents-first for Godot's sake; emitting THAT order would
-    /// reshuffle a document on every save of a scene nobody edited.</summary>
+    // The loader sorts parents first, but saving that order would create unrelated diffs.
     [Test]
     public async Task object_order_follows_the_document_not_the_scene()
     {
@@ -290,9 +309,7 @@ public class DocumentMergeTests
             written.Objects[2].Component(WellKnownComponents.TransformId)!.Data).Position.X).IsEqualTo(4f);
     }
 
-    /// <summary>A reference is written INLINE, which is the shape the reader recognises one by —
-    /// a header table would come back out as an ordinary nested table and stop being a
-    /// reference.</summary>
+    // The reader recognizes references by inline-table shape; a header table would lose that meaning.
     [Test]
     public async Task a_reference_round_trips_as_an_inline_table()
     {
@@ -303,14 +320,15 @@ public class DocumentMergeTests
 
         var merged = DocumentMerge.Apply(document,
         [
-            Untouched()[0],
-            State(ChildGuid, "Child", RootGuid,
-                new LocalTransform(Vector3.Zero, Quaternion.Identity, new Vector3(2f, 2f, 2f)),
-                edits,
-                new Dictionary<string, AuthoredValue>
+            RootState(),
+            ChildState() with
+            {
+                Edits = edits,
+                Values = new Dictionary<string, AuthoredValue>
                 {
                     [BuoyancyId + "/Label"] = AuthoredValue.Reference(guid, "penguins/adelie.glb"),
-                }),
+                },
+            },
         ]);
 
         var written = PrefabDocumentSerializer.Write(merged.Document);
@@ -325,8 +343,7 @@ public class DocumentMergeTests
         await Assert.That(read.Text).IsEqualTo("penguins/adelie.glb");
     }
 
-    /// <summary>An override carrier addresses a prefab child rather than being one, so it never had
-    /// a node and must not be read as deleted.</summary>
+    // Override carriers address prefab children and have no corresponding node to delete.
     [Test]
     public async Task an_override_carrier_survives_having_no_node()
     {

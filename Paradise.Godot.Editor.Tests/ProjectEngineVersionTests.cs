@@ -4,10 +4,6 @@ using Zio.FileSystems;
 
 namespace ParadiseGodot.Tests;
 
-/// <summary>
-/// Which <c>Paradise.*</c> version a game pins — the number that decides which CLI the addon runs,
-/// because the CLI has no version verb to be asked.
-/// </summary>
 public class ProjectEngineVersionTests
 {
     private static MemoryFileSystem Project(params (string Path, string Text)[] files)
@@ -16,8 +12,7 @@ public class ProjectEngineVersionTests
         foreach (var (path, text) in files)
         {
             var full = (UPath)path;
-            var directory = full.GetDirectory();
-            if (!directory.IsNull && !fs.DirectoryExists(directory)) fs.CreateDirectory(directory);
+            fs.CreateDirectory(full.GetDirectory());
             fs.WriteAllText(full, text);
         }
         return fs;
@@ -45,6 +40,19 @@ public class ProjectEngineVersionTests
     }
 
     [Test]
+    [Arguments("<Project />")]
+    [Arguments("<Project><PropertyGroup><ParadiseVersion> </ParadiseVersion></PropertyGroup></Project>")]
+    [Arguments("<Project>")]
+    public async Task an_empty_or_unreadable_central_pin_falls_back_to_package_references(string props)
+    {
+        using var fs = Project(
+            ("/repo/Directory.Packages.props", props),
+            ("/repo/Game/Game.csproj", Csproj.Replace("{0}", "0.41.0")));
+
+        await Assert.That(ProjectEngineVersion.Of(fs, "/repo")).IsEqualTo("0.41.0");
+    }
+
+    [Test]
     public async Task package_references_answer_when_every_project_agrees()
     {
         using var fs = Project(
@@ -57,8 +65,7 @@ public class ProjectEngineVersionTests
     [Test]
     public async Task disagreeing_projects_pin_nothing()
     {
-        // A repo mid-bump. Guessing which half is right is how you install a CLI that writes
-        // documents the other half cannot read.
+        // Mixed pins cannot select a CLI that safely writes every project's document format.
         using var fs = Project(
             ("/repo/Core/Core.csproj", Csproj.Replace("{0}", "0.41.0")),
             ("/repo/Launcher/Launcher.csproj", Csproj.Replace("{0}", "0.38.0")));
@@ -69,8 +76,6 @@ public class ProjectEngineVersionTests
     [Test]
     public async Task the_addon_has_its_own_release_line_and_does_not_count()
     {
-        // Pingu's shape: engine at 0.41.0 while the addon is one release behind. That is not a
-        // disagreement about the engine version.
         using var fs = Project(
             ("/repo/Core/Core.csproj", Csproj.Replace("{0}", "0.41.0")),
             ("/repo/Game.Godot.csproj", """
@@ -87,8 +92,7 @@ public class ProjectEngineVersionTests
     [Test]
     public async Task build_output_does_not_outvote_the_source()
     {
-        // A published wwwroot holds copies of the project's own files; reading those would let a
-        // stale copy disagree with the tree it came from.
+        // Published output may contain stale copies of the project files.
         using var fs = Project(
             ("/repo/Web/Web.csproj", Csproj.Replace("{0}", "0.41.0")),
             ("/repo/Web/bin/Debug/publish/Web.csproj", Csproj.Replace("{0}", "0.25.0")),
@@ -108,7 +112,6 @@ public class ProjectEngineVersionTests
     [Test]
     public async Task unparseable_xml_pins_nothing_rather_than_throwing()
     {
-        // Someone else's broken file must not stop the author working.
         using var fs = Project(("/repo/Game/Game.csproj", "<Project><ItemGroup>"));
 
         await Assert.That(ProjectEngineVersion.Of(fs, "/repo")).IsNull();

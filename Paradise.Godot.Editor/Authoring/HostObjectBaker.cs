@@ -1,44 +1,28 @@
 #if TOOLS
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Godot;
 using Paradise.Export.Data;
 using Paradise.Export.Geometry;
-using Paradise.Export.Paths;
 using ParadiseGodot.Documents;
+using ParadiseGodot.Project;
 using SN = System.Numerics;
 
 namespace ParadiseGodot.Authoring
 {
-    /// <summary>
-    /// Turns a reference to one of Godot's own objects into the plain numbers the contract carries.
-    ///
-    /// This is the export half of every <c>authoredBy</c> in the schema: the author points at a
-    /// <c>CollisionShape3D</c>, a mesh, a <c>Sprite3D</c> or a file and edits it with Godot's own
-    /// tools, and this reads the result out. A node path means nothing to the runtime, so nothing
-    /// but values ever crosses the boundary.
-    ///
-    /// Moved here VERBATIM from SceneDataExporter when authoring became schema-driven. The scale
-    /// folding, trigger detection and layer-index mapping are subtle and already covered by the
-    /// export contract tests; they were carried across unchanged on purpose.
-    /// </summary>
+    /// <summary>Bake Godot objects into the values described by schema authoredBy kinds.</summary>
+    /// <remarks>Documents carry values; Godot node paths have no runtime meaning.</remarks>
     public static class HostObjectBaker
     {
-        // ---- meshes ---------------------------------------------------------------------
+        // Meshes
 
 
-        /// <summary>The GLB a node was instanced from, if any. Used to resolve a mesh reference that
-        /// points at an instanced model rather than naming a file directly.</summary>
+        /// <summary>The source GLB/glTF of an instanced node, or null.</summary>
         public static string? SourceGlbOf(Node node) => IsGlbPath(node.SceneFilePath) ? node.SceneFilePath : null;
 
-        public static bool IsGlbPath(string? path) =>
-            !string.IsNullOrEmpty(path) &&
-            (path!.EndsWith(".glb", System.StringComparison.OrdinalIgnoreCase) ||
-             path.EndsWith(".gltf", System.StringComparison.OrdinalIgnoreCase));
+        public static bool IsGlbPath(string? path) => path is not null && ModelDocuments.IsGlb(path);
 
-        /// <summary>Descendants of an entity, NOT descending into a nested entity (that child owns
-        /// its own model), so a parent never claims a child entity's instanced GLB.</summary>
+        /// <summary>Model descendants, excluding nested entities that own their own models.</summary>
         public static IEnumerable<Node> ModelDescendants(Node node)
         {
             foreach (Node child in node.GetChildren())
@@ -56,16 +40,12 @@ namespace ParadiseGodot.Authoring
             }
         }
 
-        // ---- spritesheets ---------------------------------------------------------------
+        // Sprite sheets
 
 
-        /// <summary>Read the geometry half of a sprite animation off the Sprite3D itself — the node
-        /// Godot renders natively. Frame pixels × pixel_size is Godot's own world size for the quad.
-        /// The playback clock (fps, loop, frame count) stays authored, because no sprite object
-        /// holds a frame rate.</summary>
-        /// <param name="sheet">The sheet as a reference, or null when the sprite has no standalone
-        /// image. Absent rather than empty: a field left out keeps the record's own default, where
-        /// an empty reference would assert that the sprite points at nothing.</param>
+        /// <summary>Bake sprite geometry using frame pixels times PixelSize for world size.</summary>
+        /// <remarks>Playback fields stay authored because Sprite3D has no playback clock.</remarks>
+        /// <param name="sheet">Standalone image reference, or null to preserve the record's default.</param>
         public static Dictionary<string, AuthoredValue> BakeSprite(Sprite3D sprite, AuthoredValue? sheet)
         {
             float frameWidth = sprite.Texture is { } texture
@@ -87,30 +67,15 @@ namespace ParadiseGodot.Authoring
             return leaves;
         }
 
-        // ---- environment ----------------------------------------------------------------
+        // Environment
 
-        /// <summary>
-        /// Read a scene's lighting mood off its <see cref="WorldEnvironment"/> — what
-        /// <c>HostEnvironment</c> describes: ambient, background, the procedural-sky gradient, fog,
-        /// tone mapping and the two screen-space effects.
-        /// </summary>
+        /// <summary>Bake the lighting, sky, fog and effects described by HostEnvironment.</summary>
         /// <remarks>
-        /// <para>
-        /// Godot keeps one ambient colour; the kind keeps three (sky, equator, ground). With a flat
-        /// ambient all three are that colour. With sky ambient over a procedural sky, they are the
-        /// gradient's zenith, horizon and nadir — the integration a renderer would do, approximated
-        /// as the colours it would integrate.
-        /// </para>
-        /// <para>
-        /// <c>SkyCurve</c> and <c>GroundCurve</c> travel as Godot spells them (0.15 / 0.02): the curve a
-        /// sky HAS, not the exponent one shader fits to it. A renderer that wants <c>pow()</c> inverts
-        /// it itself — the #238 review's decision, so the kind's field never holds a host property's
-        /// reciprocal under the same name.
-        /// </para>
-        /// <para>
-        /// The shadow-map size and blur are left absent: Godot sizes shadows per project, not per
-        /// scene, and absent keeps the renderer's own.
-        /// </para>
+        /// Flat ambient repeats one colour across sky/equator/ground; procedural sky ambient
+        /// approximates them with the zenith, horizon and nadir colours.
+        /// SkyCurve and GroundCurve retain Godot's values; renderers invert them if needed.
+        /// Shadow-map size and blur stay absent to preserve renderer defaults, since Godot sets
+        /// shadow sizing per project.
         /// </remarks>
         public static Dictionary<string, AuthoredValue> BakeEnvironment(global::Godot.Environment environment)
         {
@@ -133,8 +98,7 @@ namespace ParadiseGodot.Authoring
             Color ambientSky = skyAmbient && sky is not null ? sky.SkyTopColor : ambient;
             Color ambientEquator = skyAmbient && sky is not null ? sky.SkyHorizonColor.Lerp(sky.GroundHorizonColor, 0.5f) : ambient;
             Color ambientGround = skyAmbient && sky is not null ? sky.GroundBottomColor : ambient;
-            // Disabled ambient is a flat black at zero energy: the kind has no "off", and this is
-            // what off looks like to a renderer.
+            // The contract has no ambient-off mode; zero energy disables it.
             bool ambientOff = environment.AmbientLightSource == global::Godot.Environment.AmbientSource.Disabled;
 
             var leaves = new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
@@ -176,8 +140,7 @@ namespace ParadiseGodot.Authoring
             return leaves;
         }
 
-        /// <summary>The operator's name in the literature, which is what the kind spells — Godot
-        /// calls Reinhard "Reinhardt".</summary>
+        /// <summary>Contract spelling: Godot calls Reinhard "Reinhardt".</summary>
         private static string TonemapName(global::Godot.Environment.ToneMapper mode) => mode switch
         {
             global::Godot.Environment.ToneMapper.Reinhardt => "Reinhard",
@@ -187,11 +150,9 @@ namespace ParadiseGodot.Authoring
             _ => "Linear",
         };
 
-        /// <summary>Read a camera's lens and pose — what <c>HostCamera</c> describes.</summary>
-        /// <remarks>Godot cameras look down their local −Z, which is the contract's convention too,
-        /// so the world rotation is stored verbatim. <c>Fov</c> is Godot's <c>fov</c>: a VERTICAL
-        /// field of view in degrees, which is what the kind declares, so keep_aspect is not
-        /// consulted — a host that measured it horizontally would have to convert.</remarks>
+        /// <summary>Bake the lens and world pose described by HostCamera.</summary>
+        /// <remarks>Both conventions face local -Z. Fov carries Godot's fov value in degrees
+        /// without a keep_aspect conversion.</remarks>
         public static Dictionary<string, AuthoredValue> BakeCamera(Camera3D camera)
         {
             Transform3D global = camera.GlobalTransform;
@@ -210,103 +171,90 @@ namespace ParadiseGodot.Authoring
             };
         }
 
-        // ---- collision shapes -----------------------------------------------------------
+        // Collision shapes
 
-        /// <summary>What one collision shape bakes to, in the entity's own local space. The
-        /// engine declares no collider record since 0.41 (#261): a game record marked
-        /// <c>[AuthoredByHost&lt;HostShape&gt;]</c> takes these leaves by name, so this carrier is
-        /// the baker's own and never leaves it.</summary>
-        private sealed class BakedShape
+        /// <summary>Bake HostShape leaves plus per-axis size and center fields.</summary>
+        /// <remarks>Records may declare vector fields or scalar axes; the caller selects their leaves.</remarks>
+        public static Dictionary<string, AuthoredValue>? BakeShape(Node3D root, CollisionShape3D collider)
         {
-            public PhysicsShapeType ShapeType;
-            public SN.Vector3 LocalCenter;
-            public SN.Quaternion LocalRotation = SN.Quaternion.Identity;
-            public SN.Vector3 Size;
-            public float Radius;
-            public float Height;
-            public bool IsTrigger;
-            public int Layer;
-        }
-
-        /// <summary>Read one collision shape, in the entity's own local space. False when the
-        /// shape kind has no contract equivalent.</summary>
-        private static bool TryBakeShape(Node3D root, CollisionShape3D collider, BakedShape data)
-        {
+            Transform3D colliderTransform = collider.GlobalTransform;
+            Transform3D rootTransform = root.GlobalTransform;
             SN.Vector3 relativeScale = ColliderScaleFold.RelativeScale(
-                ToSN(collider.GlobalTransform.Basis.Scale),
-                ToSN(root.GlobalTransform.Basis.Scale));
+                ToSN(colliderTransform.Basis.Scale), ToSN(rootTransform.Basis.Scale));
+            PhysicsShapeType shapeType;
+            SN.Vector3 size = default;
+            float radius = 0f;
+            float height = 0f;
 
             switch (collider.Shape)
             {
                 case BoxShape3D box:
-                    data.ShapeType = PhysicsShapeType.Box;
-                    data.Size = ColliderScaleFold.BoxSize(ToSN(box.Size), relativeScale);
+                    shapeType = PhysicsShapeType.Box;
+                    size = ColliderScaleFold.BoxSize(ToSN(box.Size), relativeScale);
                     break;
                 case SphereShape3D sphere:
-                    data.ShapeType = PhysicsShapeType.Sphere;
-                    data.Radius = ColliderScaleFold.SphereRadius(sphere.Radius, relativeScale);
+                    shapeType = PhysicsShapeType.Sphere;
+                    radius = ColliderScaleFold.SphereRadius(sphere.Radius, relativeScale);
                     break;
                 case CapsuleShape3D capsule:
-                    data.ShapeType = PhysicsShapeType.Capsule;
-                    data.Radius = ColliderScaleFold.CapsuleRadius(capsule.Radius, relativeScale);
-                    data.Height = ColliderScaleFold.CapsuleHeight(capsule.Height, relativeScale);
+                    shapeType = PhysicsShapeType.Capsule;
+                    radius = ColliderScaleFold.CapsuleRadius(capsule.Radius, relativeScale);
+                    height = ColliderScaleFold.CapsuleHeight(capsule.Height, relativeScale);
                     break;
                 default:
-                    return false;
+                    return null;
             }
 
-            // Collider pose expressed in the entity root's local space (right-handed, verbatim).
-            Transform3D rootLocal = root.GlobalTransform.AffineInverse() * collider.GlobalTransform;
-            data.IsTrigger = ResolveIsTrigger(collider);
-            data.Layer = ResolveLayerIndex(collider);
-            data.LocalCenter = ToSN(rootLocal.Origin);
-            data.LocalRotation = ToSN(rootLocal.Basis.GetRotationQuaternion());
-            return true;
+            // Both coordinate systems are right-handed; no pose conversion is needed.
+            Transform3D rootLocal = rootTransform.AffineInverse() * colliderTransform;
+            Vector3 center = rootLocal.Origin;
+            Quaternion rotation = rootLocal.Basis.GetRotationQuaternion();
+            CollisionObject3D? body = CollisionBodyOf(collider);
+            return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
+            {
+                ["ShapeType"] = Text(shapeType.ToString()),
+                ["LocalCenter"] = Numbers(center.X, center.Y, center.Z),
+                ["LocalRotation"] = Numbers(rotation.X, rotation.Y, rotation.Z, rotation.W),
+                ["Size"] = Numbers(size.X, size.Y, size.Z),
+                ["Radius"] = Number(radius),
+                ["Height"] = Number(height),
+                // Area3D shapes are triggers, excluded from the runtime solid collision world.
+                ["IsTrigger"] = Boolean(body is Area3D),
+                ["Layer"] = Integer(ResolveLayerIndex(body)),
+                ["SizeX"] = Number(size.X),
+                ["SizeY"] = Number(size.Y),
+                ["SizeZ"] = Number(size.Z),
+                ["CenterX"] = Number(center.X),
+                ["CenterY"] = Number(center.Y),
+                ["CenterZ"] = Number(center.Z),
+            };
         }
 
-        // A shape owned by an Area3D is a sensor, Godot's trigger idiom (Unity's isTrigger) —
-        // exported through the contract's IsTrigger so the runtime keeps it out of the solid
-        // collision world (e.g. pool-pocket capture regions).
-        private static bool ResolveIsTrigger(Node shape)
+        private static CollisionObject3D? CollisionBodyOf(Node shape)
         {
             for (Node? node = shape; node is not null; node = node.GetParent())
             {
-                if (node is CollisionObject3D body)
-                {
-                    return body is Area3D;
-                }
+                if (node is CollisionObject3D body) return body;
             }
-
-            return false;
+            return null;
         }
 
-        // Godot stores collision layers as a bitmask on the owning body; the engine-neutral
-        // contract carries a Unity-style single layer INDEX (consumers do 1u << Layer). Map the
-        // nearest CollisionObject3D ancestor's mask to the index of its lowest set bit; an
-        // unlayered body maps to 0.
-        private static int ResolveLayerIndex(Node shape)
+        // Godot stores a layer mask; the contract stores one index (consumers use 1u << Layer).
+        // Use the nearest body's lowest set bit, or index 0 for an empty mask.
+        private static int ResolveLayerIndex(CollisionObject3D? body)
         {
-            for (Node? node = shape; node is not null; node = node.GetParent())
+            if (body is null) return 0;
+
+            uint mask = body.CollisionLayer;
+            if (CollisionLayerContract.IsMultiLayer(mask))
             {
-                if (node is CollisionObject3D body)
-                {
-                    uint mask = body.CollisionLayer;
-                    if (CollisionLayerContract.IsMultiLayer(mask))
-                    {
-                        // The single-int contract can't carry multi-layer membership — the .NET
-                        // runtime would see only the lowest bit while the Godot bridge keeps all.
-                        // Be loud instead of silently lossy.
-                        GD.PushWarning(
-                            $"[Paradise.Export] Body '{body.GetPath()}' is on multiple collision layers "
-                            + $"(mask {mask}); the export contract keeps only the lowest "
-                            + $"(index {CollisionLayerContract.MaskToLayerIndex(mask)}).");
-                    }
-
-                    return CollisionLayerContract.MaskToLayerIndex(mask);
-                }
+                // Warn because the contract cannot preserve multi-layer membership.
+                GD.PushWarning(
+                    $"[Paradise.Export] Body '{body.GetPath()}' is on multiple collision layers "
+                    + $"(mask {mask}); the export contract keeps only the lowest "
+                    + $"(index {CollisionLayerContract.MaskToLayerIndex(mask)}).");
             }
-
-            return 0;
+            return CollisionLayerContract.MaskToLayerIndex(mask);
         }
 
         public static string RelativePath(Node root, Node target)
@@ -320,15 +268,13 @@ namespace ParadiseGodot.Authoring
             return path == "." ? "" : path;
         }
 
-        // ---- lights ---------------------------------------------------------------------
+        // Lights
 
-        /// <summary>Read a light into the leaves <c>HostLight</c> describes.</summary>
-        /// <remarks>The light's identity is NOT here. An object's identity travels in the format's
-        /// <c>meta</c>, and v6 deleted the record that used to carry a second one.</remarks>
+        /// <summary>Bake the values described by HostLight.</summary>
+        /// <remarks>Object identity belongs to document meta, not light leaves.</remarks>
         public static Dictionary<string, AuthoredValue> BakeLight(Light3D light)
         {
-            // Godot lights aim down their local -Z; the contract is right-handed, so this world-space
-            // forward is stored verbatim.
+            // Godot lights face local -Z, matching the contract's world-space direction.
             Vector3 forward = -light.GlobalTransform.Basis.Z;
             Vector3 position = light.GlobalPosition;
             Color color = light.LightColor;
@@ -341,12 +287,11 @@ namespace ParadiseGodot.Authoring
                 ["Enabled"] = Boolean(light.Visible),
                 ["Intensity"] = Number(light.LightEnergy),
                 ["ShadowsEnabled"] = Boolean(light.ShadowEnabled),
-                // Godot's shadow_opacity (1 = fully dark) maps to the kind's shadow strength.
+                // ShadowOpacity is strength: 1 means fully dark.
                 ["ShadowStrength"] = Number(light.ShadowOpacity),
                 ["Specular"] = Number(light.GetParam(Light3D.Param.Specular)),
                 ["Size"] = Number(light.GetParam(Light3D.Param.Size)),
-                // Point/spot need range + cone. Godot's SpotAngle is the HALF-angle (axis to edge);
-                // the kind and the shader use the FULL cone angle, so double it.
+                // Godot stores a spot half-angle; the contract and shader require the full cone.
                 ["Range"] = Number(light switch
                 {
                     OmniLight3D omni => omni.OmniRange,
@@ -354,45 +299,13 @@ namespace ParadiseGodot.Authoring
                     _ => 0f,
                 }),
                 ["SpotAngle"] = Number(light is SpotLight3D s ? s.SpotAngle * 2f : 0f),
-                // Distance-falloff exponent (Godot's LIGHT_PARAM_ATTENUATION). Godot's default 1.0
-                // is inverse-linear; the shader applies pow(distance, -exponent). Directionals have
-                // no range falloff, so the value is written but unused for them.
+                // The shader applies pow(distance, -exponent); 1 is inverse-linear.
+                // Directional lights ignore distance attenuation.
                 ["AttenuationExponent"] = Number(light.GetParam(Light3D.Param.Attenuation)),
             };
         }
 
-        /// <summary>Read a collision shape into the leaves <c>HostShape</c> describes, plus the
-        /// per-axis spelling a game record may use instead.</summary>
-        /// <remarks>Both vocabularies are offered because a record decides which it wants: the
-        /// engine's collider took <c>Size</c> and <c>LocalCenter</c>, a game's box part takes
-        /// <c>SizeX</c>/<c>SizeY</c>/<c>SizeZ</c>, and both are baked from one CollisionShape3D.
-        /// The caller keeps whichever the record declared.</remarks>
-        public static Dictionary<string, AuthoredValue>? BakeShape(Node3D root, CollisionShape3D collider)
-        {
-            var data = new BakedShape();
-            if (!TryBakeShape(root, collider, data)) return null;
-
-            return new Dictionary<string, AuthoredValue>(StringComparer.Ordinal)
-            {
-                ["ShapeType"] = Text(data.ShapeType.ToString()),
-                ["LocalCenter"] = Numbers(data.LocalCenter.X, data.LocalCenter.Y, data.LocalCenter.Z),
-                ["LocalRotation"] = Numbers(
-                    data.LocalRotation.X, data.LocalRotation.Y, data.LocalRotation.Z, data.LocalRotation.W),
-                ["Size"] = Numbers(data.Size.X, data.Size.Y, data.Size.Z),
-                ["Radius"] = Number(data.Radius),
-                ["Height"] = Number(data.Height),
-                ["IsTrigger"] = Boolean(data.IsTrigger),
-                ["Layer"] = Integer(data.Layer),
-                ["SizeX"] = Number(data.Size.X),
-                ["SizeY"] = Number(data.Size.Y),
-                ["SizeZ"] = Number(data.Size.Z),
-                ["CenterX"] = Number(data.LocalCenter.X),
-                ["CenterY"] = Number(data.LocalCenter.Y),
-                ["CenterZ"] = Number(data.LocalCenter.Z),
-            };
-        }
-
-        // ---- leaf constructors ----------------------------------------------------------
+        // Leaf constructors
 
         public static AuthoredValue Text(string value) => new(AuthoredValueKind.Text, Text: value);
 
@@ -405,7 +318,7 @@ namespace ParadiseGodot.Authoring
         public static AuthoredValue Numbers(params float[] values) =>
             new(AuthoredValueKind.Numbers, Numbers: values);
 
-        /// <summary>A colour as four channels in 0..1 — the shape the generated reader parses.</summary>
+        /// <summary>RGBA channels in the generated reader's 0..1 format.</summary>
         public static AuthoredValue Rgba(Color c) =>
             new(AuthoredValueKind.Rgba, Numbers: [c.R, c.G, c.B, c.A]);
 
@@ -418,7 +331,6 @@ namespace ParadiseGodot.Authoring
         };
 
         private static SN.Vector3 ToSN(Vector3 v) => new(v.X, v.Y, v.Z);
-        private static SN.Quaternion ToSN(Quaternion q) => new(q.X, q.Y, q.Z, q.W);
     }
 }
 #endif
