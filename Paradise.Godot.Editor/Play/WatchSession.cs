@@ -1,9 +1,12 @@
 #if TOOLS
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Godot;
 
 namespace ParadiseGodot.Play
@@ -153,10 +156,26 @@ namespace ParadiseGodot.Play
         {
             if (OperatingSystem.IsWindows()) return false; // No cheap argv query; the in-process registry is all there is.
 
-            var lines = new global::Godot.Collections.Array();
-            // -f includes --project in the match.
-            int code = OS.Execute("/bin/sh", ["-c", $"pgrep -f 'assets watch.*{Normalize(projectRoot)}'"], lines);
-            return code == 0 && lines.Count > 0;
+            // Godot's OS.Execute can pass arguments through a shell. Use argv directly.
+            // Escape the path for pgrep's POSIX extended regex.
+            string pattern = "assets watch.*" + Regex.Replace(Normalize(projectRoot), @"[\\.^$|?*+(){}\[\]]", @"\$0");
+            var start = new ProcessStartInfo("pgrep")
+            {
+                ArgumentList = { "-f", pattern },
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+            };
+            try
+            {
+                using var process = Process.Start(start)!;
+                process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return process.ExitCode == 0;
+            }
+            catch (Win32Exception)
+            {
+                return false; // pgrep is unavailable, as on a minimal Linux installation.
+            }
         }
 
         private static string Normalize(string projectRoot) =>
